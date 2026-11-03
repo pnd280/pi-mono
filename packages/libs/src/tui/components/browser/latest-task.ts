@@ -1,12 +1,10 @@
-export type LatestTaskOptions = { changed(): void };
-
 /** A replaceable async query. Only the current task may commit or clear its pending state. */
 export class LatestTask {
   private generation = 0;
   private disposed = false;
   private running = false;
 
-  constructor(private readonly options: LatestTaskOptions) {}
+  constructor(private readonly options: { changed(): void }) {}
 
   get pending(): boolean {
     return this.running;

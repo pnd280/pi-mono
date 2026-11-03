@@ -16,11 +16,17 @@ When both files set the section, the project settings take precedence:
 
 ## Section fields
 
-| Field            | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `profiles`       | Array of up to 100 profiles in each file. The shortcut follows the order above, then selects no profile.                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `defaultProfile` | Optional name of the profile for interactive sessions without a selection or `--profile`; see [startup profile](sessions.md#startup-profile).                                                                                                                                                                                                                                                                                                                                                                                           |
-| `shortcut`       | Optional key in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax). Default: `alt+i`. **Esc** or a function key with a modifier, such as `ctrl+escape` or `alt+f5`, is not accepted. Pi skips a key when it detects a conflict with a reserved key, such as `shift+tab` under the default bindings, and shows a warning. Pi's conflict check does not detect every equivalent key combination. If the key overlaps a key that pi-prompt-manager or pi-subagents claims, none of them registers it, and a warning shows. |
+| Field            | Meaning                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `profiles`       | Array of up to 100 profiles in each file. The shortcut selects them in array order, then selects no profile.                                  |
+| `defaultProfile` | Optional name of the profile for interactive sessions without a selection or `--profile`; see [startup profile](sessions.md#startup-profile). |
+| `shortcut`       | Optional key in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax). Default: `alt+i`. See [shortcut keys](#shortcut-keys).    |
+
+### Shortcut keys
+
+- **Esc** with a modifier, such as `ctrl+escape`, is not accepted. Function keys **F1** to **F12** with a modifier, such as `alt+f5`, are accepted.
+- Pi skips a key when it detects a conflict with a reserved key, such as `shift+tab` under the default bindings, and shows a warning. Pi's conflict check does not detect every equivalent key combination.
+- If the key overlaps a key that pi-prompt-manager or pi-subagents claims, none of them registers it, and a warning shows.
 
 ## Profile fields
 

@@ -31,13 +31,11 @@ const addendum = (text: string) => `<addendum>\n${text}\n</addendum>`;
 const claudeAddendum = addendum("BASE-APPEND\n\nANT-APPEND\n\nSHARED-APPEND");
 
 async function host({
-  cliAppend,
   earlierAppend,
   projectFiles = {},
   projectTrusted = false,
   rules = [{ match: "^faux/claude-", append: ["ant.md", "shared.md"] }]
 }: {
-  cliAppend?: string;
   earlierAppend?: string;
   projectFiles?: Record<string, string>;
   projectTrusted?: boolean;
@@ -77,7 +75,6 @@ async function host({
     noThemes: true,
     noContextFiles: true,
     noPromptTemplates: true,
-    ...(cliAppend === undefined ? {} : { appendSystemPrompt: [cliAppend] }),
     extensionFactories: [
       (pi) => {
         pi.on("before_agent_start", (event) => {
@@ -193,7 +190,7 @@ it("selects each model's first append rule from the session snapshot and sanitis
 });
 
 it.each([
-  ["CLI text", { cliAppend: "EXPLICIT-APPEND" }, "EXPLICIT-APPEND\n\nANT-APPEND\n\nSHARED-APPEND"],
+  // CLI and APPEND_SYSTEM.md text reach the part through the same appendSystemPrompt field.
   [
     "earlier-extension text",
     { earlierAppend: "EXPLICIT-APPEND" },

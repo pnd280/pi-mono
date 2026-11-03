@@ -38,7 +38,7 @@ export function tree(
 export function styleParameters(text: string, theme: DisplayTheme): string {
   if (Buffer.byteLength(text) > MAX_HIGHLIGHT_BYTES) return theme.fg("text", text);
 
-  // Tokenize our serialized JSON, not arbitrary output. Quoted values may contain
+  // Tokenise our serialised JSON, not arbitrary output. Quoted values may contain
   // punctuation and escaped quotes that must not be mistaken for structure.
   return text.replace(
     /"(?:\\.|[^"\\])*"(\s*:)?|[{}[\],:()]|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?|true|false|null/g,

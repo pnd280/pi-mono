@@ -1,3 +1,5 @@
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { contentText } from "@earendil-works/pi-ai";
@@ -9,7 +11,6 @@ import { JOB_END_ENTRY } from "../src/constants.ts";
 import { release, replies, taskList, withFixture } from "./background-fixture.ts";
 import type { Supervisor } from "./supervisor.ts";
 
-// Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
 
 /** Cancels tree navigations and forks after pi-subagents' pre-event handlers run. */
@@ -60,57 +61,8 @@ async function expectTasksWork(
   expect(second.isError).toBe(false);
 }
 
-test("keeps the task binding after another extension cancels tree navigation", async ({
-  expect
-}) => {
-  await withFixture(
-    async (_directory, start) => {
-      const host = await start();
-      await host.prompt("reply");
-      const anchor = (await host.entries()).at(-1)!.id;
-      await host.prompt("delegate-reply");
-      const first = (await host.results()).at(-1)!;
-      expect(first.isError).toBe(false);
-      const [task] = await taskList(host);
-      expect(task?.state).toBe("inactive");
-      const before = await leaf(host);
-
-      await host.request({ type: "prompt", message: `/fixture-tree ${anchor}` });
-      expect(await leaf(host)).toBe(before);
-
-      await expectTasksWork(
-        host,
-        expect,
-        task!.task_id,
-        first.toolCallId,
-        "the cancelled navigation"
-      );
-    },
-    { extensions: [cancelChange] }
-  );
-});
-
-test("keeps the task binding after another extension cancels a parent fork", async ({ expect }) => {
-  await withFixture(
-    async (_directory, start) => {
-      const host = await start();
-      await host.prompt("reply");
-      const anchor = (await host.entries()).at(-1)!.id;
-      await host.prompt("delegate-reply");
-      const first = (await host.results()).at(-1)!;
-      const [task] = await taskList(host);
-      const { sessionId } = await host.state();
-
-      await host.request({ type: "prompt", message: `/fixture-parent-fork ${anchor}` });
-      expect((await host.state()).sessionId).toBe(sessionId);
-
-      await expectTasksWork(host, expect, task!.task_id, first.toolCallId, "the cancelled fork");
-    },
-    { extensions: [cancelChange] }
-  );
-});
-
-test("delivers a job result that waited across a cancelled navigation once in the next run", async ({
+// One host runs all cancelled changes: each step takes its own record mark or result count.
+test("keeps tasks and delivers waiting job results once after cancelled navigations and forks", async ({
   expect
 }) => {
   await withFixture(
@@ -118,14 +70,44 @@ test("delivers a job result that waited across a cancelled navigation once in th
       const host = await start();
       await host.prompt("reply");
       const anchor = (await host.entries()).at(-1)!.id;
+
+      // A cancelled tree navigation keeps the task binding.
+      await host.prompt("delegate-reply");
+      const first = (await host.results()).at(-1)!;
+      expect(first.isError).toBe(false);
+      const [task] = await taskList(host);
+      expect(task?.state).toBe("inactive");
+      const before = await leaf(host);
+      await host.request({ type: "prompt", message: `/fixture-tree ${anchor}` });
+      expect(await leaf(host)).toBe(before);
+      await expectTasksWork(
+        host,
+        expect,
+        task!.task_id,
+        first.toolCallId,
+        "the cancelled navigation"
+      );
+
+      // A cancelled parent fork keeps the task binding.
+      const beforeFork = (await host.results()).at(-1)!;
+      const { sessionId } = await host.state();
+      await host.request({ type: "prompt", message: `/fixture-parent-fork ${anchor}` });
+      expect((await host.state()).sessionId).toBe(sessionId);
+      await expectTasksWork(
+        host,
+        expect,
+        task!.task_id,
+        beforeFork.toolCallId,
+        "the cancelled fork"
+      );
+
+      // A job result that waited across a cancelled navigation arrives once in the next run.
       await host.prompt("job-barrier");
       expect(await host.jobResults()).toHaveLength(0);
-
       await host.request({ type: "prompt", message: `/fixture-tree ${anchor}` });
-      const after = host.records.length;
+      const navigated = host.records.length;
       await release(directory, "job-release");
-      await host.wait(isJobEnd, after);
-
+      await host.wait(isJobEnd, navigated);
       const jobs = await notification(host, "jobs");
       expect.soft(jobs, "/subagents jobs after the cancelled navigation").toContain("completed");
       const listed = z
@@ -134,38 +116,25 @@ test("delivers a job result that waited across a cancelled navigation once in th
       expect.soft(listed.data?.jobs, "listed jobs").toHaveLength(1);
       // The result waits for the next run.
       expect(await host.jobResults()).toHaveLength(0);
-
       await host.prompt("reply");
       expect(await host.jobResults()).toHaveLength(1);
-    },
-    { extensions: [cancelChange], settings: { "ext.pi-subagents": { jobs: true } } }
-  );
-});
 
-test("ends a hold_run wait at a pending fork, and delivers the job result once in the next run", async ({
-  expect
-}) => {
-  await withFixture(
-    async (directory, start) => {
-      const host = await start();
-      await host.prompt("reply");
-      const anchor = (await host.entries()).at(-1)!.id;
+      // A pending fork ends a hold_run wait, and the job result arrives once in the next run.
+      await rm(join(directory, "work", "job-release"));
       const after = host.records.length;
       // After this reply, the run waits for the held job, which waits for its barrier.
       await host.reply("held-job-barrier");
       expect(host.records.slice(after).some(replies("background results 0"))).toBe(true);
-
       await host.request({ type: "prompt", message: `/fixture-parent-fork ${anchor}` });
       await host.wait((record) => record.type === "agent_settled", after);
       expect(host.records.slice(after).some(isJobEnd)).toBe(false);
-
       const ended = host.records.length;
       await release(directory, "job-release");
       await host.wait(isJobEnd, ended);
       // The result waits for the next run.
-      expect(await host.jobResults()).toHaveLength(0);
-      await host.prompt("reply");
       expect(await host.jobResults()).toHaveLength(1);
+      await host.prompt("reply");
+      expect(await host.jobResults()).toHaveLength(2);
     },
     { extensions: [cancelChange], settings: { "ext.pi-subagents": { jobs: true } } }
   );

@@ -68,7 +68,10 @@ export class Panels {
           useOverlay: (tui) => tui.mode === "fullscreen" && !!this.panel?.viewingTranscript,
           overlayOptions: transcriptOverlay,
           onInputRoutingUnavailable: () =>
-            this.ctx.ui.notify("Subagent panel key routing unavailable", "warning"),
+            this.ctx.ui.notify(
+              "Subagent panel fullscreen input routing is unavailable on this host. Use regular mode if controls do not respond.",
+              "warning"
+            ),
           create: (tui, theme, keys, close) => {
             this.panel = new TaskPanel(this.tasks, this.jobs, this.reader, tui, theme, keys, close);
             this.select?.(this.panel);

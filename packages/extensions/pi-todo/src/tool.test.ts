@@ -83,3 +83,27 @@ it("preflights oversized, deep, cyclic and non-JSON metadata into replayable fai
     expect(controller.getState()).toEqual(before);
   }
 });
+
+it("rejects updates whose merged metadata exceeds the limit without changing state", async () => {
+  const controller = new TodoController();
+  const tool = createTodoTool(controller);
+  const value = "x".repeat(MAX_METADATA_BYTES / 2);
+  await tool.execute("seed", {
+    action: "create",
+    subject: "Preserved",
+    metadata: { first: value }
+  });
+  const before = controller.getState();
+  const revision = controller.getRevision();
+
+  const result = await tool.execute("merge", {
+    action: "update",
+    id: 1,
+    metadata: { second: value }
+  });
+
+  expect(result.details.error).toBe(`metadata exceeds ${MAX_METADATA_BYTES} serialized bytes`);
+  expect(parseTodoStateSnapshot(result.details)).toEqual(before);
+  expect(controller.getState()).toEqual(before);
+  expect(controller.getRevision()).toBe(revision);
+});

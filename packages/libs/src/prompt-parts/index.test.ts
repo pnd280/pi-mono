@@ -34,7 +34,12 @@ it.each(loadOrders)(
             } else {
               parts.hold(
                 released.then(() => {
-                  ready = true;
+                  // Added while the run waits, so the run must wait for this hold too.
+                  parts.hold(
+                    new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
+                      ready = true;
+                    })
+                  );
                 })
               );
               parts.part(ranks.a, () => (ready ? "PART-A" : "PART-A-BEFORE-HOLD"));

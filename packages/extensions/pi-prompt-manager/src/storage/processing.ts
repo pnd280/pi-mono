@@ -16,12 +16,14 @@ type ReadInput = Omit<ReadOptions, "raw" | "signal"> & { raw: Uint8Array | undef
 
 type UpdateInput = Omit<UpdateOptions, "raw" | "signal"> & { raw: Uint8Array | undefined };
 
+type UpdateResult = ReturnType<typeof updateCollection>;
+
 export type CollectionRequest =
   | { kind: "read"; options: ReadInput }
   | { kind: "update"; options: UpdateInput };
 
 export type CollectionResponse =
-  | { status: "success"; value: Snapshot | ReturnType<typeof updateCollection> }
+  | { status: "success"; value: Snapshot | UpdateResult }
   | { status: "error"; message: string };
 
 const workerThreshold = 1024 * 1024;
@@ -50,7 +52,7 @@ class CollectionWorker {
   private execute(
     request: CollectionRequest,
     signal?: AbortSignal
-  ): Promise<Snapshot | ReturnType<typeof updateCollection>> {
+  ): Promise<Snapshot | UpdateResult> {
     signal?.throwIfAborted();
     clearTimeout(this.idle);
     const worker = (this.worker ??= new Worker(new URL("./collection-worker.ts", import.meta.url), {
@@ -65,7 +67,7 @@ class CollectionWorker {
     worker.ref();
 
     return new Promise((resolve, reject) => {
-      const finish = (error: unknown, value?: Snapshot | ReturnType<typeof updateCollection>) => {
+      const finish = (error: unknown, value?: Snapshot | UpdateResult) => {
         signal?.removeEventListener("abort", aborted);
         worker.off("message", received);
         worker.off("error", failed);
@@ -126,7 +128,7 @@ export async function readCollectionAsync({ signal, ...options }: ReadOptions): 
 export async function updateCollectionAsync({
   signal,
   ...options
-}: UpdateOptions): Promise<ReturnType<typeof updateCollection>> {
+}: UpdateOptions): Promise<UpdateResult> {
   signal?.throwIfAborted();
   if ((options.raw?.length ?? 0) < workerThreshold) return updateCollection(options);
   const result = await processor.run({ kind: "update", options }, signal);

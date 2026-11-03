@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import type { RpcRecord } from "../src/child/connection.ts";
 import { KILL_GRACE_MS, LATE_USAGE_KIND, RESULT_MESSAGE, STOP_GRACE_MS } from "../src/constants.ts";
-import { detailsSchema, type ToolDetails } from "../src/result.ts";
+import { detailsSchema, type ToolDetails } from "../src/details.ts";
 import { taskRecordSchema } from "../src/tasks/records.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";

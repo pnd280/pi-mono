@@ -28,4 +28,4 @@ Own filesystem fixtures and assertions. The helper requires no terminal or dispo
 
 ## Validation
 
-Use the [library checks](../../../README.md#validation) and affected native-tool consumer suites after changing it.
+Run the affected native-tool consumer suites after changing it.

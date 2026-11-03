@@ -31,7 +31,7 @@ export type SessionView = {
 };
 
 /** What the canonical session projection still shows the model about nested instructions. */
-export type Ledger = {
+type Ledger = {
   /** Records a direct-read attempt only while its exact, unchanged source call is projected. */
   markRead(
     call: Invocation,

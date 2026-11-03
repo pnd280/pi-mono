@@ -27,10 +27,10 @@ import { ResultSource, type ResultEvent } from "../src/background-result.ts";
 import { ChildRun } from "../src/child/run.ts";
 import { DEPTH_ENV, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
 import type { ChildMessage } from "../src/coordination/protocol.ts";
+import { detailsSchema } from "../src/details.ts";
 import { WriterLease } from "../src/history/lease.ts";
 import { branchTo } from "../src/history/sessions.ts";
 import subagents from "../src/index.ts";
-import { detailsSchema } from "../src/result.ts";
 import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
 import { release as releaseBarrier } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
@@ -107,6 +107,8 @@ type SDKFixture = {
   intercept(drop: (message: ChildMessage) => boolean): void;
   /** The supervisor's task records from `/subagents list`. */
   records(): Promise<TaskRecord[]>;
+  /** The notifications that the supervisor showed. */
+  notes: readonly string[];
 };
 
 async function fixture(
@@ -194,6 +196,7 @@ async function fixture(
       session,
       started: started.promise,
       requests,
+      notes,
       intercept(next) {
         drop = next;
       },
@@ -421,24 +424,11 @@ test("rejects abort after process exit and retains the real failed completion", 
         expect(exited.outcome).toBe("failed");
         await bounded(releasing.promise, "held lease release");
         expect(await record()).toMatchObject({ state: "active" });
-        // The wrapper cancels the real run, then lets its cleanup finish.
-        // oxlint-disable-next-line typescript/unbound-method
-        const cancel = ChildRun.prototype.cancel;
-        const cancellation = vi.spyOn(ChildRun.prototype, "cancel").mockImplementation(function (
-          this: ChildRun,
-          reason
-        ) {
-          const result = cancel.call(this, reason);
-          releaseLease.resolve();
-
-          return result;
-        });
         abortReady.resolve();
         await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
           timeout: WAIT_MS
         });
         const result = abortResults(host.session)[0]!;
-        expect(cancellation).toHaveBeenCalledTimes(1);
         expect(result.isError).toBe(true);
         expect(contentText(result.content)).toContain("Task is inactive");
         expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
@@ -452,6 +442,12 @@ test("rejects abort after process exit and retains the real failed completion", 
       () => {
         releaseLease.resolve();
         abortReady.resolve();
+      },
+      // The abort call reaches its tool while the task is active, and the cleanup then finishes.
+      (pi) => {
+        pi.on("tool_call", (event) => {
+          if (event.toolName === "subagent_abort") releaseLease.resolve();
+        });
       }
     );
   } finally {
@@ -564,4 +560,51 @@ test("confirms descendant cancellation and propagates the owner's inactive error
     abortTarget.resolve("00000000-0000-0000-0000-000000000000");
     staleTarget.resolve("00000000-0000-0000-0000-000000000000");
   }
+});
+
+// A command captures its binding; a tree navigation replaces the binding while the abort waits.
+test("keeps a late abort command of a replaced binding out of the replacement", async () => {
+  await fixture(
+    async (host) => {
+      const { session } = host;
+      host.queue(fauxAssistantMessage("Anchor reply"));
+      await bounded(session.prompt("Anchor"), "anchor prompt");
+      const anchor = session.sessionManager.getLeafId()!;
+      const returned = Promise.withResolvers<void>();
+      host.queue(launchCall("slow"), () => {
+        returned.resolve();
+
+        return fauxAssistantMessage("Waiting for the slow task");
+      });
+      const prompt = session.prompt("Start the slow background task");
+      const run = await bounded(host.started, "child run creation");
+      const id = (await bounded(run.started, "real child launch"))!.taskId;
+      // After the call returned, an abort ends the background wait and leaves the task running.
+      await bounded(returned.promise, "returned background call");
+      await bounded(session.abort(), "turn abort");
+      await bounded(prompt, "prompt settlement");
+      expect(await host.records()).toMatchObject([{ task_id: id, state: "active" }]);
+      const cancelling = Promise.withResolvers<void>();
+      // The child ignores the abort's stop request, so the abort waits for the navigation's stop.
+      vi.spyOn(ChildRun.prototype, "cancel").mockImplementation(function (this: ChildRun) {
+        cancelling.resolve();
+
+        return this.done;
+      });
+      const notes = host.notes.length;
+      const runner = session.extensionRunner;
+      const aborting = runner
+        .getCommand("subagents")!
+        .handler(`abort ${id}`, runner.createCommandContext());
+      await bounded(cancelling.promise, "held abort");
+      await bounded(session.navigateTree(anchor), "tree navigation");
+      await bounded(aborting, "late abort command");
+      expect(host.notes.slice(notes)).toEqual([]);
+      expect(await host.records()).toEqual([]);
+      expect(session.sessionManager.getBranch().filter((entry) => entry.type === "custom")).toEqual(
+        []
+      );
+    },
+    () => {}
+  );
 });

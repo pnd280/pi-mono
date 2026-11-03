@@ -2,22 +2,28 @@
 
 [Settings-file access](README.md)
 
-This reference is for library callers who need the exact read results, section rules, and save steps. The [README](README.md#behaviour) summarises them.
+Read this when you need the exact read results, section rules, or save steps.
 
 ## Scopes
 
 [`settingsPaths`](scopes.ts) returns the global path, `<agentDir>/settings.json`, and the project path, `<cwd>/.pi/settings.json`. Settings in parent directories never apply. `agentDir` defaults to Pi's agent directory.
 
-[`readScopedSettings`](scopes.ts) calls your reader for the global path, then for the project path only when `projectTrusted` is true. It returns `[global, project]`; `project` is absent for an untrusted project. Your reader decides how to parse, validate, and handle failures, and you decide how the project result overrides the global one.
+[`readScopedSections`](scopes.ts) reads one top-level key, such as `ext.<package>`, from the global path, then from the project path only when `projectTrusted` is true. It returns `[global, project]`; `project` is absent for an untrusted project. Each entry has its `scope` and `path`, and one of two results:
+
+- `status: "read"` with the key's unvalidated `value`. The `value` is `undefined` when the file or the key is missing.
+- `status: "unreadable"` when `readSettingsRecord` throws for the file.
+
+You validate each value, decide how to handle an unreadable file, resolve relative paths from the entry's `path`, and decide how the project value overrides the global one.
 
 ## Reads
 
-Reads never write. Both functions read at most 1 MiB.
+Reads never write. These functions read at most 1 MiB for each file.
 
-| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, invalid UTF-8, over 1 MiB, or read length differs from initial size | Malformed JSON |
-| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | ------------------------------------------------------------------------------- | -------------- |
-| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                                                     | Not parsed     |
-| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                                                          | Throws         |
+| Function                               | Returns                                                          | Missing file       | Empty file         | Unreadable   | Nonregular, invalid UTF-8, over 1 MiB, or read length differs from initial size | Malformed JSON or not an object |
+| -------------------------------------- | ---------------------------------------------------------------- | ------------------ | ------------------ | ------------ | ------------------------------------------------------------------------------- | ------------------------------- |
+| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws             | `""`               | Throws       | `undefined`                                                                     | Not parsed                      |
+| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`               | `{}`               | Throws       | Throws                                                                          | Throws                          |
+| [`readScopedSections`](scopes.ts)      | One key's value in each trusted scope; see [Scopes](#scopes).    | `value: undefined` | `value: undefined` | `unreadable` | `unreadable`                                                                    | `unreadable`                    |
 
 ## Section loads and saves
 

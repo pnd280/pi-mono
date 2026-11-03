@@ -13,14 +13,14 @@ const componentSchema = z.object({
 
 export type WorkingMessageComponent = z.infer<typeof componentSchema>;
 
-export type WorkingMessageEntry = WorkingMessageComponent & { text: string };
+type WorkingMessageEntry = WorkingMessageComponent & { text: string };
 
 export type WorkingMessageHandle = {
   setText(text?: string): void;
   dispose(): void;
 };
 
-export type Writer = (text: string | undefined) => void;
+type Writer = (text: string | undefined) => void;
 
 type Item<Participant, Owner> = {
   readonly participant: Participant;

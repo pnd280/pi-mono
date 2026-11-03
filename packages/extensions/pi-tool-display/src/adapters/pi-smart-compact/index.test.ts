@@ -2,7 +2,7 @@ import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import { plainTheme as theme } from "../../test-fixture.ts";
+import { keybindingHints, plainTheme as theme } from "../../test-fixture.ts";
 import {
   smartCompactDisplayAdapter as compact,
   contextWindowDisplayAdapter as contextWindow
@@ -33,6 +33,7 @@ function renderContext(args: unknown, expanded: boolean) {
     isError: false,
     durationMs: undefined,
     outputPad: 1,
+    ...keybindingHints,
     invalidate() {}
   };
 }
@@ -60,12 +61,12 @@ it("keeps compact request arguments and results unchanged while rendering", () =
   expect({ args, supplied }).toEqual(before);
 });
 
-it.each([false, true])(
-  "keeps context usage results unchanged while rendering (expanded: %s)",
-  (expanded) => {
-    const usage = { tokens: 5963, contextWindow: 272000, percent: 2.192279411764706 };
-    const supplied = result(usage, JSON.stringify(usage));
-    const before = structuredClone(supplied);
+it("keeps context usage results unchanged while rendering collapsed and expanded", () => {
+  const usage = { tokens: 5963, contextWindow: 272000, percent: 2.192279411764706 };
+  const supplied = result(usage, JSON.stringify(usage));
+  const before = structuredClone(supplied);
+
+  for (const expanded of [false, true]) {
     const context = renderContext({}, expanded);
     const renderers = createToolDisplayRenderers("context_window", contextWindow);
     const call = renderers.renderCall({}, theme, { ...context, isPartial: true });
@@ -79,4 +80,4 @@ it.each([false, true])(
 
     expect(supplied).toEqual(before);
   }
-);
+});

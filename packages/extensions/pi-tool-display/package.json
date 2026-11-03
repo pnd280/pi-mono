@@ -25,6 +25,7 @@
     "fast-diff": "catalog:",
     "pi-nested-instructions": "workspace:*",
     "pi-read": "workspace:*",
+    "pi-smart-compact": "workspace:*",
     "pi-subagents": "workspace:*",
     "pi-todo": "workspace:*",
     "zod": "catalog:"

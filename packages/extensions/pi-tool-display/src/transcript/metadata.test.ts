@@ -5,9 +5,9 @@ import { parseCallRecord } from "./metadata.ts";
 const call = { entry: "a1b2c3d4", toolCallId: "toolu_1" };
 
 it.each([
-  { cancelled: true },
   { outcome: "failure" },
   { exitCode: 2 },
+  // This row also covers `cancelled` alone: one callRecordSchema field (src/transcript/metadata.ts).
   { exitCode: null, cancelled: true },
   { timedOut: true },
   { applied: true, change: { kind: "modification", patch: "@@ -1 +1 @@\n-a\n+b\n" } },

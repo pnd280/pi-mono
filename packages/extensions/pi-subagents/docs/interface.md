@@ -8,7 +8,7 @@ In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-
 
 Press the [`shortcut`](../README.md#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
 
-The `shortcut` setting does not accept **Esc** or a function key with a modifier, such as `ctrl+escape` or `alt+f5`.
+The `shortcut` setting does not accept **Esc** with a modifier, such as `ctrl+escape`. It accepts function keys **F1** to **F12** with a modifier, such as `alt+f5`.
 
 If the shortcut overlaps a key claimed by pi-profiles or pi-prompt-manager, neither extension gets its shortcut, and a warning names the conflict.
 
@@ -83,7 +83,7 @@ Active direct children stream live; deeper children refresh at completed-message
 
 The viewer shows the child's messages with Pi's chat components. Pi's built-in tools use their own renderers, `subagent` and `subagent_abort` calls use the [tool cards](#tool-cards), other tools use Pi's generic card, and background results use Pi's default message box. Images are not shown.
 
-- A failed or aborted response supplies an error for calls without a saved result. Other calls without a final result show "Interrupted" after any partial output when the task stops or an earlier run left them unfinished.
+- A failed or aborted response supplies an error for calls without a saved result. Other calls without a final result show "Interrupted" after any partial output when the task stops, including after a cancellation, or when an earlier run left them unfinished. The viewer keeps saved tool results and reported response errors, and invents no execution result or duration.
 - Removing a saved result from model context does not change its recorded completion.
 - Viewing uses only recorded content: it never executes tools, reads the files that calls or results name, or rewrites child sessions.
 

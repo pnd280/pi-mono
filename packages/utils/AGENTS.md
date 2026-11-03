@@ -9,8 +9,5 @@ The [README](README.md#usage) groups the exported modules by task.
 | When you…                          | Read                                                                                                                                                                                                      |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Trace package provenance consumers | [FFF guard](../extensions/pi-fff-guard/AGENTS.md), [nested instructions](../extensions/pi-nested-instructions/AGENTS.md), and the [tool-display adapters](../extensions/pi-tool-display/docs/adapters.md) |
-| Trace shared-library consumers     | [bounded stream output](../libs/src/output-buffer/index.ts), and [file mutations](../libs/src/file-mutations/README.md)                                                                                   |
-
-## Validation
-
-Choose tests from the [coverage specification](docs/testing.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+| Trace shared-library consumers     | [bounded stream output](../libs/src/output-buffer/README.md) and [file mutations](../libs/src/file-mutations/README.md)                                                                                   |
+| Upgrade Pi                         | [compatibility checklist](docs/pi-compatibility.md)                                                                                                                                                       |

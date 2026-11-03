@@ -38,9 +38,7 @@ export default function promptManager(pi: ExtensionAPI): void {
     await finishing;
     if (ctx.mode !== "tui" || activation !== generation) return;
     const agentDir = getAgentDir();
-    const { settings, warnings } = await loadSettings(agentDir);
-
-    if (activation !== generation) return;
+    const { settings, warnings } = loadSettings(agentDir);
     let repository: Repository;
 
     try {

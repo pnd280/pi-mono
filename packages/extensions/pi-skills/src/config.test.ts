@@ -46,8 +46,8 @@ it("uses trusted cwd settings over global settings, not untrusted or ancestor se
 });
 
 it.each([
+  // Malformed JSON and non-object JSON share the libs readScopedSections "unreadable" result.
   "{malformed",
-  "null",
   JSON.stringify({ "ext.pi-skills": null }),
   JSON.stringify({ "ext.pi-skills": { expansionFormat: 2 } }),
   JSON.stringify({ "ext.pi-skills": { expansionFormat: "{path}", unknown: true } }),

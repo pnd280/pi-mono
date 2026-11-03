@@ -92,6 +92,11 @@ type MutableRun = {
   ended: boolean;
 };
 
+/** A live call's row identity: its source message, tool-call ID, and tool name. */
+function liveIdentity(reference: DisplayCall["reference"], name: string): string {
+  return JSON.stringify([reference.messageTimestamp, reference.toolCallId, name]);
+}
+
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
 export class TranscriptCoordinator implements TranscriptView {
   private state = new Map<string, MutableCall>();
@@ -160,9 +165,9 @@ export class TranscriptCoordinator implements TranscriptView {
     validated = withoutRegistry
   }: CallInput): DisplayCall {
     const key = callKey(this.runtime, reference);
-    // Finalized assistant middleware can remove/reorder blocks around a streamed call.
+    // Finalised assistant middleware can remove/reorder blocks around a streamed call.
     // Keep its runtime row identity; only historical calls use source position alone.
-    const identity = JSON.stringify([reference.messageTimestamp, reference.toolCallId, name]);
+    const identity = liveIdentity(reference, name);
     const existing =
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
@@ -172,11 +177,7 @@ export class TranscriptCoordinator implements TranscriptView {
       const renamed = existing.name !== name;
 
       if (renamed) {
-        const previous = JSON.stringify([
-          existing.reference.messageTimestamp,
-          existing.reference.toolCallId,
-          existing.name
-        ]);
+        const previous = liveIdentity(existing.reference, existing.name);
 
         if (this.liveIdentities.get(previous) === existing) {
           this.liveIdentities.delete(previous);
@@ -707,13 +708,17 @@ export class TranscriptCoordinator implements TranscriptView {
 
     for (const [start, end] of merged) this.rebuildRuns(start, end);
   }
-  private rebuildRuns(start: number, end: number): void {
-    const calls = this.sequence.slice(start, end + 1).map((key) => {
+  /** The calls at sequence positions `start` to `end`, inclusive. */
+  private callsBetween(start: number, end: number): MutableCall[] {
+    return this.sequence.slice(start, end + 1).map((key) => {
       const call = this.state.get(key);
       if (!call) throw new Error("Transcript call state is unavailable.");
 
       return call;
     });
+  }
+  private rebuildRuns(start: number, end: number): void {
+    const calls = this.callsBetween(start, end);
     const previous = new Map(calls.map((call) => [call.key, this.runs.get(call.key)]));
     const partition: MutableCall[][] = [];
     let members: MutableCall[] = [];
@@ -895,12 +900,7 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private rebuildGroups(start: number, end: number): void {
     const previous = new Map<string, MutableGroup>();
-    const calls = this.sequence.slice(start, end + 1).map((key) => {
-      const call = this.state.get(key);
-      if (!call) throw new Error("Transcript call state is unavailable.");
-
-      return call;
-    });
+    const calls = this.callsBetween(start, end);
 
     for (const { key } of calls) {
       const group = this.groups.get(key);

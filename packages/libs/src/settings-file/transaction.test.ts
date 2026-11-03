@@ -29,51 +29,42 @@ const fixture = () => {
   return { directory, path: join(directory, "settings.json") };
 };
 
-it("leaves files untouched on mutator rejection and releases the lock for a later update", () => {
-  const { directory, path } = fixture();
-  const original = '{"theme":"dark","future":{"kept":1}}\n';
-  writeFileSync(path, original);
-  expect(() =>
-    updateSettingsRecord(path, (record) => {
-      record.theme = "light";
-      throw new Error("rejected");
-    })
-  ).toThrow("rejected");
-  expect(readFileSync(path, "utf8")).toBe(original);
-  expect(readdirSync(directory)).toEqual(["settings.json"]);
-  updateSettingsRecord(path, (record) => {
-    record.theme = "light";
-  });
-  expect(readSettingsRecord(path)).toEqual({ theme: "light", future: { kept: 1 } });
-  expect(readdirSync(directory)).toEqual(["settings.json"]);
-});
-
-it("rejects asynchronous mutations instead of committing before they finish", async () => {
-  const { directory, path } = fixture();
-  writeFileSync(path, '{"theme":"dark"}\n');
-  let finish!: () => void;
-  const pending = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
-
-  try {
-    expect(() =>
-      updateSettingsRecord(path, async (record) => {
-        await pending;
-        record.theme = "light";
-      })
-    ).toThrow("synchronous");
-    expect(readFileSync(path, "utf8")).toBe('{"theme":"dark"}\n');
-    expect(readdirSync(directory)).toEqual(["settings.json"]);
-    updateSettingsRecord(path, (record) => {
-      record.theme = "safe";
+it.each(["throwing", "asynchronous"] as const)(
+  "leaves files untouched when the mutator is %s and releases the lock for a later update",
+  async (kind) => {
+    const { directory, path } = fixture();
+    const original = '{"theme":"dark","future":{"kept":1}}\n';
+    writeFileSync(path, original);
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
     });
-    expect(readSettingsRecord(path)).toEqual({ theme: "safe" });
-  } finally {
-    finish();
-    await pending;
+
+    try {
+      expect(() =>
+        kind === "throwing"
+          ? updateSettingsRecord(path, (record) => {
+              record.theme = "light";
+              throw new Error("rejected");
+            })
+          : updateSettingsRecord(path, async (record) => {
+              await pending;
+              record.theme = "light";
+            })
+      ).toThrow(kind === "throwing" ? "rejected" : "synchronous");
+      expect(readFileSync(path, "utf8")).toBe(original);
+      expect(readdirSync(directory)).toEqual(["settings.json"]);
+      updateSettingsRecord(path, (record) => {
+        record.theme = "safe";
+      });
+      expect(readSettingsRecord(path)).toEqual({ theme: "safe", future: { kept: 1 } });
+      expect(readdirSync(directory)).toEqual(["settings.json"]);
+    } finally {
+      finish();
+      await pending;
+    }
   }
-});
+);
 
 it("preserves unrelated JSON keys, including names inherited by ordinary objects", () => {
   const { path } = fixture();
@@ -87,9 +78,9 @@ it("preserves unrelated JSON keys, including names inherited by ordinary objects
 });
 
 it.each([
-  ["oversized input", JSON.stringify({ unused: "x".repeat(1024 * 1024) })],
   ["malformed input", "{broken"],
   ["invalid UTF-8 input", Buffer.from('{"unused":"\xff"}', "latin1")],
+  // Oversized input would also fail this output limit (updateSettingsRecord), so one row covers both.
   // The input and the compact output with the change fit; only the formatted output does not.
   ["output above 1 MiB after formatting", JSON.stringify({ unused: "x".repeat(1024 * 1024 - 64) })]
 ])("refuses %s without replacing the file", (_case, content) => {

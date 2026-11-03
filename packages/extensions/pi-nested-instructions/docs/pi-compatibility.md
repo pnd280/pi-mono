@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.4.0 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
+> Last verified against Pi 1.5.0 with package checks, offline host tests that include real codemode cases, live Linux calls to FFF 0.11.0 through an offline scripted provider, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: manual [notice](../GLOSSARY.md#delivery) presentation, Windows paths, and live FFF calls on platforms other than Linux.
 
 ## Upgrade procedure
 
@@ -26,14 +26,12 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 - [ ] `turn_end.message` exposes the inputs of tool calls the assistant made directly, including blocked or rejected calls.
 - [ ] `turn_end.messageEntryId` identifies the exact source entry for each direct call.
 - [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception.
-
-Discovery collects nested inputs until the same `turn_end`, without reading results.
-
-- [ ] Only direct calls can create [read markers](../GLOSSARY.md#discovery), because nested output may never reach the model.
 - [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
 - [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides.
 - [ ] The selective-read and native path schemas still match the fields that the adapters read.
 - [ ] On Windows, native tools still map `/c/…`, `/mnt/c/…`, and `/cygdrive/c/…` to `C:\…`, as `nativePath()` in the [scope extraction](../src/scopes.ts) does.
+
+Discovery collects nested inputs until the same `turn_end`, without reading results. Only direct calls create [read markers](../GLOSSARY.md#discovery), because nested output may never reach the model.
 
 Compare the FFF adapters with FFF's real source schemas, not its README parameters.
 
@@ -43,16 +41,14 @@ Compare the FFF adapters with FFF's real source schemas, not its README paramete
 - [ ] Returning boundary entries replaces the accumulated draft list.
 - [ ] `buildSessionProjection()` keeps source entry IDs and applies compaction and context edits.
 - [ ] `getBranch()` supplies metadata for the branch.
-- [ ] Replaced content doesn't keep its loaded status just because its details are unchanged.
 - [ ] `session_start` fires for startup, resume, reload, new sessions, and forks.
 - [ ] Pi awaits each `session_start` handler and then emits `resources_discover`, whose first lifecycle participant handler runs the startup commit that sends refreshed notices.
 - [ ] An idle `sendMessage(..., { triggerTurn: false })` appends the message at once, so the commit rank decides its place among startup entries.
 - [ ] `sendMessage(..., { triggerTurn: false })` doesn't interrupt a running batch.
-- [ ] No pending discovery state is kept across turns or sessions.
 - [ ] Metadata-only custom entries stay out of model context.
 - [ ] Visible notices keep their content and details without a registered renderer.
 
-Discovery preserves `turn_end.entries` when it adds notices or markers, because returned entries replace the draft list. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
+Discovery preserves `turn_end.entries` when it adds notices or markers, because returned entries replace the draft list. Replaced content doesn't keep its loaded status just because its details are unchanged, and no pending discovery state is kept across turns or sessions. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
 
 ## Persisted notice contract
 
@@ -61,8 +57,7 @@ The [notice interface](../src/notices.ts) writes version 3. A note identifies Pi
 The reader validates the current schema strictly:
 
 - Notices with a version other than 3 or unknown metadata keys do not validate.
-- Invalid notices provide no deduplication or refresh [scope](../GLOSSARY.md#discovery) tracking, no structured notice rendering, and no run-summary counts. Their original model-facing content is not deleted; display falls back to the supplied text.
-- Resume and reload do not eagerly restore scopes represented only by invalid notices. A later qualifying tool input can load those instructions again, even while the invalid message text remains in context.
+- Invalid notices keep their original model-facing content, and display falls back to the supplied text. They provide no deduplication or refresh [scope](../GLOSSARY.md#discovery) tracking, no structured notice rendering, and no run-summary counts. [Invalid notice metadata](loading.md#invalid-notice-metadata) states what users see, including that resume and reload don't eagerly restore their scopes.
 - Direct-read markers use version 1 and hold filesystem revision stamps, originating-call identity, and call fingerprints.
 
 Keep discovery and the pi-tool-display adapter on the same notice contract. Contract changes need checks for strict validation, visible-message corruption, body equality, rendering, summaries, and host replay.
@@ -73,5 +68,7 @@ The extension uses only public Pi APIs, with no host patches or tool overrides. 
 
 - Discovery doesn't follow result paths, opaque scripts, FFF cursor state, or temporary context rewrites by other extensions.
 - A [direct read](../GLOSSARY.md#discovery) is an attempt, not proof that the content was delivered in full.
+- In Pi 1.5.0, a saved "Do not trust" decision makes `ctx.isProjectTrusted()` false even for a folder with only `AGENTS.md`. Pi still loads context files regardless of project trust, and discovery also ignores trust, so both stay aligned.
+- In Pi 1.5.0, as in 1.4.0, discovery reads inputs as issued, before Pi coerces them. A path that Pi converts to a string, such as a number, gives no scope.
 
 Replace local behaviour only if a public Pi API keeps these boundaries and metadata-only markers. Don't replace it with the startup loader, which also reads global and ancestor content.

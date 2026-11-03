@@ -2,7 +2,7 @@
 
 [Library index](../../README.md#usage)
 
-An extension that temporarily replaces properties on host objects must restore them without undoing a replacement that another extension installed later. [`@pi-mono/libs/owned-hooks`](index.ts) exports `OwnedHooks` for temporary property replacements and `unwrapHook` for inspecting their recorded predecessors.
+An extension that temporarily replaces properties on host objects must restore them without undoing a replacement that another extension installed later. [`@pi-mono/libs/owned-hooks`](index.ts) exports `OwnedHooks` for temporary property replacements and `unwrapHook` for inspecting their recorded predecessors. It also exports `inspectedSource` and `hookCompatible`, which check [host fingerprints](provenance.md#host-fingerprints) before a replacement.
 
 ## Behaviour
 

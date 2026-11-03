@@ -12,7 +12,3 @@ export class LockTimeoutError extends PrivateFileError {
     super("Timed out waiting for the owned file lock.");
   }
 }
-
-export function hasCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code;
-}

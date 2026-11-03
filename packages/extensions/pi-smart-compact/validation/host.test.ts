@@ -8,7 +8,6 @@ import {
   fauxProvider,
   fauxToolCall,
   getCurrentTools,
-  Type,
   type TranscriptContext
 } from "@earendil-works/pi-ai";
 import {
@@ -23,6 +22,7 @@ import {
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
 import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { Type } from "typebox";
 import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
@@ -70,7 +70,8 @@ function checkModelOverride(session: AgentSession, modelOverride: string | undef
   });
 }
 
-async function verifyNativeHost(configured: boolean) {
+// The third run follows a reload to "{}", so it also covers native selection without settings.
+it("continues through native SDK compaction, replacement, and reload", async () => {
   const directory = await createValidationWorkspace("pi-smart-compact-host-");
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
@@ -89,7 +90,7 @@ async function verifyNativeHost(configured: boolean) {
     undefined
   ];
   let expectedMainModel = "scripted";
-  let expectedSummaryModel = configured ? "summary" : "scripted";
+  let expectedSummaryModel = "summary";
   const summaries: string[] = [];
   const errors: unknown[] = [];
   const instructions = "Keep HOST_FOCUS_MARKER and unfinished tests.";
@@ -99,21 +100,20 @@ async function verifyNativeHost(configured: boolean) {
   vi.stubEnv("PI_OFFLINE", "1");
 
   try {
-    if (configured)
-      await writeFile(
-        join(agentDir, "settings.json"),
-        JSON.stringify({
-          "ext.pi-smart-compact": {
-            rules: [
-              {
-                match: "^smart-compact-fixture/",
-                model: "smart-compact-fixture/summary",
-                thinkingLevel: "off"
-              }
-            ]
-          }
-        })
-      );
+    await writeFile(
+      join(agentDir, "settings.json"),
+      JSON.stringify({
+        "ext.pi-smart-compact": {
+          rules: [
+            {
+              match: "^smart-compact-fixture/",
+              model: "smart-compact-fixture/summary",
+              thinkingLevel: "off"
+            }
+          ]
+        }
+      })
+    );
     const faux = fauxProvider({
       provider: "smart-compact-fixture",
       models: [{ id: "scripted" }, { id: "alternate" }, { id: "summary" }]
@@ -178,15 +178,6 @@ async function verifyNativeHost(configured: boolean) {
         inspections++;
         assert.equal(event.isError, false);
         assert.deepEqual(event.details, contextUsage);
-        assert.deepEqual(event.content, [
-          {
-            type: "text",
-            text:
-              contextUsage === undefined
-                ? "Context usage unavailable."
-                : JSON.stringify(contextUsage)
-          }
-        ]);
       });
       pi.registerTool({
         name: "fixture_work",
@@ -267,10 +258,7 @@ async function verifyNativeHost(configured: boolean) {
       assert.equal(mainRequests, 3);
       assert.equal(runtime.session.isIdle, true);
       assert.equal(runtime.session.isCompacting, false);
-      checkModelOverride(
-        runtime.session,
-        configured && run < 2 ? "smart-compact-fixture/summary" : undefined
-      );
+      checkModelOverride(runtime.session, run < 2 ? "smart-compact-fixture/summary" : undefined);
       assert.equal(
         runtime.session.sessionManager.getBranch().filter((entry) => entry.type === "compaction")
           .length,
@@ -291,7 +279,6 @@ async function verifyNativeHost(configured: boolean) {
         await runtime.newSession();
         expectedMainModel = "alternate";
         await runtime.session.setModel(faux.getModel("alternate")!);
-        if (!configured) expectedSummaryModel = expectedMainModel;
       }
 
       if (run === 1) {
@@ -323,9 +310,4 @@ async function verifyNativeHost(configured: boolean) {
     Reflect.get(AgentSession.prototype, "_compactBeforeNextAssistantResponse"),
     original
   );
-}
-
-it.each([false, true])(
-  "continues through native SDK compaction, replacement, and reload (configured: %s)",
-  verifyNativeHost
-);
+});

@@ -1,11 +1,8 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 
 import type { TodoController } from "./state/controller.ts";
-import { metadataLimitError } from "./state/limits.ts";
-import { jsonMetadataSchema } from "./state/metadata.ts";
 import type { TaskDetails } from "./state/model.ts";
-import { errorResult } from "./state/reducer.ts";
-import { todoInputSchema, TodoParamsSchema } from "./tool-schema.ts";
+import { TodoParamsSchema } from "./tool-schema.ts";
 
 export function createTodoTool(controller: TodoController) {
   return {
@@ -22,30 +19,7 @@ export function createTodoTool(controller: TodoController) {
     executionMode: "sequential",
     parameters: TodoParamsSchema,
     async execute(_id, raw) {
-      const parsed = todoInputSchema.safeParse(raw);
-      if (!parsed.success) throw new Error("Invalid todo parameters");
-      const { action, ...params } = parsed.data;
-
-      if (raw.metadata !== undefined) {
-        const limitError = metadataLimitError(raw.metadata);
-        const metadata =
-          limitError === undefined ? jsonMetadataSchema.safeParse(raw.metadata) : undefined;
-
-        if (limitError !== undefined || !metadata?.success) {
-          const result = errorResult(
-            controller.getState(),
-            action,
-            params,
-            limitError ?? "metadata must be JSON-serializable"
-          );
-
-          return { content: result.content, details: result.details };
-        }
-
-        return controller.apply(action, { ...params, metadata: metadata.data });
-      }
-
-      return controller.apply(action, params);
+      return controller.apply(raw);
     }
   } satisfies ToolDefinition<typeof TodoParamsSchema, TaskDetails>;
 }

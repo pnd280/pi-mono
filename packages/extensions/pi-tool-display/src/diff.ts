@@ -1,3 +1,4 @@
+import { PATCH_QUEUE_BYTES } from "@pi-mono/libs/bounded-diff";
 import type { FileMutation } from "@pi-mono/libs/file-mutations";
 import { parsePatch } from "@pi-mono/utils/patch";
 
@@ -6,6 +7,16 @@ import type { ChangeFact, ChangeUnavailableReason } from "./contracts.ts";
 export const OBSERVATION_BYTES = 8 * 1024 * 1024;
 
 export const PATCH_BYTES = 128 * 1024;
+
+const PATCH_LIMITS = {
+  maxSourceBytes: OBSERVATION_BYTES,
+  maxPatchBytes: PATCH_BYTES,
+  maxEditLength: 2000,
+  timeoutMs: 50,
+  contextLines: 4
+};
+
+const OBSERVATION_MIB = PATCH_LIMITS.maxSourceBytes / 1024 / 1024;
 
 /** Retained tool patches share the same bound in observation, rendering, and history. */
 export function parseRetainedPatch(patch: string) {
@@ -66,13 +77,13 @@ export function creationPatch(content: string): string | undefined {
 }
 
 const changeReasons: Record<ChangeUnavailableReason, string> = {
-  "source-too-large": "Change exceeds the 8 MiB observation budget.",
-  "source-unavailable": "Complete UTF-8 source unavailable within the 8 MiB observation budget.",
+  "source-too-large": `Change exceeds the ${OBSERVATION_MIB} MiB observation budget.`,
+  "source-unavailable": `Complete UTF-8 source unavailable within the ${OBSERVATION_MIB} MiB observation budget.`,
   binary: "Binary content.",
-  "budget-exceeded": "Diff generation exceeded 50 ms or 2000 changed lines.",
-  "queue-full": "Diff queue exceeds its 64 MiB memory budget.",
+  "budget-exceeded": `Diff generation exceeded ${PATCH_LIMITS.timeoutMs} ms or ${PATCH_LIMITS.maxEditLength} changed lines.`,
+  "queue-full": `Diff queue exceeds its ${PATCH_QUEUE_BYTES / 1024 / 1024} MiB memory budget.`,
   "worker-failed": "Diff worker failed to start or complete the comparison.",
-  "patch-too-large": "Patch exceeds the 128 KiB retention limit."
+  "patch-too-large": `Patch exceeds the ${PATCH_LIMITS.maxPatchBytes / 1024} KiB retention limit.`
 };
 
 export function isChangeUnavailableReason(value: unknown): value is ChangeUnavailableReason {
@@ -84,13 +95,7 @@ export function changeReasonText(reason: ChangeUnavailableReason): string {
 }
 
 export async function mutationChange(mutation: FileMutation): Promise<ChangeFact> {
-  const result = await mutation.patch({
-    maxSourceBytes: OBSERVATION_BYTES,
-    maxPatchBytes: PATCH_BYTES,
-    maxEditLength: 2000,
-    timeoutMs: 50,
-    contextLines: 4
-  });
+  const result = await mutation.patch(PATCH_LIMITS);
   if (result.status === "ready")
     return {
       kind: "change",

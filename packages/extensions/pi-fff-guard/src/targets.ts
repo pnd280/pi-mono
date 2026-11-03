@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
 import {
@@ -55,6 +56,11 @@ function resolvePath(value: string, cwd: string): string {
   return path.resolve(cwd, expandHomePath(value, homedir()));
 }
 
+/** Relative path with `/` separators, as FFF globs expect. */
+function portableRelative(from: string, to: string): string {
+  return path.relative(from, to).split(path.sep).join("/");
+}
+
 type TargetResolution =
   | { kind: "target"; target: Target }
   | { kind: "missing" }
@@ -102,13 +108,8 @@ async function fileInfo(absolute: string) {
   try {
     return await stat(absolute);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      // A name too long to create cannot exist, so FFF cannot find it either.
-      (error.code === "ENOENT" || error.code === "ENOTDIR" || error.code === "ENAMETOOLONG")
-    )
-      return undefined;
+    // A name too long to create cannot exist, so FFF cannot find it either.
+    if (hasErrorCode(error, "ENOENT", "ENOTDIR", "ENAMETOOLONG")) return undefined;
     throw error;
   }
 }
@@ -141,24 +142,21 @@ function relativeFilter(expression: string, root: string, cwd: string): string |
   // Unanchored recursive filters retain their meaning below any selected root.
   if (value.startsWith("**/")) return value;
   value = value.replace(/\/+$/, "");
-  const parts = value.split("/");
-  const boundary = parts.findIndex(hasGlob);
-  const prefix = boundary < 0 ? value : parts.slice(0, boundary).join("/") || "/";
-  const absolute = resolvePath(prefix, cwd);
+  const glob = hasGlob(value) ? globRoot(value) : { prefix: value, filter: "" };
+  // A filter that starts with a wildcard has no fixed root to compare.
+  if (!glob) return undefined;
+  const absolute = resolvePath(glob.prefix, cwd);
 
   if (containsPath(root, absolute)) {
-    const relative = path.relative(root, absolute).split(path.sep).join("/");
-    const suffix = boundary < 0 ? "" : parts.slice(boundary).join("/");
+    const relative = portableRelative(root, absolute);
 
-    return "/" + [escapeGlob(relative), suffix].filter(Boolean).join("/");
+    return "/" + [escapeGlob(relative), glob.filter].filter(Boolean).join("/");
   }
 
   if (containsPath(absolute, root)) {
-    if (boundary < 0) return "/**";
-    const suffix = parts.slice(boundary).join("/");
-    if (suffix === "**" || suffix === "**/*") return "/**";
+    if (["", "**", "**/*"].includes(glob.filter)) return "/**";
     // Only basename-recursive patterns are invariant when descending the root.
-    if (/^\*\*\/[^/]+$/.test(suffix)) return suffix;
+    if (/^\*\*\/[^/]+$/.test(glob.filter)) return glob.filter;
 
     return undefined;
   }
@@ -288,14 +286,14 @@ function matchesPath(value: string, glob: string): boolean {
 
 function workspaceFilter(expression: string, cwd: string): string {
   if (path.isAbsolute(expression) || expression.startsWith("~/"))
-    return path.relative(cwd, resolvePath(expression, cwd)).split(path.sep).join("/");
+    return portableRelative(cwd, resolvePath(expression, cwd));
 
   return expression.replace(/^\.\//, "");
 }
 
 function matchesFile(target: Target, expression: string, cwd: string): boolean {
   const glob = workspaceFilter(expression, cwd);
-  const relative = path.relative(cwd, target.absolute).split(path.sep).join("/");
+  const relative = portableRelative(cwd, target.absolute);
 
   return matchesFilter(glob.includes("/") ? relative : path.basename(relative), glob);
 }
@@ -321,7 +319,7 @@ async function excluded(target: Target, excludes: string[], cwd: string): Promis
         (concrete.directory && containsPath(concrete.absolute, target.absolute)))
     )
       return true;
-    const relative = path.relative(cwd, target.absolute).split(path.sep).join("/");
+    const relative = portableRelative(cwd, target.absolute);
     const glob = workspaceFilter(expression, cwd);
     if (!target.directory && matchesFile(target, expression, cwd)) return true;
     if (excludesFilter(target, expression, cwd)) return true;
@@ -364,11 +362,7 @@ function intersectTargets(left: Target[], right: Target[]): Target[] {
       if (
         !inner.directory &&
         filters.some(
-          (filter) =>
-            !matchesFilter(
-              path.relative(filter.root, inner.absolute).split(path.sep).join("/"),
-              filter.pattern
-            )
+          (filter) => !matchesFilter(portableRelative(filter.root, inner.absolute), filter.pattern)
         )
       )
         continue;

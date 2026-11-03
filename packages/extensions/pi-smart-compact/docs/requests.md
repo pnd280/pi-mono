@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md)
 
-The `compact` tool asks Pi to compact; it does not confirm that compaction succeeded. Only the model can call it directly. For the tool's purpose and an example, see [usage](../README.md#compact).
+The `compact` tool asks Pi to compact; it does not confirm that compaction succeeded. For who can call it, **Escape** behaviour, and an example, see [usage](../README.md#compact).
 
 ## What happens after a request
 
@@ -15,7 +15,6 @@ The `compact` tool asks Pi to compact; it does not confirm that compaction succe
 
 - `instructions` add focus to Pi's default summaries, both of the history and of a single turn too long to keep whole (a _split turn_), without replacing their format.
 - Several `compact` calls in one tool batch produce a single attempt. The last call's instructions, or lack of them, win.
-- Pressing **Escape** during compaction cancels the compaction, not the agent run.
 - An explicit request ignores the automatic token threshold and `compaction.enabled`, without changing them.
 - `session_before_compact` handlers from other extensions can still cancel compaction or supply their own summaries.
 - SDK callers must await each manual compaction before they start another. Concurrent calls can fail in Pi's native compaction state.

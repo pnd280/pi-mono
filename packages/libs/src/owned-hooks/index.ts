@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+
+import { VERSION } from "@earendil-works/pi-coding-agent";
+
 const provenanceKey = Symbol.for("@pi-mono/libs/owned-hooks.provenance");
 
 // Pi reloads extensions with jiti's moduleCache disabled. Share only weak function
@@ -20,6 +24,31 @@ export function unwrapHook(value: unknown): unknown {
   return value;
 }
 
+/** True when a function's source matches a reviewed SHA-256 host fingerprint. */
+export function inspectedSource(method: unknown, hashes: ReadonlySet<string>): boolean {
+  return (
+    typeof method === "function" &&
+    hashes.has(createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex"))
+  );
+}
+
+/**
+ * The host fingerprint policy for a hooked method: its deepest recorded predecessor must be
+ * callable and match a reviewed hash, or Pi's public version must equal the owner's pin.
+ */
+export function hookCompatible(
+  value: unknown,
+  hashes: ReadonlySet<string>,
+  inspectedPiVersion: string
+): boolean {
+  const method = unwrapHook(value);
+
+  return (
+    typeof method === "function" &&
+    (inspectedSource(method, hashes) || VERSION === inspectedPiVersion)
+  );
+}
+
 /** Owns property replacements, not the behavior or lifetime of retained callbacks. */
 export class OwnedHooks {
   private restorations: (() => void)[] = [];
@@ -36,7 +65,8 @@ export class OwnedHooks {
 
       while (!descriptor && owner) {
         const parent: unknown = Object.getPrototypeOf(owner);
-        owner = typeof parent === "object" ? parent : null;
+        // Function targets inherit from callable prototypes such as `Function.prototype`.
+        owner = typeof parent === "object" || typeof parent === "function" ? parent : null;
         if (owner) descriptor = Object.getOwnPropertyDescriptor(owner, key);
       }
     }

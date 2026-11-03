@@ -10,4 +10,4 @@
 
 ## Validation
 
-[Testing](docs/testing.md) lists the offline coverage. For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

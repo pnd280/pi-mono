@@ -8,20 +8,21 @@ import {
   type TUI
 } from "@earendil-works/pi-tui";
 
+import type { KeybindingSource } from "../../keybindings/index.ts";
 import { displayText } from "../../terminal-text/index.ts";
 import { wrapRows } from "../../text-budget/index.ts";
 import { renderHintFooter } from "../hint-footer/index.ts";
 import { renderOverflowBorder, ScrollableTextPreview } from "../text-preview/index.ts";
 import { renderWindowedList } from "../windowed-list/index.ts";
 import { BrowserController } from "./controller.ts";
-import { BrowserControls, type BrowserKeys } from "./controls.ts";
+import { BrowserControls } from "./controls.ts";
 import { browserLayout } from "./layout.ts";
 import type { BrowserOptions } from "./types.ts";
 
 type BrowserEnvironment = {
   tui: Pick<TUI, "requestRender"> & { terminal: Pick<TUI["terminal"], "rows"> };
   theme: Pick<Theme, "fg" | "bold">;
-  keys: BrowserKeys;
+  keys: KeybindingSource;
   close(this: void): void;
   onError(this: void, error: unknown): void;
 };
@@ -43,7 +44,7 @@ export class Browser<Item> implements Component, Focusable {
     private readonly environment: BrowserEnvironment
   ) {
     this.controls = new BrowserControls(environment.keys);
-    if (!this.controls.key("cancel"))
+    if (!this.controls.label("cancel"))
       throw (
         options.cancelError ??
         new Error("Browser requires an unshadowed cancel binding other than Ctrl+C.")
@@ -76,6 +77,7 @@ export class Browser<Item> implements Component, Focusable {
     this.controller.cancelConfirmation();
   }
 
+  /** A method call, so that TypeScript does not narrow `closed` across actions that close. */
   private isClosed() {
     return this.controller.closed;
   }
@@ -150,7 +152,7 @@ export class Browser<Item> implements Component, Focusable {
       });
 
     const hasSelection = state.status === "ready" && state.selected !== undefined;
-    const primary: (string | undefined)[] = [];
+    const primary: string[] = [];
     if (inspection) primary.push(this.controls.hint("confirm", "close"));
     else if (hasSelection && state.section.confirm)
       primary.push(this.controls.hint("confirm", state.section.confirm.label));
@@ -168,9 +170,7 @@ export class Browser<Item> implements Component, Focusable {
     return renderHintFooter({
       width,
       maxRows,
-      hints: [...primary, ...this.secondaryHints()]
-        .filter((hint) => hint !== undefined)
-        .map(displayText),
+      hints: [...primary, ...this.secondaryHints()].map(displayText),
       padding,
       separator: " · ",
       style: (text) => theme.fg("dim", text),
@@ -186,12 +186,14 @@ export class Browser<Item> implements Component, Focusable {
     });
   }
 
-  private secondaryHints(): (string | undefined)[] {
+  private secondaryHints(): string[] {
     const state = this.controller;
     if (this.options.inspection) return [];
-    const hints: (string | undefined)[] = [];
+    const hints: string[] = [];
     if (this.options.sections.length > 1)
-      hints.push(this.controls.hint("switch", "view") ?? this.controls.hint("switchBack", "view"));
+      hints.push(
+        this.controls.hint(this.controls.label("switch") ? "switch" : "switchBack", "view")
+      );
     const selected = state.selected;
     if (state.status !== "ready" || selected === undefined) return hints;
     if (!state.preview && this.options.preview)

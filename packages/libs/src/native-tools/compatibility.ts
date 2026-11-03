@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
-
 import { AgentSession, type ToolDefinition } from "@earendil-works/pi-coding-agent";
+
+import { inspectedSource } from "../owned-hooks/index.ts";
 
 // Private Pi contracts, gated by both API and installed-CLI fingerprints.
 // docs/pi-compatibility.md records the last verified Pi version.
@@ -38,14 +38,9 @@ const constructionHashes = [
 
 export function inspectedConstruction(prototype: SessionInternals): boolean {
   return constructionHashes.some((expected) =>
-    Object.entries(expected).every(([key, hash]) => {
-      const method: unknown = Reflect.get(prototype, key);
-
-      return (
-        typeof method === "function" &&
-        createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex") === hash
-      );
-    })
+    Object.entries(expected).every(([key, hash]) =>
+      inspectedSource(Reflect.get(prototype, key), new Set([hash]))
+    )
   );
 }
 

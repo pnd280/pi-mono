@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -21,6 +22,7 @@ import {
   zeroUsage,
   type FixtureStreamContext
 } from "@pi-mono/libs/validation/provider";
+import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
 import { assertFixtureWorkspace } from "./workspace.ts";
 
@@ -49,6 +51,18 @@ const RUN_HELD = "run-held";
 /** A `background-idle` supervisor creates this file after its final turn for its child. */
 const IDLE_RELEASE = "idle-release";
 
+/**
+ * A `late-dialogs` child writes the answers that its open select and editor dialogs receive to
+ * these files, `cancelled` for a cancelled dialog and `value <answer>` otherwise.
+ */
+export const LATE_DIALOG_ANSWERS = { select: "late-select-answer", editor: "late-editor-answer" };
+
+/** An editor prefill that the supervisor shows sanitised and cut: tabs, CRLF, and over 2,000 lines. */
+const EDITOR_PREFILL = Array.from(
+  { length: 2001 },
+  (_, index) => `\tLine ${index}\u001b[31m red\u001b[0m`
+).join("\r\n");
+
 /** More stderr output than the 16 KiB and 20 edge lines that a supervisor keeps. */
 const STDERR_NOISE = `${"fixture stderr noise ".repeat(30)}\n`.repeat(30);
 
@@ -71,6 +85,17 @@ type Call =
   | { tool: "job"; description: string; command: string; timeout?: number; hold_run?: boolean }
   | { tool: "job_abort"; job_id: string }
   | { tool: "read"; path: string };
+
+/**
+ * A Perl script that moves to its own process group and leaves a zombie child in the group of its
+ * starter. The script reaps the zombie only on SIGTERM. A zombie ignores signals, and the script is
+ * outside that group, so a forced stop of the group cannot remove the zombie. The script records
+ * both PIDs in `zombie-pids`; the test stops it.
+ */
+const GROUP_ZOMBIE_SCRIPT =
+  "$g = getpgrp; setpgid(0, 0); $c = fork; if (!$c) { setpgid(0, $g); exit } " +
+  "$SIG{TERM} = sub { waitpid($c, 0); exit }; open F, '>', 'zombie-pids.tmp'; " +
+  "print F join(' ', $$, $c); close F; rename 'zombie-pids.tmp', 'zombie-pids'; sleep 600";
 
 /**
  * Fixed job commands; prompt text never becomes a command. They run in the supervisor's working
@@ -105,6 +130,13 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
     }
   ],
   ["shell", { command: `printf '%s %s' "$FIXTURE_JOB_SHELL" "$FIXTURE_JOB_PREFIX"` }],
+  // A zombie in the job's process group. Its parent holds no job pipe, and the shell waits for it.
+  [
+    "zombie",
+    {
+      command: `perl -MPOSIX -e ${quotePosixShellArgument(GROUP_ZOMBIE_SCRIPT)} >/dev/null 2>&1 & wait`
+    }
+  ],
   [
     "timeout",
     {
@@ -283,9 +315,12 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["delegate-remember", "remember"],
     ["delegate-dialog", "dialog"],
     ["delegate-selection", "selection"],
+    ["delegate-editor", "editor"],
+    ["delegate-late-dialogs", "late-dialogs"],
     ["delegate-trust", "report-trust"],
     ["delegate-tools", "report-tools"],
-    ["delegate-job", "job-group-hold"]
+    ["delegate-job", "job-group-hold"],
+    ["delegate-job-zombie", "job-zombie-hold"]
   ]).get(scenario);
   if (child) return [{ description: `Fixture ${child} task`, prompt: child }];
   if (scenario === "delegate-display")
@@ -311,6 +346,14 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
       { description: "First capacity task", prompt: "slow" },
       { description: "Second capacity task", prompt: "reply" },
       { description: "Third capacity task", prompt: "reply" },
+      { description: "Overflow capacity task", prompt: "reply" }
+    ];
+  // Each child holds until the test creates its `capacity-release-<n>`.
+  if (scenario === "capacity-held")
+    return [
+      { description: "First capacity task", prompt: "capacity-hold-1" },
+      { description: "Second capacity task", prompt: "capacity-hold-2" },
+      { description: "Third capacity task", prompt: "capacity-hold-3" },
       { description: "Overflow capacity task", prompt: "reply" }
     ];
   const resumed = /^resume-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
@@ -354,9 +397,12 @@ async function holdToolTurn(
 
 /**
  * Keeps a child running: `finite` briefly; `finite-idle` also until `idle-release`;
- * `finite-late` and `input-hold` until `run-release`.
+ * `finite-late` and `input-hold` until `run-release`; `capacity-hold-<n>` until
+ * `capacity-release-<n>`.
  */
 async function holdChildReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
+  const held = /^capacity-hold-(\d)$/.exec(scenario)?.[1];
+  if (held) await runRelease(signal, `capacity-release-${held}`);
   if (["finite", "finite-idle"].includes(scenario)) await setTimeout(1500, undefined, { signal });
   // The result reaches the supervisor only after its final turn, so that turn cannot take it.
   if (scenario === "finite-idle") await runRelease(signal, IDLE_RELEASE);
@@ -447,7 +493,7 @@ function abortToolResponse({ message, events, text }: FixtureStreamContext): "to
 function plainResponse(
   scenario: string,
   context: Parameters<ProviderStreams["stream"]>[1],
-  answer: boolean
+  answer: boolean | string
 ): string {
   if (scenario === "input-payload")
     return `Input occurrences: ${context.messages.filter((item) => item.role === "user" && contentText(item.content) === "input-payload").length}; earlier context: ${context.messages.some((item) => item.role === "user" && contentText(item.content).endsWith("-hold"))}`;
@@ -469,8 +515,11 @@ function plainResponse(
     return remembered ? "Remembered fixture seed" : "No earlier fixture seed";
   }
 
-  if (scenario === "dialog") return answer ? "Dialog accepted" : "Dialog declined";
-  if (scenario === "selection") return answer ? "Selected second option" : "Selected wrong option";
+  if (scenario === "dialog") return answer === true ? "Dialog accepted" : "Dialog declined";
+  if (scenario === "selection")
+    return answer === true ? "Selected second option" : "Selected wrong option";
+  if (scenario === "editor")
+    return answer === true ? "Editor prefill kept" : `Editor answer ${answer}`;
   if (scenario === "report-trust")
     return JSON.stringify({
       approve: process.argv.includes("--approve"),
@@ -494,7 +543,7 @@ function plainResponse(
 }
 
 function createStream(
-  dialogAnswer: () => boolean,
+  dialogAnswer: () => boolean | string,
   idleWake: () => boolean
 ): ProviderStreams["streamSimple"] {
   return (model, context, { signal, reasoning } = {}) => {
@@ -515,6 +564,18 @@ function createStream(
         model,
         signal,
         run: async (stream) => abortToolResponse(stream)
+      });
+    if (scenario === "late-dialogs")
+      return createFixtureStream({
+        model,
+        signal,
+        // The run holds until the editor dialog has its answer, so the child can still receive it.
+        run: async ({ text }) => {
+          while (!existsSync(join(process.cwd(), LATE_DIALOG_ANSWERS.editor))) await setTimeout(25);
+          text("Late dialogs answered");
+
+          return "stop";
+        }
       });
     if (scenario === "report-selection")
       return createFixtureStream({
@@ -755,7 +816,7 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   });
   let ignoreShutdown = false;
   let noisyShutdown = false;
-  let answer = false;
+  let answer: boolean | string = false;
   let settleHold = false;
   let exitHold = false;
   let digestCompact = false;
@@ -804,21 +865,12 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       await writeStderr(`${STDERR_NOISE}fixture progress 50%`);
     }
 
-    // A zombie in this child's process group whose parent, in its own group, reaps it only on
-    // SIGTERM. Signals still reach the group, so a forced stop cannot end it. The parent holds the
-    // child's output pipes and records both PIDs in `zombie-pids`; the test stops it.
+    // A zombie in this child's process group. Its parent holds the child's output pipes.
     if (prompt === "group-zombie")
-      spawn(
-        "perl",
-        [
-          "-MPOSIX",
-          "-e",
-          "$g = getpgrp; setpgid(0, 0); $c = fork; if (!$c) { setpgid(0, $g); exit } " +
-            "$SIG{TERM} = sub { waitpid($c, 0); exit }; open F, '>', 'zombie-pids.tmp'; " +
-            "print F join(' ', $$, $c); close F; rename 'zombie-pids.tmp', 'zombie-pids'; sleep 600"
-        ],
-        { cwd: ctx.cwd, stdio: ["ignore", "inherit", "inherit"] }
-      );
+      spawn("perl", ["-MPOSIX", "-e", GROUP_ZOMBIE_SCRIPT], {
+        cwd: ctx.cwd,
+        stdio: ["ignore", "inherit", "inherit"]
+      });
     if (prompt === "dialog")
       // A shorter limit would decline the dialog when a loaded host answers late.
       answer = await ctx.ui.confirm("Fixture question", "Continue this child task?", {
@@ -828,6 +880,28 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       answer =
         (await ctx.ui.select("Fixture selection", ["Same", "\u001b[31mSame\u001b[0m"])) ===
         "\u001b[31mSame\u001b[0m";
+
+    if (prompt === "editor") {
+      const received = await ctx.ui.editor("Fixture editor", EDITOR_PREFILL);
+      // A changed answer is reported by its SHA-256, so a test can check the exact text received.
+      answer =
+        received === EDITOR_PREFILL ||
+        (received === undefined
+          ? "cancelled"
+          : createHash("sha256").update(received).digest("hex"));
+    }
+
+    // The dialogs stay open while the run streams, so the run can be cancelled with them open.
+    if (prompt === "late-dialogs")
+      for (const [method, file] of Object.entries(LATE_DIALOG_ANSWERS)) {
+        const dialog =
+          method === "select"
+            ? ctx.ui.select("Fixture late selection", ["First", "Second"])
+            : ctx.ui.editor("Fixture late editor", "Late prefill");
+        void dialog.then((received) =>
+          writeFile(join(ctx.cwd, file), received === undefined ? "cancelled" : `value ${received}`)
+        );
+      }
 
     return { systemPrompt: `${event.systemPrompt}\nSUBAGENTS_PREPARED_CONTEXT` };
   });

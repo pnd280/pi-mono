@@ -150,7 +150,7 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
       entry: {
         name: profile?.name,
         // Code unit order, so that the entry does not follow load order. Restoration reads only
-        // which tools they name, and runs use the fixed tool order.
+        // which tools they name.
         base: [...base].sort(),
         tools: [...active].sort(),
         deferred
@@ -177,27 +177,12 @@ export function planRestore(state: ToolState, options: RestoreOptions): RestoreP
   };
 }
 
-/**
- * The active tools without the `deny` matches, in a fixed order: Pi's own tools in the order of
- * `tools` (Pi's `getAllTools()`, which lists its core tools first, in Pi's order), then the other
- * tools by name. Pi activates extension tools in registration order, which follows load order.
- * Undefined when the active tools are already so.
- */
-export function enforcedTools(
-  active: readonly string[],
-  tools: readonly Pick<ToolInfo, "name" | "sourceInfo">[],
-  rules: Rules
-): string[] | undefined {
+/** The active tools without the `deny` matches. Undefined when no active tool matches. */
+export function enforcedTools(active: readonly string[], rules: Rules): string[] | undefined {
   const denied = toolMatcher(rules.deny);
-  const kept = new Set(active.filter((name) => !denied(name)));
-  const own = tools.filter((tool) => isPiTool(tool) && kept.has(tool.name)).map(({ name }) => name);
-  // Code unit order, so that the locale does not change it.
-  const others = [...kept].filter((name) => !own.includes(name)).sort();
-  const enforced = [...own, ...others];
-  const changed =
-    enforced.length !== active.length || enforced.some((name, index) => name !== active[index]);
+  const kept = active.filter((name) => !denied(name));
 
-  return changed ? enforced : undefined;
+  return kept.length === active.length ? undefined : kept;
 }
 
 /**
@@ -295,8 +280,8 @@ function latestEntry(
 /**
  * Whether a request followed the selection at `index`, so that the transcript records its tools.
  * Pi adds a system message before a request that changes the tools or the prompt, and can omit it
- * when both stay, so a response also counts. Without either, the recorded tools predate the selection. A compaction
- * checkpoint copies the earlier record, so it does not count.
+ * when both stay, so a response also counts. Without either, the recorded tools predate the
+ * selection. A compaction checkpoint copies the earlier record, so it does not count.
  */
 function loadoutRecordedAfter(branch: readonly SessionEntry[], index: number): boolean {
   return branch
@@ -321,6 +306,16 @@ function usedTools(branch: readonly SessionEntry[]): Set<string> {
 
 const exposures = (tools: readonly ToolInfo[]) =>
   new Map(tools.map((tool) => [tool.name, tool.exposure]));
+
+/** Whether `tools` declares a registered, non-hidden `tool_search`. */
+function declaresSearch(
+  tools: readonly string[],
+  exposure: ReadonlyMap<string, ToolExposure>
+): boolean {
+  const search = exposure.get(TOOL_SEARCH);
+
+  return search !== undefined && search !== "hidden" && tools.includes(TOOL_SEARCH);
+}
 
 /** Whether the declarable `tool_search` is the extension's, which also loads deferred tools. */
 const ownsToolSearch = ({ tools, searchReach }: ToolState) =>
@@ -365,13 +360,6 @@ function toolMatcher(entries: readonly string[]): (name: string) => boolean {
 
   return (name) => names.has(name) || patterns.some((pattern) => pattern.test(name));
 }
-
-/**
- * Pi's own tools, such as `read` and `codemode`, have the source path `builtin:<name>`. Other tools
- * of Pi's built-in extensions, such as MCP tools, have the extension's path, such as `builtin:mcp`.
- */
-const isPiTool = ({ name, sourceInfo }: Pick<ToolInfo, "name" | "sourceInfo">) =>
-  sourceInfo.source === "builtin" && sourceInfo.path === `builtin:${name}`;
 
 /** The names of a `defer` entry: a name or pattern, or a group of them. */
 const entryNames = (entry: string | readonly string[]) =>
@@ -517,9 +505,7 @@ function profileTools(
   }
 
   if (direct.length > 0 && !tools.includes(TOOL_SEARCH)) tools.push(TOOL_SEARCH);
-  const searchExposure = state.exposure.get(TOOL_SEARCH);
-  const searchDeclared =
-    searchExposure !== undefined && searchExposure !== "hidden" && tools.includes(TOOL_SEARCH);
+  const searchDeclared = declaresSearch(tools, state.exposure);
   if (!searchDeclared) tools.push(...native);
 
   const off = [...direct, ...(searchDeclared ? native : [])];
@@ -597,9 +583,7 @@ function restoredTools(selection: Selection, state: RestoreState): string[] {
     tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
   } else tools = [...selection.tools];
 
-  const searchExposure = state.exposure.get(TOOL_SEARCH);
-  const searchDeclared =
-    searchExposure !== undefined && searchExposure !== "hidden" && tools.includes(TOOL_SEARCH);
+  const searchDeclared = declaresSearch(tools, state.exposure);
 
   // Without a declared `tool_search`, no deferred tool can load again. Without the extension's
   // copy, deferred `direct` tools and groups still need restoration.

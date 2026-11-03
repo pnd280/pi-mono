@@ -209,6 +209,7 @@ it.each([
     saved: { cancelled: true, operation: true, outcome: "failure" }
   },
   {
+    // A result without a duration takes the same replay path for any facts.
     case: "a host cancellation before the tool ran",
     facts: [],
     outcome: "cancelled",
@@ -221,13 +222,6 @@ it.each([
     facts: [],
     outcome: "failure",
     saved: undefined
-  },
-  {
-    case: "a shell success whose final result has no duration",
-    facts: [operation({ outcome: "success", exitCode: 0 })],
-    outcome: "success",
-    saved: { operation: true },
-    durationMs: undefined
   },
   {
     case: "a write applied although Pi reported failure",

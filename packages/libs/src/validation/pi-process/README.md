@@ -50,13 +50,6 @@ try {
 - Create fixture contents under `createValidationWorkspace`'s `work`, `home`, `agent`, and `tmp` directories. Pass an async `prepare(directory)` callback as its second argument to seed consumer-specific files. The workspace is returned only after that callback succeeds, and setup failure removes it.
 - Select offline providers and resource flags explicitly, and start the process through the chosen runner.
 - Use the [terminal launcher](../terminal-launcher/README.md) for interactive validation.
-
-### Time limits
-
-- Guard each process run and each awaited fixture step with `STEP_TIMEOUT_MS`. These limits only stop a stuck test.
-- Do not give a test its own limit. The root `vite.config.ts` sets one for all tests.
-- Do not use shorter limits to detect hangs. A full suite starts many Pi processes at once, so a step can take several times as long as it does alone.
-
-Vitest 5 does not search parent directories for a config. Every package passes the root config in its `test` script, for example `vp test run --config ../../../vite.config.ts`, so that package runs also get the hang guard and the global setup.
+- Guard each process run and each awaited fixture step with `STEP_TIMEOUT_MS` (60 seconds). These limits only stop a stuck test.
 
 Related: the [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) fixtures prepare launches.

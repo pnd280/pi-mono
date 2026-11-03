@@ -2,6 +2,8 @@
 
 [Working-message coordinator](README.md)
 
+Read this when you change the `/working-message` menu, its keys, or saved ordering.
+
 ## Settings menu
 
 `/working-message` takes no arguments and requires interactive TUI mode. It opens the project scope when project settings set an `order`, otherwise the global scope. Switch scopes inside the menu with **Tab**; project scope requires a trusted project.

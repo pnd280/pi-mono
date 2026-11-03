@@ -15,6 +15,18 @@ export function expandHomePath(value: string, home: string): string {
   return value;
 }
 
+/**
+ * Pi's Windows drive aliases from Git Bash, MSYS, Cygwin, and WSL: `/c/dir`, `/mnt/c/dir`, and
+ * `/cygdrive/c/dir` become `C:\dir`. Other values, including UNC and backslash paths, are unchanged.
+ */
+export function windowsDrivePath(value: string): string {
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return value;
+  const match = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i.exec(value);
+  if (!match?.[1]) return value;
+
+  return `${match[1].toUpperCase()}:\\${match[2]?.replaceAll("/", "\\") ?? ""}`;
+}
+
 /** Display local paths relative to cwd and external paths absolutely, without filesystem access. */
 export function relativeDisplayPath(value: string, cwd: string): string {
   if (!absolutePathSchema.safeParse(cwd).success)

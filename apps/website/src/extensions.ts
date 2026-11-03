@@ -1,4 +1,9 @@
-export const repositoryUrl = "https://github.com/pnd280/pi-mono";
+const repositoryPath = "github.com/pnd280/pi-mono";
+
+export const repositoryUrl = `https://${repositoryPath}`;
+
+// The Pi package source of the generated release branch, as in the workspace README's install section.
+export const releaseSource = `git:${repositoryPath}@release`;
 
 export type Extension = {
   name: string;
@@ -23,8 +28,7 @@ export const extensionGroups: ExtensionGroup[] = [
     extensions: [
       {
         name: "pi-tool-display",
-        summary:
-          "Shows tool calls as compact, expandable cards with file diffs, so long runs stay readable.",
+        summary: "Shows tool calls as compact, expandable cards with file diffs.",
         sample: {
           kind: "output",
           text: "▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   12 calls"

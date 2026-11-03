@@ -34,7 +34,7 @@ it("mounts the notes footer", async () => {
 
 Pass extension factories and optionally `"regular"` or `"fullscreen"`. Create feature-specific settings under the returned `directory` and `agentDir`, then call `bind()` to emit session startup against the real UI. `host`, `ui`, `session`, and `terminal` expose the installed boundary for consumer assertions.
 
-Always close custom UI and await `dispose()` in `finally`. If a widget or footer disposer throws, `dispose()` still releases the host and session resources. Directory removal and environment restoration also run if host or session cleanup throws.
+Always close custom UI and await `dispose()` in `finally`. When a cleanup step throws, such as a widget or footer disposer, `dispose()` still runs every other step, including host and session release, directory removal, and environment restoration, and then throws an `AggregateError`.
 
 Do not run fixtures concurrently in the same test context, because environment stubs and Pi's theme are process-local.
 
@@ -46,6 +46,6 @@ Send terminal bytes with `send(data)` and force a render with `render()`. The re
 
 ## Validation
 
-Use the [library checks](../../../README.md#validation) and affected consumer suites; each suite registers only its own feature.
+Run the affected consumer suites; each suite registers only its own feature.
 
 The fixture relies on installed Pi's private containers, `mountInteractiveTui`, `createExtensionUIContext`, and `createChatViewport`. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.

@@ -2,11 +2,11 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Compatibility and terms](pi-compatibility.md)
 
-This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, and ownership of the native hooks it replaces; Pi owns summarisation and provider behaviour.
+This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, and ownership of the native hooks it replaces; Pi owns summarisation and provider behaviour. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the invariants below.
 
 ## Must not regress
 
-E2e checks use the installed CLI or a real SDK session with offline providers and disposable workspaces in the system temporary directory, never personal settings, credentials, or network calls.
+E2e checks never use personal settings or credentials.
 
 ### Model and credential isolation
 
@@ -16,12 +16,14 @@ E2e checks use the installed CLI or a real SDK session with offline providers an
 - **Critical, e2e:** Summary model and thinking overrides leave the conversation model and its thinking level unchanged.
 - **Critical, e2e:** An operation with a different abort signal receives neither the owning compaction's focus nor its model and thinking overrides.
 - **Critical, e2e:** Temporary summarisation, event, and stream overrides stop applying when their scoped attempt exits, including on errors.
+- **High, e2e:** Summary requests through Pi's session stream carry no pre-resolved key, headers, or environment, so the model runtime can use a stored OAuth login.
 
 ### Failure and abort
 
 - **Critical, e2e:** A requested compaction reported as failed or cancelled before native persistence preserves the existing conversation context, apart from its outcome status.
 - **High, e2e:** Cancelling a requested compaction without aborting the agent run allows continuation with a cancellation status.
 - **High, e2e:** Aborting the whole agent run prevents a further conversation-model request.
+- **High, e2e:** Summary-model metadata is appended only after Pi's final abort check. A late abort leaves the branch unchanged, and another extension's retained `appendCompaction` replacement stays in place.
 - **High, unit:** An unexpected native exception propagates without an extension outcome status.
 
 ### Session isolation
@@ -41,9 +43,10 @@ E2e checks use the installed CLI or a real SDK session with offline providers an
 
 ## Not tested
 
-- Footer status and docs-file loading are below the severity bar. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the listed invariants.
+- Footer status, docs-file loading, and the text of `context_window` results are below the severity bar.
 - Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
+- The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
 - Pi owns threshold detection and the full overflow retry scheduler.
 - Interactive mounting and terminal appearance are not tested automatically. The [manual checks](#manual-checks) cover them.
 - Pi owns RPC display.

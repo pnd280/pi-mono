@@ -4,7 +4,7 @@ The guard stops FFF searches that would silently return nothing, or only matches
 
 ## Compatibility
 
-The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.4.0 and FFF 0.11.0.
+The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.5.0 and FFF 0.11.0.
 
 The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. It leaves built-in tools and unrecognised forks alone.
 
@@ -20,7 +20,10 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 ### Limits
 
-- Inspection has a two-second deadline. It fails for paths or filters with more than 128 components, and for link chains of 32 or more links. If inspection fails and no other target is blocked, the guard allows the call and shows a diagnostic in the UI or on stderr. If you cancel, the guard blocks the call.
+- Inspection has a two-second deadline.
+- Inspection fails for paths or filters with more than 128 components, and for link chains of 32 or more links.
+- If inspection fails and no other target is blocked, the guard allows the call and shows a diagnostic in the UI or on stderr.
+- If you cancel, the guard blocks the call.
 - Tools that wrap FFF must dispatch child calls through Pi hooks; calling `execute()` directly skips the guard.
 - Slash commands and `@` autocomplete aren't checked.
 
@@ -32,12 +35,12 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 ## Validation
 
-Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-fff-guard`. Tests require Git and `mkfifo`.
+The tests require Git and `mkfifo`.
 
-| When you…                               | Read                                           |
-| --------------------------------------- | ---------------------------------------------- |
-| Change interception or search scopes    | The [coverage specification](docs/testing.md). |
-| Change Pi or FFF versions, or retire it | [Pi compatibility](docs/pi-compatibility.md).  |
+| When you…                                      | Read                                         |
+| ---------------------------------------------- | -------------------------------------------- |
+| Change interception or search scopes           | [Test coverage](docs/testing.md)             |
+| Change Pi or FFF versions, or retire the guard | [Pi compatibility](docs/pi-compatibility.md) |
 
 ## Retirement
 

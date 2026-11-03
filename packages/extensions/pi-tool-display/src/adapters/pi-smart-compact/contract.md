@@ -2,7 +2,7 @@
 
 [pi-smart-compact adapter](README.md) · [Adapter development](../../../docs/adapters.md)
 
-Adapter maintainers use this contract when they change result handling. [Smart compact cards](../../../docs/tools.md#smart-compact) describes what users see.
+Adapter maintainers use this contract when they change result handling. [Smart compact cards](../../../docs/tools.md#smart-compact) describes what users see. The producer's pure [`pi-smart-compact/result`](../../../../pi-smart-compact/src/result.ts) module owns the acknowledgement text and the details schemas that the adapter validates.
 
 ## Display
 

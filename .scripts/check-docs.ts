@@ -242,9 +242,10 @@ function trackRegressScope(scope: RegressScope, line: string): string | undefine
   const heading = /^(#{1,6})\s+(.+?)\s*#*$/.exec(line);
 
   if (heading) {
-    const level = heading[1].length;
+    const [, marks = "", title] = heading;
+    const level = marks.length;
 
-    if (heading[2] === "Must not regress") scope.level = level;
+    if (title === "Must not regress") scope.level = level;
     else if (level <= scope.level) scope.level = 0;
     scope.intro = undefined;
     scope.seenHigh = false;

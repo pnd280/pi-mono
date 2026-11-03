@@ -2,8 +2,8 @@ import type { ExtensionAPI, SessionStats } from "@earendil-works/pi-coding-agent
 import { z } from "zod";
 
 import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "./constants.ts";
-import type { JobDetails } from "./jobs/records.ts";
-import { detailsSchema, jobText, taskResult, usageDifference, type ToolDetails } from "./result.ts";
+import { detailsSchema, type JobDetails, type ToolDetails } from "./details.ts";
+import { jobText, taskResult, usageDifference } from "./result.ts";
 
 /**
  * A background result message, ready for `pi.sendMessage`. This module alone builds and reads its

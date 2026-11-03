@@ -1,8 +1,14 @@
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { z } from "zod";
 
 import { compactDisplayText } from "../tui/terminal-text/index.ts";
-import { settingsPaths, type SettingsScope, type SettingsScopeOptions } from "./scopes.ts";
-import { isSettingsRecord, readSettingsRecord, updateSettingsRecord } from "./transaction.ts";
+import {
+  readScopedSections,
+  settingsPaths,
+  type SettingsScope,
+  type SettingsScopeOptions
+} from "./scopes.ts";
+import { isSettingsRecord, updateSettingsRecord } from "./transaction.ts";
 
 export type SettingsSectionOptions<Value> = SettingsScopeOptions & {
   /** Top-level settings key holding the section object, such as `ext.<package>`. */
@@ -32,39 +38,33 @@ export function settingsSection<Value>(
   options: SettingsSectionOptions<Value>
 ): SettingsSection<Value> {
   const { key, field, schema, projectTrusted } = options;
-  const paths = settingsPaths(options);
+  // Resolve Pi's agent directory once, so loads read the files that `paths` names and saves replace.
+  const scopes = { cwd: options.cwd, projectTrusted, agentDir: options.agentDir ?? getAgentDir() };
+  const paths = settingsPaths(scopes);
 
   return {
     paths,
     projectTrusted,
 
     load() {
-      const warnings: string[] = [];
-
-      const read = (path: string): Value | undefined => {
-        let section: unknown;
-
-        try {
-          const record = readSettingsRecord(path);
-          section = record[key] === undefined ? {} : record[key];
-        } catch {
-          // An unreadable file warns like a malformed section.
-        }
-
-        const parsed = isSettingsRecord(section)
-          ? schema.optional().safeParse(section[field])
-          : undefined;
-        if (parsed?.success) return parsed.data;
-        warnings.push(options.loadWarning(compactDisplayText(path)));
-
-        return undefined;
+      const values: SettingsSectionValues<Value> = {
+        global: undefined,
+        project: undefined,
+        warnings: []
       };
 
-      return {
-        global: read(paths.global),
-        project: projectTrusted ? read(paths.project) : undefined,
-        warnings
-      };
+      for (const scoped of readScopedSections(scopes, key)) {
+        // A missing section loads as undefined; an unreadable file warns like a malformed section.
+        if (scoped.status === "read" && scoped.value === undefined) continue;
+        const parsed =
+          scoped.status === "read" && isSettingsRecord(scoped.value)
+            ? schema.optional().safeParse(scoped.value[field])
+            : undefined;
+        if (parsed?.success) values[scoped.scope] = parsed.data;
+        else values.warnings.push(options.loadWarning(compactDisplayText(scoped.path)));
+      }
+
+      return values;
     },
 
     save(scope, value) {

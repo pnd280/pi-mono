@@ -18,10 +18,7 @@ Adapters must not enable or run tools, access files, persist data, modify borrow
 
 1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`. Pi's built-in extensions use `src/adapters/builtin/<extension-name>/`, matching their `builtin:<extension-name>` source path.
 2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognise-tool-contracts), not names alone. [`registeredBy`](../../../utils/src/provenance.ts) checks an extension package's registration. Return `undefined` for unsupported definitions.
-3. Colocate [Zod schemas](../../../../docs/agents/runtime-validation.md), presentation, and tests. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Reject input as described in [invalid and partial input](renderers.md#invalid-and-partial-input). In TypeScript source, write an em dash as the `\u2014` escape, because the repository's pre-commit hook rejects literal em dashes.
-
-   Add automated tests only for [listed invariants](testing.md#must-not-regress). Verify other adapter behaviour with the manual checks.
-
+3. Keep the adapter's schemas and presentation in that directory. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Reject input as described in [invalid and partial input](renderers.md#invalid-and-partial-input). In TypeScript source, write an em dash as the `\u2014` escape, because the repository's pre-commit hook rejects literal em dashes.
 4. Describe what users see in the tool's section of [supported tool cards](tools.md). Write the adapter's `README.md` for its maintainers, and keep it short:
    - Open with one sentence on what users of the adapted extension see, linked to its section in supported tool cards.
    - "Compatibility and selection" states the provenance and schema that the resolver checks, and what does not qualify. Session-message adapters use "Compatibility and registration".
@@ -31,7 +28,7 @@ Adapters must not enable or run tools, access files, persist data, modify borrow
 
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
-To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
+To expose a value adapter to tool authors for [standalone integration](renderers.md#explicit-contracts), export it from [`src/adapters/index.ts`](../src/adapters/index.ts). Keep resolvers out of that entry, because selection is host-internal.
 
 ### Callback arguments
 
@@ -56,7 +53,7 @@ Callbacks should return `undefined`, or reject through `supports`, rather than t
 
 ## Session-message adapters
 
-Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. The subagent adapter imports only the message identifiers and the open-action event name from `pi-subagents/constants`, because pi-subagents exports no decoder. Like its tool cards, it verifies [background results](../src/adapters/pi-subagents/contract.md#background-results) and [job results](../src/adapters/pi-subagents/contract.md#background-jobs) with its own schemas.
+Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. The subagent adapter imports the message identifiers and the open-action event name from `pi-subagents/constants`, and the task and job details schemas from `pi-subagents/details`. Like its tool cards, it verifies [background results](../src/adapters/pi-subagents/contract.md#background-results) and [job results](../src/adapters/pi-subagents/contract.md#background-jobs) with those producer schemas.
 
 The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) derives summary categories and identities from validated notice details. Its [notice card renderer](../src/rendering/notice.ts) lives with the other card layout, so notice paths share target wrapping. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
 

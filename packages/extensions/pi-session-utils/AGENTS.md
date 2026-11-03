@@ -11,7 +11,7 @@ Keep naming separate from the locking and idle checks of session operations.
 ## Session operations
 
 - Keep branch entry IDs and parent links. Give saved snapshots a new session ID.
-- Keep Pi's session-wide name, or its clearing, even when the latest name metadata is outside the active branch.
+- Keep Pi's session-wide name and the copied entries' labels, or their clearing, even when the latest metadata is outside the active branch.
 - After a switch or replacement, do UI work through the fresh `withSession` context. Never use a stale extension context after a successful replacement.
 - For a busy child command, suggest a shell-quoted CLI command only if the current parent file exists and its path is safe to copy.
 
@@ -31,8 +31,4 @@ Keep naming separate from the locking and idle checks of session operations.
 
 ## Validation
 
-| When you…                | Read or run                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Run checks               | The [package checks](../../../docs/development.md#focused-validation). They use offline fixture models. |
-| Change a host assumption | The [compatibility checklist](docs/pi-compatibility.md).                                                |
-| Choose tests             | The [coverage specification](docs/testing.md).                                                          |
+When you change a host assumption, work through the [compatibility checklist](docs/pi-compatibility.md).

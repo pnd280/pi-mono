@@ -111,21 +111,19 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
   return { ...fixture, session, errors, notify, getEditor: () => editor };
 }
 
-it.each(["print", "json", "rpc"] as const)(
-  "does not register or touch feature storage/settings in %s mode",
-  async (mode) => {
-    const fixture = await host(mode);
-    expect(fixture.session.extensionRunner.getCommand("prompts")).toBeUndefined();
-    expect(fixture.session.extensionRunner.getShortcuts({}).has("ctrl+r")).toBe(false);
-    await fixture.session.extensionRunner.emitInput("not captured", undefined, "interactive");
-    fixture.session.sessionManager.appendCustomMessageEntry("fixture", "not captured", false);
-    await expect(readFile(join(fixture.agentDir, "pi-prompt-manager"))).rejects.toMatchObject({
-      code: "ENOENT"
-    });
-    expect(fixture.notify).not.toHaveBeenCalled();
-    expect(fixture.errors).toEqual([]);
-  }
-);
+// Print, JSON, and RPC share the `ctx.mode !== "tui"` gates in src/index.ts; bundle.test.ts runs print.
+it("does not register or touch feature storage/settings in RPC mode", async () => {
+  const fixture = await host("rpc");
+  expect(fixture.session.extensionRunner.getCommand("prompts")).toBeUndefined();
+  expect(fixture.session.extensionRunner.getShortcuts({}).has("ctrl+r")).toBe(false);
+  await fixture.session.extensionRunner.emitInput("not captured", undefined, "interactive");
+  fixture.session.sessionManager.appendCustomMessageEntry("fixture", "not captured", false);
+  await expect(readFile(join(fixture.agentDir, "pi-prompt-manager"))).rejects.toMatchObject({
+    code: "ENOENT"
+  });
+  expect(fixture.notify).not.toHaveBeenCalled();
+  expect(fixture.errors).toEqual([]);
+});
 
 it("registers at startup and reload, keeps old callbacks inert, persists without native session storage", async () => {
   const fixture = await host("tui");

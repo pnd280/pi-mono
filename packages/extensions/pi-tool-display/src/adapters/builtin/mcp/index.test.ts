@@ -2,10 +2,10 @@ import { initTheme, type AgentToolResult, type ToolInfo } from "@earendil-works/
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import { plainTheme as theme } from "../../../test-fixture.ts";
-import { mcpToolDisplayAdapter as adapter } from "./index.ts";
+import { keybindingHints, plainTheme as theme } from "../../../test-fixture.ts";
+import { builtinMcpAdapter } from "./index.ts";
 
-// Mirrors Pi 1.4.0 `createMcpToolDefinition` for a server that omits `properties`.
+// Mirrors Pi 1.5.0 `createMcpToolDefinition` for a server that omits `properties`.
 const info: ToolInfo = {
   name: "mcp__exa__web_search_exa",
   exposure: "direct",
@@ -14,6 +14,7 @@ const info: ToolInfo = {
   parameters: { type: "object", properties: {} },
   sourceInfo: { path: "builtin:mcp", source: "builtin", scope: "user", origin: "top-level" }
 };
+const adapter = builtinMcpAdapter(info)!;
 
 function result(details: unknown, text = "Title: Vite+ release notes"): AgentToolResult<unknown> {
   return { content: [{ type: "text", text }], details };
@@ -34,6 +35,7 @@ function renderContext(args: unknown, overrides: { isPartial?: boolean; isError?
     isError: false,
     durationMs: undefined,
     outputPad: 1,
+    ...keybindingHints,
     invalidate() {},
     ...overrides
   };

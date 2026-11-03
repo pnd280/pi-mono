@@ -6,7 +6,7 @@ import { selectAdapter } from "./selection.ts";
 
 const owner = { renderCall: () => ({ render: () => [], invalidate() {} }) };
 
-it("applies renderer overrides before native and extension adapters", () => {
+it("applies exact-name renderer overrides before native and extension adapters", () => {
   for (const native of [false, true]) {
     for (const mode of ["auto", "original", "generic"] as const) {
       const settings = loadDisplaySettings([
@@ -29,5 +29,19 @@ it("applies renderer overrides before native and extension adapters", () => {
       { path: "settings", settings: { "ext.pi-tool-display": { showParameters: "invalid" } } }
     ]);
     expect(selectAdapter(invalid, "grep", owner, native, fffToolInfo("grep"))).toBeUndefined();
+  }
+
+  // Prototype-like names without an override keep automatic selection: a renderer slot
+  // stays (not generic), and a tool without one gets a generic card (not original).
+  const overridden = loadDisplaySettings([
+    {
+      path: "settings",
+      settings: { "ext.pi-tool-display": { rendererOverrides: { grep: "generic" } } }
+    }
+  ]);
+
+  for (const name of ["toString", "constructor"]) {
+    expect(selectAdapter(overridden, name, owner, false)).toBeUndefined();
+    expect(selectAdapter(overridden, name, undefined, false)?.id).toBe("generic");
   }
 });

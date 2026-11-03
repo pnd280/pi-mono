@@ -1,8 +1,8 @@
-import {
-  keyHint,
-  type createReadToolDefinition,
-  type Theme,
-  type ToolDefinition
+import type {
+  createReadToolDefinition,
+  KeybindingHints,
+  Theme,
+  ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { highlightCodeSelection } from "@pi-mono/libs/tui/components/code-highlight";
@@ -64,7 +64,8 @@ function renderDocument(
   selection: Selection | undefined,
   theme: Theme,
   expanded: boolean,
-  windowed: boolean
+  windowed: boolean,
+  hints: KeybindingHints
 ): Component {
   const ranges = selection ? document.select(selection).ranges : [];
 
@@ -90,7 +91,7 @@ function renderDocument(
         selection || windowed
           ? ""
           : theme.fg("muted", `loaded ${count} ${count === 1 ? "line" : "lines"} · `);
-      rows.push(summary + keyHint("app.tools.expand", "to expand"));
+      rows.push(summary + hints.keyHint("app.tools.expand", "to expand"));
     }
 
     if (document.notice) rows.push(theme.fg("warning", displayText(document.notice)));
@@ -146,7 +147,8 @@ export function createReadRenderers(base: NativeRead): ReadRenderers {
         args.selection,
         theme,
         options.expanded,
-        readWindow(args) !== undefined
+        readWindow(args) !== undefined,
+        context
       );
     }
   };

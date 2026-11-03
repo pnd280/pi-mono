@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import { expect, it, vi } from "vite-plus/test";
 
-import smartCompact from "../src/index.ts";
+import smartCompact from "../index.ts";
 import { summaryModelEntryType } from "../src/summary-model-entry.ts";
 import { sdkSessionFixture } from "./sdk-session.ts";
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { PROTOCOL_VERSION, RECORD_MAX_BYTES } from "../constants.ts";
-import { deliverySchema, detailsSchema } from "../result.ts";
+import { deliverySchema, detailsSchema } from "../details.ts";
 import { taskRecordSchema } from "../tasks/records.ts";
 
 /** Protocol messages are ephemeral. Pi never persists them in either session. */

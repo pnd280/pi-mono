@@ -71,7 +71,7 @@ pi-profiles refuses a switch while the agent runs, and does not apply a profile 
 
 ### Tools
 
-A profile declares the tools in `allow`, or else the base tools: the tools that are declared without a profile. pi-profiles keeps the `deny` tools off, and stops declaring `defer` tools that the branch has not used and that `tool_search` can load again.
+Declared tools are the tools that Pi sends to the model with each request. A profile declares the tools in `allow`, or else the base tools: the tools that are declared without a profile. pi-profiles keeps the `deny` tools off, and stops declaring `defer` tools that the branch has not used and that `tool_search` can load again.
 
 This profile defers the GitHub MCP tools that the branch has not used, so the model loads them with `tool_search` when it needs them, and keeps `bash` off:
 
@@ -111,7 +111,6 @@ The section has a `profiles` array, an optional `defaultProfile` for interactive
 - Pi records model and thinking changes in the session.
 - pi-profiles replaces Pi's built-in `tool-search` extension with its own copy of `tool_search`; see [tool search](#tool-search).
 - Before each run and at the end of each turn, pi-profiles turns off the selected profile's `deny` tools; see [declared tools](docs/tools.md#declared-tools).
-- At the same times, pi-profiles puts the declared tools in a fixed order, also without a profile.
 - In the interactive terminal, when profiles are configured, pi-profiles replaces the editor with the same editor plus the profile name. It keeps the editor of an extension that loaded earlier.
 - An extension that loads later and discards the earlier editor removes the profile name.
 - A switch changes the system prompt or the declared tools, so the provider may not reuse its prompt cache for the next request.

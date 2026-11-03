@@ -565,7 +565,7 @@ function trimShellTrailingRows(text: string, p: Projection): string {
   let end = text.length;
   const trailingStyles: string[] = [];
 
-  // Work backward through normalized rows before preview budgeting. Keep internal
+  // Work backward through normalised rows before preview budgeting. Keep internal
   // whitespace and move SGR resets off discarded blank rows onto the final row.
   while (end > 0) {
     const newline = text.lastIndexOf("\n", end - 1);

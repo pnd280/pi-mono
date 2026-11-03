@@ -5,8 +5,6 @@ import type { CustomMessageEntryDraft } from "@earendil-works/pi-coding-agent";
 import { absolutePathSchema, relativeDisplayPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
-import type { Selection } from "./storage.ts";
-
 export const noticeType = "pi-nested-instructions.notice";
 
 export const noticeSchema = z.strictObject({
@@ -57,21 +55,26 @@ function noticeFrame(
   };
 }
 
+/** Loaded and updated notices carry the selected file; a removal names only the directory. */
+type NoticeChange =
+  | { action: "loaded" | "updated"; path: string; content: string }
+  | { action: "removed" };
+
 export function noticeEntry(
   directory: string,
-  selected: Selection | undefined,
-  action: Notice["action"],
+  change: NoticeChange,
   cwd: string
 ): CustomMessageEntryDraft {
-  const displayPath = relativeDisplayPath(selected?.path ?? directory, cwd);
-  const { prefix, suffix } = noticeFrame(displayPath, action);
-  const content = prefix + (selected?.content ?? "") + suffix;
+  const file = change.action === "removed" ? undefined : change;
+  const displayPath = relativeDisplayPath(file?.path ?? directory, cwd);
+  const { prefix, suffix } = noticeFrame(displayPath, change.action);
+  const content = prefix + (file?.content ?? "") + suffix;
   const details: Notice = {
     version: 3,
     directory,
-    path: selected?.path ?? null,
+    path: file?.path ?? null,
     displayPath,
-    action,
+    action: change.action,
     messageDigest: digest(content)
   };
 

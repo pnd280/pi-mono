@@ -13,6 +13,7 @@ import {
   type CompactConfig
 } from "./config.ts";
 import { bindNativeCompaction } from "./native.ts";
+import { compactAcknowledgement, type CompactDetails } from "./result.ts";
 import {
   renderSummaryModel,
   summaryModelEntryType,
@@ -97,7 +98,7 @@ export default function smartCompact(pi: ExtensionAPI) {
       );
     } catch (error) {
       unavailable =
-        error instanceof Error ? error.message : "pi-smart-compact initialization failed.";
+        error instanceof Error ? error.message : "pi-smart-compact: initialization failed.";
       // Rethrowing makes Pi render the full stack; the message alone is actionable and already
       // names the extension.
       if (ctx.hasUI) ctx.ui.notify(unavailable, "error");
@@ -144,13 +145,11 @@ export default function smartCompact(pi: ExtensionAPI) {
         thinkingLevel = "off";
 
       return {
-        content: [
-          {
-            type: "text",
-            text: "Compaction requested."
-          }
-        ],
-        details: { scheduled: true, ...(modelOverride ? { modelOverride, thinkingLevel } : {}) }
+        content: [{ type: "text", text: compactAcknowledgement }],
+        details: {
+          scheduled: true,
+          ...(modelOverride ? { modelOverride, thinkingLevel } : {})
+        } satisfies CompactDetails
       };
     }
   });

@@ -49,4 +49,8 @@ it("counts clipped source bytes independently of invalid-byte replacement decodi
     text: "��",
     omittedBytes: 0
   });
+  expect(decodeUtf8Window(Buffer.from([0x80, 0x80, 0x80, 0x80, 0x61]), "tail")).toEqual({
+    text: "�a",
+    omittedBytes: 3
+  });
 });

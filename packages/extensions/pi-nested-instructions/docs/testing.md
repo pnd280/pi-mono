@@ -13,7 +13,9 @@ E2e checks drive a Pi host with its faux provider and network access disabled. T
 - **High, e2e:** Nested discovery leaves Pi's native global, cwd, and parent instruction loading and reload behaviour unchanged.
 - **High, e2e:** Supported nested tool inputs can load instructions even when the parent hides the child output, unless a sibling [direct read](../GLOSSARY.md#discovery) suppresses the selected file.
 - **High, e2e:** Nested calls do not create direct-read suppression markers, including blocked and invalid child attempts.
+- **High, e2e:** A blocked or invalid direct read attempt still suppresses a duplicate notice.
 - **High, integration:** A notice stops suppressing rediscovery when its complete message is changed or omitted from the canonical session projection by context edits, compaction, or branch navigation.
+- **High, integration:** Refresh issues an updated notice whenever the selected file or its body differs from the visible snapshot, including an empty body.
 - **High, integration:** A direct-read marker suppresses rediscovery only while its exact originating entry and unchanged tool call stay in the canonical session projection.
 - **High, e2e:** Loaded and updated notices carry the full selected instruction body and schema-valid metadata. pi-tool-display leaves them unchanged under its [borrowed-data invariant](../../pi-tool-display/docs/testing.md#execution).
 

@@ -1,9 +1,6 @@
 ---
 name: implement
-description: Implement a task, review the changes with parallel code-review subagents, and report.
-disable-model-invocation: true
-metadata:
-  opencode/autoinvoke: false
+description: Implement a task when requirements are settled, review the changes with parallel code-review subagents, and report.
 ---
 
 # Implement

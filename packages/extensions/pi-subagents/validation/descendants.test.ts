@@ -8,7 +8,7 @@ import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { DEPTH_ENV, RESULT_MESSAGE, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema } from "../src/details.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
 import {
   descendantStarted,
@@ -47,38 +47,6 @@ test("delivers background results in a child after a final error without retry",
   });
 });
 
-test("settles a child only after its background grandchild result is consumed", async () => {
-  await fixture(async (host) => {
-    await host.prompt("nested-background");
-    const result = (await host.results()).at(-1)!;
-    expect(detailsSchema.parse(result.details).state).toBe("completed");
-    expect(contentText(result.content)).toContain("background results 1");
-    expect(contentText(result.content)).toContain("Fixture reply");
-    const supervisorEntries = await host.entries();
-    expect(
-      supervisorEntries.filter(
-        (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
-      )
-    ).toHaveLength(0);
-    // The child counts its grandchild's late usage, so the root receives it with the child's.
-    const child = (await taskList(host)).find(
-      (task) => task.task_id === detailsSchema.parse(result.details).task_id
-    )!;
-    const entries = parseSessionEntries(await readFile(child.session_file, "utf8"));
-    expectChildUsageOnce(entries, 1);
-    // Three child requests and one grandchild request each use 15 tokens and cost 0.001.
-    expect(result.usage).toMatchObject({ totalTokens: 60, cost: { total: 0.004 } });
-    // The run's recorded usage includes the late usage that the child counted.
-    expect(child.usage).toEqual({
-      input: 40,
-      output: 20,
-      cache_read: 0,
-      cache_write: 0,
-      cost: 0.004
-    });
-  });
-});
-
 test("rejects nested capacity immediately and observes registration depth", async () => {
   await fixture(
     async (host) => {
@@ -107,20 +75,7 @@ test("rejects nested capacity immediately and observes registration depth", asyn
   );
 });
 
-test("retains the child depth limit after reloading extensions", async () => {
-  await withFixture(async (_directory, start) => {
-    const host = await start({ depth: 2 });
-    await host.prompt("report-tools");
-    await host.request({ type: "prompt", message: "/fixture-reload" });
-    await host.prompt("report-tools");
-    const response = await host.request({ type: "get_last_assistant_text" });
-    expect(response.command === "get_last_assistant_text" ? response.data.text : "").toBe(
-      "subagent available: false"
-    );
-  });
-});
-
-test("retains the child depth limit when a child session resumes", async () => {
+test("retains the child depth limit when a child session resumes and reloads", async () => {
   await withFixture(async (_directory, start) => {
     const subagentTools = async (host: Supervisor) => {
       await host.prompt("report-subagent-tools");
@@ -138,6 +93,9 @@ test("retains the child depth limit when a child session resumes", async () => {
     expect(await subagentTools(below)).toBe("subagent tools: true true");
     await below.stop();
     const atLimit = await start({ sessionId, depth: 2 });
+    expect(await subagentTools(atLimit)).toBe("subagent tools: false false");
+    // A reload registers the tools again; the depth limit still hides them.
+    await atLimit.request({ type: "prompt", message: "/fixture-reload" });
     expect(await subagentTools(atLimit)).toBe("subagent tools: false false");
   });
 });
@@ -240,12 +198,39 @@ test("routes nested dialogs and reconstructs descendant ownership after restart"
   });
 });
 
-test("keeps earlier descendants and shows no starting descendant as stopped while its owner runs", async ({
+test("settles a child after its grandchild, keeps earlier descendants, and shows no starting descendant as stopped", async ({
   expect
 }) => {
   await fixture(
     async (host, directory) => {
       await host.prompt("nested-background");
+      // S4: the child settles only after its background grandchild's result is consumed.
+      const result = (await host.results()).at(-1)!;
+      expect(detailsSchema.parse(result.details).state).toBe("completed");
+      expect(contentText(result.content)).toContain("background results 1");
+      expect(contentText(result.content)).toContain("Fixture reply");
+      const supervisorEntries = await host.entries();
+      expect(
+        supervisorEntries.filter(
+          (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
+        )
+      ).toHaveLength(0);
+      // The child counts its grandchild's late usage, so the root receives it with the child's.
+      const delegated = (await taskList(host)).find(
+        (task) => task.task_id === detailsSchema.parse(result.details).task_id
+      )!;
+      const entries = parseSessionEntries(await readFile(delegated.session_file, "utf8"));
+      expectChildUsageOnce(entries, 1);
+      // Three child requests and one grandchild request each use 15 tokens and cost 0.001.
+      expect(result.usage).toMatchObject({ totalTokens: 60, cost: { total: 0.004 } });
+      // The run's recorded usage includes the late usage that the child counted.
+      expect(delegated.usage).toEqual({
+        input: 40,
+        output: 20,
+        cache_read: 0,
+        cache_write: 0,
+        cost: 0.004
+      });
       const { sessionId } = await host.state();
       await host.stop();
       // After a restart, the supervisor knows the earlier descendant only from the owner's file.
@@ -316,12 +301,32 @@ test("routes promotion to the owner and frees subtree capacity for queued top-le
   expect
 }) => {
   await fixture(
-    async (host) => {
+    async (host, directory) => {
       const initial = host.reply("nested-foreground");
       await descendantStarted(host, expect);
       const tasks = await taskList(host);
       const [child, grandchild] = tasks;
       expect(tasks).toHaveLength(2);
+      // Another supervisor cannot promote or abort the descendant.
+      const other = await Supervisor.start(directory);
+
+      try {
+        for (const command of ["background", "abort"]) {
+          const notice = await other.command(`${command} ${grandchild!.task_id}`);
+          expect(notice.notifyType).toBe("error");
+          expect(JSON.parse(notice.message)).toEqual({
+            error: "Task does not belong to this session"
+          });
+        }
+      } finally {
+        await other.stop();
+      }
+
+      expect((await taskList(host))[1]).toMatchObject({
+        task_id: grandchild!.task_id,
+        state: "active",
+        background: false
+      });
       expect((await host.command(`background ${grandchild!.task_id}`)).notifyType).toBe("info");
       expect((await taskList(host))[1]).toMatchObject({
         task_id: grandchild!.task_id,

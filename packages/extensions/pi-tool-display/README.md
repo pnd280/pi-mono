@@ -28,7 +28,7 @@ Compact cards keep diagnostics and images beneath their call when successful tex
 
 Summary lines need Pi's fullscreen mode. In regular mode, `summary` renders as `compact`, and **Ctrl+O** toggles between `compact` and `verbose`.
 
-In fullscreen, clicking a card, group, or summary line expands it. Clicking an opened run's summary line, or the `▴ collapse` bar below its cards, collapses it again. Cards ignore clicks with Shift, Alt, or Ctrl held, so those clicks don't expand, collapse, or open anything. Regular mode leaves mouse input to the terminal.
+In fullscreen, clicking a card, group, or summary line expands it. Clicking an opened run's summary line, or the `▴ collapse` bar below its cards, collapses it again. Cards ignore clicks with **Shift**, **Alt**, or **Ctrl** held, so those clicks don't expand, collapse, or open anything. Regular mode leaves mouse input to the terminal.
 
 In fullscreen, click a subagent card or background result with a task ID to open its transcript. Click a job card or job result to open the job. pi-subagents checks that the card is current and that it owns the task or job. Use **Ctrl+O** to expand its details.
 
@@ -48,7 +48,7 @@ These tools get dedicated cards:
 
 - Pi's native tools: read, bash, PowerShell, edit, write, and the search and listing tools.
 - Pi's built-in codemode, MCP, and tool search.
-- Extensions: FFF, the MCP adapter, todo, selective read, smart compact, the tool search of profiles, and subagents, including background jobs.
+- Extensions: FFF, the MCP adapter, todo, selective read, smart compact, pi-profiles' tool search, and subagents, including background jobs.
 - Nested-instruction notices, which also count towards run summaries.
 - Subagent background results and job results.
 

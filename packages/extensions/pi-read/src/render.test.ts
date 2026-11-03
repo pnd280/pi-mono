@@ -38,7 +38,9 @@ function context(
     showImages: true,
     isError: false,
     durationMs: undefined,
-    outputPad: 1
+    outputPad: 1,
+    keyText: (keybinding) => keybinding,
+    keyHint: (keybinding, description) => `${keybinding} ${description}`
   };
 }
 

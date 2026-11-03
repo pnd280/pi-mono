@@ -13,8 +13,6 @@ Pi passes input through `input` handlers in extension load order, so an extensio
 
 Each callback receives a fresh event object and the context of the emission. An error in an observer or transform is [reported](../coordination/README.md#errors), and the chain continues with the previous text.
 
-The chain runs at the first live participant's place among Pi's `input` handlers, so extensions that do not participate still run in load order around it.
-
 | When you…                                                   | Read                                            |
 | ----------------------------------------------------------- | ----------------------------------------------- |
 | Choose a transform rank or check which extensions take part | [Recommended ranks](order.md#recommended-ranks) |

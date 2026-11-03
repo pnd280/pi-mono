@@ -15,11 +15,11 @@ Block with `{ block: true, reason }`, never `terminate`.
 
 - Treat explicit paths as data.
 - Match search globs locally.
-- Apply ignore rules through Git.
+- Apply ignore rules through Git. Keep `core.fsmonitor` disabled for every Git call: inspected paths can lie in untrusted repositories, and `check-ignore` runs that setting's command.
 - Recheck ignore status on every call, without enumerating ignored directories.
 - Limit diagnostics to hints about retrying with another tool. Never suggest replacement commands, and never show the internal `cause` of an `unavailable` inspection.
 - When changing adapters, check the installed schemas and normalisation.
 
 ## Validation
 
-For checks, test coverage, Pi or FFF upgrades, and retirement, start at [package validation](README.md#validation).
+For test prerequisites, test coverage, Pi or FFF upgrades, and retirement, start at [package validation](README.md#validation).

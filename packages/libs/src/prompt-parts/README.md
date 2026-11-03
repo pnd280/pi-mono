@@ -12,8 +12,6 @@ Extensions that append to the system prompt in `before_agent_start` add their te
 
 A part that throws is [reported](../coordination/README.md#errors), and the other parts are still appended. A hold that never settles delays the run, as an awaited handler would. When a `before_agent_start` handler returns `systemPrompt`, Pi uses that prompt for the run and ignores `appendSystemPrompt`, so no part reaches the model.
 
-The parts arrive at the first live participant's place among Pi's `before_agent_start` handlers. Participants can keep their own `before_agent_start` handlers for other work.
-
 | When you…                                                        | Read                                            |
 | ---------------------------------------------------------------- | ----------------------------------------------- |
 | Choose a part rank or check which extensions take part           | [Recommended ranks](order.md#recommended-ranks) |

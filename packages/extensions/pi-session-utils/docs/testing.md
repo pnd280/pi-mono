@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests session persistence, parent lookup, the startup flag, shell quoting of suggested commands, and naming requests; [OwnedHooks](../../../libs/src/owned-hooks/README.md) owns property restoration, and Pi owns session reconstruction, metadata serialisation, later persistence, and provider-specific reasoning mappings.
+This package tests session persistence, parent lookup, the startup flag, and naming requests; [OwnedHooks](../../../libs/src/owned-hooks/README.md) owns property restoration, [utils](../../../utils/docs/testing.md) owns shell quoting of suggested commands, and Pi owns session reconstruction, metadata serialisation, later persistence, and provider-specific reasoning mappings.
 
 ## Must not regress
 
@@ -11,10 +11,9 @@ This package tests session persistence, parent lookup, the startup flag, shell q
 - **Critical, e2e:** Missing or invalid merged naming settings, an unavailable configured model, or an unsupported thinking level prevent naming requests rather than falling back to the active model.
 - **Critical, integration:** Parent lookup leaves file contents unchanged, including older supported session headers, whether the parent is selected by path or exact ID.
 - **Critical, e2e:** Parent selection and child creation record exactly one valid, existing parent, without changing it or reapplying the startup flag after reload or replacement.
-- **Critical, integration:** Snapshot creation preserves the selected history, entry IDs and links, current name or clearing, and source data. It never rewrites an already-saved session.
+- **Critical, integration:** Snapshot creation preserves the selected history, entry IDs and links, current name and entry labels or their clearing, including changes made on another branch, and source data. It never rewrites an already-saved session.
 - **Critical, integration:** A persistence switch error leaves the saved snapshot available for recovery, including when the error occurs after session replacement.
 - **Critical, integration:** An explicitly cancelled persistence switch removes only the newly saved snapshot.
-- **Critical, integration:** POSIX-shell argument quoting keeps empty strings, whitespace, Unicode, apostrophes, and shell metacharacters as literal arguments in a real Bash process, when callers supply NUL-free text.
 - **High, e2e:** Completed naming leaves print text and JSON protocol output valid, with title changes only in native session metadata.
 - **High, e2e:** Superseded or cancelled naming results do not change the session name, even when the provider ignores cancellation.
 - **High, integration:** Invalid `--parent-session` startup exits nonzero in a real process before executing the prompt.

@@ -35,7 +35,9 @@ A project layout replaces the entire global layout; the two are never merged.
 - Saving a scope with no layout creates an explicit one.
 - "Reset to defaults" previews the default layout immediately. Only **Ctrl+S** saves it.
 
-### Row entries
+## Row entries
+
+Each region is a list of rows, and each row is a list of these entries:
 
 | Entry                 | Meaning                                                                                             |
 | --------------------- | --------------------------------------------------------------------------------------------------- |
@@ -49,16 +51,20 @@ A project layout replaces the entire global layout; the two are never merged.
 - Unlisted widgets get their own rows at the end of the region that their extension requested, sorted by ID in code unit order, whatever the locale. Unlisted statuses share one footer row, also sorted by ID in code unit order.
 - Unknown IDs keep their positions, so a widget reappears where you put it once its extension loads.
 - A row can contain each ID once and at most one `flex`. The same ID can appear in several rows, but an ID in `hidden` can't also be placed.
-- Each region holds at most 1,000 rows, and each row at most 1,000 entries. `hidden` holds at most 10,000 IDs, and each ID is at most 4,096 Unicode code points.
-- The complete settings file, including unrelated settings, is limited to 1 MiB on read and after save formatting. An oversized file warns and falls back to the next scope. A save that exceeds the limit fails and keeps the draft.
 - The default layout leaves the regions above and below the editor empty. Its first footer row shows `builtin:cwd`, `builtin:git-branch`, and `builtin:session-title`, with dividers between them. Its second footer row shows `builtin:tokens`, a divider, and `builtin:context`, then `builtin:model` right-aligned by `flex`.
 
-### How rows render
+## Limits
+
+- Each region holds at most 1,000 rows, and each row at most 1,000 entries.
+- `hidden` holds at most 10,000 IDs, and each ID is at most 4,096 Unicode code points.
+- The complete settings file, including unrelated settings, is limited to 1 MiB on read and after save formatting. An oversized file warns and falls back to the next scope. A save that exceeds the limit fails and keeps the draft.
+
+## How rows render
 
 - An empty widget takes no space but keeps its position.
 - In `aboveEditor`, shorter widgets in a multiline row align to the bottom, next to the editor. Other regions align them to the top.
 - Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.
 
-### Invalid layouts
+## Invalid layouts
 
 Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections.

@@ -7,11 +7,10 @@ import { test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema } from "../src/details.ts";
 import { taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses } from "./processes.ts";
 
-// Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
 
 const pageSchema = z.object({
@@ -23,7 +22,7 @@ const pageSchema = z.object({
   usage: z.object({ input: z.number(), output: z.number(), cost: z.number() })
 });
 
-test("pages tool summaries on the selected ancestry once without modifying the child", async ({
+test("pages tool summaries on the selected ancestry once without modifying the child, and shows the last text after an abort", async ({
   expect
 }) => {
   await withFixture(async (directory, start) => {
@@ -163,38 +162,36 @@ test("pages tool summaries on the selected ancestry once without modifying the c
       /DO_NOT_SHOW_THINKING|\.pi-subagents-fixture|disposable subagents workspace/
     );
     expect(await readFile(task.session_file, "utf8")).toBe(before);
-  });
-});
 
-test("returns the latest assistant text after an abort during a tool call", async ({ expect }) => {
-  await withFixture(async (directory, start) => {
-    const host = await start();
+    // R4: after an abort during a tool call, `--last` returns the latest assistant text.
     await host.reply("background-abort-tool");
-    const id = detailsSchema.parse((await host.results())[0]!.details).task_id!;
+    const aborting = detailsSchema.parse((await host.results()).at(-1)!.details).task_id!;
     await expect
       .poll(async () => (await fixtureProcesses(directory)).map(({ command }) => command), {
         timeout: STEP_TIMEOUT_MS
       })
       .toContainEqual(expect.stringContaining("sleep 600"));
-    await host.command(`abort ${id}`);
-    const listed = async () => (await taskList(host))[0]!;
+    await host.command(`abort ${aborting}`);
+    const abortedTask = async () =>
+      (await taskList(host)).find((item) => item.task_id === aborting)!;
     await expect
-      .poll(async () => (await listed()).state, { timeout: STEP_TIMEOUT_MS })
+      .poll(async () => (await abortedTask()).state, { timeout: STEP_TIMEOUT_MS })
       .toBe("inactive");
-    const entries = parseSessionEntries(await readFile((await listed()).session_file, "utf8"));
-    const assistants = entries.flatMap((entry) =>
+    const assistants = parseSessionEntries(
+      await readFile((await abortedTask()).session_file, "utf8")
+    ).flatMap((entry) =>
       entry.type === "message" && entry.message.role === "assistant"
         ? [{ id: entry.id, message: entry.message }]
         : []
     );
-    // Pi 1.0.2, 1.2.0, 1.3.0, and 1.4.0 request one more response after the aborted tool and record it
-    // as an empty error. Without that message, this test does not cover the skip.
+    // Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0 request one more response after the aborted tool
+    // and record it as an empty error. Without that message, this test does not cover the skip.
     expect(assistants.map(({ message }) => [message.stopReason, message.content.length])).toEqual([
       ["toolUse", 2],
       ["error", 0]
     ]);
-    expect(JSON.parse((await host.command(`show ${id} --last`)).message)).toEqual({
-      task_id: id,
+    expect(JSON.parse((await host.command(`show ${aborting} --last`)).message)).toEqual({
+      task_id: aborting,
       state: "inactive",
       cursor: assistants[0]!.id,
       text: "Fixture text before the tool"

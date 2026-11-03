@@ -7,7 +7,7 @@
 `/sesh persist` saves the active branch of an ephemeral session, one that isn't saved to a file, and switches to the new saved session.
 
 - It copies the active branch into a new file, with a new session ID.
-- It keeps the branch's parent link and the session-wide name, including a cleared name.
+- It keeps the branch's parent link, the session-wide name, and the labels of the copied entries, including a cleared name or label.
 - It does nothing for sessions that are already saved.
 
 ## Create an empty child

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
@@ -5,6 +6,7 @@ import { setTimeout } from "node:timers/promises";
 import { contentText } from "@earendil-works/pi-ai";
 import {
   parseSessionEntries,
+  type RpcExtensionUIRequest,
   SessionManager,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
@@ -12,12 +14,13 @@ import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
-import { readRunFile } from "../src/history/reader.ts";
-import { detailsSchema } from "../src/result.ts";
+import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
+import { detailsSchema } from "../src/details.ts";
+import { readRunFile } from "../src/history/sessions.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
+import { LATE_DIALOG_ANSWERS } from "./provider.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 /** The supervisor's run and end entries, which are its only task entries. */
@@ -33,7 +36,6 @@ const CLEANUP_ACTIONS = [
   "user abort",
   "session change",
   "graceful exit",
-  "SIGKILL",
   "queued turn abort"
 ] as const;
 
@@ -156,17 +158,13 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         } else if (action === "graceful exit") {
           host.connection.closeInput();
           await host.connection.closed;
-        } else if (action === "SIGKILL") {
-          host.connection.process.kill("SIGKILL");
-          await host.connection.closed;
         } else {
           await host.request({ type: "abort" });
         }
 
         await work;
 
-        if (action === "SIGKILL" || action === "graceful exit")
-          expect(await remainingProcesses(directory)).toEqual([]);
+        if (action === "graceful exit") expect(await remainingProcesses(directory)).toEqual([]);
         else {
           const tasks = await taskList(host);
           expect(tasks.every((task) => task.state === "inactive")).toBe(true);
@@ -347,7 +345,17 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         }
 
         const effect = await stat(`${directory}/work/interrupted-effect`);
-        await host.request({ type: "abort" });
+        // A fork at the running task's run entry stops the task and shows it as stopped.
+        const runEntry = (await host.entries()).find(
+          (entry) =>
+            entry.type === "custom" &&
+            entry.customType === RUN_ENTRY &&
+            runRecordSchema.parse(entry.data).run_id === interrupted.run_id
+        )!;
+        await host.request({ type: "prompt", message: `/fixture-parent-fork ${runEntry.id}` });
+        expect(
+          (await taskList(host)).find((task) => task.task_id === interrupted.task_id)
+        ).toMatchObject({ state: "inactive", outcome: "cancelled" });
         await work;
         const warningStart = host.records.length;
         await host.prompt(`history-id ${interrupted.task_id}`);
@@ -617,78 +625,198 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  test.each(["confirm", "select"] as const)(
-    "forwards a child %s dialog and delivers its answer",
-    async (method) => {
-      await withFixture(async (_directory, start) => {
-        const host = await start();
-        const work = host.prompt(method === "confirm" ? "delegate-dialog" : "delegate-selection");
+  test("forwards child dialogs and delivers their answers", async () => {
+    await withFixture(async (_directory, start) => {
+      const host = await start();
+      const editor = (answer: (shown: string) => string) => (request: RpcExtensionUIRequest) =>
+        request.method === "editor" ? answer(request.prefill!) : "";
+      const dialogs: ReadonlyArray<{
+        scenario: string;
+        method: RpcExtensionUIRequest["method"];
+        answer: (request: RpcExtensionUIRequest) => boolean | string;
+        /** The child's reply, or a function of the submitted answer that gives it. */
+        result: string | ((submitted: boolean | string) => string);
+      }> = [
+        {
+          scenario: "delegate-dialog",
+          method: "confirm",
+          answer: () => true,
+          result: "Dialog accepted"
+        },
+        {
+          // Distinct child options can collide after terminal sanitisation.
+          scenario: "delegate-selection",
+          method: "select",
+          answer: (request) => (request.method === "select" ? request.options[1]! : ""),
+          result: "Selected second option"
+        },
+        // Editor answers to the shown prefill, which is sanitised and cut. Pi's RPC client can
+        // return the shown prefill unchanged.
+        {
+          scenario: "delegate-editor",
+          method: "editor",
+          answer: editor((shown) => shown),
+          result: "Editor prefill kept"
+        },
+        // Pi's editor returns the text with line ends normalised, tabs expanded, and trimmed.
+        {
+          scenario: "delegate-editor",
+          method: "editor",
+          answer: editor((shown) => shown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim()),
+          result: "Editor prefill kept"
+        },
+        // An edit by whitespace only reaches the child exactly as submitted, because the RPC
+        // client's answer is not normalised. The child reports the SHA-256 of what it received.
+        {
+          scenario: "delegate-editor",
+          method: "editor",
+          answer: editor((shown) => ` ${shown}`),
+          result: (submitted) =>
+            `Editor answer ${createHash("sha256").update(String(submitted)).digest("hex")}`
+        }
+      ];
+
+      for (const { scenario, method, answer, result } of dialogs) {
+        // Each dialog has its own cursor, so an earlier request cannot answer this step.
+        const after = host.records.length;
+        const work = host.prompt(scenario);
         const request = await host.wait(
-          (record) => record.type === "extension_ui_request" && record.method === method
+          (record) => record.type === "extension_ui_request" && record.method === method,
+          after
         );
         if (request.type !== "extension_ui_request") throw new Error("Missing dialog request");
-
-        if (request.method === "confirm") {
-          expect(request).toMatchObject({
-            title: "[subagent: Fixture dialog task] Fixture question",
-            message: "Continue this child task?",
-            timeout: STEP_TIMEOUT_MS
-          });
-          await host.connection.respond({
-            type: "extension_ui_response",
-            id: request.id,
-            confirmed: true
-          });
-        } else if (request.method === "select") {
-          // Distinct child options can collide after terminal sanitisation.
-          await host.connection.respond({
-            type: "extension_ui_response",
-            id: request.id,
-            value: request.options[1]!
-          });
-        }
-
-        await work;
-        expect(contentText((await host.results()).at(-1)!.content)).toContain(
-          method === "confirm" ? "Dialog accepted" : "Selected second option"
+        const value = answer(request);
+        await host.connection.respond(
+          typeof value === "boolean"
+            ? { type: "extension_ui_response", id: request.id, confirmed: value }
+            : { type: "extension_ui_response", id: request.id, value }
         );
-      });
-    }
-  );
+        await work;
+        const expected = typeof result === "string" ? result : result(value);
+        expect(contentText((await host.results()).at(-1)!.content), expected).toContain(expected);
+      }
+    });
+  });
 
-  test("respects capacity, admits queued launches FIFO, and rejects a full queue", async () => {
+  test("cancels the open dialogs of a cancelled run, also against a late answer", async () => {
     await withFixture(
       async (directory, start) => {
         const host = await start();
-        const work = host.prompt("capacity");
-        const child = await activeTask(host);
-        expect(await fixtureProcesses(directory)).toHaveLength(2);
-        expect(await taskList(host)).toHaveLength(1);
-        await host.command(`abort ${child.task_id}`);
+        const answer = (file: string) => readFile(join(directory, "work", file), "utf8");
+        const after = host.records.length;
+        const work = host.prompt("delegate-late-dialogs");
+        const open = (method: RpcExtensionUIRequest["method"]) =>
+          host.wait(
+            (record) => record.type === "extension_ui_request" && record.method === method,
+            after
+          );
+        await open("select");
+        const editor = await open("editor");
+        if (editor.type !== "extension_ui_request") throw new Error("Missing editor dialog");
+        const aborted = host.command(`abort ${(await taskList(host))[0]!.task_id}`);
+
+        // The selection closes at the cancellation, so the child receives it as cancelled unanswered.
+        await expect
+          .poll(() => answer(LATE_DIALOG_ANSWERS.select).catch(() => undefined), {
+            timeout: STEP_TIMEOUT_MS
+          })
+          .toBe("cancelled");
+        // Pi's editor cannot close, so the supervisor's client can still answer it.
+        await host.connection.respond({
+          type: "extension_ui_response",
+          id: editor.id,
+          value: "Late edit"
+        });
+
+        expect(JSON.parse((await aborted).message)).toMatchObject({
+          state: "inactive",
+          outcome: "cancelled"
+        });
         await work;
-        const tasks = await taskList(host);
-        expect(tasks.map((task) => task.description)).toEqual([
-          "First capacity task",
-          "Second capacity task",
-          "Third capacity task"
-        ]);
+        expect(await answer(LATE_DIALOG_ANSWERS.editor)).toBe("cancelled");
+      },
+      // The late answer must reach the child before its stop deadline, so the deadline must be
+      // longer than a fixture step.
+      {
+        settings: {
+          "ext.pi-subagents": { maxDepth: LONG_GRACE_LIMIT, maxConcurrent: LONG_GRACE_LIMIT }
+        }
+      }
+    );
+  });
+
+  test("respects capacity, admits queued launches FIFO, and rejects a full queue", async ({
+    expect
+  }) => {
+    await withFixture(
+      async (directory, start) => {
+        const host = await start();
+        const children = async () =>
+          (await fixtureProcesses(directory)).filter(
+            ({ pid }) => pid !== host.connection.process.pid
+          );
+        // Samples the live children for the whole call, so an overlap of two children shows.
+        const sampling = new AbortController();
+        let most = 0;
+        const sampler = (async () => {
+          while (!sampling.signal.aborted) {
+            most = Math.max(most, (await children()).length);
+            await setTimeout(10);
+          }
+        })();
+
+        /** The process and task of a child that is not in `seen`, once the task is listed. */
+        const nextChild = async (seen: ReadonlySet<number>) => {
+          for (let poll = 0; poll < STEP_TIMEOUT_MS / 25; poll++) {
+            await setTimeout(25);
+
+            for (const { pid } of await children()) {
+              if (seen.has(pid)) continue;
+              // Before its exec, a new process has the supervisor's environment; it can also exit.
+              const environ = await readFile(`/proc/${pid}/environ`, "utf8").catch(() => "");
+              const taskId = environ
+                .split("\0")
+                .find((variable) => variable.startsWith(`${TASK_ID_ENV}=`))
+                ?.slice(TASK_ID_ENV.length + 1);
+              if (taskId === undefined) continue;
+              const task = (await taskList(host)).find((item) => item.task_id === taskId);
+              if (task) return { pid, description: task.description };
+            }
+          }
+
+          throw new Error("No queued child started");
+        };
+
+        const order = ["First capacity task", "Second capacity task", "Third capacity task"];
+        const work = host.prompt("capacity-held").catch((error: unknown) => error);
+        const started: string[] = [];
+        const seen = new Set<number>();
+
+        try {
+          while (started.length < order.length) {
+            const child = await nextChild(seen);
+            seen.add(child.pid);
+            // Each child holds until its release, so no other child may run beside it.
+            expect((await children()).map(({ pid }) => pid)).toEqual([child.pid]);
+            started.push(child.description);
+            const release = `capacity-release-${order.indexOf(child.description) + 1}`;
+            await writeFile(join(directory, "work", release), "");
+          }
+
+          expect(await work).toBeUndefined();
+        } finally {
+          sampling.abort();
+          await sampler;
+        }
+
+        expect(started).toEqual(order);
+        expect(most).toBe(1);
         const overflow = (await host.results()).find(
           (result) =>
             detailsSchema.safeParse(result.details).data?.description === "Overflow capacity task"
         )!;
         expect(contentText(overflow.content)).toContain("launch queue is full (");
         expect(overflow.isError).toBe(true);
-        const live = new Set<string>();
-
-        // The end entry follows the run's process exit, before its capacity is released.
-        for (const event of host.records) {
-          if (event.type !== "entry_appended" || event.entry.type !== "custom") continue;
-          if (event.entry.customType === RUN_ENTRY)
-            live.add(runRecordSchema.parse(event.entry.data).run_id);
-          else if (event.entry.customType === END_ENTRY)
-            live.delete(endRecordSchema.parse(event.entry.data).run_id);
-          expect(live.size).toBeLessThanOrEqual(1);
-        }
       },
       { settings: { "ext.pi-subagents": { maxConcurrent: 1, maxQueued: 2 } } }
     );

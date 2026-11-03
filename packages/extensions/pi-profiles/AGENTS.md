@@ -28,7 +28,6 @@ Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applie
 - Undo only the previous profile's own additions and removals, so that tool changes made after a switch stay.
 - Keep the `deny` tools off for the whole selection, also when another extension, `tool_search`, or `--tools` turns them on. Apply `allow` only at the switch, so later tool changes can turn on other tools.
 - Turn the `deny` tools off in `before_agent_start` after the switch, and in `turn_end`. [Pi compatibility](docs/pi-compatibility.md#switching) says when Pi takes the tools of a run's later requests.
-- With the `deny` tools, put the active tools in a fixed order: Pi's own tools in Pi's order, then the other tools by name, so that the order does not depend on the load order. Set the ordered tools only when they change.
 
 ## References
 
@@ -38,5 +37,4 @@ Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applie
 | The extension's `tool_search`                   | [Tool search](docs/internals.md#tool-search)         |
 | Resume, `/fork`, `/tree`, or `/reload` handling | [Restoration](docs/internals.md#restoration)         |
 | The editor label                                | [Editor](docs/internals.md#editor)                   |
-| Tests                                           | [Testing](docs/testing.md)                           |
 | The Pi version                                  | [Compatibility checklist](docs/pi-compatibility.md)  |

@@ -43,13 +43,7 @@ const cases: {
   automaticError?: RegExp;
   summaries: number;
 }[] = [
-  {
-    name: "omitted",
-    config: override,
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    summaries: 1
-  },
+  // "automatic only" omits applyToManual and "retry" omits applyToAuto, so both opt-in defaults stay covered.
   {
     name: "automatic only",
     config: { ...override, applyToAuto: true },
@@ -106,14 +100,7 @@ const cases: {
     automatic: nativeSummary,
     summaries: 1
   },
-  {
-    name: "late abort",
-    config: {},
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    error: /cancelled|aborted/i,
-    summaries: 1
-  },
+  // Also checks the late abort alone: the branch leaf must stay unchanged (recordSummaryBeforeCompaction, src/native.ts).
   {
     name: "late abort with retained append",
     config: {},
@@ -236,7 +223,19 @@ it.each(cases)(
       );
 
       const fixture = (pi: ExtensionAPI) => {
-        pi.registerProvider(faux.provider);
+        // Resolve non-empty credentials so the spy can detect pre-resolved request options.
+        pi.registerProvider({
+          ...faux.provider,
+          auth: {
+            apiKey: {
+              name: "Stored",
+              resolve: async () => ({
+                auth: { apiKey: "stored-key", headers: { "X-Auth-Fixture": "resolved" } },
+                env: { COMPACTION_AUTH_FIXTURE: "resolved" }
+              })
+            }
+          }
+        });
         pi.on("before_provider_headers", (event) => {
           event.headers["X-Manual-Fixture"] = "applied";
         });
@@ -298,6 +297,19 @@ it.each(cases)(
       });
       const session = runtime.session;
       const stream = session.agent.streamFunction;
+      // Pi's session stream resolves auth itself, so a summary must not pass pre-resolved
+      // credentials, which the runtime would take as an explicit API key over a stored OAuth login.
+      const preResolved: string[] = [];
+      const runtimeStream = session.modelRuntime.streamSimple.bind(session.modelRuntime);
+      vi.spyOn(session.modelRuntime, "streamSimple").mockImplementation(
+        (model, context, options) => {
+          if (options?.signal !== unrelated.signal)
+            for (const key of ["apiKey", "headers", "env"] as const)
+              if (options?.[key] !== undefined) preResolved.push(`${phase} ${key}`);
+
+          return runtimeStream(model, context, options);
+        }
+      );
       let expectedAppend: unknown = Reflect.get(session.sessionManager, "appendCompaction");
 
       const seed = () => {
@@ -317,20 +329,20 @@ it.each(cases)(
       seed();
       const before = session.sessionManager.getLeafId();
 
-      if (name.startsWith("late abort")) {
+      const lateAbort = name === "late abort with retained append";
+
+      if (lateAbort) {
         const summarize: unknown = Reflect.get(session, "_runDefaultCompaction");
         assert.ok(typeof summarize === "function");
         // Abort after generation resolves but before Pi performs its final abort check.
         Reflect.set(session, "_runDefaultCompaction", async (...args: unknown[]) => {
           const result: unknown = await Reflect.apply(summarize, session, args);
 
-          if (name === "late abort with retained append") {
-            const append = session.sessionManager.appendCompaction.bind(session.sessionManager);
-            const replacement = (...saved: Parameters<SessionManager["appendCompaction"]>) =>
-              append(...saved);
-            Reflect.set(session.sessionManager, "appendCompaction", replacement);
-            expectedAppend = replacement;
-          }
+          const append = session.sessionManager.appendCompaction.bind(session.sessionManager);
+          const replacement = (...saved: Parameters<SessionManager["appendCompaction"]>) =>
+            append(...saved);
+          Reflect.set(session.sessionManager, "appendCompaction", replacement);
+          expectedAppend = replacement;
 
           session.abortCompaction();
 
@@ -340,7 +352,7 @@ it.each(cases)(
 
       if (error) {
         await assert.rejects(session.compact(instructions), error);
-        if (name.startsWith("late abort")) Reflect.deleteProperty(session, "_runDefaultCompaction");
+        if (lateAbort) Reflect.deleteProperty(session, "_runDefaultCompaction");
         assert.equal(session.sessionManager.getLeafId(), before);
       } else {
         assert.equal((await session.compact(instructions)).summary, "MANUAL_CHECKPOINT");
@@ -454,11 +466,13 @@ it.each(cases)(
       assert.ok(
         !session.sessionManager.getBranch().some((entry) => entry.type === "custom_message")
       );
+      assert.deepEqual(preResolved, []);
       assert.deepEqual(errors, []);
     } finally {
       try {
         await runtime?.dispose();
       } finally {
+        vi.restoreAllMocks();
         vi.unstubAllEnvs();
         await rm(directory, { recursive: true, force: true });
       }

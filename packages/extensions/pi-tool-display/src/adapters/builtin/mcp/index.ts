@@ -7,6 +7,7 @@ import type {
   McpFacts,
   ToolDisplayAdapter
 } from "../../../contracts.ts";
+import { truncationNotices } from "../../truncation.ts";
 
 const SOURCE_PATH = "builtin:mcp";
 const NAME_PREFIX = "mcp__";
@@ -30,6 +31,15 @@ function details(result: BorrowedToolResult | undefined) {
   return detailsSchema.safeParse(result?.details).data;
 }
 
+/** Ordered text and media labels of published content; Pi keeps the image bytes. */
+export function mcpContent(content: BorrowedToolResult["content"]): McpFacts["content"] {
+  return content.map((block) =>
+    block.type === "text"
+      ? { type: "text", text: block.text }
+      : { type: "media", mimeType: block.mimeType }
+  );
+}
+
 function mcpFacts(_args: unknown, result?: BorrowedToolResult): McpFacts | undefined {
   const identity = details(result);
   if (!identity || !result) return undefined;
@@ -39,27 +49,18 @@ function mcpFacts(_args: unknown, result?: BorrowedToolResult): McpFacts | undef
     server: identity.server,
     tool: identity.tool,
     outcome: "success",
-    content: result.content.map((block) =>
-      block.type === "text"
-        ? { type: "text", text: block.text }
-        : { type: "media", mimeType: block.mimeType }
-    )
+    content: mcpContent(result.content)
   };
 }
 
 function notices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[] {
-  // Expanded output already contains Pi's truncation warning and saved-output reference.
+  // Pi saves the output only when it truncates it.
   const path = expanded ? undefined : details(result)?.fullOutputPath;
 
-  return path
-    ? [
-        { kind: "warning", text: "MCP output truncated; expand to inspect retained output." },
-        { kind: "reference", label: "Saved output", value: path }
-      ]
-    : [];
+  return path ? truncationNotices("MCP", path) : [];
 }
 
-export const mcpToolDisplayAdapter: ToolDisplayAdapter = {
+const mcpToolDisplayAdapter: ToolDisplayAdapter = {
   id: "builtin:mcp",
   family: "invocation",
   // MCP tool names alone may not explain the request.

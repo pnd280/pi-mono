@@ -2,7 +2,7 @@
 
 [Keybinding normalisation](../src/tui/keybindings/README.md) · [Shared TUI](../src/tui/README.md)
 
-This guide is for callers who need to know why `resolveKeybindings` skips a key, or why validation rejects one. It records the Pi 1.4.0 dispatch rules that the [keybinding helpers](../src/tui/keybindings/index.ts) model. The [compatibility checklist](pi-compatibility.md#tui) tracks them on Pi upgrades.
+This guide is for callers who need to know why `resolveKeybindings` skips a key, or why validation rejects one. It records the Pi 1.5.0 dispatch rules that the [keybinding helpers](../src/tui/keybindings/index.ts) model. The [compatibility checklist](pi-compatibility.md#tui) tracks them on Pi upgrades.
 
 ## Keys that overlap
 
@@ -14,12 +14,14 @@ This guide is for callers who need to know why `resolveKeybindings` skips a key,
 
 ### Shift and symbols
 
-Pi 1.4.0 matches a symbol binding such as `ctrl++` against the Shift press that types the symbol, such as `ctrl+shift+=`. The keyboard layout decides which key types which symbol. `resolveKeybindings` therefore treats a symbol binding and any Shift binding of a digit or symbol with the same other modifiers as one key, and skips the later one. It can skip a binding that does not overlap on the current layout.
+Pi 1.5.0 matches a symbol binding such as `ctrl++` against the Shift press that types the symbol, such as `ctrl+shift+=`. The keyboard layout decides which key types which symbol. `resolveKeybindings` therefore treats a symbol binding and any Shift binding of a digit or symbol with the same other modifiers as one key, and skips the later one. It can skip a binding that does not overlap on the current layout.
 
 ## Keys that Pi cannot dispatch
 
-Pi 1.4.0 cannot dispatch modified Escape or modified function keys. Validation rejects these bindings. `resolveKeybindings` skips them when choosing alternatives, so hints do not advertise unusable keys.
+Pi 1.5.0 cannot dispatch modified Escape. Validation rejects these bindings. `resolveKeybindings` skips them when choosing alternatives, so hints do not advertise unusable keys.
+
+Pi 1.5.0 dispatches modified function keys **F1** to **F12** from the Kitty keyboard protocol and from xterm-style sequences, so validation accepts them. Pi 1.4.0 could not dispatch them. A modified **F3** does not reach Pi in terminals that send it as `ESC [1;<modifier>R`, because Pi does not match that sequence: it has the same form as a cursor position report.
 
 ## The plus key
 
-A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.4.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or modifyOtherKeys.
+A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.5.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or `modifyOtherKeys`.

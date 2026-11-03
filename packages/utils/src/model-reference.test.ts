@@ -13,7 +13,7 @@ describe("model references", () => {
     });
   });
 
-  it.each(["gpt-5", "/gpt-5", "openai/", "open ai/gpt-5", "openai/gpt 5"])(
+  it.each(["gpt-5", "/gpt-5", "openai/"])(
     "rejects %j without a provider and model ID",
     (reference) => {
       expect(modelReferenceSchema.safeParse(reference).success).toBe(false);

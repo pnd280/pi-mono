@@ -1,4 +1,4 @@
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { z } from "zod";
 
 // This is a deliberately limited tool-schema profile, not all of JSON Schema.

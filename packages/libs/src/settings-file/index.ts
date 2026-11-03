@@ -1,8 +1,9 @@
 export { readSettingsFile } from "./read.ts";
 
 export {
-  readScopedSettings,
+  readScopedSections,
   settingsPaths,
+  type ScopedSection,
   type SettingsScope,
   type SettingsScopeOptions
 } from "./scopes.ts";

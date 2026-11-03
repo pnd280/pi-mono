@@ -26,7 +26,6 @@
     "./tui/token-count": "./src/tui/token-count/index.ts",
     "./tui/duration": "./src/tui/duration/index.ts",
     "./tui/text-budget": "./src/tui/text-budget/index.ts",
-    "./tui/components/browser": "./src/tui/components/browser/index.ts",
     "./tui/components/browser/layout": "./src/tui/components/browser/layout.ts",
     "./tui/components/code-highlight": "./src/tui/components/code-highlight/index.ts",
     "./tui/components/hint-footer": "./src/tui/components/hint-footer/index.ts",
@@ -58,6 +57,7 @@
   "peerDependencies": {
     "@earendil-works/pi-ai": "catalog:pi-host",
     "@earendil-works/pi-coding-agent": "catalog:pi-host",
-    "@earendil-works/pi-tui": "catalog:pi-host"
+    "@earendil-works/pi-tui": "catalog:pi-host",
+    "typebox": "catalog:pi-host"
   }
 }

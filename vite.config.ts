@@ -389,6 +389,9 @@ export default defineConfig({
     // Hang guards only. Tests do not set their own limits: a full suite starts many Pi processes
     // at once, so a test can take several times as long as it does alone.
     testTimeout: 120_000,
+    // E2e tests start several Pi processes each. Limit them so that a full run leaves the machine usable.
+    maxWorkers: 4,
+    maxConcurrency: 2,
     expect: { poll: { timeout: 10_000 } },
     // Absolute: package `test` scripts load this config with the package as the root.
     globalSetup: [`${import.meta.dirname}/packages/libs/src/validation/pi-process/global-setup.ts`],

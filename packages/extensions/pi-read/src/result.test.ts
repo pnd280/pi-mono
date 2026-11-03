@@ -56,7 +56,8 @@ describe("preview provenance", () => {
     }
   });
 
-  it.each([0, -1, 0.5, 2, 9, "1", Number.MAX_SAFE_INTEGER + 1, null, undefined])(
+  // 0 and 2 are the boundaries of the positive-count schema and the content-length check in interpretReadResult.
+  it.each([0, 0.5, 2, "1", Number.MAX_SAFE_INTEGER + 1, null, undefined])(
     "preserves all retained blocks for a malformed marked count: %j",
     (sourceBlocks) => {
       const retained: ReadResultView = {

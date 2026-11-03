@@ -5,7 +5,7 @@ import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 
-import type { JobRecord } from "../jobs/records.ts";
+import type { JobRecord } from "../details.ts";
 import type { TaskRecord } from "../tasks/records.ts";
 import type { Tasks } from "../tasks/registry.ts";
 import { elapsed } from "../tasks/render.ts";

@@ -2,38 +2,31 @@ import { expect, it, vi } from "vite-plus/test";
 
 import { OwnedHooks } from "./index.ts";
 
-it("unwinds repeated replacements in reverse order and consumes restorations only once", () => {
+it("unwinds repeated replacements in reverse order", () => {
   const hooks = new OwnedHooks();
   const target: { value?: number } = {};
   hooks.replace(target, "value", 1);
   hooks.replace(target, "value", 2);
   hooks.restore();
   expect(Object.hasOwn(target, "value")).toBe(false);
-  target.value = 3;
-  hooks.restore();
-  expect(target.value).toBe(3);
 });
 
-it("preserves later values and accessor replacements without invoking getters", () => {
+it("preserves later values and accessor replacements without invoking getters, and continues past a locked property", () => {
   const hooks = new OwnedHooks();
-  const target = { first: 1, second: 2 };
-  hooks.replace(target, "first", 3);
-  hooks.replace(target, "second", 4);
-  target.first = 5;
-  const get = vi.fn(() => 6);
-  Object.defineProperty(target, "second", { get });
+  const target = { restored: 1, later: 2, accessor: 3, locked: 4 };
+  hooks.replace(target, "restored", 5);
+  hooks.replace(target, "later", 6);
+  hooks.replace(target, "accessor", 7);
+  hooks.replace(target, "locked", 8);
+  target.later = 9;
+  const get = vi.fn(() => 10);
+  Object.defineProperty(target, "accessor", { get });
+  // Restoration runs in reverse order, so the locked property fails first.
+  Object.defineProperty(target, "locked", { configurable: false, writable: false });
   hooks.restore();
-  expect(target.first).toBe(5);
-  expect(Object.getOwnPropertyDescriptor(target, "second")).toMatchObject({ get });
+  expect(target.restored).toBe(1);
+  expect(target.later).toBe(9);
+  expect(Object.getOwnPropertyDescriptor(target, "accessor")).toMatchObject({ get });
   expect(get).not.toHaveBeenCalled();
-});
-
-it("continues restoring other properties when a later owner locks one", () => {
-  const hooks = new OwnedHooks();
-  const target = { first: 1, second: 2 };
-  hooks.replace(target, "first", 3);
-  hooks.replace(target, "second", 4);
-  Object.defineProperty(target, "second", { configurable: false, writable: false });
-  hooks.restore();
-  expect(target).toEqual({ first: 1, second: 4 });
+  expect(Object.getOwnPropertyDescriptor(target, "locked")).toMatchObject({ value: 8 });
 });

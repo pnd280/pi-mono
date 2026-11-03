@@ -53,7 +53,7 @@ it("adds nothing for failed first selections without falling through to later ru
     "a.md": "A",
     "settings.json": withRules([
       { match: "^missing$", append: ["a.md", "missing.md"] },
-      { match: "^directory$", append: ["dir.md"] },
+      { match: "^directory$", append: ["a.md", "dir.md"] },
       { match: ".", append: ["a.md"] }
     ])
   });

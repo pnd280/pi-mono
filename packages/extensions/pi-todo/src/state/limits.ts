@@ -1,4 +1,4 @@
-import type { TaskDetails } from "./model.ts";
+import type { TaskDetails, TaskMutationParams } from "./model.ts";
 
 // Model-facing list text is bounded; result details still carry the full snapshot.
 export const MAX_LIST_LINES = 200;
@@ -9,15 +9,24 @@ export const MAX_TASKS = 1_000;
 
 export const MAX_TASK_DEPTH = 8;
 
-export const MAX_SUBJECT_LENGTH = 200;
+const MAX_DEPENDENCIES = 100;
 
-export const MAX_DESCRIPTION_LENGTH = 4_000;
+/** String fields in characters and dependency lists in todo IDs, in error-precedence order. */
+export const FIELD_LIMITS = {
+  subject: { maximum: 200, unit: "characters" },
+  description: { maximum: 4_000, unit: "characters" },
+  inProgressLabel: { maximum: 200, unit: "characters" },
+  owner: { maximum: 200, unit: "characters" },
+  blockedBy: { maximum: MAX_DEPENDENCIES, unit: "todo ids" },
+  addBlockedBy: { maximum: MAX_DEPENDENCIES, unit: "todo ids" },
+  removeBlockedBy: { maximum: MAX_DEPENDENCIES, unit: "todo ids" }
+} as const;
 
-export const MAX_IN_PROGRESS_LABEL_LENGTH = 200;
+export type LimitedField = keyof typeof FIELD_LIMITS;
 
-export const MAX_OWNER_LENGTH = 200;
-
-export const MAX_DEPENDENCIES = 100;
+const LIMITED_FIELDS = Object.keys(FIELD_LIMITS).filter((field): field is LimitedField =>
+  Object.hasOwn(FIELD_LIMITS, field)
+);
 
 export const MAX_METADATA_DEPTH = 8;
 
@@ -43,6 +52,20 @@ type SerializationSizeContext = {
 };
 
 type SerializedStringUnit = { bytes: number; consumedCodeUnits: 1 | 2 };
+
+export function fieldLimitFailure(
+  values: Readonly<Pick<TaskMutationParams, LimitedField>>
+): { field: LimitedField; error: string } | undefined {
+  for (const field of LIMITED_FIELDS) {
+    const { maximum, unit } = FIELD_LIMITS[field];
+
+    if ((values[field]?.length ?? 0) > maximum) {
+      return { field, error: `${field} exceeds ${maximum} ${unit}` };
+    }
+  }
+
+  return undefined;
+}
 
 export function metadataLimitError<Metadata>(metadata: Metadata): string | undefined {
   if (!serializedValueFitsLimit(metadata, MAX_METADATA_BYTES)) {

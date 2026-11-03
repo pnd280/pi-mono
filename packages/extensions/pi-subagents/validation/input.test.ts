@@ -7,7 +7,7 @@ import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { RESULT_MESSAGE } from "../src/constants.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema } from "../src/details.ts";
 import { release, taskList, withFixture } from "./background-fixture.ts";
 import type { Supervisor } from "./supervisor.ts";
 

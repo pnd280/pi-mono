@@ -14,10 +14,6 @@ const globalConfig = {
   applyToManual: true,
   applyToAuto: true
 };
-const loadedGlobal = {
-  ...globalConfig,
-  rules: [{ match: new RegExp("^provider/"), ...globalRule }]
-};
 const section = (config: unknown) => JSON.stringify({ "ext.pi-smart-compact": config });
 
 afterEach(() => {
@@ -39,27 +35,6 @@ function settings(global?: string, project?: string) {
 
   return { agentDir, cwd, globalPath, projectPath };
 }
-
-it.each([undefined, section({})])(
-  "leaves native selection untouched when unconfigured: %s",
-  (source) => {
-    const { cwd, agentDir } = settings(source);
-    expect(loadCompactConfig(cwd, { agentDir })).toEqual({});
-  }
-);
-
-it("ignores untrusted project settings, including malformed files, and does not search ancestors", () => {
-  const { cwd, agentDir, projectPath } = settings(
-    section(globalConfig),
-    section({ rules: [{ match: "", model: "other/id" }] })
-  );
-  expect(loadCompactConfig(cwd, { agentDir })).toEqual(loadedGlobal);
-  writeFileSync(projectPath, "{malformed");
-  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: false })).toEqual(loadedGlobal);
-  const child = join(cwd, "child");
-  mkdirSync(child);
-  expect(loadCompactConfig(child, { agentDir, projectTrusted: true })).toEqual(loadedGlobal);
-});
 
 it("selects the first matching rule as a unit, and a bare rule keeps native selection", () => {
   const { cwd, agentDir } = settings(
@@ -83,11 +58,10 @@ it("selects the first matching rule as a unit, and a bare rule keeps native sele
   expect(selectRule({}, { provider: "provider", id: "main" })).toBeUndefined();
 });
 
+// Unreadable and malformed files are covered end to end; the settings library owns their parsing.
+// Other unknown keys share configSchema strictness with { unknown: true }.
 it.each([
-  "{malformed",
-  "[]",
   section(null),
-  section({ model: "provider/id" }),
   section({ rules: [{ model: "provider/id" }] }),
   section({ rules: [{ match: "(" }] }),
   section({ rules: [{ match: "", model: "model-only" }] }),
@@ -95,8 +69,7 @@ it.each([
   section({ applyToManual: "true" }),
   section({ applyToAuto: null }),
   section({ compactionInstructionsFile: "   " }),
-  section({ unknown: true }),
-  JSON.stringify({ "ext.pi-smart-compact": globalConfig, ignored: "x".repeat(1024 * 1024) })
+  section({ unknown: true })
 ])("rejects invalid participating files rather than silently falling back: case %#", (source) => {
   const { cwd, agentDir, globalPath, projectPath } = settings(section(globalConfig), source);
   expect(() => loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toThrow(

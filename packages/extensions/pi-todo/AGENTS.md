@@ -15,8 +15,7 @@ Leave tool cards to the host. Attach no renderer fields to the tool definition.
 
 ## Validation
 
-| When you…                                         | Read                                                                      |
-| ------------------------------------------------- | ------------------------------------------------------------------------- |
-| Change the widget, browser, or working-message UI | [interactive checks](docs/validation.md)                                  |
-| Add tests                                         | [testing](docs/testing.md) first, to avoid repeating shared-library tests |
-| Upgrade Pi                                        | [compatibility checklist](docs/pi-compatibility.md)                       |
+| When you…                                         | Read                                                |
+| ------------------------------------------------- | --------------------------------------------------- |
+| Change the widget, browser, or working-message UI | [interactive checks](docs/validation.md)            |
+| Upgrade Pi                                        | [compatibility checklist](docs/pi-compatibility.md) |

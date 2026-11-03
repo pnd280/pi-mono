@@ -1,4 +1,4 @@
-import { readScopedSettings, readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { readScopedSections, type ScopedSection } from "@pi-mono/libs/settings-file";
 import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
@@ -7,22 +7,16 @@ const configSchema = z.strictObject({
   model: modelReferenceSchema,
   thinkingLevel: z.enum(MODEL_THINKING_LEVELS)
 });
-const settingsSchema = z.object({
-  "ext.pi-session-utils": z
-    .strictObject({ "auto-title": configSchema.partial().optional() })
-    .optional()
-});
+const sectionSchema = z
+  .strictObject({ "auto-title": configSchema.partial().optional() })
+  .optional();
 
 export type TitleConfig = z.output<typeof configSchema>;
 
-function readSection(path: string) {
-  try {
-    const parsed = settingsSchema.safeParse(readSettingsRecord(path));
+function readSection(section: ScopedSection) {
+  const parsed = section.status === "read" ? sectionSchema.safeParse(section.value) : undefined;
 
-    return parsed.success ? (parsed.data["ext.pi-session-utils"]?.["auto-title"] ?? {}) : undefined;
-  } catch {
-    return undefined;
-  }
+  return parsed?.success ? (parsed.data?.["auto-title"] ?? {}) : undefined;
 }
 
 /** Merge trusted cwd overrides without writing settings or choosing fallback models. */
@@ -30,7 +24,10 @@ export function loadTitleConfig(
   cwd: string,
   { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): TitleConfig | undefined {
-  const sections = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
+  const sections = readScopedSections(
+    { cwd, projectTrusted, agentDir },
+    "ext.pi-session-utils"
+  ).map(readSection);
   // Invalid settings must not silently route conversation text to a different model.
   if (sections.includes(undefined)) return undefined;
   const [global, project] = sections;

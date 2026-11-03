@@ -3,9 +3,10 @@ import { constants } from "node:fs";
 import { open, unlink, type FileHandle } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
-import { hasCode, LockTimeoutError, PrivateFileError } from "./errors.ts";
+import { LockTimeoutError, PrivateFileError } from "./errors.ts";
 import { checkHandle, privateOpen, sameFile } from "./privacy.ts";
 
 const durationSchema = z.number().nonnegative();
@@ -49,14 +50,14 @@ export async function acquireLock(
         0o600
       );
     } catch (error) {
-      if (!hasCode(error, "EEXIST")) throw error;
+      if (!hasErrorCode(error, "EEXIST")) throw error;
 
       // Refuse unsafe artifacts without reading a competing owner's contents.
       try {
         const existing = await privateOpen(path);
         await existing.close();
       } catch (inspectionError) {
-        if (!hasCode(inspectionError, "ENOENT")) throw inspectionError;
+        if (!hasErrorCode(inspectionError, "ENOENT")) throw inspectionError;
       }
 
       if (performance.now() >= deadline) throw new LockTimeoutError();

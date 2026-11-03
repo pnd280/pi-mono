@@ -9,6 +9,7 @@ import {
   extensionCount,
   extensionGroups,
   extensionUrl,
+  releaseSource,
   repositoryUrl
 } from "#/extensions.ts";
 
@@ -61,7 +62,7 @@ function Hero() {
           href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent"
           className="inline-block border border-panel-line bg-panel px-3 py-1 text-xs text-dim hover:text-ink"
         >
-          For Pi ^1.4.0
+          For Pi ^1.5.0
         </a>
         <h1 className="mt-8 font-pixel text-[33px] leading-[40px] sm:text-[44px] sm:leading-[52px]">
           Good defaults,
@@ -107,7 +108,7 @@ const facts = [
   },
   {
     title: "Load only what you need",
-    text: "Each extension is a separate package. Repeat -e to load more."
+    text: "Install all extensions as one package, then turn off the ones you don't need with pi config."
   },
   {
     title: "Tested with a real Pi",
@@ -194,18 +195,19 @@ function GetStarted() {
     <section id="get-started" className="border-t border-panel-line bg-panel/60">
       <div className="mx-auto max-w-6xl px-6 py-20 lg:py-28">
         <SectionHeading title="Get started">
-          Run Pi from the workspace with the extensions you choose.
+          Install the extensions as they are, or clone the workspace to change them.
         </SectionHeading>
         <ol className="mt-12">
-          <Step
-            number={1}
-            title="Clone the repository"
-            code={`git clone ${repositoryUrl}.git\ncd pi-mono`}
-          >
-            Each extension is a directory in packages/extensions/.
+          <Step number={1} title="Install" code={`pi install ${releaseSource}`}>
+            Installs every extension from the release branch as one Pi package. To load only some,
+            turn the others off with pi config.
           </Step>
-          <Step number={2} title="Install" code="vp install --frozen-lockfile">
-            Use the Node.js version in{" "}
+          <Step
+            number={2}
+            title="Make it your own"
+            code={`git clone ${repositoryUrl}.git\ncd pi-mono\nvp install --frozen-lockfile`}
+          >
+            Each extension is a directory in packages/extensions/. Use the Node.js version in{" "}
             <ExternalLink href={`${repositoryUrl}/blob/master/.node-version`}>
               .node-version
             </ExternalLink>{" "}
@@ -213,7 +215,7 @@ function GetStarted() {
           </Step>
           <Step
             number={3}
-            title="Launch Pi"
+            title="Load your copy"
             code={
               "vp exec pi \\\n  -e ./packages/extensions/pi-tool-display \\\n  -e ./packages/extensions/pi-agent-summary"
             }

@@ -1,8 +1,12 @@
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { z } from "zod";
 
-import type { ToolFamily } from "../../contracts.ts";
-import type { SummaryItem, SummaryItemContext, ToolDisplayAdapter } from "../../contracts.ts";
+import type {
+  SummaryItem,
+  SummaryItemContext,
+  ToolDisplayAdapter,
+  ToolFamily
+} from "../../contracts.ts";
 import { writeCategory } from "../../run-summary.ts";
 import {
   nativeFilePath,

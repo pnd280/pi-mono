@@ -23,7 +23,7 @@ export type SummaryLineOptions = {
 type Color = Parameters<DisplayTheme["fg"]>[0];
 
 /**
- * Card colors: the leading verb is an action in `accent` (bold for the line's first
+ * Card colours: the leading verb is an action in `accent` (bold for the line's first
  * item), the count is `text`, and remaining words are `muted`. Sentence case applies
  * unless the leading word is a tool name.
  */

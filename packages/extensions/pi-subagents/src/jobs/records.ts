@@ -3,10 +3,8 @@ import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { z } from "zod";
 
 import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
+import { jobEntrySchema, jobOutcomeSchema, type JobRecord } from "../details.ts";
 import { withinRecordLimit } from "../tasks/records.ts";
-
-const id = z.string().min(1).max(1024);
-const outcome = z.enum(["completed", "failed", "cancelled"]);
 
 export const jobInputSchema = z.strictObject({
   command: z.string().min(1).describe("The shell command to run in the background."),
@@ -42,21 +40,10 @@ export type JobAbortInput = z.infer<typeof jobAbortInputSchema>;
 
 export const jobAbortParameters = toToolSchema(jobAbortInputSchema);
 
-const fields = {
-  job_id: id,
-  description: z.string(),
-  command: z.string(),
-  log_file: z.string().min(1),
-  started_at: z.number()
-};
-
-/** The supervisor appends one when a job starts. */
-const jobEntrySchema = z.object(fields);
-
 /** The supervisor appends one after a job's command exits. */
 const jobEndEntrySchema = z.object({
-  job_id: id,
-  outcome,
+  job_id: jobEntrySchema.shape.job_id,
+  outcome: jobOutcomeSchema,
   /** Null after a timeout, a cancellation, or a start failure. */
   exit_code: z.number().nullable(),
   /** The first line of a failed or cancelled job's reason. */
@@ -67,31 +54,6 @@ const jobEndEntrySchema = z.object({
 export type JobEntry = z.infer<typeof jobEntrySchema>;
 
 export type JobEndEntry = z.infer<typeof jobEndEntrySchema>;
-
-const inactive = {
-  ...fields,
-  state: z.literal("inactive"),
-  outcome,
-  exit_code: z.number().nullable(),
-  /** Null when the job stopped without an end entry, such as at a session change. */
-  ended_at: z.number().nullable(),
-  error: z.string().optional()
-};
-
-const active = { ...fields, state: z.literal("active"), exit_code: z.null(), ended_at: z.null() };
-
-/** A job as derived from its entries and live state. It is never persisted. */
-const jobRecordSchema = z.discriminatedUnion("state", [z.object(active), z.object(inactive)]);
-
-export type JobRecord = z.infer<typeof jobRecordSchema>;
-
-/** A job's tool and result-message details; `binding_id` is the supervisor's session ID. */
-export const jobDetailsSchema = z.discriminatedUnion("state", [
-  z.object({ ...active, binding_id: id }),
-  z.object({ ...inactive, binding_id: id })
-]);
-
-export type JobDetails = z.infer<typeof jobDetailsSchema>;
 
 /** A started job's record before its end entry; without one, the job was cancelled. */
 export function stoppedJob(entry: JobEntry): JobRecord {
@@ -113,9 +75,8 @@ export function jobHistory(entries: readonly SessionEntry[]): Map<string, JobRec
       const job = end && jobs.get(end.job_id);
 
       if (end && job?.state === "inactive" && job.ended_at === null) {
-        const { error: _error, ...rest } = job;
         jobs.set(end.job_id, {
-          ...rest,
+          ...job,
           outcome: end.outcome,
           exit_code: end.exit_code,
           ended_at: end.ended_at,

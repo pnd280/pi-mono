@@ -74,6 +74,46 @@ const traceSchema = z.object({
 
 type Trace = z.infer<typeof traceSchema>[];
 
+/** Run the bundled CLI with the extension and the offline provider, then read its trace. */
+async function runPi(directory: string, scenario: string, args: string[]) {
+  const tracePath = join(directory, "trace.jsonl");
+  const launch = await createPiLaunch({
+    directory,
+    env: { PI_NATIVE_COMPACTION_TRACE: tracePath, PI_NATIVE_COMPACTION_CASE: scenario },
+    args: [
+      "--no-extensions",
+      "--no-skills",
+      "--no-themes",
+      "--no-prompt-templates",
+      "--no-context-files",
+      "-e",
+      fileURLToPath(new URL("../index.ts", import.meta.url)),
+      "-e",
+      fileURLToPath(new URL("./provider.ts", import.meta.url)),
+      "--provider",
+      "native-compaction-fixture",
+      "--model",
+      "scripted",
+      "--print",
+      ...args
+    ]
+  });
+  const child = promisify(execFile)(launch.command, launch.args, {
+    ...launch.options,
+    timeout: STEP_TIMEOUT_MS,
+    maxBuffer: 2 * 1024 * 1024
+  });
+  child.child.stdin?.end();
+  const { stdout, stderr } = await child;
+  assert.equal(stderr, "");
+  const trace: Trace = (await readFile(tracePath, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => traceSchema.parse(JSON.parse(line)));
+
+  return { stdout, trace };
+}
+
 function checkCompactionLifecycle(trace: Trace) {
   const reasonEvents = new Set([
     "public:compaction_start",
@@ -125,8 +165,6 @@ function checkCompactionLifecycle(trace: Trace) {
 
 const requestedInstructions = "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
 const fileInstructions = "Preserve FILE_FOCUS_MARKER.";
-const combinedInstructions =
-  "Preserve FILE_FOCUS_MARKER.\n\nPreserve NATIVE_FOCUS_MARKER and the remaining tests.";
 
 function checkEntryFocus(trace: Trace, expectedFocus: string) {
   assert.partialDeepStrictEqual(
@@ -151,7 +189,7 @@ function checkInstructionPrompts(
 
   assert.equal(
     trace.filter((entry) => entry.type === "public:summarization_retry_attempt_start").length,
-    scenario === "retry" ? 1 : 0
+    0
   );
   if (scenario !== "instructions-history") return;
   assert.deepEqual(
@@ -165,13 +203,7 @@ function checkInstructionPrompts(
   );
 }
 
-function checkOutput(stdout: string, mode: string, scenario: string, attempts: number) {
-  if (mode === "text") {
-    assert.equal(stdout.trim(), "TASK_FINISHED");
-
-    return;
-  }
-
+function checkOutput(stdout: string, scenario: string) {
   const events = stdout
     .trim()
     .split("\n")
@@ -196,7 +228,7 @@ function checkOutput(stdout: string, mode: string, scenario: string, attempts: n
   }
 
   for (const type of ["compaction_start", "compaction_end"]) {
-    assert.equal(events.filter((event) => event.type === type).length, attempts);
+    assert.equal(events.filter((event) => event.type === type).length, 1);
   }
 
   const hasOutcomeNotice = expectedOutcomeStatus(scenario) !== undefined;
@@ -224,15 +256,14 @@ function checkOutput(stdout: string, mode: string, scenario: string, attempts: n
 }
 
 function expectedOutcomeStatus(scenario: string) {
-  if (["failure", "auth-failure"].includes(scenario)) return "failed";
+  if (scenario === "auth-failure") return "failed";
   if (["cancel", "abort", "escape"].includes(scenario)) return "cancelled";
 
   return undefined;
 }
 
 function checkFailure(trace: Trace, scenario: string) {
-  if (expectedOutcomeStatus(scenario) !== "failed" && !["cancel", "escape"].includes(scenario))
-    return;
+  if (!["auth-failure", "cancel", "escape"].includes(scenario)) return;
   const failed = trace.filter((event) => event.type === "hook:failed");
   assert.equal(failed.length, 1);
   assert.equal(failed[0]?.aborted, ["cancel", "escape"].includes(scenario));
@@ -254,7 +285,6 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
     assert.partialDeepStrictEqual(outcome.details, { status });
     assert.ok(typeof outcome.content === "string");
     if (status === "cancelled") assert.match(outcome.content, /cancelled/i);
-    if (scenario === "failure") assert.match(outcome.content, /Offline summary failure/);
     if (scenario === "auth-failure")
       assert.match(outcome.content, /Offline summary authentication failed/);
   }
@@ -408,71 +438,55 @@ function checkSummaryModelEntries(
 const summaryModel = "summary-compaction-fixture/nested/summary";
 
 // Each row is a distinct failure mode of credential isolation, no fallback, cancellation,
-// run abort, or ordinary continuation through the bundled CLI.
+// run abort, or ordinary continuation through the bundled CLI. Every summary attempt, including
+// retries, shares the stream override in summarizeWithOverrides (src/summarize.ts); manual.test.ts
+// covers retries. Generation and authentication failures share Pi's failed compaction_end
+// (fromEvent, src/outcome.ts). A hook-returned cancel and an Escape abort are separate rows.
 const toolCases: {
-  mode: string;
   scenario: string;
   summaries: number;
   compactions: number;
-  attempts: number;
   instructions?: string;
   config?: SummaryRule;
 }[] = [
-  { mode: "text", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
   {
-    mode: "json",
     scenario: "instructions-history",
     instructions: requestedInstructions,
     summaries: 2,
     compactions: 1,
-    attempts: 1,
     config: { model: summaryModel, thinkingLevel: "low" }
   },
   {
-    mode: "json",
-    scenario: "retry",
+    scenario: "auth-failure",
     instructions: requestedInstructions,
-    summaries: 2,
-    compactions: 1,
-    attempts: 1,
-    config: { model: summaryModel, thinkingLevel: "off" }
+    summaries: 0,
+    compactions: 0,
+    config: { model: summaryModel }
   },
-  ...["failure", "auth-failure"].map((scenario) => ({
-    mode: "json",
-    scenario,
-    instructions: requestedInstructions,
-    summaries: scenario === "failure" ? 1 : 0,
-    compactions: 0,
-    attempts: 1,
-    config: { model: summaryModel }
-  })),
-  ...["escape", "cancel"].map((scenario) => ({
-    mode: "json",
-    scenario,
-    instructions: requestedInstructions,
-    summaries: scenario === "escape" ? 1 : 0,
-    compactions: 0,
-    attempts: 1,
-    config: { model: summaryModel }
-  })),
   {
-    mode: "json",
-    scenario: "abort",
+    scenario: "escape",
+    instructions: requestedInstructions,
     summaries: 1,
     compactions: 0,
-    attempts: 1,
-    instructions: requestedInstructions
-  }
+    config: { model: summaryModel }
+  },
+  {
+    scenario: "cancel",
+    instructions: requestedInstructions,
+    summaries: 0,
+    compactions: 0,
+    config: { model: summaryModel }
+  },
+  { scenario: "abort", summaries: 1, compactions: 0, instructions: requestedInstructions }
 ];
 
 // Each row owns its workspace and process, so the CLI launches can overlap.
 it.concurrent.each(toolCases)(
-  "native compaction in $mode mode: $scenario ($config)",
-  async ({ mode, scenario, summaries, compactions, attempts, instructions, config }) => {
+  "native compaction: $scenario ($config)",
+  async ({ scenario, summaries, compactions, instructions, config }) => {
     const directory = await createValidationWorkspace("pi-native-compaction-");
 
     try {
-      const tracePath = join(directory, "trace.jsonl");
       const sessionPath = join(directory, "session.jsonl");
       await writeFile(
         join(directory, "agent", "settings.json"),
@@ -492,7 +506,7 @@ it.concurrent.each(toolCases)(
           httpIdleTimeoutMs: 4321,
           websocketConnectTimeoutMs: 2345,
           retry: {
-            enabled: scenario === "retry",
+            enabled: false,
             maxRetries: 1,
             baseDelayMs: 1,
             provider: {
@@ -502,56 +516,26 @@ it.concurrent.each(toolCases)(
           }
         })
       );
-      const launch = await createPiLaunch({
-        directory,
-        env: { PI_NATIVE_COMPACTION_TRACE: tracePath, PI_NATIVE_COMPACTION_CASE: scenario },
-        args: [
-          "--no-extensions",
-          "--no-skills",
-          "--no-themes",
-          "--no-prompt-templates",
-          "--no-context-files",
-          "--tools",
-          "compact,fixture_work",
-          "-e",
-          fileURLToPath(new URL("../index.ts", import.meta.url)),
-          "-e",
-          fileURLToPath(new URL("./provider.ts", import.meta.url)),
-          "--provider",
-          "native-compaction-fixture",
-          "--model",
-          "scripted",
-          "--thinking",
-          activeThinking(config !== undefined),
-          "--session",
-          sessionPath,
-          "--print",
-          "--mode",
-          mode,
-          "Do the fixture work, compact using the tool, and finish the task."
-        ]
-      });
-      const child = promisify(execFile)(launch.command, launch.args, {
-        ...launch.options,
-        timeout: STEP_TIMEOUT_MS,
-        maxBuffer: 2 * 1024 * 1024
-      });
-      child.child.stdin?.end();
-      const { stdout, stderr } = await child;
-      assert.equal(stderr, "");
+      const { stdout, trace } = await runPi(directory, scenario, [
+        "--tools",
+        "compact,fixture_work",
+        "--thinking",
+        activeThinking(config !== undefined),
+        "--session",
+        sessionPath,
+        "--mode",
+        "json",
+        "Do the fixture work, compact using the tool, and finish the task."
+      ]);
 
-      checkOutput(stdout, mode, scenario, attempts);
+      checkOutput(stdout, scenario);
 
-      const trace = (await readFile(tracePath, "utf8"))
-        .trim()
-        .split("\n")
-        .map((line) => traceSchema.parse(JSON.parse(line)));
       const ofType = (type: string) => trace.filter((event) => event.type === type);
       checkCompactionLifecycle(trace);
       assert.equal(ofType("provider:summary").length, summaries);
-      assert.equal(ofType("hook:before").length, attempts);
+      assert.equal(ofType("hook:before").length, 1);
       assert.equal(ofType("hook:success").length, compactions);
-      assert.equal(ofType("wait:idle").length, attempts);
+      assert.equal(ofType("wait:idle").length, 1);
 
       for (const entry of ofType("hook:before")) {
         assert.equal(entry.customInstructions, instructions);
@@ -607,110 +591,67 @@ it.concurrent.each(toolCases)(
   }
 );
 
-// The SDK suite covers routing flags; these rows prove the bundled CLI routes credentials.
-it.concurrent.each([
-  { entry: "manual", focus: combinedInstructions },
-  { entry: "auto", focus: fileInstructions }
-] as const)(
-  "bundled CLI $entry compaction routes to the configured summary model",
-  async ({ entry, focus }) => {
-    const directory = await createValidationWorkspace("pi-manual-compact-cli-");
+// The SDK suite covers routing flags. Manual /compact shares the tool rows' summary override
+// (summaryWrapper, src/native.ts), so this row proves the bundled CLI routes automatic credentials.
+it.concurrent("bundled CLI automatic compaction routes to the configured summary model", async () => {
+  const directory = await createValidationWorkspace("pi-manual-compact-cli-");
 
-    try {
-      const tracePath = join(directory, "trace.jsonl");
-      const sessionPath = join(directory, "session.jsonl");
-      await writeFile(join(directory, "agent", "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
-      await writeFile(
-        join(directory, "agent", "settings.json"),
-        JSON.stringify({
-          "ext.pi-smart-compact": {
-            rules: [{ match: conversationMatch, model: summaryModel, thinkingLevel: "low" }],
-            compactionInstructionsFile: "focus.txt",
-            applyToManual: entry === "manual",
-            applyToAuto: entry === "auto"
-          },
-          compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
-          retry: { enabled: false }
-        })
-      );
-      const launch = await createPiLaunch({
-        directory,
-        env: {
-          PI_NATIVE_COMPACTION_TRACE: tracePath,
-          PI_NATIVE_COMPACTION_CASE: "manual-split"
+  try {
+    const sessionPath = join(directory, "session.jsonl");
+    await writeFile(join(directory, "agent", "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
+    await writeFile(
+      join(directory, "agent", "settings.json"),
+      JSON.stringify({
+        "ext.pi-smart-compact": {
+          rules: [{ match: conversationMatch, model: summaryModel, thinkingLevel: "low" }],
+          compactionInstructionsFile: "focus.txt",
+          applyToAuto: true
         },
-        args: [
-          "--no-extensions",
-          "--no-skills",
-          "--no-themes",
-          "--no-prompt-templates",
-          "--no-context-files",
-          "-e",
-          fileURLToPath(new URL("../index.ts", import.meta.url)),
-          "-e",
-          fileURLToPath(new URL("./provider.ts", import.meta.url)),
-          "--provider",
-          "native-compaction-fixture",
-          "--model",
-          "scripted",
-          "--thinking",
-          "high",
-          "--session",
-          sessionPath,
-          "--print",
-          "--mode",
-          "json",
-          entry === "manual" ? "/fixture_manual_compact" : "/fixture_auto_compact"
-        ]
-      });
-      const child = promisify(execFile)(launch.command, launch.args, {
-        ...launch.options,
-        timeout: STEP_TIMEOUT_MS,
-        maxBuffer: 2 * 1024 * 1024
-      });
-      child.child.stdin?.end();
-      const { stderr } = await child;
-      assert.equal(stderr, "");
-      const trace = (await readFile(tracePath, "utf8"))
-        .trim()
-        .split("\n")
-        .map((line) => traceSchema.parse(JSON.parse(line)));
-      const requests = trace.filter((entry) => entry.type === "provider:summary");
-      const provider = "summary-compaction-fixture";
-      assert.equal(requests.length, 1);
-      assert.partialDeepStrictEqual(requests[0], {
-        provider,
-        model: "nested/summary",
-        reasoning: "low",
-        apiKey: provider,
-        authEnv: provider,
-        baseUrl: `http://${provider}.invalid`,
-        headers: { "X-Fixture-Provider": provider, "X-Fixture-Hook": "applied" },
-        sessionModel: "scripted",
-        sessionThinking: "high"
-      });
-      checkEntryFocus(trace, focus);
-      assert.equal(
-        trace.find((item) => item.type === "hook:before")?.reason,
-        entry === "manual" ? "manual" : "threshold"
-      );
-      assert.equal(
-        trace.find((entry) => entry.type === "fixture:entry")?.instructionPatchRestored,
-        true
-      );
-      assert.equal(trace.find((entry) => entry.type === "hook:shutdown")?.patchRestored, true);
-      assert.equal(trace.filter((entry) => entry.type === "provider:main").length, 0);
-      const branch = SessionManager.open(sessionPath).getBranch();
-      assert.equal(branch.filter((entry) => entry.type === "compaction").length, 1);
-      assert.ok(!branch.some((entry) => entry.type === "custom_message"));
-      checkSummaryModelEntries(
-        SessionManager.open(sessionPath),
-        { model: summaryModel },
-        "low",
-        entry === "manual" ? "manual" : "threshold"
-      );
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+        compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
+        retry: { enabled: false }
+      })
+    );
+    const { trace } = await runPi(directory, "manual-split", [
+      "--thinking",
+      "high",
+      "--session",
+      sessionPath,
+      "--mode",
+      "json",
+      "/fixture_auto_compact"
+    ]);
+    const requests = trace.filter((entry) => entry.type === "provider:summary");
+    const provider = "summary-compaction-fixture";
+    assert.equal(requests.length, 1);
+    assert.partialDeepStrictEqual(requests[0], {
+      provider,
+      model: "nested/summary",
+      reasoning: "low",
+      apiKey: provider,
+      authEnv: provider,
+      baseUrl: `http://${provider}.invalid`,
+      headers: { "X-Fixture-Provider": provider, "X-Fixture-Hook": "applied" },
+      sessionModel: "scripted",
+      sessionThinking: "high"
+    });
+    checkEntryFocus(trace, fileInstructions);
+    assert.equal(trace.find((item) => item.type === "hook:before")?.reason, "threshold");
+    assert.equal(
+      trace.find((entry) => entry.type === "fixture:entry")?.instructionPatchRestored,
+      true
+    );
+    assert.equal(trace.find((entry) => entry.type === "hook:shutdown")?.patchRestored, true);
+    assert.equal(trace.filter((entry) => entry.type === "provider:main").length, 0);
+    const branch = SessionManager.open(sessionPath).getBranch();
+    assert.equal(branch.filter((entry) => entry.type === "compaction").length, 1);
+    assert.ok(!branch.some((entry) => entry.type === "custom_message"));
+    checkSummaryModelEntries(
+      SessionManager.open(sessionPath),
+      { model: summaryModel },
+      "low",
+      "threshold"
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
-);
+});

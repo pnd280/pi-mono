@@ -8,6 +8,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import { readLogTail } from "../jobs/log.ts";
 import type { Jobs } from "../jobs/registry.ts";
@@ -32,7 +33,6 @@ export class JobLogView implements Component {
   private reading = false;
   /** An event arrived during a read; read once more after it. */
   private again = false;
-  private bodyRows = 0;
   private scroll = new ScrollView(
     { render: (width) => this.wrap(width), invalidate: () => (this.wrapped = undefined) },
     { follow: "end", scrollbar: "hidden" }
@@ -98,7 +98,7 @@ export class JobLogView implements Component {
       this.unavailable = "";
     } catch (error) {
       this.lines = [];
-      this.unavailable = `Log file unavailable: ${error instanceof Error ? error.message : String(error)}`;
+      this.unavailable = `Log file unavailable: ${errorMessage(error)}`;
     } finally {
       this.reading = false;
       this.loaded = true;
@@ -134,8 +134,8 @@ export class JobLogView implements Component {
     else if (action === "abort") void this.abort();
     else if (action === "up") this.scroll.scrollBy(-1);
     else if (action === "down") this.scroll.scrollBy(1);
-    else if (action === "pageUp") this.scroll.scrollBy(-Math.max(1, this.bodyRows));
-    else if (action === "pageDown") this.scroll.scrollBy(Math.max(1, this.bodyRows));
+    else if (action === "pageUp") this.scroll.scrollBy(-Math.max(1, this.scroll.viewportHeight));
+    else if (action === "pageDown") this.scroll.scrollBy(Math.max(1, this.scroll.viewportHeight));
     else if (action === "first") this.scroll.scrollToStart();
     else if (action === "last") this.scroll.scrollToEnd();
     this.tui.requestRender();
@@ -196,8 +196,6 @@ export class JobLogView implements Component {
       if (unavailableInBody) empty = this.theme.fg("error", compactDisplayText(this.unavailable));
       body = [empty].slice(0, height);
     }
-
-    this.bodyRows = body.length;
 
     return { lines: body, above, below };
   }

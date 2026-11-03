@@ -1,15 +1,25 @@
 import {
   initTheme,
   type AgentToolResult,
-  type CodemodeToolDetails
+  type CodemodeToolDetails,
+  type ToolInfo
 } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import { plainTheme as theme } from "../../../test-fixture.ts";
-import { codemodeDisplayAdapter as adapter } from "./index.ts";
+import { keybindingHints, plainTheme as theme } from "../../../test-fixture.ts";
+import { builtinCodemodeAdapter } from "./index.ts";
 
+// Passes the built-in `codemode` provenance and schema checks.
+const info: ToolInfo = {
+  name: "codemode",
+  exposure: "direct",
+  description: "Run JavaScript that calls other tools.",
+  parameters: { type: "object", required: ["code"], properties: { code: { type: "string" } } },
+  sourceInfo: { path: "builtin:codemode", source: "builtin", scope: "user", origin: "top-level" }
+};
+const adapter = builtinCodemodeAdapter(info)!;
 const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
 const HEADER = "Script completed\nWall time 0.1 seconds\nOutput:\n";
 const code = [
@@ -19,16 +29,6 @@ const code = [
   "text(result.output);"
 ].join("\n");
 const args = { code };
-
-function result(
-  details: CodemodeToolDetails,
-  content: AgentToolResult<unknown>["content"] = [
-    { type: "text", text: HEADER },
-    { type: "text", text: "nested-output" }
-  ]
-): AgentToolResult<unknown> {
-  return { content, details };
-}
 
 const calls: CodemodeToolDetails["calls"] = [
   { id: "p/1", name: "read", args: '{"path":"nested.txt"}', status: "ok", durationMs: 4 },
@@ -42,10 +42,7 @@ const calls: CodemodeToolDetails["calls"] = [
   }
 ];
 
-function renderContext(
-  expanded: boolean,
-  overrides: { isPartial?: boolean; isError?: boolean } = {}
-) {
+function renderContext(expanded: boolean) {
   return {
     args,
     state: {},
@@ -60,18 +57,14 @@ function renderContext(
     isError: false,
     durationMs: undefined,
     outputPad: 1,
-    invalidate() {},
-    ...overrides
+    ...keybindingHints,
+    invalidate() {}
   };
 }
 
-function render(
-  supplied: AgentToolResult<unknown>,
-  expanded: boolean,
-  overrides: { isPartial?: boolean; isError?: boolean } = {}
-) {
+function render(supplied: AgentToolResult<unknown>, expanded: boolean) {
   const renderers = createToolDisplayRenderers("codemode", adapter);
-  const context = renderContext(expanded, overrides);
+  const context = renderContext(expanded);
   const call = renderers.renderCall(args, theme, context);
   const body = renderers.renderResult(supplied, context, theme, context);
 
@@ -82,10 +75,13 @@ beforeAll(() => initTheme("dark", false));
 
 it("keeps codemode arguments unchanged while rendering compact and expanded cards", () => {
   const before = structuredClone(args);
-  const supplied = result({ calls }, [
-    { type: "text", text: HEADER },
-    { type: "text", text: "distinct-result-body" }
-  ]);
+  const supplied: AgentToolResult<unknown> = {
+    content: [
+      { type: "text", text: HEADER },
+      { type: "text", text: "distinct-result-body" }
+    ],
+    details: { calls } satisfies CodemodeToolDetails
+  };
   render(supplied, false);
   render(supplied, true);
   expect(args).toEqual(before);

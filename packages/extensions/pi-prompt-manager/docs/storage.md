@@ -72,7 +72,7 @@ chmod 600 "$collection.backup"
 
 ### Locks and temporary files
 
-Recovery is manual: the extension never migrates collection documents or reclaims abandoned locks and temporary files. Opening collections can still create managed directories and repair permissions and ACLs.
+Recovery is manual: the extension never migrates collection documents or reclaims abandoned locks and temporary files. Opening collections still applies the [directory access](#directory-access) repairs.
 
 Stop all sessions that use the collection and back it up before cleanup. An old lock isn't necessarily abandoned.
 
@@ -165,4 +165,5 @@ Sessions coordinate changes to each collection through lock files and atomic rep
 - Closing the browser or switching collections cancels processing and preparation that are no longer needed, but not deletions that have started.
 - Reload, shutdown, and replacing the session discard queued captures.
 - Changes still reading or waiting for a lock can't commit after the session ends. Writes that have started may finish, and a graceful shutdown waits for them and for lock cleanup.
-- At shutdown, the extension stops new writes and notifications before any other pi-mono extension waits on its shutdown work. Only an extension from outside pi-mono can wait before that. The extension then waits for its started writes and for cancelled changes to release their locks.
+- At shutdown, the extension first stops new writes and notifications. Other pi-mono extensions can't delay this step, but an extension from outside pi-mono can.
+- The extension then waits for its started writes and for cancelled changes to release their locks.

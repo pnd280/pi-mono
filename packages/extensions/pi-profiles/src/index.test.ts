@@ -9,7 +9,6 @@ import {
   fauxToolCall,
   getCurrentSystemPrompt,
   getCurrentTools,
-  Type,
   type AssistantMessage,
   type FauxResponseFactory
 } from "@earendil-works/pi-ai";
@@ -28,6 +27,7 @@ import {
   type ToolExposure
 } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { Type } from "typebox";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import profiles from "../index.ts";
@@ -816,9 +816,8 @@ it.each([null, "missing"])(
 
 it.each([
   ["tui", "second", ["alpha"]],
-  ["rpc", "first", ["alpha", "beta"]],
-  ["print", "first", ["alpha", "beta"]],
-  ["json", "first", ["alpha", "beta"]]
+  // RPC, print, and JSON share the `ctx.mode === "tui"` default-profile gate in startProfile (src/index.ts).
+  ["rpc", "first", ["alpha", "beta"]]
 ] as const)(
   "applies --profile at startup in any mode, else the default profile only in interactive sessions without a selection (%s)",
   async (mode, model, tools) => {

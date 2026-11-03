@@ -18,6 +18,11 @@ const repository = await FileRepository.create({
   lockTimeoutMs: STEP_TIMEOUT_MS
 });
 
+// Start mutating only when both workers are ready, so their lock attempts overlap.
+const start = new Promise((resolve) => process.once("message", resolve));
+process.send?.("ready");
+await start;
+
 for (let index = 0; index < count; index++) {
   const result = await repository.mutate(
     "drafts",

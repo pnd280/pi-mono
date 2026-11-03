@@ -2,16 +2,12 @@ import { z } from "zod";
 
 import { deriveTaskHierarchy } from "./hierarchy.ts";
 import {
-  MAX_IN_PROGRESS_LABEL_LENGTH,
-  MAX_DEPENDENCIES,
-  MAX_DESCRIPTION_LENGTH,
+  FIELD_LIMITS,
   MAX_DETAILS_OVERHEAD_BYTES,
-  MAX_OWNER_LENGTH,
   MAX_SNAPSHOT_BYTES,
-  MAX_SUBJECT_LENGTH,
-  MAX_TASKS
+  MAX_TASKS,
+  serializedValueFitsLimit
 } from "./limits.ts";
-import { serializedValueFitsLimit } from "./limits.ts";
 import { jsonMetadataSchema } from "./metadata.ts";
 import { TASK_DETAILS_VERSION, TASK_STATUSES, type TodoState } from "./model.ts";
 import {
@@ -26,12 +22,12 @@ const taskIdSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
 const taskSchema = z.object({
   id: taskIdSchema,
-  subject: z.string().max(MAX_SUBJECT_LENGTH),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  inProgressLabel: z.string().max(MAX_IN_PROGRESS_LABEL_LENGTH).optional(),
+  subject: z.string().max(FIELD_LIMITS.subject.maximum),
+  description: z.string().max(FIELD_LIMITS.description.maximum).optional(),
+  inProgressLabel: z.string().max(FIELD_LIMITS.inProgressLabel.maximum).optional(),
   status: taskStatusSchema,
-  blockedBy: z.array(taskIdSchema).max(MAX_DEPENDENCIES).optional(),
-  owner: z.string().max(MAX_OWNER_LENGTH).optional(),
+  blockedBy: z.array(taskIdSchema).max(FIELD_LIMITS.blockedBy.maximum).optional(),
+  owner: z.string().max(FIELD_LIMITS.owner.maximum).optional(),
   metadata: jsonMetadataSchema.optional(),
   parentId: taskIdSchema.optional()
 });

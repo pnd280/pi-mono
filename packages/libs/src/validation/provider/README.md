@@ -8,6 +8,24 @@ Drive validation scenarios with scripted assistant messages and event streams.
 
 Validation-only [`@pi-mono/libs/validation/provider`](index.ts) builds scripted Pi event streams; it registers no provider or network transport. Messages stay `pending` until the scenario completes, fails, or is cancelled. `createFixtureStream` checks cancellation before and after the caller's `run` callback, not during it.
 
+## Usage
+
+Return the stream from an offline provider's stream function, which receives `model` and `options`:
+
+```ts
+import { createFixtureStream } from "@pi-mono/libs/validation/provider";
+
+return createFixtureStream({
+  model,
+  signal: options?.signal,
+  async run({ text }) {
+    text("Offline response");
+
+    return "stop";
+  }
+});
+```
+
 ## Caller responsibilities
 
 Supply the fixture model, register the offline provider, and define scenarios, delays, and tool calls in the consumer. Pass the stream signal to scenario waits and I/O for cooperative cancellation.

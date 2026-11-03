@@ -5,13 +5,12 @@ import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
-  createCodemodeExtension,
   createReadToolDefinition,
-  createSyntheticSourceInfo,
   defineTool,
   DefaultResourceLoader,
   initTheme,
   InteractiveMode,
+  isToolCallEventType,
   ModelRuntime,
   SessionManager,
   SettingsManager,
@@ -22,7 +21,8 @@ import {
   type AgentSessionEvent,
   type ExtensionAPI,
   type InlineExtension,
-  type ExtensionContext
+  type ExtensionContext,
+  type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
@@ -58,31 +58,11 @@ function installHostIntegration(): (() => void) | undefined {
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
-type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "sessionManager"> & {
-  getToolDefinition: (name: string) => ReturnType<AgentSession["getToolDefinition"]>;
-  extensionRunner: Pick<AgentSession["extensionRunner"], "resolveToolRenderers">;
-};
-
-// Pi 1.4.0's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.5.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
-  getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
+  getRegisteredToolDefinition: (this: { session: AgentSession }, name: string) => RenderDefinition;
 };
-
-function lookupSession(name = "read", source = "builtin"): LookupSession {
-  const definition = defineTool({ ...createReadToolDefinition("/tmp"), name });
-
-  return {
-    settingsManager: SettingsManager.inMemory(),
-    sessionManager: SessionManager.inMemory("/tmp"),
-    getToolDefinition: () => definition,
-    // No extension registers a tool renderer resolver, so Pi's base lookup decides.
-    extensionRunner: { resolveToolRenderers: (_name, base) => base() },
-    getAllTools: () => [
-      { ...definition, exposure: "direct", sourceInfo: createSyntheticSourceInfo(name, { source }) }
-    ]
-  };
-}
 
 function readRow(session: AgentSession, completed = true): ToolExecutionComponent {
   const definition = host.getRegisteredToolDefinition.call({ session }, "read");
@@ -119,7 +99,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 1.4.0's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.5.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -148,6 +128,25 @@ function saved(session: AgentSession, type: string): unknown[] {
   return session.sessionManager
     .getEntries()
     .flatMap((entry) => (entry.type === "custom" && entry.customType === type ? [entry.data] : []));
+}
+
+/** Tool result messages saved in the session, in order. */
+function toolResults(session: AgentSession) {
+  return session.sessionManager
+    .getEntries()
+    .flatMap((entry) =>
+      entry.type === "message" && entry.message.role === "toolResult" ? [entry.message] : []
+    );
+}
+
+/** Selects an offline faux model whose responses the caller sets. */
+async function fauxModel(session: AgentSession, provider: string) {
+  const faux = fauxProvider({ provider, models: [{ id: "offline" }] });
+  session.modelRuntime.registerNativeProvider(faux.provider);
+  await session.modelRuntime.refresh({ allowNetwork: false });
+  await session.setModel(faux.getModel());
+
+  return faux;
 }
 
 function preserveRegistry(session: AgentSession): () => void {
@@ -184,6 +183,9 @@ function preserveRegistry(session: AgentSession): () => void {
   };
 }
 
+/** Set by the fixture's configured shell, so output shows which shell ran a command. */
+const SHELL_MARKER = "TOOL_DISPLAY_SHELL";
+
 async function withSession(
   run: (fixture: {
     session: AgentSession;
@@ -218,9 +220,19 @@ async function withSession(
   };
 
   try {
+    // Unlike Pi's default /bin/bash, the configured shell marks its commands' environment.
+    // Windows has no /bin/bash; Pi finds Git Bash there when shellPath is unset.
+    const shellPath = join(directory, "configured-shell");
+    if (process.platform !== "win32")
+      await writeFile(
+        shellPath,
+        `#!/bin/bash\nexport ${SHELL_MARKER}=configured\nexec /bin/bash "$@"\n`,
+        {
+          mode: 0o755
+        }
+      );
     const settingsManager = SettingsManager.inMemory({
-      // Windows has no /bin/bash; Pi finds Git Bash there when shellPath is unset.
-      ...(process.platform === "win32" ? {} : { shellPath: "/bin/bash" }),
+      ...(process.platform === "win32" ? {} : { shellPath }),
       shellCommandPrefix: "export TOOL_DISPLAY_TEST=preserved",
       images: { autoResize: false },
       ...display
@@ -646,11 +658,12 @@ it("preserves native construction settings when settings change before TUI bindi
   await withSession(async ({ session }) => {
     const original = session.agent.state.tools.find((tool) => tool.name === "bash")!;
     // A nonzero exit code is saved only for an observed call.
-    const args = { command: 'printf "%s" "$TOOL_DISPLAY_TEST"; exit 3' };
+    const args = { command: `printf "%s|%s" "$TOOL_DISPLAY_TEST" "$${SHELL_MARKER}"; exit 3` };
+    const output = `preserved|${process.platform === "win32" ? "" : "configured"}`;
     session.settingsManager.setShellCommandPrefix("export TOOL_DISPLAY_TEST=changed");
     const expected = await original.execute("original-settings", args);
     expect(expected.content).toEqual([
-      { type: "text", text: "preserved\n\nCommand exited with code 3" }
+      { type: "text", text: `${output}\n\nCommand exited with code 3` }
     ]);
     const tui = interactiveHost(session);
 
@@ -667,7 +680,7 @@ it("preserves native construction settings when settings change before TUI bindi
       expect(result).toEqual({
         ...expected,
         structuredContent: {
-          output: "preserved",
+          output,
           truncated: false,
           exit_code: 3,
           wall_time_seconds: expect.any(Number) as unknown
@@ -694,6 +707,68 @@ it("preserves native construction settings when settings change before TUI bindi
         {
           entry: expect.any(String) as unknown,
           toolCallId: "observed-settings",
+          operation: true,
+          exitCode: 3
+        }
+      ]);
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
+
+it("keeps a replaced collector from updating or persisting into the replacement session", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+
+    try {
+      tui.renderSessionItems([]);
+      await session.bindExtensions({ mode: "tui" });
+
+      /** Runs an observed shell call up to Pi's final result message, which saves its facts. */
+      const run = async (id: string) => {
+        // A nonzero exit code is saved only for an observed call.
+        const args = { command: "exit 3" };
+        const message = assistantMessage([fauxToolCall("bash", args, { id })]);
+        session.sessionManager.appendMessage(message);
+        await tui.handleEvent({ type: "message_start", message });
+        await tui.handleEvent({ type: "message_end", message });
+        const shell = session.agent.state.tools.find((tool) => tool.name === "bash")!;
+        const result = await shell.execute(id, args);
+        await tui.handleEvent({
+          type: "tool_execution_end",
+          toolCallId: id,
+          toolName: "bash",
+          result,
+          isError: true
+        });
+
+        return {
+          role: "toolResult" as const,
+          toolCallId: id,
+          toolName: "bash",
+          content: result.content,
+          isError: true,
+          timestamp: 2
+        };
+      };
+
+      const outgoing = await run("outgoing");
+      // The host replaces the session in place; mounting its transcript replaces the collector.
+      session.sessionManager.newSession();
+      tui.chatContainer.clear();
+      tui.renderSessionItems([]);
+      await tui.handleEvent({ type: "message_end", message: outgoing });
+      expect(saved(session, CALL_TYPE)).toEqual([]);
+      expect(tui.chatContainer.children.some((row) => row instanceof ToolExecutionComponent)).toBe(
+        false
+      );
+      const incoming = await run("incoming");
+      await tui.handleEvent({ type: "message_end", message: incoming });
+      expect(saved(session, CALL_TYPE)).toEqual([
+        {
+          entry: expect.any(String) as unknown,
+          toolCallId: "incoming",
           operation: true,
           exitCode: 3
         }
@@ -760,10 +835,7 @@ it.each(["observation", "session-entry"] as const)(
             // oxlint-disable-next-line typescript/no-unsafe-type-assertion
             uiContext: uiContext as unknown as ExtensionContext["ui"]
           });
-          const faux = fauxProvider({ provider: "display-failure", models: [{ id: "offline" }] });
-          session.modelRuntime.registerNativeProvider(faux.provider);
-          await session.modelRuntime.refresh({ allowNetwork: false });
-          await session.setModel(faux.getModel());
+          const faux = await fauxModel(session, "display-failure");
           faux.setResponses([
             fauxAssistantMessage([
               fauxToolCall("bash", args, { id: "native-result" }),
@@ -880,44 +952,45 @@ it("keeps real SDK base overrides generic despite their builtin source label", a
   );
 });
 
-it.each(["original", "generic", false])(
-  "avoids observation and grouping for override %s",
-  async (mode) => {
-    await withSession(
-      async ({ session }) => {
-        const before = ["read", "bash", "edit", "write"].map((name) =>
-          session.getToolDefinition(name)
-        );
-        const tui = interactiveHost(session);
-
-        try {
-          const message = assistantMessage([
-            fauxToolCall(
-              "write",
-              { path: "new.txt", content: "unchanged execution" },
-              { id: "skip-write" }
-            )
-          ]);
-          session.sessionManager.appendMessage(message);
-          tui.renderSessionItems([message]);
-          before.forEach((definition) =>
-            expect(session.getToolDefinition(definition!.name)).toBe(definition)
-          );
-          const tool = session.agent.state.tools.find((tool) => tool.name === "write")!;
-          await tool.execute("skip-write", { path: "new.txt", content: "unchanged execution" });
-          expect(saved(session, CALL_TYPE)).toEqual([]);
-        } finally {
-          tui.footerDataProvider.dispose();
-        }
-      },
-      {
-        rendererOverrides: Object.fromEntries(
-          ["read", "bash", "powershell", "edit", "write"].map((name) => [name, mode])
-        )
-      }
-    );
-  }
-);
+// "original" overrides share the non-"auto" check in Collection.eligible (src/host/collection.ts);
+// the headless test's reload covers its invalid-settings check.
+it("avoids native observation of live calls for a generic override", async () => {
+  await withSession(
+    async ({ session }) => {
+      // Observed, these calls would save an exit code and a creation fact.
+      const shellArgs = { command: 'printf "%s" "$TOOL_DISPLAY_TEST"; exit 3' };
+      const writeArgs = { path: "new.txt", content: "unchanged execution" };
+      const expected = await session.agent.state.tools
+        .find((tool) => tool.name === "bash")!
+        .execute("original-result", shellArgs);
+      await session.bindExtensions({ mode: "tui" });
+      const faux = await fauxModel(session, "display-override");
+      faux.setResponses([
+        fauxAssistantMessage([
+          fauxToolCall("bash", shellArgs, { id: "override-shell" }),
+          fauxToolCall("write", writeArgs, { id: "override-write" })
+        ]),
+        fauxAssistantMessage("done")
+      ]);
+      await session.prompt("Run the native calls");
+      expect(toolResults(session)).toMatchObject([
+        { toolCallId: "override-shell", isError: true, content: expected.content },
+        { toolCallId: "override-write", isError: false }
+      ]);
+      expect(await readFile(join(session.sessionManager.getCwd(), writeArgs.path), "utf8")).toBe(
+        writeArgs.content
+      );
+      expect(saved(session, CALL_TYPE)).toEqual([]);
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      expect(saved(session, CALL_TYPE)).toEqual([]);
+    },
+    {
+      rendererOverrides: Object.fromEntries(
+        ["read", "bash", "powershell", "edit", "write"].map((name) => [name, "generic"])
+      )
+    }
+  );
+});
 
 it("refreshes native binding across two reconstructed reloads and preserves dynamic owners on removal", async () => {
   await withSession(async ({ session, extensionFactories, assertNoRegistration }) => {
@@ -1554,70 +1627,93 @@ it.each([
   }
 );
 
-it.each(["rpc", "print", "json"] as const)(
-  "collects native facts in %s without TUI hooks through reload",
+// Print and JSON share the non-TUI, no-UI branch of the session_start handler (src/index.ts).
+it.each(["rpc", "print"] as const)(
+  "collects native facts in %s with trusted overrides and middleware, without TUI hooks, through reload",
   async (mode) => {
     const original = host.getRegisteredToolDefinition;
-    await withSession(async ({ session, assertNoRegistration }) => {
-      await session.bindExtensions({ mode, onError: () => {} });
-      const assertPreserved = preserveRegistry(session);
-      expect(host.getRegisteredToolDefinition).toBe(original);
-      const faux = fauxProvider({ provider: "display-headless", models: [{ id: "offline" }] });
-      session.modelRuntime.registerNativeProvider(faux.provider);
-      await session.modelRuntime.refresh({ allowNetwork: false });
-      await session.setModel(faux.getModel());
-      // A nonzero exit code is saved only for an observed call.
-      faux.setResponses([
-        fauxAssistantMessage([
-          fauxToolCall(
-            "bash",
-            { command: 'printf "%s" "$TOOL_DISPLAY_TEST"; exit 3' },
-            { id: "headless-shell" }
-          )
-        ]),
-        fauxAssistantMessage("done")
-      ]);
-      await session.prompt("Run the native command");
-      const entries = session.sessionManager.getEntries();
-      const facts = [
-        {
-          entry: expect.any(String) as unknown,
-          toolCallId: "headless-shell",
-          operation: true,
-          exitCode: 3
-        }
-      ];
-      expect(saved(session, CALL_TYPE)).toEqual(facts);
-      expect(
-        entries.find((entry) => entry.type === "message" && entry.message.role === "toolResult")
-      ).toMatchObject({
-        message: {
-          content: [{ type: "text", text: "preserved\n\nCommand exited with code 3" }],
-          isError: true
-        }
-      });
-      assertPreserved();
-      const invalid = {
-        ...session.settingsManager.getGlobalSettings(),
-        "ext.pi-tool-display": { showParameters: "invalid" }
-      };
-      vi.spyOn(session.settingsManager, "getGlobalSettings").mockReturnValue(invalid);
-      await session.reload();
-      expect(host.getRegisteredToolDefinition).toBe(original);
-      assertNoRegistration();
-      faux.setResponses([
-        fauxAssistantMessage([
-          fauxToolCall("bash", { command: "printf disabled; exit 3" }, { id: "disabled-shell" })
-        ]),
-        fauxAssistantMessage("done")
-      ]);
-      await session.prompt("Run after disabling display observation");
-      expect(saved(session, CALL_TYPE)).toEqual(facts);
-    });
+    await withSession(
+      async ({ session, extensionFactories, assertNoRegistration }) => {
+        await session.bindExtensions({ mode, onError: () => {} });
+        const manager = session.settingsManager;
+        // The trusted project override re-enables the observation that the global one disables.
+        const project = {
+          ...manager.getProjectSettings(),
+          "ext.pi-tool-display": { rendererOverrides: { bash: "auto" } }
+        };
+        vi.spyOn(manager, "getProjectSettings").mockReturnValue(project);
+        manager.setProjectTrusted(true);
+        // Pi's middleware changes the observed call's input and its result.
+        extensionFactories.push((pi) => {
+          pi.on("tool_call", (event) => {
+            if (isToolCallEventType("bash", event)) event.input.command += "; exit 3";
+          });
+          pi.on("tool_result", (event) => ({
+            content: [...event.content, { type: "text", text: "middleware note" }]
+          }));
+        });
+        await session.reload();
+        const assertPreserved = preserveRegistry(session);
+        expect(host.getRegisteredToolDefinition).toBe(original);
+        const faux = await fauxModel(session, "display-headless");
+        // A nonzero exit code is saved only for an observed call.
+        faux.setResponses([
+          fauxAssistantMessage([
+            fauxToolCall(
+              "bash",
+              { command: 'printf "%s" "$TOOL_DISPLAY_TEST"' },
+              { id: "headless-shell" }
+            )
+          ]),
+          fauxAssistantMessage("done")
+        ]);
+        await session.prompt("Run the native command");
+        const entries = session.sessionManager.getEntries();
+        const facts = [
+          {
+            entry: expect.any(String) as unknown,
+            toolCallId: "headless-shell",
+            operation: true,
+            exitCode: 3
+          }
+        ];
+        expect(saved(session, CALL_TYPE)).toEqual(facts);
+        expect(
+          entries.find((entry) => entry.type === "message" && entry.message.role === "toolResult")
+        ).toMatchObject({
+          message: {
+            content: [
+              { type: "text", text: "preserved\n\nCommand exited with code 3" },
+              { type: "text", text: "middleware note" }
+            ],
+            isError: true
+          }
+        });
+        assertPreserved();
+        const invalid = {
+          ...session.settingsManager.getGlobalSettings(),
+          "ext.pi-tool-display": { showParameters: "invalid" }
+        };
+        vi.spyOn(session.settingsManager, "getGlobalSettings").mockReturnValue(invalid);
+        await session.reload();
+        expect(host.getRegisteredToolDefinition).toBe(original);
+        assertNoRegistration();
+        faux.setResponses([
+          fauxAssistantMessage([
+            fauxToolCall("bash", { command: "printf disabled; exit 3" }, { id: "disabled-shell" })
+          ]),
+          fauxAssistantMessage("done")
+        ]);
+        await session.prompt("Run after disabling display observation");
+        expect(saved(session, CALL_TYPE)).toEqual(facts);
+      },
+      { rendererOverrides: { bash: "generic" } }
+    );
   }
 );
 
-it("replays session facts and Pi's duration after a fork and reload", async () => {
+it("replays session facts and Pi's duration after a fork and reload without rerunning or observing calls", async () => {
+  useStepPatchDeadline();
   await withSession(
     async ({ session }) => {
       const tui = interactiveHost(session);
@@ -1625,18 +1721,27 @@ it("replays session facts and Pi's duration after a fork and reload", async () =
       try {
         tui.renderSessionItems([]);
         await session.bindExtensions({ mode: "tui" });
-        const faux = fauxProvider({ provider: "display-replay", models: [{ id: "offline" }] });
-        session.modelRuntime.registerNativeProvider(faux.provider);
-        await session.modelRuntime.refresh({ allowNetwork: false });
-        await session.setModel(faux.getModel());
+        const faux = await fauxModel(session, "display-replay");
         faux.setResponses([
           fauxAssistantMessage([
-            fauxToolCall("bash", { command: "printf kept; exit 3" }, { id: "kept" })
+            fauxToolCall(
+              "bash",
+              { command: "printf run >> runs.txt; printf kept; exit 3" },
+              { id: "kept" }
+            ),
+            fauxToolCall(
+              "write",
+              { path: "replayed.txt", content: "written line\n" },
+              { id: "written" }
+            )
           ]),
           fauxAssistantMessage("done")
         ]);
         await session.prompt("Run the native command");
         const manager = session.sessionManager;
+        const cwd = manager.getCwd();
+        // Replay shows the saved creation, not the file as it is now.
+        await writeFile(join(cwd, "replayed.txt"), "changed on disk\n");
         const source = manager
           .getEntries()
           .find(
@@ -1681,16 +1786,23 @@ it("replays session facts and Pi's duration after a fork and reload", async () =
         expect(manager.getBranch().some((entry) => entry.id === excluded)).toBe(false);
 
         const replayed = async () => {
+          const facts = saved(session, CALL_TYPE);
           await session.reload();
           tui.chatContainer.clear();
           tui.renderSessionEntries(manager.buildContextEntries());
-          const row = tui.chatContainer.children.find(
+          const [shell, write] = tui.chatContainer.children.filter(
             (child) => child instanceof ToolExecutionComponent
           );
-          if (!row) throw new Error("Expected the replayed shell row");
-          row.setExpanded(true);
+          if (!shell || !write) throw new Error("Expected the replayed rows");
+          shell.setExpanded(true);
+          write.setExpanded(true);
+          expect(text(write)).toContain("written line");
+          expect(text(write)).not.toContain("changed on disk");
+          // Replay neither reruns the shell nor saves newly observed facts.
+          expect(await readFile(join(cwd, "runs.txt"), "utf8")).toBe("run");
+          expect(saved(session, CALL_TYPE)).toEqual(facts);
 
-          return row;
+          return shell;
         };
 
         const matching = await replayed();
@@ -1712,79 +1824,129 @@ it("replays session facts and Pi's duration after a fork and reload", async () =
   );
 });
 
-it("leaves external owner rendering untouched, including built-in names and inherited slots", () => {
-  const original = host.getRegisteredToolDefinition;
-  const dispose = installHostIntegration();
+/** A frozen owner tool with the given renderer slots, as own or inherited properties. */
+function ownedTool(
+  name: string,
+  slots: Pick<ToolDefinition, "renderCall" | "renderResult"> = {},
+  inherited = false
+): ToolDefinition {
+  const { renderCall: _call, renderResult: _result, ...plain } = createReadToolDefinition("/tmp");
+  const tool: ToolDefinition = defineTool({ ...plain, name });
+  if (inherited) Object.setPrototypeOf(tool, slots);
+  else Object.assign(tool, slots);
 
-  try {
-    for (const name of ["read", "external_tool"]) {
-      for (const [source, inherited] of [
-        ["remote-extension", false],
-        ["sdk", true]
-      ] as const) {
-        for (const renderers of [
-          { renderCall: () => new Text("owner call") },
-          { renderResult: () => new Text("owner result") }
-        ]) {
-          const definition = defineTool({ ...createReadToolDefinition("/tmp"), name });
-          delete definition.renderCall;
-          delete definition.renderResult;
-          if (inherited) Object.setPrototypeOf(definition, renderers);
-          else Object.assign(definition, renderers);
-          Object.freeze(definition);
-          const session = { ...lookupSession(name, source), getToolDefinition: () => definition };
-          const previous = original.call({ session }, name);
-          expect(host.getRegisteredToolDefinition.call({ session }, name)).toEqual(previous);
-        }
-      }
+  return Object.freeze(tool);
+}
+
+/** Reconstructs one completed call of each tool in a cleared transcript and returns their rows. */
+function completedRows(
+  tui: ReturnType<typeof interactiveHost>,
+  names: readonly string[]
+): ToolExecutionComponent[] {
+  const calls = names.map((name) =>
+    fauxToolCall(name, { path: "example.txt" }, { id: `${name}-call` })
+  );
+  tui.chatContainer.clear();
+  tui.renderSessionItems([
+    assistantMessage(calls),
+    ...calls.map((call) => ({
+      role: "toolResult",
+      toolCallId: call.id,
+      toolName: call.name,
+      content: [{ type: "text", text: `${call.name} output` }],
+      // The identity of an MCP result; other renderers ignore it.
+      details: { server: "fixture", tool: "search" },
+      isError: false,
+      timestamp: 2
+    }))
+  ]);
+
+  return tui.chatContainer.children.filter((child) => child instanceof ToolExecutionComponent);
+}
+
+it("keeps definition renderer slots of unverified tools, including built-in names and inherited slots", async () => {
+  await withSession(async ({ session, extensionFactories }) => {
+    const tui = interactiveHost(session);
+
+    try {
+      await session.bindExtensions({ mode: "tui" });
+      extensionFactories.push((pi) => {
+        pi.registerTool(ownedTool("read", { renderCall: () => new Text("owner call") }));
+        pi.registerTool(
+          ownedTool("external_result", { renderResult: () => new Text("owner result") }, true)
+        );
+        pi.registerTool(ownedTool("external_plain"));
+      });
+      await session.reload();
+      const [call, result, plain] = completedRows(tui, [
+        "read",
+        "external_result",
+        "external_plain"
+      ]).map(text);
+      expect(call).toContain("owner call");
+      expect(result).toContain("owner result");
+      for (const owned of [call, result]) expect(owned).not.toContain("Called");
+      expect(plain).toContain('Called external_plain({"path":"example.txt"})');
+    } finally {
+      tui.footerDataProvider.dispose();
     }
-
-    // A tool without an owner must be decorated, proving lookup is not simply failing open.
-    const session = { ...lookupSession("unknown_builtin"), getToolDefinition: () => undefined };
-    expect(host.getRegisteredToolDefinition.call({ session }, "unknown_builtin")?.renderShell).toBe(
-      "self"
-    );
-  } finally {
-    dispose?.();
-  }
+  });
 });
 
-it("leaves resolver renderers of registered tools untouched and keeps unregistered calls upgradable", () => {
-  const original = host.getRegisteredToolDefinition;
-  const dispose = installHostIntegration();
+it("keeps resolver renderers of registered tools and upgrades earlier generic cards on registration", async () => {
   const name = "mcp__fixture__search";
-  const { renderCall: _call, renderResult: _result, ...plain } = createReadToolDefinition("/tmp");
-  const definition = defineTool({ ...plain, name });
-  // Like Pi's MCP fallback, the resolver also answers names that are not registered (yet).
-  const resolved = { renderCall: () => new Text("resolver call") };
+  const execute = vi.fn<ToolDefinition["execute"]>();
+  // Like Pi's MCP extension, this built-in registers its tools after transcript reconstruction.
+  let mcp: ExtensionAPI | undefined;
+  await withSession(
+    async ({ session, extensionFactories }) => {
+      const tui = interactiveHost(session);
 
-  const session = (registered: boolean, rendererOverrides = {}): LookupSession => {
-    const settings: Record<string, unknown> = { "ext.pi-tool-display": { rendererOverrides } };
-
-    return {
-      ...lookupSession(name, "extension"),
-      settingsManager: SettingsManager.inMemory(settings),
-      getToolDefinition: () => (registered ? definition : undefined),
-      extensionRunner: {
-        resolveToolRenderers: (toolName, base) => (toolName === name ? resolved : base())
+      try {
+        await session.bindExtensions({ mode: "tui" });
+        extensionFactories.push((pi) => {
+          // Like Pi's MCP fallback, the resolver also answers names that are not registered (yet).
+          pi.registerToolRenderer((tool, base) =>
+            tool === "external_tool" || tool === "external_generic" || tool === name
+              ? { renderCall: () => new Text("resolver call") }
+              : base()
+          );
+          pi.registerTool(ownedTool("external_tool"));
+          pi.registerTool(ownedTool("external_generic"));
+        });
+        await session.reload();
+        const [resolved, generic, unregistered] = completedRows(tui, [
+          "external_tool",
+          "external_generic",
+          name
+        ]);
+        expect(text(resolved!)).toContain("resolver call");
+        expect(text(resolved!)).not.toContain("Called");
+        expect(text(generic!)).toContain('Called external_generic({"path":"example.txt"})');
+        expect(text(unregistered!)).toContain(`Called ${name}({"path":"example.txt"})`);
+        for (const row of [generic!, unregistered!])
+          expect(text(row)).not.toContain("resolver call");
+        mcp!.registerTool({ ...ownedTool(name), namespace: { name: "mcp__fixture" }, execute });
+        // The existing card now shows the MCP identity from its result.
+        expect(text(unregistered!)).toContain('Called fixture.search({"path":"example.txt"})');
+        expect(execute).not.toHaveBeenCalled();
+      } finally {
+        tui.footerDataProvider.dispose();
       }
-    };
-  };
-
-  const shell = (target: LookupSession) =>
-    host.getRegisteredToolDefinition.call({ session: target }, name)?.renderShell;
-
-  try {
-    const owned = session(true);
-    expect(host.getRegisteredToolDefinition.call({ session: owned }, name)).toBe(
-      original.call({ session: owned }, name)
-    );
-    // MCP tools register after reload reconstructs rows. Pi's rows could not be upgraded.
-    expect(shell(session(false))).toBe("self");
-    expect(shell(session(true, { [name]: "generic" }))).toBe("self");
-  } finally {
-    dispose?.();
-  }
+    },
+    { rendererOverrides: { external_generic: "generic" } },
+    undefined,
+    [
+      {
+        name: "mcp",
+        factory: (pi) => {
+          mcp = pi;
+        },
+        builtin: true,
+        replaceable: true
+      }
+    ]
+  );
 });
 
 it.each(["missing", "non-writable"])(
@@ -1815,6 +1977,18 @@ it.each(["missing", "non-writable"])(
         expect(host.getRegisteredToolDefinition).toBe(
           availability === "missing" ? undefined : descriptor.value
         );
+        // Pi needs its lookup for tool rows, so a text turn shows that the session stays usable.
+        const tui = interactiveHost(session);
+
+        try {
+          tui.renderSessionItems([]);
+          const faux = await fauxModel(session, "display-lookup");
+          faux.setResponses([fauxAssistantMessage("still usable")]);
+          await promptThroughHost(session, tui, "Reply");
+          expect(transcriptText(tui)).toContain("still usable");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
       });
     } finally {
       Object.defineProperty(host, "getRegisteredToolDefinition", descriptor);
@@ -1951,48 +2125,49 @@ it("keeps calls reachable and disposal complete when one row's hooks fail to ins
   );
 });
 
-it("replaces repeated installations and preserves later wrappers during repeated disposal and reinstallation", () => {
-  const original = host.getRegisteredToolDefinition;
-  const firstDispose = installHostIntegration();
-  const secondDispose = installHostIntegration();
-  let thirdDispose: (() => void) | undefined;
+it("replaces repeated installations and preserves later wrappers during repeated disposal and reinstallation", async () => {
+  await withSession(async ({ session }) => {
+    const original = host.getRegisteredToolDefinition;
+    const card = "• Read example.txt";
+    const firstDispose = installHostIntegration();
+    const secondDispose = installHostIntegration();
+    let thirdDispose: (() => void) | undefined;
+    const wrapped: string[] = [];
 
-  try {
-    firstDispose?.();
-    const installed = host.getRegisteredToolDefinition;
-    const session = {
-      ...lookupSession(),
-      getToolDefinition: () => undefined
-    };
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).toBe("self");
+    try {
+      // A replaced installation's disposal leaves the current one in place.
+      firstDispose?.();
+      expect(text(readRow(session))).toContain(card);
+      const installed = host.getRegisteredToolDefinition;
 
-    const laterWrapper: typeof installed = function (name) {
-      return installed.call(this, name);
-    };
+      host.getRegisteredToolDefinition = function (name) {
+        wrapped.push(name);
 
-    host.getRegisteredToolDefinition = laterWrapper;
-    secondDispose?.();
-    secondDispose?.();
-    expect(host.getRegisteredToolDefinition).toBe(laterWrapper);
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).not.toBe(
-      "self"
-    );
+        return installed.call(this, name);
+      };
 
-    thirdDispose = installHostIntegration();
-    secondDispose?.();
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).toBe("self");
-    thirdDispose?.();
-    thirdDispose?.();
-    expect(host.getRegisteredToolDefinition).toBe(laterWrapper);
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).not.toBe(
-      "self"
-    );
-  } finally {
-    firstDispose?.();
-    secondDispose?.();
-    thirdDispose?.();
-    host.getRegisteredToolDefinition = original;
-  }
+      secondDispose?.();
+      secondDispose?.();
+      // Pi's own card, reached through the later wrapper.
+      const plain = text(readRow(session));
+      expect(plain).toContain("read example.txt");
+      expect(plain).not.toContain(card);
+      expect(wrapped).toEqual(["read"]);
+
+      thirdDispose = installHostIntegration();
+      secondDispose?.();
+      expect(text(readRow(session))).toContain(card);
+      thirdDispose?.();
+      thirdDispose?.();
+      expect(text(readRow(session))).toBe(plain);
+      expect(wrapped).toEqual(["read", "read", "read"]);
+    } finally {
+      firstDispose?.();
+      secondDispose?.();
+      thirdDispose?.();
+      host.getRegisteredToolDefinition = original;
+    }
+  });
 });
 
 function summaryHistory(session: AgentSession) {
@@ -2023,86 +2198,51 @@ function transcriptText(tui: ReturnType<typeof interactiveHost>): string {
   return tui.chatContainer.render(100).map(stripTerminalSequences).join("\n");
 }
 
-it("executes nested codemode calls once without persisting child facts", async () => {
-  await withSession(
-    async ({ session }) => {
-      expect(session.getAllTools().find((tool) => tool.name === "codemode")?.sourceInfo.path).toBe(
-        "builtin:codemode"
-      );
-      const view = host.getRegisteredToolDefinition.call({ session }, "codemode");
-      expect(view?.renderShell).toBe("self");
-      session.setActiveToolsByName([...session.getActiveToolNames(), "codemode"]);
-      const faux = fauxProvider({ provider: "display-nested", models: [{ id: "offline" }] });
-      session.modelRuntime.registerNativeProvider(faux.provider);
-      await session.modelRuntime.refresh({ allowNetwork: false });
-      await session.setModel(faux.getModel());
-      await writeFile(join(session.sessionManager.getCwd(), "nested.txt"), "original\n");
-      faux.setResponses([
-        fauxAssistantMessage([
-          fauxToolCall(
-            "codemode",
-            {
-              code: 'await tools.read({path:"nested.txt"}); await tools.edit({path:"nested.txt", edits:[{oldText:"original",newText:"changed"}]}); await tools.write({path:"created.txt",content:"created"}); const result = await tools.bash({command:"printf nested-output"}); text(result.output);'
-            },
-            { id: "parent" }
-          )
-        ]),
-        fauxAssistantMessage("done")
-      ]);
-      const tui = interactiveHost(session);
-      let pending = Promise.resolve();
-      const events: AgentSessionEvent[] = [];
-      const rendered = new Set<AgentSessionEvent["type"]>([
-        "message_start",
-        "message_update",
-        "message_end",
-        "tool_execution_start",
-        "tool_execution_update",
-        "tool_execution_end",
-        "agent_end"
-      ]);
-      const unsubscribe = session.subscribe((event) => {
-        events.push(event);
-        if (rendered.has(event.type)) pending = pending.then(() => tui.handleEvent(event));
-      });
+/** Runs one prompt and replays its events through the interactive host, as Pi's TUI does. */
+async function promptThroughHost(
+  session: AgentSession,
+  tui: ReturnType<typeof interactiveHost>,
+  prompt: string
+): Promise<void> {
+  let pending = Promise.resolve();
+  // The fixture host has no footer or status widgets; these events only build transcript rows.
+  const rendered = new Set<AgentSessionEvent["type"]>([
+    "message_start",
+    "message_update",
+    "message_end",
+    "tool_execution_start",
+    "tool_execution_update",
+    "tool_execution_end",
+    "agent_end"
+  ]);
+  const unsubscribe = session.subscribe((event) => {
+    if (rendered.has(event.type)) pending = pending.then(() => tui.handleEvent(event));
+  });
 
-      try {
-        await session.bindExtensions({ mode: "tui" });
-        tui.renderSessionItems([]);
-        await session.prompt("Run nested tools");
-        await pending;
-        const children = events.filter(
-          (event) => event.type === "tool_execution_end" && event.parentToolCallId === "parent"
-        );
-        expect(children).toHaveLength(4);
-        expect(
-          children.every((event) => event.type === "tool_execution_end" && !event.isError)
-        ).toBe(true);
-        expect(await readFile(join(session.sessionManager.getCwd(), "nested.txt"), "utf8")).toBe(
-          "changed\n"
-        );
-        const branch = session.sessionManager.getBranch();
-        expect(
-          branch.filter((entry) => entry.type === "message" && entry.message.role === "toolResult")
-        ).toHaveLength(1);
-        expect(saved(session, CALL_TYPE)).toEqual([]);
-      } finally {
-        unsubscribe();
-        tui.footerDataProvider.dispose();
-      }
-    },
-    { collapsedMode: "summary" },
-    undefined,
-    [
-      {
-        name: "codemode",
-        factory: createCodemodeExtension({ mode: "on" }),
-        builtin: true,
-        replaceable: true
-      }
-    ]
-  );
-});
+  try {
+    await session.prompt(prompt);
+    await pending;
+  } finally {
+    unsubscribe();
+  }
+}
+
+/** Completes one live shell call through the host and checks Pi's saved result. */
+async function liveShellTurn(session: AgentSession, tui: ReturnType<typeof interactiveHost>) {
+  const faux = await fauxModel(session, "display-live");
+  faux.setResponses([
+    fauxAssistantMessage([
+      fauxToolCall("bash", { command: "printf live-output" }, { id: "live-shell" })
+    ]),
+    fauxAssistantMessage("done")
+  ]);
+  await promptThroughHost(session, tui, "Run a command");
+  expect(toolResults(session).at(-1)).toMatchObject({
+    toolCallId: "live-shell",
+    isError: false,
+    content: [{ type: "text", text: "live-output" }]
+  });
+}
 
 it("keeps summary rendering and toggles verbose when Pi's expansion methods differ", async () => {
   const prototype = interactivePrototype();
@@ -2139,6 +2279,11 @@ it("keeps summary rendering and toggles verbose when Pi's expansion methods diff
           tui.toggleToolOutputExpansion?.();
           expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
           expect(transcriptText(tui)).not.toContain("retained a");
+          await liveShellTurn(session, tui);
+          expect(transcriptText(tui)).toContain("Ran 1 command");
+          expect(transcriptText(tui)).toContain("• done");
+          tui.toggleToolOutputExpansion?.();
+          expect(transcriptText(tui)).toContain("live-output");
         } finally {
           tui.footerDataProvider.dispose();
         }
@@ -2182,6 +2327,10 @@ it("keeps Pi's row chrome and disables summaries when Pi's row contract differs"
           expect(transcriptText(tui)).not.toContain("Read 2 files");
           expect(transcriptText(tui)).toContain("Explored");
           expect(transcriptText(tui)).toContain("Run failed");
+          await liveShellTurn(session, tui);
+          expect(transcriptText(tui)).toContain("• Ran printf live-output");
+          expect(transcriptText(tui)).toContain("└ live-output");
+          expect(transcriptText(tui)).toContain("• done");
         } finally {
           tui.footerDataProvider.dispose();
         }
@@ -2193,26 +2342,48 @@ it("keeps Pi's row chrome and disables summaries when Pi's row contract differs"
   }
 });
 
-it("restores expansion methods on disposal and preserves later wrappers", () => {
+it("restores expansion methods on disposal and preserves later wrappers", async () => {
   const prototype = interactivePrototype();
-  const toggle = prototype.toggleToolOutputExpansion;
   const setExpanded = prototype.setToolsExpanded;
-  const dispose = installHostIntegration();
 
-  try {
-    expect(prototype.toggleToolOutputExpansion).not.toBe(toggle);
-    const hooked = prototype.setToolsExpanded;
+  await withSession(
+    async ({ session }) => {
+      const tui = interactiveHost(session);
+      const history = summaryHistory(session);
+      let dispose = installHostIntegration();
+      const later: boolean[] = [];
 
-    const later = function (this: Host, expanded: boolean) {
-      hooked?.call(this, expanded);
-    };
+      try {
+        tui.renderSessionItems(history);
+        const hooked = prototype.setToolsExpanded;
 
-    prototype.setToolsExpanded = later;
-    dispose?.();
-    expect(prototype.toggleToolOutputExpansion).toBe(toggle);
-    expect(prototype.setToolsExpanded).toBe(later);
-  } finally {
-    dispose?.();
-    Reflect.set(prototype, "setToolsExpanded", setExpanded);
-  }
+        prototype.setToolsExpanded = function (this: Host, expanded: boolean) {
+          later.push(expanded);
+          hooked?.call(this, expanded);
+        };
+
+        dispose?.();
+        // Pi's own toggle expands and collapses the rows through the later wrapper.
+        tui.toggleToolOutputExpansion?.();
+        expect(transcriptText(tui)).toContain("retained a");
+        expect(transcriptText(tui)).toContain("Tool output: expanded");
+        tui.toggleToolOutputExpansion?.();
+        expect(transcriptText(tui)).not.toContain("retained a");
+        expect(later).toEqual([true, false]);
+
+        // Once the later owner leaves, a new installation hooks Pi's restored methods again.
+        Reflect.set(prototype, "setToolsExpanded", setExpanded);
+        dispose = installHostIntegration();
+        tui.chatContainer.clear();
+        tui.renderSessionItems(history);
+        tui.toggleToolOutputExpansion?.();
+        expect(transcriptText(tui)).toContain("Tool output: compact");
+      } finally {
+        dispose?.();
+        Reflect.set(prototype, "setToolsExpanded", setExpanded);
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" }
+  );
 });

@@ -7,6 +7,7 @@ it.each(loadOrders)(
   "observes typed input, transforms in ascending rank, and stops at handled when %s loads before %s",
   async (...order) => {
     const observed: Record<"a" | "b", string[]> = { a: [], b: [] };
+    const transformed: string[] = [];
     const { session, requests, errors } = await coordinationHost(
       order.map((id) => ({
         name: id,
@@ -15,11 +16,13 @@ it.each(loadOrders)(
           chain.observe((event) => {
             observed[id].push(event.text);
           });
-          chain.transform(ranks[id], (event) =>
-            id === "b" && event.text === "stop"
+          chain.transform(ranks[id], (event) => {
+            transformed.push(`${id}: ${event.text}`);
+
+            return id === "b" && event.text === "stop"
               ? { action: "handled" }
-              : { action: "transform", text: `${event.text} +${id}` }
-          );
+              : { action: "transform", text: `${event.text} +${id}` };
+          });
         }
       }))
     );
@@ -29,6 +32,7 @@ it.each(loadOrders)(
 
     expect(requests.map((request) => request.userText)).toEqual(["hello +b +a"]);
     expect(observed).toEqual({ a: ["hello", "stop"], b: ["hello", "stop"] });
+    expect(transformed).toEqual(["b: hello", "a: hello +b", "b: stop"]);
     expect(errors).toEqual([]);
   }
 );

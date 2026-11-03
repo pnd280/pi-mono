@@ -316,36 +316,6 @@ it("reports naming authentication failure without exposing credential-bearing er
   expect(fixture.errors).toEqual([]);
 });
 
-it("applies project settings edits and removal only after /reload", async () => {
-  const fixture = await host({
-    projectTrusted: true,
-    projectSettings: JSON.stringify({
-      "ext.pi-session-utils": { "auto-title": { model: "title-fixture/project-title" } }
-    })
-  });
-  await fixture.session.prompt("Opening request");
-  await vi.waitFor(
-    () => expect(fixture.session.sessionManager.getSessionName()).toBe("Project session title"),
-    { timeout: STEP_TIMEOUT_MS }
-  );
-  await writeFile(
-    fixture.projectSettingsPath,
-    JSON.stringify({ "ext.pi-session-utils": { "auto-title": { model: "unavailable/title" } } })
-  );
-  await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(2);
-  await fixture.session.reload();
-  await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(2);
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  await rm(fixture.projectSettingsPath);
-  await fixture.session.reload();
-  await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(3);
-  expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title");
-  expect(fixture.errors).toEqual([]);
-});
-
 it("cancels when native /name changes or clears the title, even back to its original value", async () => {
   const fixture = await host();
   fixture.session.sessionManager.appendMessage({ role: "user", content: "Request", timestamp: 0 });

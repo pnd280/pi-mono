@@ -2,7 +2,7 @@
 
 [pi-fff-guard](../README.md)
 
-> Last verified against Pi 1.4.0 with package checks, offline interception and scope tests, a source review of the Pi 1.3.0 to 1.4.0 changes, and live Linux calls to FFF 0.11.0 through an offline scripted provider, in the default and `override` modes, including multi-grep. Not covered: caller cancellation during a live call; live calls on platforms other than Linux.
+> Last verified against Pi 1.5.0 with package checks, offline interception and scope tests, a source review of the Pi 1.4.0 to 1.5.0 changes, and live Linux calls to FFF 0.11.0 through an offline scripted provider, in the default and `override` modes, including multi-grep and a nested codemode call. Not covered: caller cancellation during a live call; live calls on platforms other than Linux.
 
 ## Upgrade procedure
 
@@ -45,7 +45,8 @@ The README states the deadline and the cancellation result as user-visible [limi
 
 ## Limitations
 
-- [Calling `execute()` directly skips hooks](../README.md#limits). In Pi 1.4.0, the public `ctx.executeTool()` dispatches nested calls through hooks, but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
+- [Calling `execute()` directly skips hooks](../README.md#limits). In Pi 1.4.0 and 1.5.0, the public `ctx.executeTool()` dispatches nested calls through hooks, but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
+- In Pi 1.5.0, `tool_call` hooks receive the arguments after pi-schema validation and coercion, such as `limit: "5"` converted to `5` and a single `patterns` string wrapped in an array. The guard inspects the values that FFF receives. Calls that fail validation never reach the guard, so it doesn't depend on Pi's validation messages.
 
 ## Retirement checks
 

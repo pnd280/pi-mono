@@ -3,13 +3,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { contentText } from "@earendil-works/pi-ai";
+import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
 import { resultDetailsSchema } from "../src/background-result.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema, jobDetailsSchema } from "../src/details.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
 import {
   expectChildUsageOnce,
@@ -31,26 +32,26 @@ const extensionErrorSchema = z.object({
   error: z.string()
 });
 
-/** The `group-zombie` fixture records the PIDs of the zombie's parent and the zombie. */
+/** The `group-zombie` child and `zombie` job record the PIDs of the zombie's parent and the zombie. */
 async function zombiePids(directory: string): Promise<number[]> {
   const recorded = await readFile(join(directory, "work", "zombie-pids"), "utf8").catch(() => "");
 
   return recorded.split(" ").filter(Boolean).map(Number);
 }
 
-/** Waits until the zombie is in the process group of the child that started its parent. */
+/** Waits until the zombie is in the process group of the child or job shell that started its parent. */
 async function zombieInGroup(directory: string, expect: ExpectStatic): Promise<void> {
   await expect
     .poll(async () => (await zombiePids(directory)).length, { timeout: STEP_TIMEOUT_MS })
     .toBe(2);
   const [parent, zombie] = await zombiePids(directory);
 
-  // The parent's parent is the child, so the zombie must be in its process group.
+  // The parent's parent is the child or job shell, so the zombie must be in its process group.
   const inGroup = async () => {
     const [owner, member] = await Promise.all([processStat(parent!), processStat(zombie!)]);
-    const child = owner && (await processStat(owner.ppid));
+    const starter = owner && (await processStat(owner.ppid));
 
-    return member?.state === "Z" && member.pgrp === child?.pgrp;
+    return member?.state === "Z" && member.pgrp === starter?.pgrp;
   };
 
   await expect.poll(inGroup, { timeout: STEP_TIMEOUT_MS }).toBe(true);
@@ -79,6 +80,9 @@ test.each([
       async (host) => {
         // Reuse the supervisor so prior results cannot satisfy the next scenario's checks.
         await host.prompt(`background-${mode}`);
+        expectChildUsageOnce(await host.entries(), 1);
+        // A reload installs the late-usage patch again; the next result must still count once.
+        await host.request({ type: "prompt", message: "/fixture-reload" });
         const start = host.records.length;
         await host.prompt(`background-${mode}`);
         const initial = (await host.results())[1]!;
@@ -116,20 +120,6 @@ test.each([
   }
 );
 
-test("counts late usage once after reloading extensions", async () => {
-  await fixture(async (host) => {
-    await host.request({ type: "prompt", message: "/fixture-reload" });
-    await host.prompt("background-idle");
-    await host.wait(
-      (record) =>
-        record.type === "message_end" &&
-        record.message.role === "assistant" &&
-        contentText(record.message.content).includes("background results 1")
-    );
-    expectChildUsageOnce(await host.entries(), 1);
-  });
-});
-
 test("continues after the first background result while a slower task runs", async () => {
   await fixture(async (host) => {
     const start = host.records.length;
@@ -147,20 +137,6 @@ test("continues after the first background result while a slower task runs", asy
         (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
       )
     ).toHaveLength(2);
-  });
-});
-
-test("ends a background wait on abort and delivers the later result when idle", async () => {
-  await fixture(async (host, directory) => {
-    await host.reply("background-late");
-    const start = host.records.length;
-    await host.request({ type: "abort" });
-    await host.wait((record) => record.type === "agent_settled", start);
-    expect((await taskList(host))[0]?.state).toBe("active");
-    await release(directory, "run-release");
-    await host.wait(isResult, start);
-    await host.wait(replies("Idle continuation prepared: true"), start);
-    expectChildUsageOnce(await host.entries(), 1);
   });
 });
 
@@ -195,26 +171,34 @@ test("cancels a background call on turn abort while its child starts, without a 
   );
 });
 
-test.each(["followUp", "steer"] as const)(
-  "processes %s input during a background wait at once",
-  async (streamingBehavior) => {
-    await fixture(async (host, directory) => {
-      await host.reply("background-late");
-      const start = host.records.length;
+test("ends a background wait on follow-up, steering, and abort without cancelling the task", async () => {
+  await fixture(async (host, directory) => {
+    // The child holds its reply until `run-release`, so the wait stays open across the steps.
+    await host.reply("background-late");
+
+    // Pi queues steering and follow-up input separately; `Delivery.next` (src/delivery.ts) must see both.
+    for (const streamingBehavior of ["followUp", "steer"] as const) {
+      const mark = host.records.length;
       await host.request({ type: "prompt", message: "reply", streamingBehavior });
-      await host.wait(replies("Fixture reply"), start);
-      expect(host.records.slice(start).some(isResult)).toBe(false);
-      await release(directory, "run-release");
-      await host.wait(isResult, start);
-      await host.wait((record) => record.type === "agent_settled", start);
-      expect(
-        (await host.entries()).filter(
-          (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
-        )
-      ).toHaveLength(1);
-    });
-  }
-);
+      await host.wait(replies("Fixture reply"), mark);
+      expect(host.records.slice(mark).some(isResult), streamingBehavior).toBe(false);
+    }
+
+    const start = host.records.length;
+    await host.request({ type: "abort" });
+    await host.wait((record) => record.type === "agent_settled", start);
+    expect((await taskList(host))[0]?.state).toBe("active");
+    await release(directory, "run-release");
+    await host.wait(isResult, start);
+    await host.wait(replies("Idle continuation prepared: true"), start);
+    expect(
+      (await host.entries()).filter(
+        (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
+      )
+    ).toHaveLength(1);
+    expectChildUsageOnce(await host.entries(), 1);
+  });
+});
 
 test("retries a failed reply without waiting for background tasks", async () => {
   await fixture(
@@ -272,6 +256,26 @@ test("aborts an owned task without its result and resumes it later", async () =>
       });
       // The abort returned after the task's completion; a result would reach the following runs.
       expect(host.records.some(isResult)).toBe(false);
+
+      // S7: compaction keeps the task's ID in model context without a new turn.
+      const compacted = host.records.length;
+      await host.request({ type: "compact" });
+      const reminders = (await host.entries()).filter(
+        (entry) => entry.type === "custom_message" && entry.customType === TASKS_MESSAGE
+      );
+      expect(reminders).toHaveLength(1);
+      expect(reminders[0]).toMatchObject({ display: false });
+      const reminder = reminders[0];
+      expect(reminder?.type === "custom_message" ? reminder.content : "").toContain(task!.task_id);
+      expect(host.records.slice(compacted).some((record) => record.type === "agent_start")).toBe(
+        false
+      );
+      await host.prompt("report-context");
+      const text = await host.request({ type: "get_last_assistant_text" });
+      // Earlier prompts name the ID too, so require the reminder's element.
+      expect(text.command === "get_last_assistant_text" ? text.data.text : "").toContain(
+        `<task id="${task!.task_id}"`
+      );
     },
     { maxConcurrent: 1 }
   );
@@ -307,6 +311,42 @@ test("reports a descendant's failed process cleanup in the cancelled result and 
       await stopZombie(directory, expect);
     }
   });
+});
+
+test("reports a child supervisor's failed job cleanup at its exit in the task result", async ({
+  expect
+}) => {
+  await fixture(
+    async (host, directory) => {
+      try {
+        // The child's job leaves a zombie in the job's process group; the child exits after its
+        // final reply, which waits for `run-release`.
+        const work = host.prompt("delegate-job-zombie");
+        await zombieInGroup(directory, expect);
+        await release(directory, "run-release");
+        await work;
+        const [task] = await taskList(host);
+        const [job] = parseSessionEntries(await readFile(task!.session_file, "utf8")).flatMap(
+          (entry) =>
+            entry.type === "message" &&
+            entry.message.role === "toolResult" &&
+            entry.message.toolName === "job"
+              ? [jobDetailsSchema.parse(entry.message.details)]
+              : []
+        );
+        const result = (await host.results()).at(-1)!;
+        expect(detailsSchema.parse(result.details).state).toBe("failed");
+        expect(contentText(result.content)).toMatch(
+          new RegExp(
+            `descendant_stop failed .*: job ${job!.job_id}: Process group \\d+ still has members after SIGKILL`
+          )
+        );
+      } finally {
+        await stopZombie(directory, expect);
+      }
+    },
+    { settings: { "ext.pi-subagents": { jobs: true } } }
+  );
 });
 
 test("reports a failed process cleanup of a task when the supervisor's session ends", async ({
@@ -410,26 +450,5 @@ test("promotes foreground work, retains it across turn abort, and counts late us
     );
     // Supervisor 30 + returned 15 + late 15.
     expect((await host.stats()).tokens.total).toBe(60);
-  });
-});
-
-test("keeps direct task identities in context after compaction without a new turn", async () => {
-  await fixture(async (host) => {
-    await host.prompt("delegate-reply");
-    const taskId = detailsSchema.parse((await host.results())[0]!.details).task_id!;
-    await host.prompt("reply");
-    const start = host.records.length;
-    await host.request({ type: "compact" });
-    const reminders = (await host.entries()).filter(
-      (entry) => entry.type === "custom_message" && entry.customType === TASKS_MESSAGE
-    );
-    expect(reminders).toHaveLength(1);
-    expect(reminders[0]).toMatchObject({ display: false });
-    const reminder = reminders[0];
-    expect(reminder?.type === "custom_message" ? reminder.content : "").toContain(taskId);
-    expect(host.records.slice(start).some((record) => record.type === "agent_start")).toBe(false);
-    await host.prompt("report-context");
-    const text = await host.request({ type: "get_last_assistant_text" });
-    expect(text.command === "get_last_assistant_text" ? text.data.text : "").toContain(taskId);
   });
 });

@@ -2,9 +2,9 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 import {
-  readScopedSettings,
+  readScopedSections,
   readSettingsFile,
-  readSettingsRecord,
+  type ScopedSection,
   type SettingsScopeOptions
 } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
@@ -108,25 +108,22 @@ type Section = {
   warnings: string[];
 };
 
-function readSection(path: string): Section {
+function readSection(scoped: ScopedSection): Section {
   const section: Section = {
     profiles: [],
     defaultProfile: undefined,
     shortcut: undefined,
     warnings: []
   };
-  let raw: unknown;
 
-  try {
-    raw = readSettingsRecord(path)[SETTINGS_KEY];
-  } catch {
+  if (scoped.status === "unreadable") {
     section.warnings.push("settings.json could not be read; its profiles were ignored");
 
     return section;
   }
 
-  if (raw === undefined) return section;
-  const parsed = z.record(z.string(), z.unknown()).safeParse(raw);
+  if (scoped.value === undefined) return section;
+  const parsed = z.record(z.string(), z.unknown()).safeParse(scoped.value);
 
   if (!parsed.success) {
     section.warnings.push(`${SETTINGS_KEY} is not an object and was ignored`);
@@ -142,7 +139,9 @@ function readSection(path: string): Section {
 
   const profiles = fields.profiles.safeParse(parsed.data.profiles);
   if (!profiles.success)
-    section.warnings.push(`profiles is invalid; expected at most ${MAX_PROFILES} entries`);
+    section.warnings.push(
+      `profiles is invalid; expected an array of at most ${MAX_PROFILES} profiles`
+    );
 
   for (const [index, rawProfile] of (profiles.data ?? []).entries()) {
     const profile = profileSchema.safeParse(rawProfile);
@@ -155,7 +154,7 @@ function readSection(path: string): Section {
       section.warnings.push(`profiles[${index}] skipped: duplicate name`);
     } else {
       const { appendSystemPrompts = [], ...rest } = profile.data;
-      const prompts = readPrompts(appendSystemPrompts, path);
+      const prompts = readPrompts(appendSystemPrompts, scoped.path);
 
       if (typeof prompts === "number")
         section.warnings.push(
@@ -180,7 +179,9 @@ function readSection(path: string): Section {
  * but never repeat supplied keys or values.
  */
 export function loadProfiles(options: SettingsScopeOptions): ProfileConfig {
-  const [global, project] = readScopedSettings(options, readSection);
+  const [globalSettings, projectSettings] = readScopedSections(options, SETTINGS_KEY);
+  const global = readSection(globalSettings);
+  const project = projectSettings && readSection(projectSettings);
   const byName = new Map(global.profiles.map((profile) => [profile.name, profile]));
   for (const profile of project?.profiles ?? []) byName.set(profile.name, profile);
   const profiles = [...byName.values()];

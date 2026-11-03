@@ -1,6 +1,6 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 
-/** Registration shapes inspected in pi-mcp-adapter 2.33.0. No backend is loaded. */
+/** Registration shapes of the pi-mcp-adapter version that the adapter README names. No backend is loaded. */
 export function mcpToolInfo(name = "mcp"): ToolInfo {
   let properties: Record<string, unknown>;
   let required: string[] | undefined;

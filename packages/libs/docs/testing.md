@@ -8,6 +8,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 
 - **Critical, integration:** Validation launches inherit no user credentials or settings.
 - **Critical, integration:** Validation launches enforce private storage and offline environment values even when caller additions disagree.
+- **Critical, integration:** When a settings mutator throws or is asynchronous, the settings file stays unchanged and the lock is released for a later update.
 - **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
 - **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself, and exclude a concurrent settings update through another alias of the same file.
 - **Critical, integration:** On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
@@ -37,6 +38,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **High, integration:** Bounded patch requests recover after worker failure without blocking later requests or retaining unbounded queued source.
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
 - **High, unit:** Native hook disposal leaves later replacements by other owners intact.
+- **High, unit:** When one owner replaced a property several times, disposal restores the original property.
 - **High, integration:** Disposing a native-tool or file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, integration:** File renames retry only on Windows and only for `EPERM`, `EACCES`, and `EBUSY`, stop after 10 attempts, and keep the previous target when they fail.
 
@@ -46,7 +48,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
 - [Coordinator](../src/coordination/README.md) liveness, coordinator version-mismatch behaviour, and working-message command ownership are not tested because no invariant is approved for them yet.
 - TUI layout and settings-frame presentation are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation) for them.
-- Extensions own their collection formats and tool-card policies.
+- Extensions own their collection formats and tool-card policies, and the validation, unreadable-file policy, and scope merge of their `readScopedSections` results.
 - The [release check](../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks

@@ -75,8 +75,8 @@ function hasAssistantBoundary(
   });
 }
 
-/** Normalize messages and discover buffered calls before Pi constructs their rows.
- * Streaming content is append-only; starts, finalization, and replay scan the full
+/** Normalise messages and discover buffered calls before Pi constructs their rows.
+ * Streaming content is append-only; starts, finalisation, and replay scan the full
  * message. Ordinary updates visit only the changed block and newly visible tail.
  */
 export class TranscriptMessages {

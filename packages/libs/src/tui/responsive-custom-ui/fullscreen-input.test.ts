@@ -204,6 +204,8 @@ it("defers installation requested synchronously during listener traversal", asyn
   }
 });
 
+// Reorder keeps the dispatcher in the listener set but behind another listener, so only the
+// first-position check in intact() (fullscreen-input.ts) catches it.
 it.each(["remove", "reorder", "copy"] as const)(
   "deactivates instead of competing with listener %s interference",
   async (change) => {

@@ -20,9 +20,19 @@ A bug fix alone does not warrant a new test. If the fixed behaviour is not liste
 
 ### Severity
 
-Critical severity covers loss or corruption of user or session data; credentials or secrets sent or shown to the wrong destination; bypass of a trust or security boundary, such as untrusted project settings, path escape, symlinks, or file ownership; an irreversible or destructive action.
+Critical severity covers:
 
-High severity covers a silent wrong result that the user or model is unlikely to notice, such as wrong model context, lost input, or wrong saved facts; ignored cancellation or abort; a broken Pi startup or session; state or resources leaking across sessions.
+- loss or corruption of user or session data
+- credentials or secrets sent or shown to the wrong destination
+- bypass of a trust or security boundary, such as untrusted project settings, path escape, symlinks, or file ownership
+- an irreversible or destructive action
+
+High severity covers:
+
+- a silent wrong result that the user or model is unlikely to notice, such as wrong model context, lost input, or wrong saved facts
+- ignored cancellation or abort
+- a broken Pi startup or session
+- state or resources leaking across sessions
 
 Layout, wording, colours, glyphs, UI ordering, cosmetic limits, and convenience behaviour are below the bar. Verify them with manual checks.
 
@@ -56,12 +66,12 @@ Choose the layer in this order:
 
 Test each invariant once, at the layer that owns it. Consumers test local policy and the integration risks of their adapters, wrappers, or monkey-patches, not unchanged Pi behaviour or shared-library algorithms.
 
-| Layer                                                                     | Owns invariants for                                                                                               |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [Utils](../../packages/utils/docs/testing.md)                             | Pure validation and parsing: paths, patches, model references, search scopes, and package provenance.             |
-| [Libs](../../packages/libs/docs/testing.md)                               | Reusable protocols with I/O or scheduling: files, locks, settings, cancellation, terminal safety, and shared TUI. |
-| Extensions                                                                | Feature policy: schemas, activation, persistence, and the wiring of shared helpers.                               |
-| [Tool display](../../packages/extensions/pi-tool-display/docs/testing.md) | Rendering of other extensions' tool cards through its adapters.                                                   |
+| Layer                                                                     | Owns invariants for                                                                                                  |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [Utils](../../packages/utils/docs/testing.md)                             | Pure validation and parsing: paths, patches, model references, search scopes, package provenance, and shell quoting. |
+| [Libs](../../packages/libs/docs/testing.md)                               | Reusable protocols with I/O or scheduling: files, locks, settings, cancellation, terminal safety, and shared TUI.    |
+| Extensions                                                                | Feature policy: schemas, activation, persistence, and the wiring of shared helpers.                                  |
+| [Tool display](../../packages/extensions/pi-tool-display/docs/testing.md) | Rendering of other extensions' tool cards through its adapters.                                                      |
 
 A consumer lists an invariant for a shared helper only where it could omit a safety option or misread a shared result. It does not repeat the shared failure matrix.
 
@@ -105,7 +115,7 @@ Create mutable filesystem fixtures with `mkdtemp` or `mkdtempSync` under `tmpdir
 
 Colocate unit and integration `*.test.ts` files with their behaviour. Extensions can keep e2e tests and their host fixtures in `validation/`. Import explicitly from `vite-plus/test` and use `vp test run` with missing-test failures visible.
 
-The root `vite.config.ts` sets one hang guard for each test; tests rely on it and set no limit of their own. Vitest does not search parent directories for it, so each package `test` script passes it with `--config`. The full suite runs many processes at once, and a test can take several times as long as it does alone. Guard process runs and fixture waits with [`STEP_TIMEOUT_MS`](../../packages/libs/src/validation/pi-process/README.md). Assert a time limit only when the limit is the behaviour under test.
+The root `vite.config.ts` sets one hang guard for each test; tests rely on it and set no limit of their own. Vitest does not search parent directories for it, so each package `test` script passes it with `--config`. It also limits the run to 4 workers and 2 concurrent tests per file, because each e2e test starts several Pi processes. Even so, the full suite runs many processes at once, and a test can take several times as long as it does alone. Guard process runs and fixture waits with [`STEP_TIMEOUT_MS`](../../packages/libs/src/validation/pi-process/README.md). Assert a time limit only when the limit is the behaviour under test.
 
 Use the whole package suite when the change spans its behaviour. For a single file, pass its path to the [package script](../development.md#focused-validation):
 

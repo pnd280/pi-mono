@@ -14,6 +14,7 @@ const enter = "\r";
 const down = "\x1b[B";
 const escape = "\x1b";
 const remove = "\x1b[3~";
+const save = "\x13";
 
 function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layout) {
   const settings = widgetSettings({
@@ -43,13 +44,11 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layo
   return { settings, coordinator, close, menu, requestRender };
 }
 
-function select(menu: WidgetMenu, id: string): void {
-  const { choices, view } = menu.drafts.snapshot();
-  const target = choices.findIndex((choice) => choice.id === id);
-  expect(target).toBeGreaterThanOrEqual(0);
-  const delta = target - view.selected;
-  for (let index = 0; index < Math.abs(delta); index++)
-    menu.handleInput(delta > 0 ? down : "\x1b[A");
+function select(menu: WidgetMenu, label: string): void {
+  const selected = new RegExp(`^\\s*→ ${label}(\\s|$)`, "m");
+  for (let index = 0; index < 10 && !selected.test(plain(menu.render(200))); index++)
+    menu.handleInput(down);
+  expect(plain(menu.render(200))).toMatch(selected);
 }
 
 it("retains a draft after a failed save and applies it once a retry succeeds", async () => {
@@ -63,18 +62,17 @@ it("retains a draft after a failed save and applies it once a retry succeeds", a
     menu.handleInput(enter);
     menu.handleInput(enter);
     menu.handleInput(remove);
-    const draft = structuredClone(menu.drafts.current.value);
     mkdirSync(`${settings.paths.global}.lock`);
-    menu.handleInput("\x13");
+    menu.handleInput(save);
     expect(readFileSync(settings.paths.global, "utf8")).toBe(before);
-    expect(menu.drafts.current.value).toEqual(draft);
-    expect(menu.drafts.current.saved).toBeUndefined();
     expect(plain(menu.render(200))).toContain("global* (not set)");
     expect(plain(menu.render(200))).toContain("Draft retained");
+    expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
     rmdirSync(`${settings.paths.global}.lock`);
-    menu.handleInput("\x13");
-    expect(menu.drafts.current).toEqual({ value: draft, saved: draft });
-    expect(settings.load().global?.hidden).toContain("widget:one");
+    menu.handleInput(save);
+    expect(plain(menu.render(200))).not.toMatch(/global(\*| \(not set\))/);
+    expect(settings.load().global?.hidden).toEqual(["widget:one"]);
+    expect(settings.load().global?.aboveEditor.flat()).not.toContain("widget:one");
     expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
   } finally {
     coordinator.dispose();
@@ -90,8 +88,8 @@ it("refuses a stale menu save after footer ownership is lost", async () => {
     for (let index = 0; index < 3; index++) menu.handleInput(down);
     menu.handleInput(enter);
     fixture.ui.setFooter(() => ({ render: () => ["OTHER"], invalidate() {} }));
-    menu.handleInput("\x13");
-    expect(menu.drafts.current).toEqual({ value: defaultLayout(), saved: undefined });
+    menu.handleInput(save);
+    expect(plain(menu.render(140))).toContain("global* (not set)");
     expect(plain(menu.render(140))).toContain("Draft retained");
     expect(plain(menu.render(140))).toContain("footer conflict");
     expect(() => readFileSync(settings.paths.global)).toThrow();
@@ -156,7 +154,7 @@ it.each(["global", "inherited project"])(
     const fixture = await hostFixture();
     fixture.ui.setStatus("middle", "MIDDLE");
     fixture.ui.setStatus("last", "LAST");
-    const { coordinator, menu } = menuFor(fixture);
+    const { coordinator, menu, settings } = menuFor(fixture);
 
     try {
       if (scope === "inherited project") menu.handleInput("\t");
@@ -166,20 +164,22 @@ it.each(["global", "inherited project"])(
       menu.handleInput(down);
       menu.handleInput(down);
       menu.handleInput(enter);
-      select(menu, "status:middle");
+      select(menu, "middle");
       menu.render(80);
       if (scope === "inherited project") menu.handleInput("\t");
       fixture.ui.setStatus("first", "FIRST");
 
       if (scope === "inherited project") {
-        menu.handleInput("\x13");
+        menu.handleInput(save);
         menu.handleInput("\t");
       }
 
       menu.handleInput(remove);
-      expect(menu.drafts.layout().hidden).toEqual(["status:middle"]);
-      expect(menu.drafts.layout().footer[2]).toContain("status:first");
-      expect(menu.drafts.layout().footer[2]).toContain("status:last");
+      menu.handleInput(save);
+      const saved = settings.load()[scope === "global" ? "global" : "project"];
+      expect(saved?.hidden).toEqual(["status:middle"]);
+      expect(saved?.footer[2]).toContain("status:first");
+      expect(saved?.footer[2]).toContain("status:last");
     } finally {
       coordinator.dispose();
       await fixture.dispose();
@@ -193,7 +193,7 @@ it.each(["rows", "contents", "picker"])(
     const fixture = await hostFixture();
     fixture.ui.setWidget("first", ["FIRST"]);
     fixture.ui.setWidget("second", ["SECOND"]);
-    const { coordinator, menu } = menuFor(fixture);
+    const { coordinator, menu, settings } = menuFor(fixture);
 
     try {
       menu.handleInput(enter);
@@ -203,10 +203,13 @@ it.each(["rows", "contents", "picker"])(
       fixture.ui.setWidget("first", ["MOVED"], { placement: "belowEditor" });
       // No intervening render: the stale keypress must not edit the new occupant.
       menu.handleInput(view === "picker" ? enter : remove);
-      expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
-      expect(menu.drafts.layout().aboveEditor).toEqual([["widget:second"]]);
-      expect(menu.drafts.layout().belowEditor).toEqual([["widget:first"]]);
-      expect(menu.drafts.view).toMatchObject({ kind: "rows", region: "aboveEditor" });
+      const text = plain(menu.render(200));
+      expect(text).toContain("global (not set)");
+      expect(text).toContain("Widgets › Above editor");
+      expect(text).not.toContain("› Row");
+      menu.handleInput(save);
+      expect(settings.load().global?.aboveEditor).toEqual([["widget:second"]]);
+      expect(settings.load().global?.belowEditor).toEqual([["widget:first"]]);
     } finally {
       coordinator.dispose();
       await fixture.dispose();
@@ -219,7 +222,7 @@ it("keeps a nested row anchored when a preceding native row moves away", async (
   fixture.ui.setWidget("first", ["FIRST"]);
   fixture.ui.setWidget("second", ["SECOND"]);
   fixture.ui.setWidget("third", ["THIRD"]);
-  const { coordinator, menu } = menuFor(fixture);
+  const { coordinator, menu, settings } = menuFor(fixture);
 
   try {
     menu.handleInput(enter);
@@ -228,8 +231,9 @@ it("keeps a nested row anchored when a preceding native row moves away", async (
     menu.render(80);
     fixture.ui.setWidget("first", ["MOVED"], { placement: "belowEditor" });
     menu.handleInput(remove);
-    expect(menu.drafts.layout().hidden).toEqual(["widget:second"]);
-    expect(menu.drafts.layout().aboveEditor).toEqual([[], ["widget:third"]]);
+    menu.handleInput(save);
+    expect(settings.load().global?.hidden).toEqual(["widget:second"]);
+    expect(settings.load().global?.aboveEditor).toEqual([[], ["widget:third"]]);
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -240,7 +244,7 @@ it("keeps a separator anchored to its contributor when new statuses arrive", asy
   const fixture = await hostFixture();
   fixture.ui.setStatus("middle", "MIDDLE");
   fixture.ui.setStatus("last", "LAST");
-  const { coordinator, menu } = menuFor(fixture);
+  const { coordinator, menu, settings } = menuFor(fixture);
 
   try {
     menu.handleInput(down);
@@ -253,7 +257,8 @@ it("keeps a separator anchored to its contributor when new statuses arrive", asy
     menu.render(80);
     fixture.ui.setStatus("first", "FIRST");
     menu.handleInput(remove);
-    expect(menu.drafts.layout().footer[2]).toEqual([
+    menu.handleInput(save);
+    expect(settings.load().global?.footer[2]).toEqual([
       "status:first",
       "separator",
       "status:last",

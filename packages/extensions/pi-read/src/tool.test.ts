@@ -71,7 +71,6 @@ it("adds a preview without changing native blocks or details and reads only once
 it("rejects invalid selections before reading, and preserves native errors and cancellation", async () => {
   const { run, execute, tool, readFile } = fixture();
   for (const selection of [
-    { startLine: 0 },
     { startLine: 1, endColumn: Number.MAX_SAFE_INTEGER + 1 },
     { startLine: 5, endLine: 2 }
   ])

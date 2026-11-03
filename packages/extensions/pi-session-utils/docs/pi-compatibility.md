@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.4.0 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.3.0 to 1.4.0 changes to session management, the session picker, the model registry, and thinking levels. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.5.0 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.4.0 to 1.5.0 changes to session management, startup, the session picker, the model registry and resolver, and thinking levels. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
 
 ## Upgrade procedure
 
@@ -20,18 +20,20 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] `SessionManager.create()` provides a new header and path.
 - [ ] `getBranch()` keeps the order of the active path.
 - [ ] Pi can reopen the resulting JSONL and keep appending to it.
-- [ ] `getSessionName()` reads the latest session-wide metadata, including an explicit clear, regardless of the active branch.
-- [ ] The saved snapshot keeps that name and any existing `parentSession`.
+- [ ] `getSessionName()` reads the latest session-wide metadata, including an explicit clear, even when it is outside the active branch.
+- [ ] `getLabel()` reads the latest label of an entry, including an explicit clear, even when it is outside the active branch.
+- [ ] The saved snapshot keeps that name, those labels, and any existing `parentSession`.
 
 ### Commands
 
 [Commands](../src/commands.ts):
 
 - [ ] `isIdle()` reports active runs and other busy states, so persistence and child creation can reject them at once.
-- [ ] Naming stays independent of idle checks and session-operation locking.
 - [ ] `switchSession()` and `newSession({ parentSession })` supply a fresh `withSession` context.
 - [ ] `switchSession()` and `newSession({ parentSession })` report cancellation before replacement.
 - [ ] `newSession()` leaves out the parent's conversation and name.
+
+Naming stays independent of idle checks and session-operation locking.
 
 ### Startup hook
 
@@ -42,8 +44,9 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] The first `buildSessionContext()` runs after flags are filled in, but before JSON headers, extension binding, or prompts.
 - [ ] `getHeader()` returns the live, writable header before a new session file is written.
 - [ ] Pi turns failures while building the startup context into nonzero exits.
-- [ ] The one-shot hook is restored before forwarding or throwing.
 - [ ] Reload and replacement don't apply the CLI flag again.
+
+The one-shot hook is restored before forwarding or throwing.
 
 ### Parent lookup
 
@@ -95,19 +98,27 @@ These limits come from Pi behaviour. Recheck each one when Pi changes the behavi
 
 ### Startup parent
 
-In Pi 1.4.0, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+In Pi 1.4.0 and 1.5.0, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
 
 ### Option order
 
-In Pi 1.4.0, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
+In Pi 1.4.0 and 1.5.0, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
 
 ### Custom directories
 
-In Pi 1.4.0, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
+In Pi 1.4.0 and 1.5.0, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
+
+### Path comparison
+
+Pi 1.5.0 compares session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
+
+### Model references
+
+Pi 1.5.0 accepts `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
 
 ### Copying JSONL
 
-If Pi adds a public API to save in-memory sessions, use it instead of copying JSONL. Keep the branch state, the current session-wide name, lineage, and cleanup after a cancelled switch.
+If Pi adds a public API to save in-memory sessions, use it instead of copying JSONL. Keep the branch state, the current session-wide name and labels, lineage, and cleanup after a cancelled switch.
 
 ### Cancellation
 

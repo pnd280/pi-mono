@@ -11,6 +11,7 @@ This package tests mutation atomicity, replayable snapshots, tool exposure, and 
 - **Critical, e2e:** A successful direct model call records its snapshot in the session branch for reconstruction.
 - **Critical, unit:** Replay skips snapshots that are not version 2 or exceed the current limits.
 - **Critical, unit:** Replay restores the latest valid todo result on the current branch, or empty state if none exists.
+- **High, unit:** An update whose metadata fits the limits alone, but not after it merges with the stored metadata, is rejected with the metadata limit error as a replayable failure that leaves the tasks, next ID, and revision unchanged.
 - **High, e2e:** Nested tool calls cannot discover or execute the `todo` tool.
 - **High, unit:** Widget cleanup removes only the todo widget registration.
 - **High, unit:** Clearing todo activity leaves other working-message contributions intact while the session stays active.

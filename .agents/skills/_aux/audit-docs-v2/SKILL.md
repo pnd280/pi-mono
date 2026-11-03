@@ -93,3 +93,5 @@ Lead the reply with what to fix before committing, then the decisions the user n
 ## Apply changes
 
 Edit documentation only when the user asks. Keep each fact and its conditions, update incoming links when moving or renaming headings, and rerun the link and format checks afterward.
+
+When parallel workers apply fixes, give each a disjoint set of files, keep shared root docs read-only, and make borderline decisions the same across workers before finishing.

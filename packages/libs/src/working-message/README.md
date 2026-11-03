@@ -61,6 +61,8 @@ export default function activityExtension(pi: ExtensionAPI) {
 - Keep handles runtime-local. Publish restored state in `session_start` and update it on state changes. Text stays when Pi emits `session_start` again in the same runtime.
 - For temporary inactivity, clear the text instead of disposing the handle, so the component stays visible in settings.
 
+Related: the [coordinator protocol](../coordination/README.md) owns liveness, error reports, and version mismatch for every coordinator, and [settings-file](../settings-file/README.md) saves the component order.
+
 ## Validation
 
-Use [library checks](../../README.md#validation). The [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check ordering, `/working-message`, and the published text in real Pi, in regular and fullscreen modes.
+The [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check ordering, `/working-message`, and the published text in real Pi, in regular and fullscreen modes.

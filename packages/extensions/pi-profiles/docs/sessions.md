@@ -29,4 +29,6 @@ When pi-profiles no longer owns `tool_search`, restoration declares deferred too
 
 ### With a `--tools` list
 
-A profile from `--profile` or `defaultProfile` cannot declare a tool that a `--tools` list without `+` or `-` entries leaves out, because Pi does not register that tool. MCP tools are an exception: unless the list names an MCP tool, Pi keeps them for codemode and `tool_search`, and a profile can declare those that do not have `direct` exposure while `tool_search` is registered. A `--tools` list does not override `deny`: when a tool registers later, Pi turns on every tool that the list names again, and pi-profiles turns off the `deny` tools again.
+- A profile from `--profile` or `defaultProfile` cannot declare a tool that a `--tools` list without `+` or `-` entries leaves out, because Pi does not register that tool.
+- MCP tools are an exception: unless the list names an MCP tool, Pi keeps them for codemode and `tool_search`. A profile can declare those that do not have `direct` exposure while `tool_search` is registered.
+- A `--tools` list does not override `deny`: when a tool registers later, Pi turns on every tool that the list names again, and pi-profiles turns off the `deny` tools again.

@@ -2,6 +2,7 @@ import { readdir, readFile, readlink } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { hasErrorCode } from "@pi-mono/utils/errors";
 
 export async function fixtureProcesses(
   directory: string
@@ -19,12 +20,7 @@ export async function fixtureProcesses(
 
           return [{ pid: Number(name), command }];
         } catch (error) {
-          if (
-            error instanceof Error &&
-            "code" in error &&
-            ["ENOENT", "ESRCH", "EACCES"].includes(String(error.code))
-          )
-            return [];
+          if (hasErrorCode(error, "ENOENT", "ESRCH", "EACCES")) return [];
           throw error;
         }
       })
@@ -44,12 +40,7 @@ export async function processStat(
 
     return { state, ppid: Number(ppid), pgrp: Number(pgrp) };
   } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      ["ENOENT", "ESRCH"].includes(String(error.code))
-    )
-      return undefined;
+    if (hasErrorCode(error, "ENOENT", "ESRCH")) return undefined;
     throw error;
   }
 }
@@ -74,7 +65,7 @@ export async function killFixtureProcesses(directory: string): Promise<void> {
       try {
         process.kill(target, "SIGKILL");
       } catch (error) {
-        if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error;
+        if (!hasErrorCode(error, "ESRCH")) throw error;
       }
     }
   }

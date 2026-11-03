@@ -6,4 +6,4 @@ Preserve the documented [argument-cleaning rules](README.md#behaviour).
 
 ## Validation
 
-[Testing](docs/testing.md) lists what is tested. For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

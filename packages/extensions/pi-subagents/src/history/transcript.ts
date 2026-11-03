@@ -10,7 +10,7 @@ import {
   type SessionProjection
 } from "@earendil-works/pi-coding-agent";
 
-import type { RunHistory } from "./reader.ts";
+import type { RunHistory } from "./sessions.ts";
 
 export type TranscriptMessage = SessionProjection["messages"][number];
 

@@ -129,8 +129,11 @@ it("does not interrupt sibling tools and delivers only unseen instructions befor
               ...event.entries,
               noticeEntry(
                 path.join(ctx.cwd, "pkg"),
-                { path: path.join(ctx.cwd, "pkg/AGENTS.md"), content: "PRIOR BOUNDARY RULES" },
-                "loaded",
+                {
+                  action: "loaded",
+                  path: path.join(ctx.cwd, "pkg/AGENTS.md"),
+                  content: "PRIOR BOUNDARY RULES"
+                },
                 ctx.cwd
               )
             ]

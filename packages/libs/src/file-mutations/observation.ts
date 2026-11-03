@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
 const sizeSchema = z.int().nonnegative();
@@ -34,8 +35,7 @@ export async function observeTextFile(path: string, maxBytes: number): Promise<F
     try {
       file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
     } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT")
-        return { status: "missing" };
+      if (hasErrorCode(error, "ENOENT")) return { status: "missing" };
       throw error;
     }
 

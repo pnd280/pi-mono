@@ -6,15 +6,16 @@ Status markers and tree connectors must look the same across extensions. [`TUI_G
 
 ## Behaviour
 
-| Glyph         | Key                      | Use                                                  |
-| ------------- | ------------------------ | ---------------------------------------------------- |
-| `•`           | `bullet`                 | Collapsed tool cards and agent summaries             |
-| `▾`           | `expanded`               | Expanded tool cards and agent summaries              |
-| `▸`           | `closed`                 | A collapsed section that opens on click              |
-| `▴`           | `collapse`               | A control that folds content back up                 |
-| `✓`, `✗`, `⊘` | `outcome`                | A finished operation: success, failure, or cancelled |
-| `◌`           | `queued`                 | Work that has not started                            |
-| `•`           | `taskStatus.in_progress` | Running tasks                                        |
+| Glyph         | Key                      | Use                                                                                                        |
+| ------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `•`           | `bullet`                 | Collapsed tool cards and agent summaries                                                                   |
+| `▾`           | `expanded`               | Expanded tool cards and agent summaries                                                                    |
+| `▸`           | `closed`                 | A collapsed section that opens on click                                                                    |
+| `▴`           | `collapse`               | A control that folds content back up                                                                       |
+| `✓`, `✗`, `⊘` | `outcome`                | A finished operation: success, failure, or cancelled                                                       |
+| `◌`           | `queued`                 | Work that has not started                                                                                  |
+| `↗`, `↪`      | `returned`               | A call that returned while its work continues: work moved to the background, or input sent to running work |
+| `•`           | `taskStatus.in_progress` | Running tasks                                                                                              |
 
 [`TUI_GLYPHS`](index.ts) also holds the other task statuses and the tree connectors.
 

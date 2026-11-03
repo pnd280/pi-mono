@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import { persistSession } from "./commands.ts";
 import { saveActiveBranch } from "./persist.ts";
+import { registerSesh } from "./test-fixture.ts";
 
 let directory: string;
 let cwd: string;
@@ -57,23 +57,26 @@ it("saves the active branch with a new header, preserving entries and context", 
   expect(source.getSessionFile()).toBeUndefined();
 });
 
-it.each(["Renamed session", ""])(
-  "preserves the current session-wide name after navigating away from its metadata: %s",
+it.each(["Renamed", ""])(
+  "preserves the current session-wide name and labels after navigating away from their metadata: %s",
   (name) => {
     const source = SessionManager.inMemory(cwd);
     source.appendSessionInfo("Old title");
     const selected = source.appendMessage(user("selected"));
+    const labelled = source.appendLabelChange(selected, "Old label");
     source.appendMessage(user("abandoned"));
     source.appendSessionInfo(name);
-    source.branch(selected);
+    source.appendLabelChange(selected, name);
+    source.branch(labelled);
     const branch = structuredClone(source.getBranch());
     const entries = structuredClone(source.getEntries());
 
     const saved = SessionManager.open(saveActiveBranch(cwd, source));
 
     expect(saved.getSessionName()).toBe(name || undefined);
+    expect(saved.getLabel(selected)).toBe(name || undefined);
     expect(saved.getEntries().slice(0, branch.length)).toEqual(branch);
-    expect(saved.getBranch().at(-1)?.parentId).toBe(selected);
+    expect(saved.getBranch()[branch.length]?.parentId).toBe(labelled);
     expect(userContent(saved)).toEqual(["selected"]);
     expect(source.getEntries()).toEqual(entries);
     expect(source.getBranch()).toEqual(branch);
@@ -102,10 +105,11 @@ it("leaves already file-backed sessions unchanged", async () => {
   const files = new Set(readdirSync(source.getSessionDir()));
   const switchSession = vi.fn(async () => ({ cancelled: false }));
 
-  await persistSession({
+  await registerSesh()("persist", {
     cwd,
     sessionManager: source,
     isIdle: () => true,
+    newSession: vi.fn(),
     switchSession,
     ui: { notify: vi.fn() }
   });
@@ -130,10 +134,11 @@ it("removes the new file when the switch is cancelled", async () => {
   });
   const notify = vi.fn();
 
-  await persistSession({
+  await registerSesh()("persist", {
     cwd,
     sessionManager: source,
     isIdle: () => true,
+    newSession: vi.fn(),
     switchSession,
     ui: { notify }
   });
@@ -154,12 +159,13 @@ it.each(["before", "after"])(
     let path: string | undefined;
 
     await expect(
-      persistSession({
+      registerSesh()("persist", {
         cwd,
         get sessionManager() {
           return current;
         },
         isIdle: () => true,
+        newSession: vi.fn(),
         switchSession: async (sessionPath) => {
           path = sessionPath;
           if (stage === "after") current = SessionManager.open(sessionPath);

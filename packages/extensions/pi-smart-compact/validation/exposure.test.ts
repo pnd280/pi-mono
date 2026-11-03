@@ -5,12 +5,12 @@ import {
   fauxAssistantMessage,
   fauxProvider,
   fauxToolCall,
-  getCurrentTools,
-  Type
+  getCurrentTools
 } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
-import smartCompact from "../src/index.ts";
+import smartCompact from "../index.ts";
 import { sdkSessionFixture } from "./sdk-session.ts";
 
 it("rejects nested compaction requests while leaving context inspection composable", async () => {

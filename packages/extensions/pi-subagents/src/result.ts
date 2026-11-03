@@ -7,41 +7,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { formatJobEnvelope, formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
-import { z } from "zod";
 
-import type { JobRecord } from "./jobs/records.ts";
-
-export const usageSchema = z.object({
-  input: z.number(),
-  output: z.number(),
-  cache_read: z.number(),
-  cache_write: z.number(),
-  cost: z.number()
-});
-
-/** How input reaches an active task; the tool, details, and control protocol share it. */
-export const deliverySchema = z.enum(["follow_up", "steer"]);
-
-export const detailsSchema = z.object({
-  task_id: z.string().optional(),
-  binding_id: z.string().optional(),
-  description: z.string(),
-  model: z.string(),
-  thinking: z.string(),
-  background: z.boolean(),
-  delivery: deliverySchema,
-  state: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
-  started_at: z.number(),
-  ended_at: z.number().nullable(),
-  activity: z.string(),
-  /** Set when a call returns while its task keeps running: a background start or sent input. */
-  returned: z.enum(["background", "input"]).optional(),
-  /** The first line of a failed or cancelled call's result body. */
-  error: z.string().optional(),
-  usage: usageSchema
-});
-
-export type ToolDetails = z.infer<typeof detailsSchema>;
+import type { JobRecord, ToolDetails } from "./details.ts";
 
 export function boundedText(
   text: string,

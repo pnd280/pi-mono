@@ -1,4 +1,6 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+// Pi compares the session stream with this export of the same entry.
+import { streamSimple } from "@earendil-works/pi-ai/compat";
 import {
   convertToLlm,
   type ExtensionRunner,
@@ -114,6 +116,15 @@ export async function summarizeWithOverrides(
               ? session.extensionRunner.emitBeforeProviderHeaders(headers)
               : headers
         });
+      }
+
+      // This replacement hides the session stream's mark, so Pi pre-resolves credentials that
+      // the session stream would take as an explicit API key over a stored OAuth login. Only
+      // pi-ai's streamSimple needs them; Pi's runtime stream resolves auth itself.
+      if (stream !== streamSimple) {
+        delete configured.apiKey;
+        delete configured.headers;
+        delete configured.env;
       }
 
       return stream(model, context, configured);

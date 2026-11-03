@@ -27,7 +27,6 @@ Keep one logical browser, and keep Pi's own editor: install no custom editor.
 | Change filesystem code                                   | The [mutation protocol](src/private-files/README.md#mutation-protocol).                     |
 | Change browser keys, search, deletion, or draft commands | [Controls](docs/controls.md).                                                               |
 | Change storage layout, limits, backup, or repair         | [Storage and recovery](docs/storage.md).                                                    |
-| Choose tests                                             | The [coverage specification](docs/testing.md).                                              |
 | Run checks, or change clipboard, interaction, or privacy | [Validation](docs/validation.md), including the conditional terminal and platform checks.   |
 | Change host integration                                  | The [API](validation/host.test.ts) and [installed-CLI](validation/bundle.test.ts) fixtures. |
 | Change shared browser, sizing, or remount behaviour      | [Libs TUI](../../libs/src/tui/README.md#validation), which owns those tests.                |

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import type { AssistantMessage, ToolCall } from "@earendil-works/pi-ai";
+import type { KeybindingHints } from "@earendil-works/pi-coding-agent";
 import { rgbColor, type TUI } from "@earendil-works/pi-tui";
 import { createFixtureMessage } from "@pi-mono/libs/validation/provider";
 
@@ -18,6 +19,12 @@ export const plainTheme: DisplayTheme = {
     toolDiffAdded: rgbColor(0, 128, 0),
     toolDiffRemoved: rgbColor(128, 0, 0)
   }
+};
+
+/** Pi 1.5.0 injects these into render contexts; fixtures show the keybinding ID as its key. */
+export const keybindingHints: KeybindingHints = {
+  keyText: (keybinding) => keybinding,
+  keyHint: (keybinding, description) => `${keybinding} ${description}`
 };
 
 export function renderingTui(mode: TUI["mode"] = "fullscreen"): TUI {
