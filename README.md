@@ -5,7 +5,7 @@
 
 # pi-mono
 
-[![Pi ^1.5.0](https://img.shields.io/badge/Pi-%5E1.5.0-111111)](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
+[![Pi 1.5.0](https://img.shields.io/badge/Pi-1.5.0-111111)](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
 
 pi-mono is a monorepo of opinionated [extensions](#extensions) for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent). Fork or clone it, then [adapt the extensions](#make-it-your-own) to your workflow. The workspace has instructions and skills for coding agents, so Pi can make the changes for you.
 
@@ -107,5 +107,7 @@ Write each path in full, because `index.ts` alone matches every extension. Pi's 
 `pi update --extensions` moves the installation to the newest `release` commit. `pi update` alone updates only Pi. Pi counts a source with a branch as pinned, so it doesn't report new commits at startup.
 
 To stay on one version, install its tag, such as `git:github.com/pnd280/pi-mono@v0.1.0`. `pi update --extensions` keeps a tag; to change the version, install another tag. To stay on a build between versions, install its commit with the full 40-character hash. Pi fetches the ref again on update, and Git can't fetch an abbreviated hash.
+
+The extensions require the Pi version on the badge at the top of this page. To upgrade, run `pi update` first, then `pi update --extensions`. On an older Pi, pi-editor-widgets and pi-smart-compact show a warning about the Pi version in the TUI, and pi-tool-display warns that it keeps Pi's native rendering. Print mode shows no warning, and pi-prompt-cloak rewrites nothing. To keep an older Pi, install the tag of the last version that supports it, such as `git:github.com/pnd280/pi-mono@v0.1.2` for Pi 1.4.0. The [changelogs](changelog/) name the Pi version that each version requires.
 
 With all extensions loaded, Pi shows two warnings at each start. pi-profiles replaces Pi's built-in `tool-search` extension; its [tool search](packages/extensions/pi-profiles/README.md#tool-search) section tells how to stop the warning. pi-prompt-manager takes **Ctrl+R** from session renaming; its [configuration](packages/extensions/pi-prompt-manager/README.md#configuration) sets other keys.
