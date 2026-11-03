@@ -303,10 +303,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
   /**
    * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools`
-   * can turn on again, and puts the active tools in a fixed order. Sets them only when they change.
+   * can turn on again. Sets the tools only when a `deny` tool is active.
    */
   function enforceTools(): void {
-    const tools = enforcedTools(pi.getActiveTools(), pi.getAllTools(), rules);
+    const tools = enforcedTools(pi.getActiveTools(), rules);
     if (tools) pi.setActiveTools(tools);
   }
 

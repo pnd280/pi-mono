@@ -4,7 +4,7 @@ import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-dis
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { nativeAdapter, type ToolDisplayAdapter } from "../adapters/index.ts";
-import { plainTheme as theme } from "../test-fixture.ts";
+import { keybindingHints, plainTheme as theme } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { createToolDisplayRenderers } from "./cards.ts";
 import type { ToolDisplayRenderers } from "./types.ts";
@@ -26,6 +26,7 @@ function context(overrides: Partial<Context> = {}): Context {
     isError: false,
     durationMs: undefined,
     outputPad: 1,
+    ...keybindingHints,
     invalidate: () => {},
     ...overrides
   };

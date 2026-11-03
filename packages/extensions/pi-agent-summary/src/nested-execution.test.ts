@@ -1,8 +1,9 @@
-import { fauxAssistantMessage, fauxProvider, fauxToolCall, Type } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import { createCodemodeExtension } from "@earendil-works/pi-coding-agent";
 import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { zeroUsage } from "@pi-mono/libs/validation/provider";
+import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
 import agentSummary from "./index.ts";

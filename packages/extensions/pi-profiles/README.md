@@ -111,7 +111,6 @@ The section has a `profiles` array, an optional `defaultProfile` for interactive
 - Pi records model and thinking changes in the session.
 - pi-profiles replaces Pi's built-in `tool-search` extension with its own copy of `tool_search`; see [tool search](#tool-search).
 - Before each run and at the end of each turn, pi-profiles turns off the selected profile's `deny` tools; see [declared tools](docs/tools.md#declared-tools).
-- At the same times, pi-profiles puts the declared tools in a fixed order, also without a profile.
 - In the interactive terminal, when profiles are configured, pi-profiles replaces the editor with the same editor plus the profile name. It keeps the editor of an extension that loaded earlier.
 - An extension that loads later and discards the earlier editor removes the profile name.
 - A switch changes the system prompt or the declared tools, so the provider may not reuse its prompt cache for the next request.

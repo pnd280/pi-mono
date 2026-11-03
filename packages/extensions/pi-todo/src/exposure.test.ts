@@ -1,5 +1,6 @@
-import { fauxAssistantMessage, fauxProvider, fauxToolCall, Type } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
+import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
 import { TodoController } from "./state/controller.ts";

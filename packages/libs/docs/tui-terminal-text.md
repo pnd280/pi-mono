@@ -6,7 +6,7 @@ This guide is for callers who need to know which styling survives [`styledOutput
 
 ## Retained SGR styling
 
-`styledOutput` retains the Select Graphic Rendition (SGR) dialect that Pi 1.4.0 reconstructs on continuation rows and sliced suffixes:
+`styledOutput` retains the Select Graphic Rendition (SGR) dialect that Pi 1.5.0 reconstructs on continuation rows and sliced suffixes:
 
 | Styling    | Retained parameters                                                                                                                                                                                                                       |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

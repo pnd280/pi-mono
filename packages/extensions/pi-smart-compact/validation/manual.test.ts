@@ -223,7 +223,19 @@ it.each(cases)(
       );
 
       const fixture = (pi: ExtensionAPI) => {
-        pi.registerProvider(faux.provider);
+        // Resolve non-empty credentials so the spy can detect pre-resolved request options.
+        pi.registerProvider({
+          ...faux.provider,
+          auth: {
+            apiKey: {
+              name: "Stored",
+              resolve: async () => ({
+                auth: { apiKey: "stored-key", headers: { "X-Auth-Fixture": "resolved" } },
+                env: { COMPACTION_AUTH_FIXTURE: "resolved" }
+              })
+            }
+          }
+        });
         pi.on("before_provider_headers", (event) => {
           event.headers["X-Manual-Fixture"] = "applied";
         });
@@ -285,6 +297,19 @@ it.each(cases)(
       });
       const session = runtime.session;
       const stream = session.agent.streamFunction;
+      // Pi's session stream resolves auth itself, so a summary must not pass pre-resolved
+      // credentials, which the runtime would take as an explicit API key over a stored OAuth login.
+      const preResolved: string[] = [];
+      const runtimeStream = session.modelRuntime.streamSimple.bind(session.modelRuntime);
+      vi.spyOn(session.modelRuntime, "streamSimple").mockImplementation(
+        (model, context, options) => {
+          if (options?.signal !== unrelated.signal)
+            for (const key of ["apiKey", "headers", "env"] as const)
+              if (options?.[key] !== undefined) preResolved.push(`${phase} ${key}`);
+
+          return runtimeStream(model, context, options);
+        }
+      );
       let expectedAppend: unknown = Reflect.get(session.sessionManager, "appendCompaction");
 
       const seed = () => {
@@ -441,11 +466,13 @@ it.each(cases)(
       assert.ok(
         !session.sessionManager.getBranch().some((entry) => entry.type === "custom_message")
       );
+      assert.deepEqual(preResolved, []);
       assert.deepEqual(errors, []);
     } finally {
       try {
         await runtime?.dispose();
       } finally {
+        vi.restoreAllMocks();
         vi.unstubAllEnvs();
         await rm(directory, { recursive: true, force: true });
       }

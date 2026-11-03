@@ -1,9 +1,9 @@
-import { Type } from "@earendil-works/pi-ai";
 import {
   createSyntheticSourceInfo,
   type AgentSession,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
 import { loadDisplaySettings } from "../settings.ts";

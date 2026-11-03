@@ -63,10 +63,10 @@ To turn on naming, add `auto-title` under an `ext.pi-session-utils` key in Pi's 
 }
 ```
 
-| Field           | Meaning                                                                                                                    |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `model`         | Model used for naming, as `provider/model-id`. Authentication uses Pi's provider configuration.                            |
-| `thinkingLevel` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted. |
+| Field           | Meaning                                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `model`         | Model used for naming, as `provider/model-id`. The provider ID can't contain `/`. Authentication uses Pi's provider configuration. |
+| `thinkingLevel` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted.         |
 
 Put the key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
 

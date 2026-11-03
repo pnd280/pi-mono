@@ -1,4 +1,4 @@
-import { keyHint, type Theme, type ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { KeybindingHints, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
@@ -30,6 +30,8 @@ type View = {
   args: unknown;
   result: Result | undefined;
   theme: Theme;
+  /** Pi's configured keys; an imported `keyHint` can resolve another copy of Pi. */
+  keyHint: KeybindingHints["keyHint"];
   expanded: boolean;
   partial: boolean;
   error: boolean;
@@ -381,7 +383,7 @@ class CardRow {
     details: ToolDetails | undefined,
     width: number
   ): string[] {
-    const { theme, result } = view;
+    const { theme, result, keyHint } = view;
     if (!result || (!view.expanded && !card.preview)) return [];
     // The envelope repeats the card's facts; text that does not match the details stays intact.
     const text = displayText(
@@ -450,7 +452,7 @@ export function createRenderers(
   const slot = (
     name: "call" | "result",
     context: Parameters<Renderers["renderCall"]>[2],
-    view: Omit<View, "args" | "result" | "started" | "complete" | "error">,
+    view: Omit<View, "args" | "result" | "started" | "complete" | "error" | "keyHint">,
     result?: Result
   ) => {
     let entry = rows.get(context.state);
@@ -460,6 +462,7 @@ export function createRenderers(
       ...view,
       args: context.args,
       result: entry.result,
+      keyHint: (keybinding, description) => context.keyHint(keybinding, description),
       error: context.isError,
       started: context.executionStarted,
       complete: context.argsComplete

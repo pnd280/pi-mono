@@ -5,9 +5,9 @@ import {
   fauxAssistantMessage,
   fauxProvider,
   fauxToolCall,
-  getCurrentTools,
-  Type
+  getCurrentTools
 } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
 import smartCompact from "../index.ts";

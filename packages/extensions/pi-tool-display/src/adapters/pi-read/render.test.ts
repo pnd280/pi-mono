@@ -3,7 +3,7 @@ import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
 import { createToolDisplayRenderers as createTranscriptRenderers } from "../../rendering/cards.ts";
-import { plainTheme as theme } from "../../test-fixture.ts";
+import { keybindingHints, plainTheme as theme } from "../../test-fixture.ts";
 import { TranscriptCoordinator } from "../../transcript/coordinator.ts";
 import { selectiveReadDisplayAdapter } from "./index.ts";
 
@@ -44,6 +44,7 @@ it.each([
       isError: false,
       durationMs: undefined,
       outputPad: 1,
+      ...keybindingHints,
       invalidate() {}
     };
     const renderers = createTranscriptRenderers("read", selectiveReadDisplayAdapter, {
@@ -91,6 +92,7 @@ it("keeps a selected-source result unchanged through public cards", () => {
       isError: false,
       durationMs: undefined,
       outputPad: 1,
+      ...keybindingHints,
       invalidate() {}
     };
     const renderers = createToolDisplayRenderers("read", selectiveReadDisplayAdapter);

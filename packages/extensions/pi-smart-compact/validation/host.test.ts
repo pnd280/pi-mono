@@ -8,7 +8,6 @@ import {
   fauxProvider,
   fauxToolCall,
   getCurrentTools,
-  Type,
   type TranscriptContext
 } from "@earendil-works/pi-ai";
 import {
@@ -23,6 +22,7 @@ import {
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
 import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { Type } from "typebox";
 import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";

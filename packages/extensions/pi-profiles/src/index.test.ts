@@ -9,7 +9,6 @@ import {
   fauxToolCall,
   getCurrentSystemPrompt,
   getCurrentTools,
-  Type,
   type AssistantMessage,
   type FauxResponseFactory
 } from "@earendil-works/pi-ai";
@@ -28,6 +27,7 @@ import {
   type ToolExposure
 } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { Type } from "typebox";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import profiles from "../index.ts";

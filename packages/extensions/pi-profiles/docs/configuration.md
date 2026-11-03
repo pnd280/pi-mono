@@ -24,7 +24,7 @@ When both files set the section, the project settings take precedence:
 
 ### Shortcut keys
 
-- **Esc** or a function key with a modifier, such as `ctrl+escape` or `alt+f5`, is not accepted.
+- **Esc** with a modifier, such as `ctrl+escape`, is not accepted. Function keys **F1** to **F12** with a modifier, such as `alt+f5`, are accepted.
 - Pi skips a key when it detects a conflict with a reserved key, such as `shift+tab` under the default bindings, and shows a warning. Pi's conflict check does not detect every equivalent key combination.
 - If the key overlaps a key that pi-prompt-manager or pi-subagents claims, none of them registers it, and a warning shows.
 

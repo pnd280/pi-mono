@@ -58,7 +58,7 @@ function installHostIntegration(): (() => void) | undefined {
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
-// Pi 1.4.0's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.5.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: AgentSession }, name: string) => RenderDefinition;
@@ -99,7 +99,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 1.4.0's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.5.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;

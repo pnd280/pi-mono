@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.4.0 on Linux with offline suites and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; live providers.
+> Last verified against Pi 1.5.0 on Linux with offline suites and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; live providers.
 
 ## Upgrade procedure
 
@@ -114,6 +114,7 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 - [ ] Parallel tool execution still works.
 - [ ] Hidden registration prevents model and codemode calls from launching disabled tools.
 - [ ] Tool renderers receive partial arguments, shared state, expansion state, and streaming results.
+- [ ] The tool render context supplies `keyHint`, which formats Pi's configured keybindings, also for `ToolExecutionComponent` rows that the viewer creates.
 - [ ] Pi's default shell draws the box around both renderer slots, with pending, success, and error backgrounds.
 - [ ] A renderer's mouse region handles clicks before Pi's expansion toggle.
 - [ ] On reload, Pi rebuilds the chat before `session_start`, and the tools registered at load supply the cards of replayed calls.
@@ -209,14 +210,17 @@ The [input cases](../validation/input.test.ts) exercise running input, deferred 
 
 ## Limitations
 
-- In Pi 1.0.2, 1.2.0, 1.3.0, and 1.4.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call.
+- In Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call.
 - In Pi 1.2.0, the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) was not rerun. A source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field. The offline suite passed.
 - In Pi 1.3.0, the ADR 0003 runtime probe was not rerun. A source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.
 - In Pi 1.3.0, a one-time probe resumed a session that recorded `subagent`. The tool stayed active, and it stayed inactive when the session resumed at `maxDepth`. The offline suite passed.
 - In Pi 1.3.0, Pi's session loader appends a newline to a file that ends with a partial line.
 - In Pi 1.4.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.3.0 found the session manager, RPC mode, print mode, extension runner, and extension types unchanged. `AgentSession` changed in transcript tool restoration, recovery omission, and the compaction check; agent core added request `identity`. The offline suite passed.
 - In Pi 1.4.0, a source review found that resume also turns on registered `direct` and `model-only` tools that the child file never recorded, unless `defaultActive: false`. The `session_start` registration hides them again where needed.
+- In Pi 1.5.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.4.0 found RPC mode, print mode, the extension runner, the bash tool, truncation, and the agent loop unchanged. The session manager now removes an entry from memory when its write fails, and forks write through one file handle; `appendCustomMessageEntry` and `appendUsage` are unchanged. `AgentSession` keeps the order of tools that stay active and appends newly activated ones; hidden tools still drop out of the loadout. The offline suite passed.
+- In Pi 1.5.0, `ToolExecutionComponent.updateArgs` applies new arguments at the next render instead of at once.
+- In Pi 1.5.0, `--model` accepts provider IDs that contain `/`. [Late usage](../GLOSSARY.md#results) splits the task's model at the first `/`, so the usage entry of such a provider names a wrong provider and model. Session totals still count the usage.
 
 ## Replacement opportunities
 
-Pi 1.4.0 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.
+Pi 1.5.0 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.

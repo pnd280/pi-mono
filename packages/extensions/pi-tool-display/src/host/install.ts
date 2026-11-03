@@ -307,18 +307,20 @@ export function installHostIntegration(
     });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
-    hooks.replace(prototype, "renderSessionItems", function (this: Host, items, options) {
+    // Pi 1.5.0 passes (items, messageMeta, options); forward every argument so
+    // footer, editor history, and saved-message metadata reach Pi's rows.
+    hooks.replace(prototype, "renderSessionItems", function (this: Host, items, ...rest) {
       // Pi appends replay slices around a boundary compaction summary. Retain
       // earlier rows and their ownership until the host clears the transcript.
       const binding = active ? ensure(this, this.chatContainer?.children.length === 0) : undefined;
-      if (!binding) return reconstruct.call(this, items, options);
+      if (!binding) return reconstruct.call(this, items, ...rest);
       const result = binding.display.reconstruct(() => {
         for (const item of items)
           binding.display.message(binding.messages.read(item), "historical");
 
         // Pi discovers visible assistant/notice boundaries while creating rows.
         // Reconcile once after those insertions, before binding expansion state.
-        return reconstruct.call(this, items, options);
+        return reconstruct.call(this, items, ...rest);
       });
 
       binding.rows.bind();

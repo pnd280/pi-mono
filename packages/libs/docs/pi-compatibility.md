@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes, the fingerprint check, package checks, and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager, and an offline tmux run of the prompt manager browser. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of stacked extension dialogs over an inline custom view, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.5.0 with a source review of the Pi 1.4.0 to 1.5.0 changes, the fingerprint check, package checks, offline tests of the native-tools, TUI, and keybinding consumers, a probe of Pi's argument validation against projected tool schemas, and a randomised comparison of text preview layout with `wrapTextWithAnsi`. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and all terminal checks, including the fullscreen remount of the prompt manager browser, stacked extension dialogs over an inline custom view, modified function keys, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -102,16 +102,19 @@ The [offline fixtures](../README.md#offline-validation) depend on these Pi contr
 
 ## Limitations
 
-The installed Pi 1.4.0 has these host behaviours:
+The installed Pi 1.5.0 has these host behaviours:
 
 - Native construction matches the recorded fingerprints.
 - Transcript restoration also activates extension tools that the branch never added or removed. It reads only the names of `_baseToolDefinitions`, so native observation stays independent of it.
-- In the offline tmux run, the prompt manager browser kept input, selection, and editor focus after each remount between the 19-row inline and 18-row overlay layouts, and after the overlay closed.
+- Pi validates tool arguments with `@earendil-works/pi-schema` after it coerces them. It converts strings to numbers, wraps a single value in an array, and drops `null` in an optional property that rejects `null`. Validation messages name the field, as in `- path: missing`. Projected schemas keep working, and a nullable optional field keeps an explicit `null`.
+- `setActiveTools` keeps the current order of tools that stay active. Native observation does not depend on that order.
+- Pi 1.5.0 can replace the editor while an extension dialog is open, and shows the new editor when the last dialog closes. Inline `ctx.ui.custom()` accepts a `blocked` option for the waiting status. The [responsive custom UI](../src/tui/responsive-custom-ui/README.md) does not pass it.
+- Text wrapping closes strikethrough before padding and keeps style-closing codes on the preceding row when it discards whitespace. Active styling still continues on the next row. Text preview layout still gives the same rows as `wrapTextWithAnsi`.
 - An inline custom mount that closes before Pi shows it changes no focus. A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before. The input-enabled `inputHostFixture` focuses the editor at startup, as Pi does.
 
-These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.4.0.
+These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.5.0, except the partial counterpart for fullscreen routing below.
 
-- Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers. Pi 1.4.0 has no public counterpart for `_buildRuntime` and `_refreshToolRegistry`. Pi would need a public hook that wraps or observes built-in tool definitions at construction and reload and keeps their `sourceInfo`.
-- Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.4.0 has no public counterpart for the `inputListeners` mutation. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
+- Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers. Pi 1.5.0 has no public counterpart for `_buildRuntime` and `_refreshToolRegistry`. Pi would need a public hook that wraps or observes built-in tool definitions at construction and reload and keeps their `sourceInfo`.
+- Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.5.0 adds the `capturesViewportInput` component property: while a component with it has focus, the fullscreen renderer passes its `tui.altScreen.*` scrolling and prompt keys to that component. It does not pass the `tui.altScreen.search` keys, and other extensions' input listeners still receive input before the component, so it does not yet replace the `inputListeners` mutation. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
 - Revisit public contribution APIs for working-message [overwrites by non-participants](../src/working-message/README.md#behaviour).
 - Adopt public TUI components that can replace a local implementation without losing controlled state or cancellation.

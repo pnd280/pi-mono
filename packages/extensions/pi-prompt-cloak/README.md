@@ -3,7 +3,7 @@
 Pi's system prompt contains wording that upstream providers can use to identify Pi. pi-prompt-cloak rephrases some of that wording before each request, and keeps its meaning:
 
 ```diff
-- Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
+- Pi documentation (read only when the user asks about the harness itself, its SDK, extensions, themes, skills, or TUI):
 + Pi documentation (read only for questions about the agent, its SDK, extensions, themes, skills, or TUI):
 ```
 
@@ -17,7 +17,7 @@ The [replacement table](src/prompt-rewrites.ts) lists the current rewrites. No c
 
 ## Side effects
 
-The extension changes only the prompt wording of the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.4.0, a complete `systemPrompt` override from another extension takes precedence over the rewrites.
+The extension changes only the prompt wording of the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.5.0, a complete `systemPrompt` override from another extension takes precedence over the rewrites.
 
 No live request has verified that Anthropic accepts the rewritten prompt.
 

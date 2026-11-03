@@ -2,7 +2,7 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.4.0 with package checks, all helper tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live FFF behaviour.
+> Last verified against Pi 1.5.0 with package checks, all helper tests, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: live FFF behaviour.
 
 ## Upgrade procedure
 
@@ -30,3 +30,10 @@ In Pi 1.3.0, a source diff against 1.2.0 found extension types and tool source p
 Pi 1.3.0 adds `formatReadLineRange`, a read-header range formatter with no counterpart here, and resolves model references with registry-aware matching that is not exported from the package root. Neither replaces [`model-reference`](../src/model-reference.ts), which only checks and splits the `provider/model-id` syntax.
 
 In Pi 1.4.0, a source diff against 1.3.0 found extension types, tool source provenance, and thinking levels unchanged, and built-in tool changes limited to `grep` running `rg --no-config`. The new `@earendil-works/pi-ai/models` host entry point does not export `MODEL_THINKING_LEVELS`. This package needed no runtime changes.
+
+In Pi 1.5.0, a source diff against 1.4.0 found these changes, and this package needed no runtime changes:
+
+- Extension types add display and status fields only. Tool source provenance adds `changelogPath` and keeps the `source` and `path` forms.
+- `MODEL_THINKING_LEVELS` keeps the same levels in the same order. Pi still maps no `@earendil-works/pi-ai/providers/model-schema` entry point for extensions.
+- `grep` no longer converts a lone CR to a line break, and read-header paths use Pi's `shortenHomePath`. Neither changes the formats that these helpers parse.
+- The native `edit` tool changes only its prompt guidelines. Its result and patch format, and the truncation helpers, are unchanged.

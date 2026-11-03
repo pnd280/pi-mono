@@ -342,7 +342,7 @@ export class WidgetCoordinator {
     });
     if (!result) return undefined;
 
-    // Pi 1.4.0's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
+    // Pi 1.5.0's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
     if ("target" in result) {
       if (!result.focus || !cell.component.handleInput) return result;
       const delegated = { ...result, focusTarget: cell.component };
@@ -351,7 +351,7 @@ export class WidgetCoordinator {
     }
 
     if (!result.handled && !result.capture && !result.focus) return result;
-    // Pi 1.4.0's container dispatch contract retains the native target for drag capture and focus.
+    // Pi 1.5.0's container dispatch contract retains the native target for drag capture and focus.
     const forwarded = {
       ...result,
       handled: true,

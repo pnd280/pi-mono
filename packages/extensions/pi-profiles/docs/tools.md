@@ -15,8 +15,6 @@ Edge cases:
 - An extension that changes the tools at the start of a run after pi-profiles can still declare a denied tool for the first request.
 - An extension that changes the tools at the end of a turn after pi-profiles can still declare a denied tool for the next request in that run.
 
-At the start of each run and the end of each turn, pi-profiles also puts the declared tools in a fixed order: Pi's own tools, such as `read`, `bash`, and `codemode`, in Pi's order, then the other tools by name. So the order of the tools in the system prompt and the request does not depend on the order in which extensions load. This also applies without a profile.
-
 ## Patterns
 
 Each entry in `allow`, `deny`, and `defer` is a tool name or a pattern in which `*` matches any characters, as in Pi's `--tools`. For example, `mcp__github__*` matches each tool of the `github` MCP server, and `*` matches every tool. A pattern in `allow` has these limits:

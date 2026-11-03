@@ -7,7 +7,7 @@ Extension settings accept user-typed shortcuts that must match Pi's canonical fo
 ## Behaviour
 
 - `canonicalKeySchema` normalises Pi shortcuts, aliases, and modifier order. Invalid input fails validation.
-- Validation rejects modified Escape and modified function keys, because Pi 1.4.0 cannot dispatch them.
+- Validation rejects modified Escape, because Pi 1.5.0 cannot dispatch it. Modified function keys **F1** to **F12** are valid.
 - `resolveKeybindings` assigns keys to actions in candidate order, so dispatch and hints share one precedence. Each action gets those of its keys that are valid, not excluded by its `exclude` callback, and not taken by an earlier action.
 - A key is taken when it overlaps an earlier key, for example when **Ctrl+[** and **Escape** send the same byte. `keysOverlap` applies the same test.
 - `KeyControls` resolves a view's ordered controls at each call, so dispatch and hints follow live keybinding changes. A control names a Pi keybinding, with an optional `exclude` callback, or one fixed key. `actionFor` ignores key releases, and `hint` shows `<key> <label>`, or `<label> unavailable` when no key reaches the action.

@@ -5,10 +5,10 @@ import {
   fauxAssistantMessage,
   fauxProvider,
   fauxToolCall,
-  getCurrentTools,
-  Type
+  getCurrentTools
 } from "@earendil-works/pi-ai";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
 import smartCompact from "../index.ts";

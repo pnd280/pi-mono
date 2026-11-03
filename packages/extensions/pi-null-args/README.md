@@ -4,7 +4,7 @@ Models send an omitted optional tool argument as the text `"null"`, and Pi then 
 
 ```text
 Validation failed for tool "subagent":
-  - thinking: must be equal to one of the allowed values
+  - thinking: expected one of ["off","minimal","low","medium","high","xhigh","max"]
 ```
 
 pi-null-args removes those arguments before Pi validates the call, so the tool uses its default value.

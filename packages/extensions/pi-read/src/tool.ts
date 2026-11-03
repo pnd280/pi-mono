@@ -1,6 +1,6 @@
-import { Type, type Static } from "@earendil-works/pi-ai";
 import type { createReadToolDefinition, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
+import { Type, type Static } from "typebox";
 
 import { createReadRenderers } from "./render.ts";
 import { appendPreview, type ReadResult, type SelectiveReadDetails } from "./result.ts";

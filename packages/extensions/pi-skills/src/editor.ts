@@ -5,7 +5,7 @@ type InlineEditor = EditorComponent &
   Pick<Editor, "getLines" | "getCursor" | "isShowingAutocomplete">;
 
 // Pi's editor has no public trigger, and opens its picker for a typed slash only at the start of
-// the message. Reviewed Pi 1.4.0 API build and installed bundled CLI, respectively. Never learn
+// the message. Reviewed Pi 1.4.0 and 1.5.0 API build and installed bundled CLI, respectively. Never learn
 // fingerprints from the running host: an unknown editor must keep only Pi's own completion.
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [

@@ -150,7 +150,7 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
       entry: {
         name: profile?.name,
         // Code unit order, so that the entry does not follow load order. Restoration reads only
-        // which tools they name, and runs use the fixed tool order.
+        // which tools they name.
         base: [...base].sort(),
         tools: [...active].sort(),
         deferred
@@ -177,27 +177,12 @@ export function planRestore(state: ToolState, options: RestoreOptions): RestoreP
   };
 }
 
-/**
- * The active tools without the `deny` matches, in a fixed order: Pi's own tools in the order of
- * `tools` (Pi's `getAllTools()`, which lists its core tools first, in Pi's order), then the other
- * tools by name. Pi activates extension tools in registration order, which follows load order.
- * Undefined when the active tools are already so.
- */
-export function enforcedTools(
-  active: readonly string[],
-  tools: readonly Pick<ToolInfo, "name" | "sourceInfo">[],
-  rules: Rules
-): string[] | undefined {
+/** The active tools without the `deny` matches. Undefined when no active tool matches. */
+export function enforcedTools(active: readonly string[], rules: Rules): string[] | undefined {
   const denied = toolMatcher(rules.deny);
-  const kept = new Set(active.filter((name) => !denied(name)));
-  const own = tools.filter((tool) => isPiTool(tool) && kept.has(tool.name)).map(({ name }) => name);
-  // Code unit order, so that the locale does not change it.
-  const others = [...kept].filter((name) => !own.includes(name)).sort();
-  const enforced = [...own, ...others];
-  const changed =
-    enforced.length !== active.length || enforced.some((name, index) => name !== active[index]);
+  const kept = active.filter((name) => !denied(name));
 
-  return changed ? enforced : undefined;
+  return kept.length === active.length ? undefined : kept;
 }
 
 /**
@@ -375,13 +360,6 @@ function toolMatcher(entries: readonly string[]): (name: string) => boolean {
 
   return (name) => names.has(name) || patterns.some((pattern) => pattern.test(name));
 }
-
-/**
- * Pi's own tools, such as `read` and `codemode`, have the source path `builtin:<name>`. Other tools
- * of Pi's built-in extensions, such as MCP tools, have the extension's path, such as `builtin:mcp`.
- */
-const isPiTool = ({ name, sourceInfo }: Pick<ToolInfo, "name" | "sourceInfo">) =>
-  sourceInfo.source === "builtin" && sourceInfo.path === `builtin:${name}`;
 
 /** The names of a `defer` entry: a name or pattern, or a group of them. */
 const entryNames = (entry: string | readonly string[]) =>

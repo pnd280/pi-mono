@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes to statuses, regions, the footer, mode switching, the extension dialog stack, metrics, compaction thresholds, pi-tui mouse dispatch and exit restoration, and interactive mode, the fingerprint check, the offline package checks and host tests including reload, and an offline tmux run in fullscreen mode of `/widgets` before and after `/reload`, a UI reset by a `SIGTERM` shutdown while `/widgets` is open, and terminal restoration on exit. Not covered: physical-terminal checks, regular mode, mouse clicks, and the other manual checks.
+> Last verified against Pi 1.5.0 with a source review of the Pi 1.4.0 to 1.5.0 changes to statuses, regions, the footer, mode switching, the extension dialog stack, metrics, compaction thresholds, pi-tui mouse dispatch, list paging keys, exit restoration, and interactive mode, including both builds of `TuiMainScreen.doRender`, the fingerprint check, the offline package checks and host tests including reload, and an offline tmux run in fullscreen mode that opens and closes `/widgets` and exits Pi. Not covered: physical-terminal checks; regular mode in a terminal; `/reload` and a `SIGTERM` shutdown with `/widgets` open in a terminal; mouse clicks; and the other manual checks.
 
 Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. The _coordinator_ ([`WidgetCoordinator`](../src/coordinator.ts)) installs the region, footer, mode, and renderer hooks and takes over the widget regions and the footer for a session.
 
@@ -16,7 +16,7 @@ Public APIs don't expose other extensions' registries or row placement, so this 
 
 ### Fingerprint boundary
 
-The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.4.0"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
+The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.5.0"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
 
 Each gate unwraps recorded hook predecessors.
 
@@ -110,10 +110,14 @@ Never render an unknown context window as zero. The label shows the selected mod
 - Components expose `render(width)`, not a preferred size. Each placement renders once at terminal width, and the output it occupies sets its row width. Whole widgets wrap in order without shrinking, and a full-width component takes its own row. Widgets control wrapping inside their own output.
 - While `/widgets` is open, the menu sizes itself from the unclipped region height, so tall regions still clip on short terminals.
 - Shared rows trim only literal trailing spaces known not to paint or carry metadata. Backgrounds, decorated spaces, and unknown escape sequences keep their width. Leading indentation and singleton padding are kept.
-- In Pi 1.4.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
+- In Pi 1.4.0 and 1.5.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
+- In Pi 1.5.0, `TuiMainScreen.doRender` removes OSC 133 prompt markers only at the start of each rendered line, as the fullscreen renderer already did. The frame hook does not depend on this.
+- In Pi 1.5.0, replacing an extension editor while a dialog is open waits until the last dialog closes. While `/widgets` is open, `editorContainer` keeps the menu, so the region budget keeps measuring the menu. In Pi 1.4.0, the replacement editor took the slot.
+- In Pi 1.5.0, inline `ctx.ui.custom()` accepts a `blocked` option for the OSC 7501 waiting status. The shared responsive host does not pass it, so `/widgets` does not report Pi as blocked on input.
+- In Pi 1.5.0, `tui.select.pageUp` and `tui.select.pageDown` move many Pi lists. The `/widgets` menu has no paging controls and does not set `capturesViewportInput`, so in fullscreen mode **PageUp** and **PageDown** still scroll the transcript while the menu is open.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
 
-These private hooks have no complete public replacements in Pi 1.4.0:
+These private hooks have no complete public replacements in Pi 1.5.0:
 
 | Private hook                   | Parity                              | Public API that Pi would need                                |
 | ------------------------------ | ----------------------------------- | ------------------------------------------------------------ |

@@ -19,6 +19,7 @@ Discovery searches paths written below the session's working directory. In each 
 - Discovery ignores paths outside the working directory before it resolves symlinks.
 - Discovery follows directory and instruction-file symlinks. Their targets can be outside the working directory.
 - Git-ignored directories, such as `node_modules`, are searched like any other directory, so reading a dependency's files can load its instructions.
+- Project trust doesn't stop discovery, as it doesn't stop Pi's own instruction loading.
 - If the model reads an instruction file directly, no second copy is added, even if the read fails. This applies only to that file: reading `AGENTS.md` does not stop a preferred `AGENTS.override.md` in the same directory from loading.
 - Calls made by other tools, such as codemode scripts, still trigger discovery. Their reads of an instruction file don't count as direct reads, because the parent tool may hide what they read.
 

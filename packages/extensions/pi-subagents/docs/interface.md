@@ -8,7 +8,7 @@ In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-
 
 Press the [`shortcut`](../README.md#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
 
-The `shortcut` setting does not accept **Esc** or a function key with a modifier, such as `ctrl+escape` or `alt+f5`.
+The `shortcut` setting does not accept **Esc** with a modifier, such as `ctrl+escape`. It accepts function keys **F1** to **F12** with a modifier, such as `alt+f5`.
 
 If the shortcut overlaps a key claimed by pi-profiles or pi-prompt-manager, neither extension gets its shortcut, and a warning names the conflict.
 

@@ -16,6 +16,7 @@ E2e checks never use personal settings or credentials.
 - **Critical, e2e:** Summary model and thinking overrides leave the conversation model and its thinking level unchanged.
 - **Critical, e2e:** An operation with a different abort signal receives neither the owning compaction's focus nor its model and thinking overrides.
 - **Critical, e2e:** Temporary summarisation, event, and stream overrides stop applying when their scoped attempt exits, including on errors.
+- **High, e2e:** Summary requests through Pi's session stream carry no pre-resolved key, headers, or environment, so the model runtime can use a stored OAuth login.
 
 ### Failure and abort
 

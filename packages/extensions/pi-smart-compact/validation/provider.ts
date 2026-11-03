@@ -7,11 +7,11 @@ import {
   fauxAssistantMessage,
   fauxToolCall,
   getCurrentTools,
-  Type,
   type ProviderStreams
 } from "@earendil-works/pi-ai";
 import { AgentSession, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream } from "@pi-mono/libs/validation/provider";
+import { Type } from "typebox";
 
 export default function offlineFixture(pi: ExtensionAPI) {
   const tracePath = process.env.PI_NATIVE_COMPACTION_TRACE;

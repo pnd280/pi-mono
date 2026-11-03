@@ -2,7 +2,7 @@ import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import { plainTheme as theme } from "../../test-fixture.ts";
+import { keybindingHints, plainTheme as theme } from "../../test-fixture.ts";
 import {
   smartCompactDisplayAdapter as compact,
   contextWindowDisplayAdapter as contextWindow
@@ -33,6 +33,7 @@ function renderContext(args: unknown, expanded: boolean) {
     isError: false,
     durationMs: undefined,
     outputPad: 1,
+    ...keybindingHints,
     invalidate() {}
   };
 }

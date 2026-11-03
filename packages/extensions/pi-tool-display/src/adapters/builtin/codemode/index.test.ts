@@ -8,7 +8,7 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import { plainTheme as theme } from "../../../test-fixture.ts";
+import { keybindingHints, plainTheme as theme } from "../../../test-fixture.ts";
 import { builtinCodemodeAdapter } from "./index.ts";
 
 // Passes the built-in `codemode` provenance and schema checks.
@@ -57,6 +57,7 @@ function renderContext(expanded: boolean) {
     isError: false,
     durationMs: undefined,
     outputPad: 1,
+    ...keybindingHints,
     invalidate() {}
   };
 }

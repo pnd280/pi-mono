@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.4.0 with package checks, offline API and installed-CLI tests, a source review of the Pi 1.3.0 to 1.4.0 changes, an offline tmux run in fullscreen mode of the browser between the 19-row inline and 18-row overlay layouts, and a tmux check with a stand-in `wl-copy` that Ctrl+Z leaves the clipboard owner running. Not covered: the other manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline browser at session replacement or `/reload`; delivery to the native clipboard, and a paste after Ctrl+Z with the real `wl-copy`; and platform checks.
+> Last verified against Pi 1.5.0 with package checks, offline API and installed-CLI tests, a source review of the Pi 1.4.0 to 1.5.0 changes, a randomised comparison of search scores with the installed `fuzzyMatch`, and the interaction measurement. Not covered: all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
 
 ## Upgrade procedure
 
@@ -55,6 +55,12 @@ The [editor host mapping](../src/index.ts) and the [source refusal](../src/manag
 ## Limitations
 
 [Native-only clipboard transport](../src/clipboard.ts), private storage, and capture exclusions are deliberate policies. Keep them when considering new host APIs or clipboard helpers.
+
+Like Pi 1.5.0's own clipboard commands (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
+
+### Search ranking
+
+Pi 1.5.0 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
 
 ### Restoring
 

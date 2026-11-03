@@ -43,9 +43,9 @@ export type WidgetHost = {
 
 type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"] };
 
-export const inspectedPiVersion = "1.4.0";
+export const inspectedPiVersion = "1.5.0";
 
-// Inspected Pi 1.4.0 API and bundled CLI sources, respectively. Keep the owner in
+// Inspected Pi 1.5.0 API and bundled CLI sources, respectively. Keep the owner in
 // .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const hostHashes = {
   switchTuiMode: new Set([
@@ -71,8 +71,8 @@ const hostHashes = {
 };
 
 const rendererHashes = new Set([
-  "eb29b13e99a79b269c976c39a30e22afa773d54179ce39275036d05361cb01c8",
-  "646cf1cfe9000f4829e89ade7674496fce65852353ab820c7eafccf86bfa4cb7",
+  "77b3e4902ad3f51cb43477bb6f4217e68ae7af76bed5d9bcfc90963fb1d9af52",
+  "3edb75ade9475a01917d8e21b1aafca81ec901e810570c9090b5c097c71a7dc8",
   "d72907c9a878f4e729638f3887954ba7b73ba1d65581d31c25e69cee886651ad",
   "32657b82ce120ddfe4c9cd486867fea7fd7120d7871061ce1010ada325d9c94a"
 ]);
