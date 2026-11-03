@@ -1,6 +1,9 @@
 ---
 name: code-review
 description: Audit targeted code or recent changes through sequential UI consistency, reusability, TypeScript, coding style, test, and documentation audits, then revise it from the findings.
+disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # Code review

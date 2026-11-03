@@ -7,11 +7,12 @@ metadata:
 references:
   - references/checklist.md
   - ../show-me/SKILL.md
+  - ../writing-for-agents/SKILL.md
 ---
 
 # Documentation audit
 
-Find what makes the docs hard to read or navigate, and show each problem as a concrete before → after. Read [the checklist](references/checklist.md) first; every finding should map to one of its items.
+Find what makes the docs hard to read or navigate, and show each problem as a concrete before → after. Read [the checklist](references/checklist.md) first; every finding should map to one of its items, or for agent docs, to a lever in `writing-for-agents` skill.
 
 With no scope given, audit tracked Markdown: root and package `README.md`, agent instruction files (`AGENTS.md`, `CLAUDE.md`), `docs/`, and module READMEs. Exclude changelogs, generated files, and dependencies.
 
@@ -35,6 +36,8 @@ Classify every file in scope by its primary reader. The audience decides which c
 
 Files in the Unclear row are a finding: the audience should be visible from the location.
 
+For every file an agent reads (the Agents and maintainers row and the Unclear row), load the `writing-for-agents` skill and judge the file against its levers as well as the checklist: context pointers, information hierarchy, completion criteria, leading words, negation, and pruning.
+
 ## 3. Take baseline signals
 
 Run the commands under "Quick signals" in the checklist. Record the counts for a before/after comparison, and use them to choose files to read. Counts never become findings on their own.
@@ -49,7 +52,7 @@ Read whole files in context. Sample across file types instead of reading only RE
 
 ## 5. Report
 
-Save a single report where the user asks, or in the project's artifacts or temporary folder. Follow [show-me](../show-me/SKILL.md): short prose, one small visual per point.
+Save a single report where the user asks, or in the project's artifacts or temporary folder. Follow the `show-me` skill: short prose, one small visual per point.
 
 Open with the shared root cause and a "reader question → what the docs give them" sketch. Then give one numbered section per issue:
 
@@ -85,13 +88,13 @@ When the user has rewritten docs from the report, check the result rather than r
 1. Compare signal counts before and after. A large rise in word count is worth reporting against the project's length guidance.
 2. Look for lost facts. Compare every inline-code token and number in the old version of each file against all current docs, and confirm each one that moved still says the same thing.
 3. Check relative links, heading anchors, and external URLs. Run the project's formatter check.
-4. Read a sample of rewritten sections against the report's fix patterns and against checklist section 8. Rewrites often introduce new stock phrasing or the wrong spelling variant.
+4. Read a sample of rewritten sections against the report's fix patterns and against checklist section 8, and rewritten agent docs against writing-for-agents. Rewrites often introduce new stock phrasing or the wrong spelling variant.
 5. Confirm example output in the docs matches what the code produces.
 
 Lead the reply with what to fix before committing, then the decisions the user needs to make, then what was verified.
 
 ## Apply changes
 
-Edit documentation only when the user asks. Keep each fact and its conditions, update incoming links when moving or renaming headings, and rerun the link and format checks afterward.
+Edit documentation only when the user asks. Write agent docs to writing-for-agents. Keep each fact and its conditions, update incoming links when moving or renaming headings, and rerun the link and format checks afterward.
 
 When parallel workers apply fixes, give each a disjoint set of files, keep shared root docs read-only, and make borderline decisions the same across workers before finishing.
