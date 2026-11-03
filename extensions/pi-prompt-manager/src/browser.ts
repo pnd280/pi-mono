@@ -1,7 +1,10 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import type { BrowserOptions, BrowserSnapshot } from "@pi-mono/libs/tui/components/browser";
-import { openBrowser as openSharedBrowser } from "@pi-mono/libs/tui/open-browser";
+import {
+  openBrowser as openSharedBrowser,
+  type BrowserOptions,
+  type BrowserSnapshot
+} from "@pi-mono/libs/tui/open-browser";
 
 import { assertRestorable, type RestorationRequest, type ViewRequest } from "./manager.ts";
 import {

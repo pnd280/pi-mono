@@ -9,3 +9,10 @@ export function formatDuration(ms: number): string {
 
   return hours ? `${hours}h ${minutes}m ${seconds}s` : `${minutes}m ${seconds}s`;
 }
+
+/** Formats a running timer that ticks once a second, in whole seconds: `0s`, `5s`, `1m 5s`. */
+export function formatRunningDuration(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+
+  return seconds ? formatDuration(seconds * 1000) : "0s";
+}

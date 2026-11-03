@@ -8,7 +8,7 @@ Callers of `pi-read/result` use `interpretReadResult(result, window)` to validat
 
 The caller supplies typed, borrowed text and image blocks through `ReadResultView`. The interpreter validates `details` without replacing any blocks or unrelated metadata. Display callers still validate their outer result shape and arguments.
 
-- `valid` is false for malformed details or preview provenance. Display rejects these contracts. The producer renderer recovers their retained source.
+- `valid` is false for malformed details or preview provenance. The pi-tool-display adapter rejects these results, and pi-read's own renderer recovers their retained source.
 - `preview.kind` distinguishes `absent`, `invalid`, and `valid`. An invalid marker is not equivalent to an absent marker.
 - A valid marker has a positive safe `sourceBlocks` count, exactly one following preview block, and an all-text result. `preview.contentIndex` identifies that trailing block.
 - `sourceContent` borrows the original blocks. Only valid provenance excludes the preview. Unmarked text, including preview-heading lookalikes, is never hidden.
@@ -23,7 +23,7 @@ Pass the independent native `offset` and `limit`.
 - Selection-coordinate restrictions don't apply to `offset` and `limit`.
 - A validated native `truncation.outputLines` takes precedence over the requested limit. This includes zero source lines for a byte-limit diagnostic.
 
-In Pi 1.4.0, an untruncated read with a negative slice end appends a blank line and one continuation-notice line. Both views exclude those two lines from the source limit without matching their prose. An empty slice therefore looks like one empty source line.
+In Pi 1.5.0, an untruncated read with a negative slice end appends a blank line and one continuation-notice line. Both views exclude those two lines from the source limit without matching their prose. An empty slice therefore looks like one empty source line.
 
 The interpreter builds the two source views on demand, so provenance recognition and notice handling do not join or split source bodies:
 

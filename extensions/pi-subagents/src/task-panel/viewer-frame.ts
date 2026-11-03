@@ -5,7 +5,7 @@ import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview"
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import type { JobRecord } from "../jobs/records.ts";
+import type { JobRecord } from "../details.ts";
 import type { TaskRecord } from "../tasks/records.ts";
 import { elapsed } from "../tasks/render.ts";
 import { contextLabel, status, usageParts } from "./board.ts";

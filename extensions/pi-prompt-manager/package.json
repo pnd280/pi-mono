@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0",
     "zod": "^4.6.7"
   },
   "peerDependencies": {

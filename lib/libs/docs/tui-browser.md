@@ -35,6 +35,7 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 - In fullscreen mode, the [browser host](../src/tui/open-browser/README.md) routes resolved browser actions ahead of transcript controls while the inline browser has focus.
 - A key already bound to a higher-priority action does not trigger a lower-priority action.
+- When a configured action takes a fixed key, the footer shows the fixed action's hint as "<label> unavailable".
 - The browser ignores key release events.
 - The browser component installs no listeners.
 
@@ -56,6 +57,6 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 Only the [browser host](../src/tui/open-browser/index.ts) constructs `Browser`. It does these steps:
 
-1. It awaits `browser.activate()` to load the initial section.
+1. It starts `browser.activate()` to load the initial section, without waiting for it.
 2. It calls `browser.invalidate()` on presentation transitions. This cancels armed deletion without closing the logical browser or aborting preparation.
 3. It calls `browser.dispose()` at final closure, not during remounts.

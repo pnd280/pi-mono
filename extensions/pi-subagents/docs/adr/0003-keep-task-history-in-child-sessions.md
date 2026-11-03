@@ -117,7 +117,7 @@ Maintainers must also make these changes:
 - Bind readers to the task, run, and leaf, and drop asynchronous results for any other run. The session ID no longer changes between runs.
 - Treat custom-message targets like user-message targets in the supervisor's `session_before_tree` handler.
 - Parse child files in memory. Pi's own loader appends a newline to a file that ends with a partial line.
-- Update the README, `docs/testing.md`, `docs/pi-compatibility.md`, and the live-record note in ADR 0002. New invariants and tests require user approval.
+- Update the README, `docs/testing.md`, `docs/pi-compatibility.md`, and the live-record note in ADR 0002.
 
 For the measured session, the supervisor would store 32 small entries instead of 2,244. Nothing would remain under `<agentDir>/pi-subagents/`, and lease directories would exist only while runs are live.
 

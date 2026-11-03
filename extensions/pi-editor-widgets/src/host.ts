@@ -1,8 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import {
   InteractiveMode,
-  VERSION,
   type AgentSession,
   type ExtensionContext,
   type ReadonlyFooterDataProvider
@@ -14,7 +13,7 @@ import {
   type Container,
   type TUI
 } from "@earendil-works/pi-tui";
-import { OwnedHooks, unwrapHook } from "@pi-mono/libs/owned-hooks";
+import { hookCompatible, OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 type NativeComponent = Component & { dispose?(): void };
 
@@ -44,9 +43,9 @@ export type WidgetHost = {
 
 type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"] };
 
-export const inspectedPiVersion = "1.4.0";
+export const inspectedPiVersion = "1.5.0";
 
-// Inspected Pi 1.4.0 API and bundled CLI sources, respectively. Keep the owner in
+// Inspected Pi 1.5.0 API and bundled CLI sources, respectively. Keep the owner in
 // .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const hostHashes = {
   switchTuiMode: new Set([
@@ -72,34 +71,22 @@ const hostHashes = {
 };
 
 const rendererHashes = new Set([
-  "eb29b13e99a79b269c976c39a30e22afa773d54179ce39275036d05361cb01c8",
-  "646cf1cfe9000f4829e89ade7674496fce65852353ab820c7eafccf86bfa4cb7",
+  "77b3e4902ad3f51cb43477bb6f4217e68ae7af76bed5d9bcfc90963fb1d9af52",
+  "3edb75ade9475a01917d8e21b1aafca81ec901e810570c9090b5c097c71a7dc8",
   "d72907c9a878f4e729638f3887954ba7b73ba1d65581d31c25e69cee886651ad",
   "32657b82ce120ddfe4c9cd486867fea7fd7120d7871061ce1010ada325d9c94a"
 ]);
 
-function hookCompatible(value: unknown, hashes: ReadonlySet<string>): boolean {
-  const method = unwrapHook(value);
-
-  return (
-    typeof method === "function" &&
-    (hashes.has(
-      createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex")
-    ) ||
-      VERSION === inspectedPiVersion)
-  );
-}
-
 /** Unknown wrappers need the inspected version; provenance alone cannot identify native code. */
-export function widgetHostMethodsCompatible(host: object): boolean {
+function widgetHostMethodsCompatible(host: object): boolean {
   return Object.entries(hostHashes).every(([name, hashes]) =>
-    hookCompatible(Reflect.get(host, name), hashes)
+    hookCompatible(Reflect.get(host, name), hashes, inspectedPiVersion)
   );
 }
 
 /** Check the actual renderer again whenever Pi replaces it. */
 export function widgetRendererCompatible(renderer: object): boolean {
-  return hookCompatible(Reflect.get(renderer, "doRender"), rendererHashes);
+  return hookCompatible(Reflect.get(renderer, "doRender"), rendererHashes, inspectedPiVersion);
 }
 
 function compatible(value: unknown): value is WidgetHost {
@@ -108,7 +95,7 @@ function compatible(value: unknown): value is WidgetHost {
   const session = get("session");
   const footer = get("footerDataProvider");
   const renderer = get("renderer");
-  const methods = (target: unknown, names: string[]) =>
+  const methods = (target: unknown, names: string[]): target is object =>
     target !== null &&
     typeof target === "object" &&
     names.every((name) => typeof Reflect.get(target, name) === "function");
@@ -127,21 +114,15 @@ function compatible(value: unknown): value is WidgetHost {
       const container = get(key);
 
       return (
-        container !== null &&
-        typeof container === "object" &&
-        Array.isArray(Reflect.get(container, "children")) &&
-        methods(container, ["clear", "addChild", "render"])
+        methods(container, ["clear", "addChild", "render"]) &&
+        Array.isArray(Reflect.get(container, "children"))
       );
     }) &&
     widgetHostMethodsCompatible(value) &&
-    renderer !== null &&
-    typeof renderer === "object" &&
+    methods(renderer, ["requestRender"]) &&
     widgetRendererCompatible(renderer) &&
     methods(get("ui"), ["requestRender"]) &&
-    methods(renderer, ["requestRender"]) &&
     methods(session, ["getSessionStats", "getContextUsage"]) &&
-    session !== null &&
-    typeof session === "object" &&
     typeof Reflect.get(session, "autoCompactionEnabled") === "boolean" &&
     methods(footer, ["getExtensionStatuses", "getGitBranch", "onBranchChange"])
   );

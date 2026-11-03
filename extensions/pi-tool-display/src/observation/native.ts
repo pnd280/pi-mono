@@ -125,7 +125,10 @@ async function executeWithSavedReference(
   }
 }
 
-/** Call-scoped operations: callbacks without IDs never share mutable current-call state. */
+/**
+ * Wraps Pi's native `bash` or `powershell` definition with call-scoped operations:
+ * callbacks without IDs never share mutable current-call state.
+ */
 export function observeNativeDefinition(
   original: ToolDefinition,
   settings: NativeSettings,
@@ -146,53 +149,50 @@ export function observeNativeDefinition(
         outcome: Outcome,
         extra: Pick<OperationFact, "exitCode" | "timedOut"> = {}
       ) => fact({ kind: "operation", outcome, ...extra });
-      let definition: Pick<ToolDefinition, "execute">;
-      if (original.name === "bash" || original.name === "powershell") {
-        const local =
-          original.name === "bash"
-            ? createLocalBashOperations(settings.shellPath ? { shellPath: settings.shellPath } : {})
-            : createLocalPowerShellOperations();
-        const buffer = new OutputBuffer(liveOutputOptions);
-        const previews = previewPublisher(buffer, (value) => observer.preview(value));
-        const operations: BashOperations = {
-          async exec(command, cwd, options) {
-            ignoreFailure(() => observer.started());
+      const local =
+        original.name === "bash"
+          ? createLocalBashOperations(settings.shellPath ? { shellPath: settings.shellPath } : {})
+          : createLocalPowerShellOperations();
+      const buffer = new OutputBuffer(liveOutputOptions);
+      const previews = previewPublisher(buffer, (value) => observer.preview(value));
+      const operations: BashOperations = {
+        async exec(command, cwd, options) {
+          ignoreFailure(() => observer.started());
 
-            try {
-              const result = await local.exec(command, cwd, {
-                ...options,
-                onData(data) {
-                  options.onData(data);
-                  ignoreFailure(() => previews.append(data));
-                }
-              });
-              let outcome: Outcome = "failure";
-              if (result.exitCode === null) outcome = "unavailable";
-              else if (result.exitCode === 0) outcome = "success";
-              terminal(outcome, { exitCode: result.exitCode });
+          try {
+            const result = await local.exec(command, cwd, {
+              ...options,
+              onData(data) {
+                options.onData(data);
+                ignoreFailure(() => previews.append(data));
+              }
+            });
+            let outcome: Outcome = "failure";
+            if (result.exitCode === null) outcome = "unavailable";
+            else if (result.exitCode === 0) outcome = "success";
+            terminal(outcome, { exitCode: result.exitCode });
 
-              return result;
-            } catch (error) {
-              // These are the verified local backend's control outcomes, not rendered output parsing.
-              const aborted = error instanceof Error && error.message === "aborted";
-              const timedOut =
-                error instanceof Error && error.message === `timeout:${options.timeout}`;
-              terminal(aborted ? "cancelled" : "failure", timedOut ? { timedOut: true } : {});
-              throw error;
-            } finally {
-              ignoreFailure(() => previews.finish());
-            }
+            return result;
+          } catch (error) {
+            // These are the verified local backend's control outcomes, not rendered output parsing.
+            const aborted = error instanceof Error && error.message === "aborted";
+            const timedOut =
+              error instanceof Error && error.message === `timeout:${options.timeout}`;
+            terminal(aborted ? "cancelled" : "failure", timedOut ? { timedOut: true } : {});
+            throw error;
+          } finally {
+            ignoreFailure(() => previews.finish());
           }
-        };
-        definition =
-          original.name === "bash"
-            ? createBashToolDefinition(settings.cwd, {
-                operations,
-                ...(settings.shellPath ? { shellPath: settings.shellPath } : {}),
-                ...(settings.commandPrefix ? { commandPrefix: settings.commandPrefix } : {})
-              })
-            : createPowerShellToolDefinition(settings.cwd, { operations });
-      } else return original.execute(id, args, signal, onUpdate, context);
+        }
+      };
+      const definition =
+        original.name === "bash"
+          ? createBashToolDefinition(settings.cwd, {
+              operations,
+              ...(settings.shellPath ? { shellPath: settings.shellPath } : {}),
+              ...(settings.commandPrefix ? { commandPrefix: settings.commandPrefix } : {})
+            })
+          : createPowerShellToolDefinition(settings.cwd, { operations });
 
       return executeWithSavedReference(definition, [id, args, signal, onUpdate, context], fact);
     }

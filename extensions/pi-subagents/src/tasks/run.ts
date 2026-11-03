@@ -16,9 +16,10 @@ import type { SubagentsConfig } from "../config.ts";
 import { END_ENTRY, KILL_GRACE_MS, RUN_ENTRY, STOP_GRACE_MS } from "../constants.ts";
 import type { ChildMessage } from "../coordination/protocol.ts";
 import type { Reservation } from "../coordination/relay.ts";
+import type { ToolDetails } from "../details.ts";
 import { WriterLease } from "../history/lease.ts";
 import { checkSession } from "../history/sessions.ts";
-import { boundedText, detailsUsage, usageDifference, type ToolDetails } from "../result.ts";
+import { boundedText, detailsUsage, usageDifference } from "../result.ts";
 import {
   applyEvent,
   endRecord,
@@ -395,16 +396,21 @@ export class Run {
     return Boolean(await this.child.input(prompt, delivery === "steer" ? "steer" : "followUp"));
   }
 
-  /** Request a graceful stop. With `drop`, the run's cancellation result goes to nobody. */
+  /**
+   * Dismiss the run's dialogs and request a graceful stop. With `drop`, the cancellation result
+   * goes to nobody.
+   */
   cancel(reason: string, { drop = false }: { drop?: boolean } = {}): Promise<RunEnd> {
     if (drop) this.drop = true;
+    this.dialogs.abort();
     void this.child.cancel(reason);
 
     return this.done;
   }
 
-  /** Stop the child's owned process tree at once. */
+  /** Dismiss the run's dialogs and stop the child's owned process tree at once. */
   terminate(reason: string): Promise<RunEnd> {
+    this.dialogs.abort();
     void this.child.terminate(reason);
 
     return this.done;
@@ -530,16 +536,23 @@ export class Run {
   private dialog(request: RpcExtensionUIRequest): void {
     const { lifetime } = this.host;
     if (lifetime.aborted) return;
+    const { signal } = this.dialogs;
+    const cancelled: RpcExtensionUIResponse = {
+      type: "extension_ui_response",
+      id: request.id,
+      cancelled: true
+    };
     void this.call
-      .onUIRequest(request, this.call.request.description, this.dialogs.signal)
+      .onUIRequest(request, this.call.request.description, signal)
       .then((response) => {
-        if (!lifetime.aborted && response) return this.child.connection.respond(response);
+        if (lifetime.aborted || !response) return;
+
+        // A dismissal after the handler's last check still turns its answer into a cancellation.
+        return this.child.connection.respond(signal.aborted ? cancelled : response);
       })
       .catch(() => {
         if (lifetime.aborted) return;
-        void this.child.connection
-          .respond({ type: "extension_ui_response", id: request.id, cancelled: true })
-          .catch(() => {});
+        void this.child.connection.respond(cancelled).catch(() => {});
       });
   }
 

@@ -38,13 +38,11 @@ const fixed = [
   ["switchBack", "shift+tab"]
 ] as const;
 
-export type BrowserKeys = KeybindingSource;
-
 /** Dispatch and hints resolve the same ordered bindings, including live keybinding changes. */
 export class BrowserControls {
   private readonly controls: KeyControls<BoundAction>;
 
-  constructor(keys: BrowserKeys) {
+  constructor(keys: KeybindingSource) {
     this.controls = new KeyControls<BoundAction>(keys, [
       ...configured.map(([action, id]): KeyControl<BoundAction> => ({
         action,
@@ -63,19 +61,16 @@ export class BrowserControls {
     return matchesKey(data, "ctrl+c") ? "ignore" : "search";
   }
 
-  key(action: BoundAction): string | undefined {
+  label(action: BoundAction): string | undefined {
     return this.controls.label(action);
   }
 
-  hint(action: (typeof configured)[number][0], label: string): string;
-  hint(action: BoundAction, label: string): string | undefined;
-  hint(action: BoundAction, label: string): string | undefined {
-    const key = this.key(action);
-    if (key) return `${key}${action === "delete" ? "×2" : ""} ${label}`;
+  /** Removal needs a second press, so its hint shows `×2`. */
+  hint(action: BoundAction, label: string): string {
+    if (action !== "delete") return this.controls.hint(action, label);
+    const key = this.label(action);
 
-    return configured.some(([candidate]) => candidate === action)
-      ? `${label} unavailable`
-      : undefined;
+    return key ? `${key}×2 ${label}` : `${label} unavailable`;
   }
 
   navigationHints(label: string): string[] {

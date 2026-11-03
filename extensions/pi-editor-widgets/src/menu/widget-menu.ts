@@ -44,7 +44,7 @@ type Item = SettingsMenuItem & {
 };
 
 export class WidgetMenu implements Component {
-  readonly drafts: WidgetDrafts;
+  private readonly drafts: WidgetDrafts;
   private readonly controls: KeyControls<Navigation>;
   private feedback: SettingsFeedback | undefined;
   private successExpiry: ReturnType<typeof setTimeout> | undefined;

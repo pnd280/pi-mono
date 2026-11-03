@@ -8,7 +8,7 @@ Untrusted terminal output can carry control sequences that corrupt the display. 
 
 - `displayText` and `styledOutput` both normalise line endings and tabs.
 - `displayText` removes complete control sequence introducer (CSI) commands. For unrecognised non-CSI escapes, printable payload text can remain after control bytes are removed.
-- `styledOutput` keeps only the SGR styling that Pi 1.4.0 reconstructs on continuation rows and sliced suffixes, and removes the rest. The [terminal text styling rules](../../../docs/tui-terminal-text.md) list the retained parameters.
+- `styledOutput` keeps only the SGR styling that Pi 1.5.0 reconstructs on continuation rows and sliced suffixes, and removes the rest. The [terminal text styling rules](../../../docs/tui-terminal-text.md) list the retained parameters.
 - `compactDisplayText` makes a single-line plain label without trimming or limiting length.
 - `sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for the UTF-16 range from `start` (inclusive) to `end` (exclusive). It never splits graphemes or recognised escapes, and it omits a grapheme that straddles a boundary. Set `preserveSgr: true` to reconstruct leading styling with Pi's SGR tracker.
 - `hasUnsafeTerminalControls` detects DEL and C0 and C1 controls except tab, LF, and CR without modifying the source.

@@ -1,19 +1,27 @@
 import { existsSync, unlinkSync } from "node:fs";
 
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionCommandContext, RegisteredCommand } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
+import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
 import { saveActiveBranch } from "./persist.ts";
-import { quotePosixShellArgument } from "./shell.ts";
 
-export type SessionCommandContext = Pick<
+type SessionCommandContext = Pick<
   ExtensionCommandContext,
   "cwd" | "sessionManager" | "isIdle" | "switchSession" | "newSession"
 > & { ui: Pick<ExtensionCommandContext["ui"], "notify"> };
 
-export async function persistSession(
-  ctx: Omit<SessionCommandContext, "newSession">
-): Promise<void> {
+/** Pi's `registerCommand`, with the handler context narrowed to what the session commands use. */
+type SessionCommandHost = {
+  registerCommand(
+    name: string,
+    options: Omit<RegisteredCommand, "name" | "sourceInfo" | "handler"> & {
+      handler: (args: string, ctx: SessionCommandContext) => Promise<void>;
+    }
+  ): void;
+};
+
+async function persistSession(ctx: SessionCommandContext): Promise<void> {
   if (!ctx.isIdle()) {
     ctx.ui.notify("The agent is running. Wait until idle, then retry /sesh persist.", "warning");
 
@@ -57,7 +65,7 @@ function busyChildGuidance(parentSession: string | undefined): string {
   return `To create a child session in another terminal, run:\npi --parent-session ${quotePosixShellArgument(parentSession)}`;
 }
 
-export async function createEmptyChild(ctx: SessionCommandContext): Promise<void> {
+async function createEmptyChild(ctx: SessionCommandContext): Promise<void> {
   if (!ctx.isIdle()) {
     ctx.ui.notify(
       `The agent is running; no child session was created.\n${busyChildGuidance(ctx.sessionManager.getSessionFile())}`,
@@ -105,7 +113,7 @@ const subcommands = [
 const titleSubcommands = [{ value: "auto-name clear", description: "Clear the session title" }];
 
 export function registerSessionCommand(
-  pi: Pick<ExtensionAPI, "registerCommand">,
+  pi: SessionCommandHost,
   autoName: (args: string) => Promise<void>
 ): void {
   let running = false;

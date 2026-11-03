@@ -8,7 +8,7 @@ Adapter maintainers use this contract when they change native argument or result
 
 Successful edits use `details.patch` in unified format. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
 
-Concrete targets use Pi's Unicode-space normalisation before lexical resolution for headings, exploration scopes, and summary identities. Arguments remain unchanged; search patterns and globs remain literal. Selective-read shares this native path policy; custom adapters and FFF filters do not inherit it.
+Concrete targets use Pi's Unicode-space normalisation before lexical resolution for headings, exploration scopes, and summary identities. Arguments remain unchanged; search patterns and globs remain literal. The [pi-read adapter](../pi-read/README.md) shares this native path policy. Custom adapters and FFF filters do not inherit it.
 
 ## Text-envelope provenance
 

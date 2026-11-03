@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
   compact,
@@ -7,6 +5,7 @@ import {
   type AgentSession,
   type SessionBeforeCompactEvent
 } from "@earendil-works/pi-coding-agent";
+import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 
 // Pi does not export its virtual-model predicate from the public entry point.
 export const virtualModelApi = "pi-virtual";
@@ -54,7 +53,7 @@ export type AutoCompaction = NativeSession["_runAutoCompaction"];
 
 export type ManualCompaction = AgentSession["compact"];
 
-// Reviewed Pi 1.4.0 API modules and installed bundled CLI, respectively. Never
+// Reviewed Pi 1.5.0 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
@@ -97,19 +96,12 @@ export function assertCompatible(
     manualCompact: manual
   };
   const inspected = fingerprints.some((expected) =>
-    Object.entries(expected).every(([key, hash]) => {
-      const method = actual[key];
-
-      return (
-        typeof method === "function" &&
-        createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex") === hash
-      );
-    })
+    Object.entries(expected).every(([key, hash]) => inspectedSource(actual[key], new Set([hash])))
   );
 
-  if (VERSION !== "1.4.0" || !inspected) {
+  if (VERSION !== "1.5.0" || !inspected) {
     throw new Error(
-      "pi-smart-compact: requires the inspected Pi 1.4.0 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact: requires the inspected Pi 1.5.0 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

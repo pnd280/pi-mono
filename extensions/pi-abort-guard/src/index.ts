@@ -9,7 +9,7 @@ const confirmationMs = 1500;
 
 /** Holds back interrupt presses in an editor that Pi or an earlier extension built. */
 function guardEditor(editor: EditorComponent, holdInterrupt: () => boolean): void {
-  // Pi's default editor, and an earlier extension's, can draw the working status in the top border.
+  // An earlier extension's editor can draw the working status in the top border.
   if ("embedWorkingStatus" in editor)
     Object.assign(editor, { embedWorkingStatus: false } satisfies Partial<CustomEditor>);
 
@@ -67,8 +67,7 @@ export default function abortGuard(pi: ExtensionAPI): void {
     const previous = ctx.ui.getEditorComponent();
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       const editor =
-        previous?.(tui, theme, keybindings) ??
-        new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: false });
+        previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
       guardEditor(editor, holdInterrupt);
 
       return editor;

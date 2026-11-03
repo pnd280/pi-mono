@@ -43,11 +43,11 @@ The model calls `subagent_abort` with a `task_id` to cancel an active owned task
 
 ### Background jobs
 
-Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abort` tools. A job runs one shell command in the background, such as a build or a test server, and its result arrives like a task result, with the exit code and the end of the output. A job is not a task: it has no child, no capacity slot, no model, and no usage. See [background jobs](docs/jobs.md).
+Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abort` tools. A job runs one shell command in the background, such as a build or a test server, and its result arrives like a task result, with the exit code and the end of the output. See [background jobs](docs/jobs.md).
 
 ### Commands and task panel
 
-Press the [`shortcut`](#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode; elsewhere, `/subagents` returns the first JSON page. The panel lists task trees and jobs, and **Enter** opens a read-only transcript or log viewer. Other `/subagents` subcommands list, show, abort, and move work to the background. See [commands](docs/commands.md) and [task panel, viewers, and cards](docs/interface.md).
+Press the `shortcut` key, **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode; in RPC mode, `/subagents` returns the first JSON page. The panel lists task trees and jobs, and **Enter** opens a read-only transcript or log viewer. Other `/subagents` subcommands list, show, abort, and move work to the background. See [commands](docs/commands.md) and [task panel, viewers, and cards](docs/interface.md).
 
 ## Configuration
 

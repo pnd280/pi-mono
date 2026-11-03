@@ -6,6 +6,7 @@ import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { parseJobEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
+import { jobDetailsSchema, type JobDetails } from "../details.ts";
 import { jobText } from "../result.ts";
 import {
   clickable,
@@ -18,11 +19,9 @@ import {
 import {
   jobAbortInputSchema,
   jobAbortParameters,
-  jobDetailsSchema,
   jobInputSchema,
   jobParameters,
   type JobAbortInput,
-  type JobDetails,
   type JobInput
 } from "./records.ts";
 import type { Jobs } from "./registry.ts";
@@ -79,7 +78,10 @@ const fit = (rows: string[], width: number) => rows.map((row) => truncateToWidth
 /** The abort call succeeded; a job that ended first keeps its own outcome. */
 function status(kind: Kind, details: JobDetails): { text: string; color: "accent" | "success" } {
   if (kind === "job" || details.state === "active")
-    return { text: "↗ returned; job continues in background", color: "accent" };
+    return {
+      text: `${TUI_GLYPHS.returned.background} returned; job continues in background`,
+      color: "accent"
+    };
   const time =
     details.ended_at === null ? "" : ` after ${elapsed(details.started_at, details.ended_at)}`;
 
@@ -186,7 +188,7 @@ function resultRows(
 }
 
 /** Cards in Pi's default tool box. A click on a card with a job opens its log. */
-export function createJobRenderers(
+function createJobRenderers(
   open: (id: string, binding?: string) => void,
   kind: Kind = "job"
 ): Renderers {

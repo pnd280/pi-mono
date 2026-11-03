@@ -1,10 +1,7 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import {
-  presentTaskMetadata,
-  sanitizeTaskDescription,
-  sanitizeTaskMutationParams
-} from "../text.ts";
+import { presentTaskMetadata, sanitizeTaskDescription } from "../text.ts";
+import { mutationParamsSchema } from "../tool-schema.ts";
 import {
   deriveTaskHierarchy,
   isTaskId,
@@ -12,18 +9,18 @@ import {
   type TaskHierarchyEntry
 } from "./hierarchy.ts";
 import {
-  MAX_IN_PROGRESS_LABEL_LENGTH,
-  MAX_DEPENDENCIES,
-  MAX_DESCRIPTION_LENGTH,
+  FIELD_LIMITS,
   MAX_LIST_CHARACTERS,
   MAX_LIST_LINES,
-  MAX_OWNER_LENGTH,
   MAX_SNAPSHOT_BYTES,
   MAX_TASK_DEPTH,
-  MAX_SUBJECT_LENGTH,
-  MAX_TASKS
+  MAX_TASKS,
+  fieldLimitFailure,
+  metadataLimitError,
+  serializedValueFitsLimit,
+  snapshotDetailsFitLimit
 } from "./limits.ts";
-import { metadataLimitError, serializedValueFitsLimit, snapshotDetailsFitLimit } from "./limits.ts";
+import { jsonMetadataSchema } from "./metadata.ts";
 import {
   type Task,
   type TaskAction,
@@ -40,31 +37,8 @@ type TaskCloneSource = Pick<Task, "id" | "subject" | "status"> & {
   [Key in Exclude<keyof Task, "id" | "subject" | "status">]?: Task[Key] | undefined;
 };
 
-type BoundedStringParam = "subject" | "description" | "inProgressLabel" | "owner";
-
-const BOUNDED_STRING_LIMITS = {
-  subject: MAX_SUBJECT_LENGTH,
-  description: MAX_DESCRIPTION_LENGTH,
-  inProgressLabel: MAX_IN_PROGRESS_LABEL_LENGTH,
-  owner: MAX_OWNER_LENGTH
-} satisfies Record<BoundedStringParam, number>;
-
-type DependencyArrayParam = "blockedBy" | "addBlockedBy" | "removeBlockedBy";
-
-const KNOWN_PARAM_KEYS = [
-  "subject",
-  "description",
-  "inProgressLabel",
-  "status",
-  "parentId",
-  "blockedBy",
-  "addBlockedBy",
-  "removeBlockedBy",
-  "owner",
-  "metadata",
-  "id",
-  "includeDeleted"
-] as const satisfies readonly (keyof TaskMutationParams)[];
+// Derived from the schema so that a new parameter is echoed in result details.
+const KNOWN_PARAM_KEYS = mutationParamsSchema.keyof().options;
 
 type KnownTaskMutationParam = (typeof KNOWN_PARAM_KEYS)[number];
 
@@ -352,7 +326,7 @@ function minimalCurrentErrorDetails(
   return details;
 }
 
-export function errorResult(
+function errorResult(
   state: TodoState,
   action: TaskAction,
   params: TaskMutationParams,
@@ -421,16 +395,47 @@ function mutationResult(
   }
 }
 
+/** Tool-input entry: raw metadata passes the bounded preflight before its recursive JSON parse. */
+export function applyTaskInput(
+  state: TodoState,
+  action: TaskAction,
+  params: TaskMutationParams,
+  metadata: unknown
+): TaskMutationResult {
+  if (metadata === undefined) return applyTaskMutation(state, action, params);
+  const limitError = metadataLimitError(metadata);
+  const parsed = limitError === undefined ? jsonMetadataSchema.safeParse(metadata) : undefined;
+
+  if (parsed?.success) {
+    return applyTaskMutation(state, action, { ...params, metadata: parsed.data });
+  }
+
+  return errorResult(state, action, params, limitError ?? "metadata must be JSON-serializable");
+}
+
+function sanitizeTaskMutationParams(params: TaskMutationParams): TaskMutationParams {
+  const sanitized = { ...params };
+  if (params.subject !== undefined) sanitized.subject = compactDisplayText(params.subject);
+  if (params.description !== undefined)
+    sanitized.description = sanitizeTaskDescription(params.description);
+  if (params.inProgressLabel !== undefined)
+    sanitized.inProgressLabel = compactDisplayText(params.inProgressLabel);
+  if (params.owner !== undefined) sanitized.owner = compactDisplayText(params.owner);
+
+  return sanitized;
+}
+
+/** Applies parsed params whose metadata already passed the bounded preflight. */
 export function applyTaskMutation(
   state: TodoState,
   action: TaskAction,
   rawParams: TaskMutationParams
 ): TaskMutationResult {
   const params = sanitizeTaskMutationParams(rawParams);
-  const ingressFailure = mutationParamsLimitError(params);
+  const ingressFailure = fieldLimitFailure(params);
 
   if (ingressFailure !== undefined) {
-    return errorResult(state, action, params, ingressFailure.error, ingressFailure.param);
+    return errorResult(state, action, params, ingressFailure.error, ingressFailure.field);
   }
 
   switch (action) {
@@ -1016,14 +1021,8 @@ export function stateFitsCurrentLimits(state: TodoState): boolean {
     if (
       !isTaskId(task.id) ||
       (task.parentId !== undefined && !isTaskId(task.parentId)) ||
-      task.subject.length > MAX_SUBJECT_LENGTH ||
-      (task.description !== undefined && task.description.length > MAX_DESCRIPTION_LENGTH) ||
-      (task.inProgressLabel !== undefined &&
-        task.inProgressLabel.length > MAX_IN_PROGRESS_LABEL_LENGTH) ||
-      (task.owner !== undefined && task.owner.length > MAX_OWNER_LENGTH) ||
-      (task.blockedBy !== undefined &&
-        (task.blockedBy.length > MAX_DEPENDENCIES ||
-          task.blockedBy.some((dependency) => !isTaskId(dependency)))) ||
+      fieldLimitFailure(task) !== undefined ||
+      task.blockedBy?.some((dependency) => !isTaskId(dependency)) ||
       (task.metadata !== undefined && metadataLimitError(task.metadata) !== undefined)
     ) {
       return false;
@@ -1034,48 +1033,6 @@ export function stateFitsCurrentLimits(state: TodoState): boolean {
     deriveTaskHierarchy(state.tasks) !== undefined &&
     serializedValueFitsLimit({ tasks: state.tasks, nextId: state.nextId }, MAX_SNAPSHOT_BYTES)
   );
-}
-
-function mutationParamsLimitError(
-  params: TaskMutationParams
-): { error: string; param: KnownTaskMutationParam } | undefined {
-  const boundedStrings: Array<
-    [name: BoundedStringParam, value: string | undefined, maximum: number]
-  > = [
-    ["subject", params.subject, MAX_SUBJECT_LENGTH],
-    ["description", params.description, MAX_DESCRIPTION_LENGTH],
-    ["inProgressLabel", params.inProgressLabel, MAX_IN_PROGRESS_LABEL_LENGTH],
-    ["owner", params.owner, MAX_OWNER_LENGTH]
-  ];
-
-  for (const [name, value, maximum] of boundedStrings) {
-    if (value !== undefined && value.length > maximum) {
-      return {
-        error: `${name} exceeds ${maximum} characters`,
-        param: name
-      };
-    }
-  }
-
-  const dependencyArrays: Array<[name: DependencyArrayParam, value: number[] | undefined]> = [
-    ["blockedBy", params.blockedBy],
-    ["addBlockedBy", params.addBlockedBy],
-    ["removeBlockedBy", params.removeBlockedBy]
-  ];
-
-  for (const [name, value] of dependencyArrays) {
-    if (value !== undefined && value.length > MAX_DEPENDENCIES) {
-      return {
-        error: `${name} exceeds ${MAX_DEPENDENCIES} todo ids`,
-        param: name
-      };
-    }
-  }
-
-  if (params.metadata === undefined) return undefined;
-  const metadataError = metadataLimitError(params.metadata);
-
-  return metadataError === undefined ? undefined : { error: metadataError, param: "metadata" };
 }
 
 function sanitizedParams(
@@ -1105,11 +1062,10 @@ function paramFitsEmissionLimit(params: TaskMutationParams, key: KnownTaskMutati
     case "description":
     case "inProgressLabel":
     case "owner":
-      return (params[key]?.length ?? 0) <= BOUNDED_STRING_LIMITS[key];
     case "blockedBy":
     case "addBlockedBy":
     case "removeBlockedBy":
-      return (params[key]?.length ?? 0) <= MAX_DEPENDENCIES;
+      return (params[key]?.length ?? 0) <= FIELD_LIMITS[key].maximum;
     case "metadata":
       return params.metadata === undefined || metadataLimitError(params.metadata) === undefined;
     case "status":

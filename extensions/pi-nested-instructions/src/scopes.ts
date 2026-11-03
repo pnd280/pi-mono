@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
-import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
+import { containsPath, expandHomePath, windowsDrivePath } from "@pi-mono/utils/paths";
 import {
   alternatives,
   globRoot,
@@ -33,7 +33,7 @@ export type Invocation = {
   sourceInfo?: NonNullable<Parameters<typeof fffAdapter>[0]>["sourceInfo"];
 };
 
-export type Scope = {
+type Scope = {
   directories: string[];
   reads: string[];
 };
@@ -93,15 +93,6 @@ async function hints(invocation: Invocation, cwd: string): Promise<PathHint[]> {
   if (kind) return fffHints(kind, input, cwd);
 
   return nativeHints(invocation.toolName, input, cwd);
-}
-
-/** Pi's native Windows drive aliases: `/c/dir`, `/mnt/c/dir`, and `/cygdrive/c/dir` become `C:\dir`. */
-function windowsDrivePath(value: string): string {
-  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return value;
-  const match = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i.exec(value);
-  if (!match?.[1]) return value;
-
-  return `${match[1].toUpperCase()}:\\${match[2]?.replaceAll("/", "\\") ?? ""}`;
 }
 
 // Pi's native tool path syntax, kept separate from Bash and FFF path semantics.

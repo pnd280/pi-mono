@@ -10,7 +10,7 @@ Compare two file versions without blocking the main thread, within caller-chosen
 
 One shared off-main-thread worker serialises requests. Request timeouts exclude queue wait. Worker startup has a separate 5-second deadline, so a request that starts a worker can wait that long before its own timeout begins. An idle worker does not keep the process alive.
 
-Active and waiting inputs share a bounded accounting budget, not a process-memory bound. See the [processor](processor.ts) and [worker](worker.ts) for resource limits. Results use these statuses:
+Active and waiting inputs share a 64 MiB accounting budget, `PATCH_QUEUE_BYTES`, which charges 1 KiB for each request and two bytes for each UTF-16 code unit of its path and sources. It is not a process-memory bound. See the [processor](processor.ts) and [worker](worker.ts) for the other resource limits. Results use these statuses:
 
 | Status             | Meaning                                                               |
 | ------------------ | --------------------------------------------------------------------- |

@@ -5,6 +5,12 @@ import type { BrowserOptions } from "../components/browser/types.ts";
 import { Browser } from "../components/browser/view.ts";
 import { openResponsiveCustomUI } from "../responsive-custom-ui/index.ts";
 
+export type {
+  BrowserOptions,
+  BrowserSection,
+  BrowserSnapshot
+} from "../components/browser/types.ts";
+
 export type OpenBrowserOptions<Item> = {
   ui: Pick<ExtensionContext["ui"], "custom">;
   signal: AbortSignal;

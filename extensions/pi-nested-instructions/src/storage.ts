@@ -34,7 +34,7 @@ export const instructionFiles: InstructionFiles = {
   }
 };
 
-export type Selection = {
+type Selection = {
   path: string;
   content?: string;
 };

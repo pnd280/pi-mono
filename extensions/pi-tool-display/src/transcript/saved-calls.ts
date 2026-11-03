@@ -4,8 +4,8 @@ import type { ChangeFact, DisplayCall, DisplayFact, OperationFact, Outcome } fro
 import { creationPatch, parseRetainedPatch, sameRetainedHunks } from "../diff.ts";
 import { record } from "../values.ts";
 import type { TranscriptCoordinator } from "./coordinator.ts";
-import { callKey, type DisplayHistory } from "./history.ts";
-import { CALL_TYPE, parseCallRecord, type CallRecord } from "./metadata.ts";
+import { recordKey, type DisplayHistory } from "./history.ts";
+import { CALL_TYPE, MAX_RECORD_BYTES, parseCallRecord, type CallRecord } from "./metadata.ts";
 
 /** Native calls whose operations are observed. */
 const OBSERVED_ADAPTERS = new Set(["pi:bash", "pi:powershell", "pi:edit", "pi:write"]);
@@ -230,7 +230,7 @@ export class SavedCalls {
     const entry = this.sourceEntry(call);
     if (!entry) return;
     if (call.savedPath)
-      this.options.savedPaths?.set(callKey(entry, call.reference.toolCallId), call.savedPath);
+      this.options.savedPaths?.set(recordKey(entry, call.reference.toolCallId), call.savedPath);
     const { append } = this.options;
     const facts =
       append &&
@@ -238,7 +238,10 @@ export class SavedCalls {
     if (!facts) return;
     const value = { entry, toolCallId: call.reference.toolCallId, ...facts };
     if (parseCallRecord(value)) this.appendRecord(CALL_TYPE, value);
-    else this.warn("call record not saved: it exceeds 160 KiB or fails validation.");
+    else
+      this.warn(
+        `call record not saved: it exceeds ${MAX_RECORD_BYTES / 1024} KiB or fails validation.`
+      );
   }
 
   /** Restore saved facts, again once Pi's result supplies its outcome and duration. */
@@ -250,7 +253,7 @@ export class SavedCalls {
     const recorded = history.callRecord(entry, toolCallId);
     if (recorded?.cancelled) coordinator.fact(call, { kind: "cancellation" });
     if (!OBSERVED_ADAPTERS.has(call.adapter.id)) return;
-    const path = this.options.savedPaths?.get(callKey(entry, toolCallId));
+    const path = this.options.savedPaths?.get(recordKey(entry, toolCallId));
     if (path) coordinator.fact(call, { kind: "saved-output", path });
     const change = replayedChange(call, recorded?.change);
     if (change) coordinator.fact(call, change);

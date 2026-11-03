@@ -41,7 +41,7 @@ Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted 
 - Multiple calls with positive costs add a "Model calls" total.
 - Finished scripts show Pi's measured script time, such as `Took 1.5s`. It stays `dim` when the script fails or is cancelled, because it states no outcome.
 - The output follows without Pi's `Script completed` or `Script failed` header when that header is the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output.
-- Compact cards name Pi's saved output file as "Saved output", like other cards. Expanded output already ends with Pi's reference.
+- When Pi truncated the output and saved it, compact cards add a "Script output truncated; expand to inspect retained output." warning and a "Saved output" reference, like MCP cards. Expanded output already ends with Pi's reference.
 
 In summary lines, each script counts once as `ran 1 script`, with failures as `(1 failed)`. The calls that a script makes do not count, because they never reach the transcript and their truncated argument previews cannot identify files.
 
@@ -56,7 +56,7 @@ MCP server tools from Pi's built-in MCP extension appear as cards with the serve
 
 - Pending calls show Pi's tool name, such as `mcp__exa__web_search_exa`. Sanitised names can end in a hash and are never decoded.
 - When a result or progress update names the server and tool, the heading switches to the unsanitised `server.tool`, even when the result has no content.
-- Arguments always stay visible, regardless of `showParameters`.
+- Arguments stay visible, even with `showParameters: false`.
 - Output uses the ordinary [MCP output preview](renderers.md#mcp-facts). Returned MCP errors and thrown calls show as failures.
 - Thrown or blocked calls keep Pi's tool name.
 - When Pi truncated the output and saved it, compact cards add an "MCP output truncated; expand to inspect retained output." warning and a "Saved output" reference. Expanded cards keep Pi's warning and reference in the retained output, without adding them again.
@@ -68,7 +68,7 @@ Limits:
 
 - The resource tools `list_mcp_resources`, `list_mcp_resource_templates`, and `read_mcp_resource` get generic cards.
 - Calls made inside codemode scripts appear only in the [codemode](#codemode) card's call list.
-- In Pi 1.4.0, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
+- In Pi 1.5.0, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
 
 ## Tool search
 
@@ -115,7 +115,7 @@ Missing or invalid counts give a bounded output preview. Failed and partial resu
 MCP tool calls from [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) get cards that show the resolved `server.tool` name, the arguments, and script operation counts.
 
 - Gateway summaries show the action and target.
-- All MCP cards show arguments whatever `showParameters` says, because names alone may not identify the call. Long arguments and scripts use [previews](presentation.md#card-layout) until expanded.
+- All MCP cards show arguments, even with `showParameters: false`, because names alone may not identify the call. Long arguments and scripts use [previews](presentation.md#card-layout) until expanded.
 - JSON strings are shown as given, never parsed or repaired.
 - The heading shows the resolved `server.tool` when the result records it, and otherwise the requested name.
 - MCP calls stay individual cards outside exploration groups. Calls other than scripts use output previews.

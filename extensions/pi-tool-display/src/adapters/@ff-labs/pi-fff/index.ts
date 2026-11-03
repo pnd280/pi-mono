@@ -2,8 +2,7 @@ import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 import { z } from "zod";
 
-import { type InvocationPart } from "../../../contracts.ts";
-import type { BorrowedToolResult, ToolDisplayAdapter } from "../../../contracts.ts";
+import type { BorrowedToolResult, InvocationPart, ToolDisplayAdapter } from "../../../contracts.ts";
 import { invocationParts } from "../../../invocation.ts";
 import { record, stringField } from "../../../values.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";

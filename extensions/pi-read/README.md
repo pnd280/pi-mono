@@ -36,7 +36,7 @@ The extension appends the preview after the file content and leaves the content 
 
 - It shows at most five lines, and 500 code points per line, with `…` marking omissions.
 - If the selection extends beyond the read window, the preview may be partial.
-- If the selected span has no text, check its coordinates and the read window before another read.
+- If the selected span has no text, the preview says so. When the selection also extends beyond the read window, it asks the model to check the coordinates, offset, and limit.
 - For exact edits, use the original read content, not the preview.
 
 Expand a successful text read to see the selection highlighted in context. Pi's image handling and truncation limits still apply.
@@ -61,10 +61,8 @@ With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how r
 
 ## Validation
 
-Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-read`.
-
-| When you…                         | Read                                                                         |
-| --------------------------------- | ---------------------------------------------------------------------------- |
-| Change selection or preview logic | The [coverage specification](docs/testing.md).                               |
-| Change how reads look             | The [manual appearance checks](docs/testing.md#manual-checks), done by hand. |
-| Upgrade Pi                        | [Pi compatibility](docs/pi-compatibility.md).                                |
+| When you…                         | Read                                                      |
+| --------------------------------- | --------------------------------------------------------- |
+| Change selection or preview logic | [Test coverage](docs/testing.md)                          |
+| Change how reads look             | [Manual appearance checks](docs/testing.md#manual-checks) |
+| Upgrade Pi                        | [Pi compatibility](docs/pi-compatibility.md)              |

@@ -6,7 +6,7 @@ For the settings example and the top-level fields, see [configuration](../README
 
 ## Rules
 
-When compaction starts, the extension tests each rule in order against the conversation model as `provider/id`. The first matching rule decides both of its fields, and later rules are ignored. When no rule matches, compaction uses _native selection_: the session's current model and Pi's native thinking behaviour.
+When compaction starts, the extension tests each rule in order against the conversation model as `provider/id`. The first matching rule decides both of its fields, and later rules are ignored. When no rule matches, compaction uses _native selection_: the session's current model and Pi's native thinking behaviour. Rules choose only the summary model and its thinking level; the conversation model and its thinking level never change.
 
 | Field           | Default            | Effect                                                                                                                                         |
 | --------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -64,6 +64,5 @@ Put the `ext.pi-smart-compact` key in global `~/.pi/agent/settings.json` (or `$P
 ## Edge cases
 
 - Custom summaries from `session_before_compact` handlers ignore `rules`.
-- The conversation model and its thinking level never change.
 - Pi keeps its native retries and the conversation model's retention budgets. Output is capped by the summary model's limit, so pick a summary model large enough for Pi's requests, including overflow recovery.
 - Successful default summaries from any route save a `pi-smart-compact.model` entry recording the summary model, thinking level, and trigger. The model never sees it. Custom and failed summaries save no entry.

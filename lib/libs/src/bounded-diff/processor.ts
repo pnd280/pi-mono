@@ -4,9 +4,11 @@ import { Worker } from "node:worker_threads";
 
 import type { BoundedPatchOptions, BoundedPatchResult } from "./index.ts";
 
-export type WorkerResponse = BoundedPatchResult | { status: "online" };
+type WorkerResponse = BoundedPatchResult | { status: "online" };
 
-const MAX_RETAINED_BYTES = 64 * 1024 * 1024;
+/** The accounting budget that active and waiting requests share; see the README. */
+export const PATCH_QUEUE_BYTES = 64 * 1024 * 1024;
+
 // Charge bookkeeping as well as strings so even empty requests have a bounded queue.
 const REQUEST_OVERHEAD_BYTES = 1024;
 // A loaded machine can take seconds to start a worker; the first request waits for it.
@@ -25,7 +27,7 @@ class PatchProcessor {
     const bytes =
       REQUEST_OVERHEAD_BYTES +
       2 * (options.before.length + options.after.length + options.path.length);
-    if (this.retainedBytes + bytes > MAX_RETAINED_BYTES)
+    if (this.retainedBytes + bytes > PATCH_QUEUE_BYTES)
       return Promise.resolve({ status: "queue-full" });
     // All admitted requests wait in FIFO order, with active and waiting inputs budgeted together.
     this.retainedBytes += bytes;

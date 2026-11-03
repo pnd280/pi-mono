@@ -6,7 +6,7 @@ Adapter maintainers use this contract when they change result handling. [Tool se
 
 ## Display
 
-- Successful compact cards show "Loaded N tools" for a valid, nonempty `details.loaded` array, or "No matching tools" for an empty array.
+- Successful compact cards show "Loaded N tools" and the names from a valid, nonempty `details.loaded` array, or "No matching tools" for an empty array. Expanded cards show only the original text.
 - Calls with missing or invalid `details.loaded` keep the output preview.
 - Calls with missing, empty, or invalid `details.loaded` count as `tool_search ×N`.
 

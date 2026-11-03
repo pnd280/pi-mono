@@ -7,6 +7,7 @@ This package tests pure validation and transformation. [Libs](../../libs/docs/te
 ## Must not regress
 
 - **Critical, unit:** Lexical path containment does not treat sibling prefixes as descendants.
+- **Critical, integration:** POSIX-shell argument quoting keeps empty strings, whitespace, Unicode, apostrophes, and shell metacharacters as literal arguments in a real Bash process, when callers supply NUL-free text.
 - **High, unit:** Package provenance requires the named package as the npm source or entry point, and FFF classification also requires recognised names, not a matching tool name alone.
 - **High, unit:** Model references split at the first slash, so model IDs keep their slashes.
 - **High, unit:** Model references without a provider or model ID are rejected.

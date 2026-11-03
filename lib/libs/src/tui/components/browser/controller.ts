@@ -70,6 +70,7 @@ export class BrowserController<Item> {
     });
   }
 
+  /** A method call, so that TypeScript does not narrow `closed` across callbacks that close. */
   private isClosed() {
     return this.closed;
   }

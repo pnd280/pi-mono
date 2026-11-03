@@ -37,7 +37,7 @@ pi-model-prompt adds the listed files after Pi's append text; it does not replac
 
 ## Replace shared instructions
 
-To give models instructions instead of shared ones, move the shared text into a prompt file. Relative paths such as `prompts/shared.md` resolve against the directory of the global `settings.json`, normally `~/.pi/agent/`.
+To give each model its own instructions instead of shared ones, move the shared text into a prompt file. Relative paths such as `prompts/shared.md` resolve against the directory of the global `settings.json`, normally `~/.pi/agent/`.
 
 | Do                                                                                                                  | Expect                                                                          |
 | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |

@@ -259,10 +259,7 @@ export class PromptManager {
     if (!this.isActive()) return false;
 
     try {
-      const previous = this.ports.editor.read();
       assertRestorable(target.source.text);
-      if (!this.isActive() || this.ports.editor.read() !== previous)
-        throw new PromptError("Editor changed during restoration; replacement refused.");
       // Advance before writing, including identical text. A pending save may not clear it.
       this.restorationRevision++;
       this.ports.editor.write(target.source.text);

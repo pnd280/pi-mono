@@ -660,7 +660,8 @@ export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): 
       .filter(Boolean)
       .join("; ");
 
-    return panel(rows, `… ${notice} (${options.expansionHint})`);
+    // A preview can select every row of a single hunk; then nothing is hidden.
+    return panel(rows, notice ? `… ${notice} (${options.expansionHint})` : undefined);
   };
 
   if (fits(first)) {

@@ -10,7 +10,7 @@ This package tests its layout settings key and schema, layout menu state, and ed
 - **High, integration:** Saving a layout scope replaces that scope's whole layout, never merging rows or regions.
 - **High, integration:** An invalid saved layout falls back to the next scope.
 - **High, e2e:** A failed layout save retains the unsaved draft and the prior saved state. A successful retry commits that draft.
-- **High, e2e:** The coordinator preserves native widget ownership through acquisition, footer conflicts, mode switches, shutdown, and reload.
+- **High, e2e:** The coordinator, which takes over the widget regions and the footer for a session, preserves native widget ownership through acquisition, footer conflicts, mode switches, shutdown, and reload.
 - **High, e2e:** The coordinator releases only its own hooks and components.
 - **High, e2e:** A menu cannot save after its coordinator loses ownership.
 - **High, e2e:** Closing a mounted menu explicitly or through host cancellation restores the effective saved layout in regular and fullscreen modes, including on the first **Ctrl+C** after a registration change.

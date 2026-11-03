@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
-import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { access, mkdir, readFile, readlink, realpath, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 
 import {
   AgentSession,
@@ -48,6 +48,8 @@ export type MutationObserver = {
 const sizeSchema = z.int().nonnegative();
 const patchSchema = z.object({ patch: z.string() });
 let sequence = 0;
+// Linux's limit on symlinks followed in one lookup; deeper chains and loops stay unresolved.
+const MAX_LINK_HOPS = 40;
 
 function safely<T>(action: () => T): T | undefined {
   try {
@@ -58,14 +60,19 @@ function safely<T>(action: () => T): T | undefined {
   }
 }
 
-async function canonicalPath(path: string): Promise<string> {
+async function canonicalPath(path: string, hops = 0): Promise<string> {
   try {
     return await realpath(path);
   } catch {
     const parent = dirname(path);
     if (parent === path) return path;
+    const directory = await canonicalPath(parent, hops);
+    // A write through a dangling link creates its target, so later writes name the target.
+    const target = hops < MAX_LINK_HOPS ? await readlink(path).catch(() => undefined) : undefined;
 
-    return join(await canonicalPath(parent), basename(path));
+    return target === undefined
+      ? join(directory, basename(path))
+      : canonicalPath(resolve(directory, target), hops + 1);
   }
 }
 

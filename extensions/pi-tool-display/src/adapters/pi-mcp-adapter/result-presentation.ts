@@ -6,6 +6,8 @@ import type {
   ResultSummary
 } from "../../contracts.ts";
 import { record } from "../../values.ts";
+import { mcpContent } from "../builtin/mcp/index.ts";
+import { truncationNotices } from "../truncation.ts";
 import {
   callIdentitySchema,
   failedScriptCallSchema,
@@ -49,11 +51,7 @@ export function mcpCallFacts(result?: BorrowedToolResult): McpFacts | undefined 
   return {
     ...identity,
     outcome: details.error === "tool_error" ? "returned-error" : "success",
-    content: result.content.map((block) =>
-      block.type === "text"
-        ? { type: "text", text: block.text }
-        : { type: "media", mimeType: block.mimeType }
-    )
+    content: mcpContent(result.content)
   };
 }
 
@@ -61,11 +59,7 @@ function outputNotices(value: unknown): DisplayNotice[] {
   const parsed = outputGuardSchema.safeParse(value);
   if (!parsed.success) return [];
   const guard = parsed.data;
-  const notices: DisplayNotice[] = [
-    { kind: "warning", text: "MCP output truncated; expand to inspect retained output." }
-  ];
-  if (guard.fullOutputPath)
-    notices.push({ kind: "reference", label: "Saved output", value: guard.fullOutputPath });
+  const notices = truncationNotices("MCP", guard.fullOutputPath);
   if (guard.writeError)
     notices.push({ kind: "warning", text: `MCP output could not be saved: ${guard.writeError}` });
 

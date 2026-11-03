@@ -1,14 +1,11 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { KeyId } from "@earendil-works/pi-tui";
 
 import { report, reportFailure, type Entry, type Notify } from "../coordination/index.ts";
 import { canonicalKeySchema, keysOverlap } from "../tui/keybindings/index.ts";
 import { displayText } from "../tui/terminal-text/index.ts";
 
-export type ShortcutOptions = {
-  description?: string;
-  handler: (ctx: ExtensionContext) => Promise<void> | void;
-};
+export type ShortcutOptions = Parameters<ExtensionAPI["registerShortcut"]>[1];
 
 export type ShortcutClaim = {
   key: string;

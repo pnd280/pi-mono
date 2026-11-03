@@ -9,7 +9,10 @@ export type OutputOmission = {
   unit: "bytes" | "lines" | "retained-lines";
 };
 
-/** Consumers own notice wording and any surrounding style resets. */
+/**
+ * Consumers own notice wording and any surrounding style resets. Mark the notice with
+ * `outputOmission`: text outside the returned ranges reads as process output.
+ */
 export type OmissionFormatter = (omission: OutputOmission) => OutputText;
 
 export type OutputText = {

@@ -9,19 +9,20 @@ import {
   truncateToWidth,
   type Component
 } from "@earendil-works/pi-tui";
-import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
+import { inspectedSource, OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { record } from "../values.ts";
-import { inspectedSource } from "./compatibility.ts";
 
-// Pi 1.4.0 updateContent creates direct Markdown children only for prose, using
+// Pi 1.5.0 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking
-// run. Gate this private child-layout contract for both the API and installed CLI.
+// run that it shows. It reuses those Markdown instances across updates, so
+// decoration wraps them without mutating them. Gate this private child-layout
+// contract for both the API and installed CLI.
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with this method.
 const updateHashes = new Set([
-  "fd0c8ba64d8a398fce1ff73d93e43bc70b66ba50e06491ddeb4826c37992a302",
-  "d366fcccf73b9b9532c39e9d975d9816db5cbb2397a661c8347c4f665dcfeacc"
+  "459e35194d5d6a0c57f2014f286adf578e3c846b63472bf3b2f394c89d8817fb",
+  "1360563a5ebd3ce35aa4c13b83ede21eb80b8ce0bde448e31e22c55824223a2c"
 ]);
 
 const presented = new WeakMap<AssistantMessageComponent, Set<number>>();
@@ -92,6 +93,8 @@ function suppressCompletedThinking(component: AssistantMessageComponent): void {
 }
 
 function removeThinkingRows(container: Container, hidden: readonly boolean[]): void {
+  // With an empty hidden-thinking label, Pi omits every hidden run itself. The
+  // counts then differ, and no row that this would remove is left.
   const regions = container.children.filter((child) => child instanceof MouseRegion);
   if (regions.length !== hidden.length || !hidden.some(Boolean)) return;
   const suppressed = new Set(regions.filter((_region, index) => hidden[index]));

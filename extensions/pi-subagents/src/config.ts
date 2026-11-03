@@ -2,9 +2,9 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 import {
-  readScopedSettings,
+  readScopedSections,
   readSettingsFile,
-  readSettingsRecord
+  type ScopedSection
 } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
 import { expandHomePath } from "@pi-mono/utils/paths";
@@ -43,16 +43,10 @@ type ScopeSettings = Omit<z.output<typeof sectionSchema>, "docs"> & {
   warnings: string[];
 };
 
-function readSection(path: string): ScopeSettings {
-  let section: unknown;
-
-  try {
-    section = readSettingsRecord(path)["ext.pi-subagents"];
-  } catch {
-    return { warnings: [] };
-  }
-
-  const { docs, ...limits } = sectionSchema.safeParse(section).data ?? {};
+function readSection(section: ScopedSection): ScopeSettings {
+  if (section.status === "unreadable") return { warnings: [] };
+  const { path } = section;
+  const { docs, ...limits } = sectionSchema.safeParse(section.value).data ?? {};
   if (docs === undefined) return { ...limits, warnings: [] };
   const paths = docsSchema.safeParse(docs);
 
@@ -98,10 +92,10 @@ export function loadConfig(
   cwd: string,
   { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): SubagentsConfig & { docs: string; warnings: string[] } {
-  const [global, project = { warnings: [] }] = readScopedSettings(
+  const [global = { warnings: [] }, project = { warnings: [] }] = readScopedSections(
     { cwd, projectTrusted, agentDir },
-    readSection
-  );
+    "ext.pi-subagents"
+  ).map(readSection);
   const warnings = [...global.warnings, ...project.warnings];
   const docs = readDocs(project.docPaths ?? global.docPaths ?? [], warnings);
 

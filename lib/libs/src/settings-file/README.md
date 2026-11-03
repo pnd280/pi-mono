@@ -8,17 +8,17 @@ Extensions that keep settings in JSON files such as Pi's `settings.json` must re
 
 - The global scope is `<agentDir>/settings.json` and the project scope is `<cwd>/.pi/settings.json`. Settings in parent directories never apply.
 - Reads return current content without writes.
-- Scoped reads and section loads read the project file only when `projectTrusted` is true.
+- Scoped section reads and section loads read the project file only when `projectTrusted` is true.
 - A section save makes one locked change: it replaces one field and keeps unrelated fields, other writers' changes, and existing mode bits.
 - If another writer holds the lock, the save throws without retrying.
 - Malformed JSON and invalid UTF-8 are refused, never repaired. Saves also refuse dangling links; `readSettingsRecord` and section loads treat them as missing files.
 - Reads and serialised writes are limited to 1 MiB.
 
-| When you…                                                          | Read                                                                      |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| Read a whole file or both scopes, or check what a read returns     | [Scopes](reads-and-saves.md#scopes) and [reads](reads-and-saves.md#reads) |
-| Check section load warnings, save refusals, or error messages      | [Section loads and saves](reads-and-saves.md#section-loads-and-saves)     |
-| Check lock order, symlink handling, or file creation during a save | [Locked updates](reads-and-saves.md#locked-updates)                       |
+| When you…                                                             | Read                                                                      |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Read a whole file or one key in both scopes, or check what it returns | [Scopes](reads-and-saves.md#scopes) and [reads](reads-and-saves.md#reads) |
+| Check section load warnings, save refusals, or error messages         | [Section loads and saves](reads-and-saves.md#section-loads-and-saves)     |
+| Check lock order, symlink handling, or file creation during a save    | [Locked updates](reads-and-saves.md#locked-updates)                       |
 
 ### Sections
 
@@ -45,13 +45,13 @@ layout.save("project", nextLayout); // throws when untrusted, invalid, or locked
 
 ## Caller responsibilities
 
-- Pass `ctx.isProjectTrusted()` as `projectTrusted`. The read functions don't check trust, so open project settings with them only after you establish project trust.
+- Pass `ctx.isProjectTrusted()` as `projectTrusted`. `readSettingsFile` and `readSettingsRecord` don't check trust, so open project settings with them only after you establish project trust.
 - Use a top-level key that your feature owns, such as `ext.<package>`.
 - For sections, give the schema the field's limits, and word `invalidValue` and `loadWarning` for your feature.
-- For other reads, validate the parsed settings, and decide whether an invalid file is ignored or disables the feature. Show sanitised diagnostics specific to your feature, without exposing settings contents.
+- For other reads, validate the parsed settings, decide whether an invalid or unreadable file is ignored or disables the feature, and decide how the project value overrides the global one. Show sanitised diagnostics specific to your feature, without exposing settings contents.
 
 Related: [working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions use the library.
 
 ## Validation
 
-Use [package validation](../../README.md#validation) and check affected consumers. Edge cases are tested in the [transaction tests](transaction.test.ts) and [section tests](section.test.ts).
+Edge cases are tested in the [transaction tests](transaction.test.ts) and [section tests](section.test.ts).

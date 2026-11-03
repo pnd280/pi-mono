@@ -20,7 +20,11 @@ export function prepareSearchQuery(query: string): SearchQuery {
 }
 
 /** KMP keeps even pasted multi-megabyte queries bounded without repeated overlap scans. */
-function* containsLong(text: string, query: string): Steps<boolean> {
+function* findLong(
+  text: string,
+  query: string,
+  accept: (start: number) => boolean
+): Steps<boolean> {
   const prefixes = new Uint32Array(query.length);
   let matched = 0;
 
@@ -37,7 +41,32 @@ function* containsLong(text: string, query: string): Steps<boolean> {
     if (index % chunkSize === 0) yield;
     while (matched > 0 && text[index] !== query[matched]) matched = prefixes[matched - 1] ?? 0;
     if (text[index] === query[matched]) matched++;
-    if (matched === query.length) return true;
+
+    if (matched === query.length) {
+      if (accept(index - query.length + 1)) return true;
+      matched = prefixes[matched - 1] ?? 0;
+    }
+  }
+
+  return false;
+}
+
+/** Passes each start of a nonempty `query` in `text` to `accept`, in order, until it returns true. */
+function* find(text: string, query: string, accept: (start: number) => boolean): Steps<boolean> {
+  if (query.length > text.length) return false;
+  if (query.length > chunkSize) return yield* findLong(text, query, accept);
+
+  for (let start = 0; start < text.length; start += chunkSize) {
+    if (start > 0) yield;
+    // Overlap retains matches spanning chunk boundaries; the next chunk owns later starts.
+    const window = text.slice(start, start + chunkSize + query.length - 1);
+
+    for (
+      let found = window.indexOf(query);
+      found !== -1 && found < chunkSize;
+      found = window.indexOf(query, found + 1)
+    )
+      if (accept(start + found)) return true;
   }
 
   return false;
@@ -45,47 +74,86 @@ function* containsLong(text: string, query: string): Steps<boolean> {
 
 function* contains(text: string, query: string): Steps<boolean> {
   if (!query) return true;
-  if (query.length > text.length) return false;
-  if (query.length > chunkSize) return yield* containsLong(text, query);
 
-  for (let start = 0; start < text.length; start += chunkSize) {
-    if (start > 0) yield;
-    // Overlap retains literal matches spanning chunk boundaries.
-    if (text.slice(start, start + chunkSize + query.length - 1).includes(query)) return true;
+  return yield* find(text, query, () => true);
+}
+
+function isBoundary(text: string, index: number): boolean {
+  return index === 0 || /[\s\-_./:]/.test(text.charAt(index - 1));
+}
+
+/** Pi's score of one alignment, summed in Pi's order so that equal alignments give equal floats. */
+class AlignmentScore {
+  score = 0;
+  private lastMatchIndex = -1;
+  private consecutiveMatches = 0;
+
+  add(text: string, index: number): void {
+    if (this.lastMatchIndex === index - 1) {
+      this.consecutiveMatches++;
+      this.score -= this.consecutiveMatches * 5;
+    } else {
+      this.consecutiveMatches = 0;
+      if (this.lastMatchIndex >= 0) this.score += (index - this.lastMatchIndex - 1) * 2;
+    }
+
+    if (isBoundary(text, index)) this.score -= 10;
+    this.score += index * 0.1;
+    this.lastMatchIndex = index;
+  }
+}
+
+function* contiguousScore(text: string, start: number, length: number): Steps<number> {
+  const alignment = new AlignmentScore();
+
+  for (let offset = 0; offset < length; offset++) {
+    if (offset > 0 && offset % chunkSize === 0) yield;
+    alignment.add(text, start + offset);
   }
 
-  return false;
+  return alignment.score;
+}
+
+/**
+ * Pi also scores every contiguous occurrence and keeps the best. A later occurrence scores worse
+ * than an earlier one unless only the later one starts at a word boundary, so the first
+ * occurrence and the first one at a boundary are the only candidates.
+ */
+function* bestOccurrence(text: string, query: string): Steps<number | undefined> {
+  let first: number | undefined;
+  let boundary: number | undefined;
+
+  yield* find(text, query, (start) => {
+    first ??= start;
+    if (!isBoundary(text, start)) return false;
+    boundary = start;
+
+    return true;
+  });
+  if (first === undefined) return undefined;
+  const score = yield* contiguousScore(text, first, query.length);
+  if (boundary === undefined || boundary === first) return score;
+
+  return Math.min(score, yield* contiguousScore(text, boundary, query.length));
 }
 
 /** Pi's fuzzy scoring, with resumable scans and absolute UTF-16 positions. */
 function* fuzzyScore(text: string, query: string): Steps<number | undefined> {
   if (!query) return 0;
   if (query.length > text.length) return undefined;
+  const greedy = new AlignmentScore();
   let queryIndex = 0;
-  let score = 0;
-  let lastMatchIndex = -1;
-  let consecutiveMatches = 0;
 
   for (let index = 0; index < text.length && queryIndex < query.length; index++) {
     if (index > 0 && index % chunkSize === 0) yield;
     if (text[index] !== query[queryIndex]) continue;
-    const boundary = index === 0 || /[\s\-_./:]/.test(text.charAt(index - 1));
-
-    if (lastMatchIndex === index - 1) {
-      consecutiveMatches++;
-      score -= consecutiveMatches * 5;
-    } else {
-      consecutiveMatches = 0;
-      if (lastMatchIndex >= 0) score += (index - lastMatchIndex - 1) * 2;
-    }
-
-    if (boundary) score -= 10;
-    score += index * 0.1;
-    lastMatchIndex = index;
+    greedy.add(text, index);
     queryIndex++;
   }
 
   if (queryIndex < query.length) return undefined;
+  const contiguous = yield* bestOccurrence(text, query);
+  const score = contiguous === undefined ? greedy.score : Math.min(greedy.score, contiguous);
 
   return query === text ? score - 100 : score;
 }

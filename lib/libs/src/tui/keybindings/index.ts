@@ -37,8 +37,8 @@ function normalizeKey(value: string): KeyId | undefined {
   if (base === "return") base = "enter";
   if (base === "pageup") base = "pageUp";
   if (base === "pagedown") base = "pageDown";
-  // Pi 1.4.0 cannot dispatch modified Escape or modified function keys.
-  if (!base || (parts.length > 0 && (base === "escape" || /^f\d+$/.test(base)))) return undefined;
+  // Pi 1.5.0 cannot dispatch modified Escape.
+  if (!base || (parts.length > 0 && base === "escape")) return undefined;
   if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
     return undefined;
   const key = [...modifiers.filter((modifier) => parts.includes(modifier)), base].join("+");
@@ -62,7 +62,7 @@ function canonicalKey(value: unknown): KeyId | undefined {
   return canonicalKeySchema.safeParse(value).data;
 }
 
-export function formatKeyLabel(key: string): string {
+function formatKeyLabel(key: string): string {
   // A capital letter alone reads as Shift plus that letter.
   if (/^[a-z]$/.test(key)) return key;
 
@@ -82,7 +82,7 @@ export function formatKeyLabel(key: string): string {
  * direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or
  * `Shift+↑↓`.
  */
-export function navigationHints(
+function navigationHints(
   up: string | undefined,
   down: string | undefined,
   label: string
@@ -109,7 +109,7 @@ export type KeybindingCandidate<Action extends string = string> = {
 };
 
 /**
- * Pi 1.4.0 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
+ * Pi 1.5.0 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
  * `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a
  * symbol and any shifted digit or symbol with the same other modifiers as overlapping.
  */

@@ -2,10 +2,10 @@ import { DEFAULT_MAX_BYTES, type ExtensionUIContext } from "@earendil-works/pi-c
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
+import type { JobRecord } from "./details.ts";
 import { parseFlags } from "./flags.ts";
 import type { RunReader } from "./history/reader.ts";
 import { readLogTail } from "./jobs/log.ts";
-import type { JobRecord } from "./jobs/records.ts";
 import type { Jobs } from "./jobs/registry.ts";
 import { showTask } from "./show.ts";
 import type { Tasks } from "./tasks/registry.ts";

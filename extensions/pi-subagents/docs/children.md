@@ -26,6 +26,11 @@ The supervisor receives only the child's final reply. Each child's system prompt
 
 Child dialogs appear in the supervisor with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).
 
+- The supervisor shows dialog text without terminal control sequences, and cut to 2,000 lines or 50 KB.
+- An editor dialog that you submit without changes returns the child's own prefill, not the shown text. Whitespace changes that the editor makes, such as expanded tabs and trimmed ends, count as no change.
+- When the run is cancelled or ends, its open dialogs close, and the child gets a cancellation.
+- Pi gives extensions no way to close an editor dialog, so a forwarded editor stays open after the run is cancelled or ends. Its answer then reaches neither the child nor the run; press **Escape** to close it.
+
 ## Limits
 
 - A model can bypass extension depth limits by running Pi itself through `bash`.

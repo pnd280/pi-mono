@@ -4,9 +4,10 @@ import { lstat, mkdir, open, realpath, stat, type FileHandle } from "node:fs/pro
 import { homedir } from "node:os";
 import { dirname } from "node:path";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
-import { hasCode, PrivateFileError, ReadLimitError } from "./errors.ts";
+import { PrivateFileError, ReadLimitError } from "./errors.ts";
 
 const readLimitSchema = z.int().nonnegative().lt(Number.MAX_SAFE_INTEGER);
 
@@ -130,7 +131,7 @@ export async function privateDirectory(path: string): Promise<void> {
   try {
     await mkdir(path, { mode: 0o700 });
   } catch (error) {
-    if (!hasCode(error, "EEXIST")) throw error;
+    if (!hasErrorCode(error, "EEXIST")) throw error;
   }
 
   const entry = profile ? await lstat(path, { bigint: true }) : undefined;
@@ -189,7 +190,7 @@ export async function boundedRead(path: string, maxBytes: number): Promise<Buffe
   try {
     handle = await privateOpen(path);
   } catch (error) {
-    if (hasCode(error, "ENOENT")) return undefined;
+    if (hasErrorCode(error, "ENOENT")) return undefined;
     throw error;
   }
 

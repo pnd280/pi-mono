@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests the trust boundary for project settings, what a switch declares and appends, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply, and Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
+This package tests the trust boundary for project settings, what a switch declares and appends, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply. Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
 
 ## Must not regress
 
@@ -67,7 +67,6 @@ This package tests the trust boundary for project settings, what a switch declar
 - A request that waits for a switch is not tested because the test needs a slow model change.
 - `/profile clear` after all profiles were removed from settings is below the severity bar.
 - Pi owns the [MCP tool cases](tools.md#mcp-tools), which depend on its MCP support and on server timing. The [compatibility checklist](pi-compatibility.md#mcp-tools) covers them.
-- The fixed tool order with `deny` tools is below the severity bar. It decides the order of the tool guidelines in the system prompt and of the tools in the request, which would otherwise follow the load order.
 - The `deny` filter of the extension's `tool_search` list is below the severity bar.
 - The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) and [lifecycle](../../../libs/src/lifecycle/README.md) coordinators own the rank order, the holds, the startup barrier, and the shortcut claims, which place the profile's prompts and selection entry relative to other extensions.
 - The `hidden` exposure cases are below the severity bar, because only an unusual configuration has them: `tool_search` does not offer a deferred tool that later became `hidden`, and a `hidden` `tool_search` does not count as declared or as the extension's.

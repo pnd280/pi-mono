@@ -2,7 +2,7 @@ import type { JsonAgentSessionEvent, SessionEntry } from "@earendil-works/pi-cod
 
 import type { TaskRecord } from "../tasks/records.ts";
 import type { Tasks } from "../tasks/registry.ts";
-import { branchTo, readRunAncestry } from "./sessions.ts";
+import { branchTo, readRunFile, type RunHistory } from "./sessions.ts";
 import { Transcript } from "./transcript.ts";
 
 /** The child events after which a viewed live run reloads its entries. */
@@ -20,28 +20,6 @@ export type RunConnection = {
   events(listener: (event: JsonAgentSessionEvent) => void): () => void;
   entries(since?: string): Promise<{ entries: SessionEntry[]; leafId: string | null }>;
 };
-
-/** One run's history: its child file's entries from the root to the run's final leaf. */
-export type RunHistory = {
-  readonly runId: string;
-  readonly cwd: string;
-  readonly entries: readonly SessionEntry[];
-};
-
-/**
- * Read a run's history from its task's child file. The reader keeps the file in memory and never
- * repairs it. With `descendants`, the history names the task's descendants: an active run's history
- * then ends before its marker, because the file names the run before the run's live record arrives,
- * and that run's descendants come only from live records.
- */
-export async function readRunFile(
-  record: TaskRecord,
-  { descendants = false }: { descendants?: boolean } = {}
-): Promise<RunHistory> {
-  const ancestry = await readRunAncestry(record, descendants && record.state === "active");
-
-  return { runId: record.run_id, ...ancestry };
-}
 
 /** A run that is live in this binding, with the child file's entries that its connection reported. */
 class LiveRun {

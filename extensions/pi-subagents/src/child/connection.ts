@@ -9,6 +9,7 @@ import type {
   RpcResponse
 } from "@earendil-works/pi-coding-agent";
 import { OutputBuffer } from "@pi-mono/libs/output-buffer";
+import { outputOmission } from "@pi-mono/utils/output-text";
 import { z } from "zod";
 
 export type RpcRecord = RpcResponse | RpcExtensionUIRequest | JsonAgentSessionEvent;
@@ -63,7 +64,7 @@ export class ChildConnection {
     maxBytes: STDERR_MAX_BYTES,
     edgeLines: STDERR_EDGE_LINES,
     lineBytes: STDERR_LINE_BYTES,
-    formatOmission: ({ count, unit }) => ({ text: `[${count} stderr ${unit} omitted]` })
+    formatOmission: ({ count, unit }) => outputOmission(`[${count} stderr ${unit} omitted]`)
   });
 
   constructor(readonly process: ChildProcessWithoutNullStreams) {
@@ -99,6 +100,7 @@ export class ChildConnection {
     return this.pending.size;
   }
 
+  /** Failure text is plain model-facing text, so the notice ranges end here. */
   get stderrTail(): string {
     return this.stderr.snapshot().text;
   }

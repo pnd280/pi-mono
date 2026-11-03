@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md) · [Glossary](../GLOSSARY.md)
 
-pi-tool-display saves a few facts about tool calls in Pi's session history, so that a reopened session shows the same cards. It writes no files of its own, keeps no durable output archive, and makes no network requests. The README summarises [what is recorded](../README.md#what-is-recorded).
+pi-tool-display saves a few facts about tool calls in Pi's session history, so that a reopened session shows the same cards. It writes no files of its own, keeps no durable output archive, and makes no network requests.
 
 ## Observation
 

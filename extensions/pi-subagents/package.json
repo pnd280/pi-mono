@@ -9,7 +9,8 @@
   "type": "module",
   "exports": {
     ".": "./index.ts",
-    "./constants": "./src/constants.ts"
+    "./constants": "./src/constants.ts",
+    "./details": "./src/details.ts"
   },
   "dependencies": {
     "@pi-mono/libs": "0.1.0",

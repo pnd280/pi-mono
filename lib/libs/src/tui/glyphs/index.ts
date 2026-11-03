@@ -4,11 +4,14 @@ const activeBullet = "◦";
 
 export const TUI_GLYPHS = {
   bullet,
-  activeBullet,
   expanded: "▾",
   closed: "▸",
   collapse: "▴",
   queued: "◌",
+  returned: {
+    background: "↗",
+    input: "↪"
+  },
   outcome: {
     success: "✓",
     failure: "✗",

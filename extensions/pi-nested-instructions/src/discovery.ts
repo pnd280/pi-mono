@@ -39,7 +39,13 @@ export async function discover(
     // Ordinary accesses retain snapshots: any visible direct read suppresses, even if changed.
     const selected = await selectInstruction(directory, files, (file) => visible.wasRead(file));
     if (selected?.content !== undefined)
-      entries.push(noticeEntry(directory, selected, "loaded", cwd));
+      entries.push(
+        noticeEntry(
+          directory,
+          { action: "loaded", path: selected.path, content: selected.content },
+          cwd
+        )
+      );
   }
 
   return entries;
@@ -63,12 +69,22 @@ export async function refresh(
     const delivered = visible.delivered(directory);
 
     if (!selected) {
-      if (delivered) entries.push(noticeEntry(directory, undefined, "removed", cwd));
+      if (delivered) entries.push(noticeEntry(directory, { action: "removed" }, cwd));
     } else if (
       selected.content !== undefined &&
       !visible.current(directory, selected.path, selected.content)
     ) {
-      entries.push(noticeEntry(directory, selected, delivered ? "updated" : "loaded", cwd));
+      entries.push(
+        noticeEntry(
+          directory,
+          {
+            action: delivered ? "updated" : "loaded",
+            path: selected.path,
+            content: selected.content
+          },
+          cwd
+        )
+      );
     }
   }
 

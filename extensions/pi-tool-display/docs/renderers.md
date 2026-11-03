@@ -15,7 +15,14 @@ pi.registerTool({
 
 Rendering defaults to generic, even for `read`, `bash`, or `server.search`; specialisation needs an [explicit contract](#explicit-contracts).
 
-The factory works without the automatic extension or its private Pi hooks. It supplies only `renderShell`, `renderCall`, and `renderResult`. The tool keeps its own execution. Observation, file reads, persistence, and native provenance come from the automatic extension, which also collects output and generates patches. The factory only formats the data that it is given. Grouping and run summaries exist only in the CLI integration and have no public API. Pi handles images and expansion; the terminal checks list the [image platform limitations](validation.md#platform-limitations).
+The factory works without the automatic extension or its private Pi hooks. It formats only the data that it is given, and the tool keeps its own execution:
+
+| Feature                                                                                          | Supplied by                                                                  |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `renderShell`, `renderCall`, and `renderResult`                                                  | The factory, which supplies nothing else                                     |
+| Observation, output collection, file reads, patch generation, persistence, and native provenance | The automatic extension                                                      |
+| Grouping and run summaries                                                                       | The automatic CLI integration only, with no public API                       |
+| Images and expansion                                                                             | Pi; see the [image platform limitations](validation.md#platform-limitations) |
 
 See [tool card presentation](presentation.md) for layout, diff behaviour, and display limits.
 

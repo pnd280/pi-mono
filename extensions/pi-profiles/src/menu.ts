@@ -1,8 +1,12 @@
 import type { ExtensionContext, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fuzzyFilter } from "@earendil-works/pi-tui";
-import type { BrowserOptions, BrowserSection } from "@pi-mono/libs/tui/components/browser";
-import { openBrowser } from "@pi-mono/libs/tui/open-browser";
+import {
+  openBrowser,
+  type BrowserOptions,
+  type BrowserSection
+} from "@pi-mono/libs/tui/open-browser";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { ToolReport } from "./selection.ts";
 import type { Profile } from "./settings.ts";
@@ -245,8 +249,7 @@ export async function openMenu({ ui, signal, data, onSwitch, notify }: MenuOptio
     ui,
     signal,
     browser,
-    onError: (error) =>
-      notify(displayText(error instanceof Error ? error.message : String(error)), "error"),
+    onError: (error) => notify(displayText(errorMessage(error)), "error"),
     onInputRoutingUnavailable: () =>
       notify(
         "Fullscreen input routing is unavailable. Use regular mode if controls do not respond.",

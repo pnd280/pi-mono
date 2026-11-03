@@ -59,7 +59,7 @@ function formatParts(
     else
       source =
         part.kind === "path" ? invocationPartText(part, p.context.cwd, relativeTo) : part.text;
-    // Bound source work before terminal normalization can discard or expand it.
+    // Bound source work before terminal normalisation can discard or expand it.
     const retained = sliceTerminalText(source, 0, remaining).text;
     const normalized = displayText(retained);
     const prefix = sliceTerminalText(normalized, 0, remaining).text;
@@ -290,14 +290,20 @@ function explorationVerbs(p: PreparedCard): HeadingVerbs {
   };
 }
 
-function groupMemberLabel(p: PreparedCard): string {
+/** A group member's verb, outcome, and lifecycle, styled before its target. */
+function groupMemberTitle(p: PreparedCard): string {
   const actionVerbs = explorationVerbs(p);
+  const live = p.call !== undefined && isLive(p.call);
+  if (live)
+    return (
+      p.theme.fg(actionColor("pending"), actionVerbs.pending) +
+      (p.call.lifecycle === "executing" ? p.theme.fg("dim", " (running)") : "") +
+      (p.call.lifecycle === "queued" ? p.theme.fg("dim", " (queued)") : "")
+    );
+  const terminal = terminalStatus(p.outcome);
+  if (terminal) return p.theme.fg(terminal.color, `${actionVerbs.action} ${terminal.suffix}`);
 
-  if (p.call && isLive(p.call)) return actionVerbs.pending;
-
-  if (p.outcome === "success") return actionVerbs.complete;
-
-  return actionVerbs.action;
+  return p.theme.fg(actionColor("neutral"), actionVerbs.complete);
 }
 
 function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
@@ -346,21 +352,10 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
   // A call remains in its own Pi row: native images and mouse targets must not be
   // displaced behind later summaries. Even repeated reads retain their identity.
   const relativeTo = group.scope.kind === "directory" ? group.scope.value : p.context.cwd;
+  const title = groupMemberTitle(p);
+  const indent = visibleWidth(title) + 1;
   const item = {
     rows: group.exploration.flatMap((entry) => {
-      const terminal = p.call && isLive(p.call) ? undefined : terminalStatus(p.outcome);
-      const lifecycle = p.call?.lifecycle;
-      let label = groupMemberLabel(p);
-      let annotation = "";
-      if (terminal) label += ` ${terminal.suffix}`;
-      else if (lifecycle === "executing") annotation = " (running)";
-      else if (lifecycle === "queued") annotation = " (queued)";
-
-      const live = p.call !== undefined && isLive(p.call);
-      const title =
-        p.theme.fg(terminal?.color ?? actionColor(live ? "pending" : "neutral"), label) +
-        (annotation ? p.theme.fg("dim", annotation) : "");
-      const indent = visibleWidth(title) + 1;
       const target = targetRows(entry.parts, {
         width: bodyWidth(p.width) - indent,
         cwd: p.context.cwd,
@@ -400,17 +395,13 @@ function status(p: PreparedCard): {
 } {
   const pending = p.context.isPartial;
   const actionVerbs = p.headingVerbs ?? verbs[p.adapter.family];
-  const tone = pending ? "pending" : actionTone(p.outcome);
-  if (pending)
-    return {
-      verb: compactDisplayText(actionVerbs.pending),
-      actionColor: actionColor(tone)
-    };
+  const color = actionColor(pending ? "pending" : actionTone(p.outcome));
+  if (pending) return { verb: compactDisplayText(actionVerbs.pending), actionColor: color };
   const terminal = terminalStatus(p.outcome);
   if (terminal)
     return {
       verb: `${compactDisplayText(actionVerbs.action)} ${terminal.suffix}`,
-      actionColor: actionColor(tone)
+      actionColor: color
     };
   let verb = compactDisplayText(actionVerbs.complete);
   if (
@@ -420,10 +411,7 @@ function status(p: PreparedCard): {
   )
     verb = "Created";
 
-  return {
-    verb,
-    actionColor: actionColor(tone)
-  };
+  return { verb, actionColor: color };
 }
 
 function invocation(p: PreparedCard): readonly InvocationPart[] {

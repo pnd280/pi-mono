@@ -14,16 +14,13 @@ import {
 import { basename, dirname, join } from "node:path";
 
 import { renameWithRetry } from "@pi-mono/libs/file-rename";
-
-function hasCode(error: unknown, code: string): boolean {
-  return error instanceof Error && "code" in error && error.code === code;
-}
+import { hasErrorCode } from "@pi-mono/utils/errors";
 
 async function ignoreMissing(operation: Promise<unknown>): Promise<void> {
   try {
     await operation;
   } catch (error) {
-    if (!hasCode(error, "ENOENT")) throw error;
+    if (!hasErrorCode(error, "ENOENT")) throw error;
   }
 }
 
@@ -32,7 +29,7 @@ async function canonical(file: string): Promise<string> {
   try {
     return await realpath(file);
   } catch (error) {
-    if (!hasCode(error, "ENOENT")) throw error;
+    if (!hasErrorCode(error, "ENOENT")) throw error;
 
     return join(await realpath(dirname(file)), basename(file));
   }
@@ -46,7 +43,7 @@ async function alive(pid: number): Promise<boolean> {
   try {
     process.kill(pid, 0);
   } catch (error) {
-    return !hasCode(error, "ESRCH");
+    return !hasErrorCode(error, "ESRCH");
   }
 
   if (process.platform !== "linux") return true;
@@ -55,7 +52,7 @@ async function alive(pid: number): Promise<boolean> {
   try {
     stat = await readFile(`/proc/${pid}/stat`, "utf8");
   } catch (error) {
-    return !hasCode(error, "ENOENT") && !hasCode(error, "ESRCH");
+    return !hasErrorCode(error, "ENOENT", "ESRCH");
   }
 
   // The state follows the command name, which can itself contain ") ".
@@ -161,7 +158,7 @@ export class WriterLease {
             throw new Error("Task is running in another process");
           await ignoreMissing(unlink(path));
         } catch (error) {
-          if (hasCode(error, "ENOENT")) continue;
+          if (hasErrorCode(error, "ENOENT")) continue;
           throw error;
         }
       }
@@ -224,7 +221,7 @@ export class WriterLease {
         return;
       } catch (error) {
         await ignoreMissing(unlink(temporary));
-        if (!hasCode(error, "ENOENT") || attempt >= 3) throw error;
+        if (!hasErrorCode(error, "ENOENT") || attempt >= 3) throw error;
       }
     }
   }

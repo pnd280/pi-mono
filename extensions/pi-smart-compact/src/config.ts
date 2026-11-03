@@ -3,9 +3,9 @@ import { dirname, resolve } from "node:path";
 
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
-  readScopedSettings,
+  readScopedSections,
   readSettingsFile,
-  readSettingsRecord
+  type ScopedSection
 } from "@pi-mono/libs/settings-file";
 import { modelReferenceSchema, splitModelReference } from "@pi-mono/utils/model-reference";
 import { expandHomePath } from "@pi-mono/utils/paths";
@@ -35,7 +35,7 @@ const configSchema = z.strictObject({
   compactionInstructionsFile: z.string().trim().min(1).optional(),
   docs: z.array(z.string().trim().min(1)).optional()
 });
-const settingsSchema = z.object({ "ext.pi-smart-compact": configSchema.optional() });
+const sectionSchema = configSchema.optional();
 
 /** The `ext.pi-smart-compact` settings JSON. */
 export type CompactSettings = z.input<typeof configSchema>;
@@ -61,14 +61,15 @@ export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, refer
   return registry.find(provider, id);
 }
 
-function readSection(path: string): ParsedSettings {
+function readSection(section: ScopedSection): ParsedSettings {
   try {
-    const parsed = settingsSchema.safeParse(readSettingsRecord(path));
+    const parsed = section.status === "read" ? sectionSchema.safeParse(section.value) : undefined;
 
-    if (parsed.success) {
-      const config = parsed.data["ext.pi-smart-compact"] ?? {};
+    if (parsed?.success) {
+      const config = parsed.data ?? {};
       // Relative paths belong to the scope that names them.
-      const scoped = (entry: string) => resolve(dirname(path), expandHomePath(entry, homedir()));
+      const scoped = (entry: string) =>
+        resolve(dirname(section.path), expandHomePath(entry, homedir()));
       if (config.compactionInstructionsFile !== undefined)
         config.compactionInstructionsFile = scoped(config.compactionInstructionsFile);
       if (config.docs !== undefined) config.docs = config.docs.map(scoped);
@@ -106,7 +107,10 @@ export function loadCompactConfig(
   cwd: string,
   { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): CompactConfig & { docs?: string } {
-  const [global, project] = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
+  const [global, project] = readScopedSections(
+    { cwd, projectTrusted, agentDir },
+    "ext.pi-smart-compact"
+  ).map(readSection);
   const { compactionInstructionsFile, docs, ...config } = { ...global, ...project };
 
   return {

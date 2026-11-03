@@ -24,7 +24,8 @@ function createResultRenderer(
 ): MessageRenderer {
   const renderers = createToolDisplayRenderers(name, adapter);
 
-  return (message, { expanded, outputPad }, theme) => {
+  return (message, options, theme) => {
+    const { expanded, outputPad } = options;
     const card = resultCard(message);
     if (!card) return undefined;
     // A delivered result is final and has no live call.
@@ -42,7 +43,10 @@ function createResultRenderer(
       showImages: false,
       isError: false,
       durationMs: undefined,
-      outputPad
+      outputPad,
+      // Pi's configured keys, from the message renderer options.
+      keyText: (keybinding) => options.keyText(keybinding),
+      keyHint: (keybinding, description) => options.keyHint(keybinding, description)
     };
     const container = new Container();
     container.addChild(renderers.renderCall(card.args, theme, context));

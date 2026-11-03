@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests selection validation, the guard around Pi's native `read`, preview bounds, and the [`pi-read/result` contract](result.md), while [tool display](../../pi-tool-display/docs/testing.md) owns adapter recognition and grouped rendering and Pi owns file access and images.
+This package tests selection validation, the guard around Pi's native `read`, preview bounds, and the [`pi-read/result` contract](result.md). [Tool display](../../pi-tool-display/docs/testing.md) owns adapter recognition and grouped rendering, and Pi owns file access and images.
 
 ## Must not regress
 
@@ -22,7 +22,7 @@ This package tests selection validation, the guard around Pi's native `read`, pr
 
 ## Manual checks
 
-Check appearance changes by hand. Setup: in Pi, read a file with a multiline selection that includes tabs and wide characters.
+In Pi, read a file with a multiline selection that includes tabs and wide characters.
 
 | Do                                                 | Expect                                                             |
 | -------------------------------------------------- | ------------------------------------------------------------------ |

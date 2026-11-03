@@ -11,13 +11,18 @@ import {
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { builtinText } from "./builtins.ts";
-import { widgetHostMethodsCompatible, widgetRendererCompatible, type WidgetHost } from "./host.ts";
+import { widgetRendererCompatible, type WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
 import { clip, renderRows, type Rendered } from "./render.ts";
 
 type Registered = Placement & { component: Component; available: boolean };
 
 const aboveEditorSpacing = 1;
+
+/** Regions with a native widget map and container; the footer has neither. */
+const nativeRegions = ["aboveEditor", "belowEditor"] as const;
+
+type NativeRegion = (typeof nativeRegions)[number];
 
 const textComponent = (text: string): Component => ({
   render: (width) => wrapTextWithAnsi(text, width),
@@ -58,15 +63,6 @@ export class WidgetCoordinator {
       belowEditor: this.regionComponent("belowEditor"),
       footer: this.regionComponent("footer")
     };
-
-    if (!widgetHostMethodsCompatible(host)) {
-      this.active = false;
-      this.warn(
-        "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.4.0 and /reload, or disable the extension. Native UI was left unchanged."
-      );
-
-      return;
-    }
 
     const switchMode = host.switchTuiMode.bind(host);
     const renderWidgets = host.renderWidgets.bind(host);
@@ -146,13 +142,8 @@ export class WidgetCoordinator {
   private sync(): void {
     for (const source of this.registry.values()) source.available = false;
 
-    for (const region of ["aboveEditor", "belowEditor"] as const) {
-      const widgets =
-        region === "aboveEditor"
-          ? this.host.extensionWidgetsAbove
-          : this.host.extensionWidgetsBelow;
-
-      for (const [key, component] of widgets) {
+    for (const region of nativeRegions) {
+      for (const [key, component] of this.native(region).widgets) {
         const id = `widget:${key}`;
         this.registry.set(id, { id, region, component, available: true });
       }
@@ -248,10 +239,18 @@ export class WidgetCoordinator {
     this.measured = undefined;
   }
 
+  private native(region: NativeRegion): {
+    container: WidgetHost["widgetContainerAbove"];
+    widgets: WidgetHost["extensionWidgetsAbove"];
+  } {
+    return region === "aboveEditor"
+      ? { container: this.host.widgetContainerAbove, widgets: this.host.extensionWidgetsAbove }
+      : { container: this.host.widgetContainerBelow, widgets: this.host.extensionWidgetsBelow };
+  }
+
   private mount(): void {
-    for (const region of ["aboveEditor", "belowEditor"] as const) {
-      const container =
-        region === "aboveEditor" ? this.host.widgetContainerAbove : this.host.widgetContainerBelow;
+    for (const region of nativeRegions) {
+      const { container } = this.native(region);
       container.clear();
       container.addChild(this.components[region]);
     }
@@ -343,7 +342,7 @@ export class WidgetCoordinator {
     });
     if (!result) return undefined;
 
-    // Pi 1.4.0's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
+    // Pi 1.5.0's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
     if ("target" in result) {
       if (!result.focus || !cell.component.handleInput) return result;
       const delegated = { ...result, focusTarget: cell.component };
@@ -352,7 +351,7 @@ export class WidgetCoordinator {
     }
 
     if (!result.handled && !result.capture && !result.focus) return result;
-    // Pi 1.4.0's container dispatch contract retains the native target for drag capture and focus.
+    // Pi 1.5.0's container dispatch contract retains the native target for drag capture and focus.
     const forwarded = {
       ...result,
       handled: true,
@@ -379,15 +378,10 @@ export class WidgetCoordinator {
       this.nativeFooter.call(this.host, undefined);
 
     // Restore borrowed contributions only in slots we still own; keep later owners intact.
-    for (const region of ["aboveEditor", "belowEditor"] as const) {
-      const container =
-        region === "aboveEditor" ? this.host.widgetContainerAbove : this.host.widgetContainerBelow;
+    for (const region of nativeRegions) {
+      const { container, widgets } = this.native(region);
       const index = container.children.indexOf(this.components[region]);
       if (index < 0) continue;
-      const widgets =
-        region === "aboveEditor"
-          ? this.host.extensionWidgetsAbove
-          : this.host.extensionWidgetsBelow;
       const children: Component[] = [...widgets.values()];
       if (region === "aboveEditor") children.unshift(new Spacer(aboveEditorSpacing));
       container.children.splice(index, 1, ...children);

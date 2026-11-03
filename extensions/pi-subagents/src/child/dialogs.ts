@@ -14,6 +14,11 @@ const DIALOG_METHODS: ReadonlySet<RpcExtensionUIRequest["method"]> = new Set([
   "editor"
 ]);
 
+/** Pi's editor expands tabs, normalises line ends, and trims the text that it returns. */
+function editorText(text: string): string {
+  return text.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim();
+}
+
 /** Fire-and-forget child UI stays local; only dialog replies flow back down. */
 export async function forwardDialog(
   request: RpcExtensionUIRequest,
@@ -27,6 +32,17 @@ export async function forwardDialog(
     id: request.id,
     cancelled: true
   };
+
+  return ask(request, description, ui, signal, cancelled);
+}
+
+async function ask(
+  request: RpcExtensionUIRequest,
+  description: string,
+  ui: Pick<ExtensionUIContext, "select" | "confirm" | "input" | "editor">,
+  signal: AbortSignal,
+  cancelled: RpcExtensionUIResponse
+): Promise<RpcExtensionUIResponse | undefined> {
   if (signal.aborted) return cancelled;
   const clean = (text: string) => displayText(boundedText(text));
   const title = "title" in request ? clean(`[subagent: ${description}] ${request.title}`) : "";
@@ -71,14 +87,19 @@ export async function forwardDialog(
     }
 
     case "editor": {
-      const answer = await ui.editor(
-        title,
-        request.prefill === undefined ? undefined : clean(request.prefill)
-      );
+      // Pi's editor takes no signal, so it stays open after `signal` aborts.
+      const { prefill } = request;
+      const shown = prefill === undefined ? undefined : clean(prefill);
+      const answer = await ui.editor(title, shown);
+      if (answer === undefined) return cancelled;
+      // The shown prefill is sanitised and cut, so an unchanged answer returns the child's own. Pi
+      // can return the shown text normalised; any other answer, even by whitespace only, is an edit.
+      const unchanged =
+        prefill !== undefined &&
+        shown !== undefined &&
+        (answer === shown || answer === editorText(shown));
 
-      return answer === undefined
-        ? cancelled
-        : { type: "extension_ui_response", id: request.id, value: answer };
+      return { type: "extension_ui_response", id: request.id, value: unchanged ? prefill : answer };
     }
 
     default:

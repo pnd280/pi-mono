@@ -12,27 +12,28 @@ import {
   type ExtensionToolContext,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
-import { expandHomePath } from "@pi-mono/utils/paths";
+import { errorMessage } from "@pi-mono/utils/errors";
+import { expandHomePath, windowsDrivePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 import { jobResultMessage, ResultSource } from "../background-result.ts";
 import { getDepth } from "../child/depth.ts";
-import { forwardStderr, killGroupSync } from "../child/platform.ts";
-import { JOB_END_ENTRY, JOB_ENTRY, STOP_FAILURE_PREFIX } from "../constants.ts";
+import { killGroupSync } from "../child/platform.ts";
+import { forwardStopFailures } from "../child/stop-failures.ts";
+import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
+import type { JobDetails, JobRecord } from "../details.ts";
 import { boundedText, firstLine } from "../result.ts";
 import { formatLogTail, JobLog } from "./log.ts";
 import { jobOperations } from "./process.ts";
 import {
   jobHistory,
   stoppedJob,
-  type JobDetails,
   type JobEndEntry,
   type JobEntry,
-  type JobInput,
-  type JobRecord
+  type JobInput
 } from "./records.ts";
 
-export type JobEvent = { kind: "changed"; jobId: string };
+type JobEvent = { kind: "changed"; jobId: string };
 
 /** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
 const JOB_LOG_PREFIX = "pi-job-";
@@ -41,7 +42,7 @@ const JOB_LOG_PREFIX = "pi-job-";
 const MAX_PENDING_LOG_BYTES = 16 * 1024 * 1024;
 
 /** The shell settings that Pi's own `bash` applies. */
-export type ShellOptions = { shellPath?: string; commandPrefix?: string };
+type ShellOptions = { shellPath?: string; commandPrefix?: string };
 
 type LiveJob = {
   controller: AbortController;
@@ -66,15 +67,6 @@ type Ended = {
   stated?: true;
 };
 
-/** Pi converts these Git Bash, MSYS, Cygwin, and WSL drive paths on Windows. */
-function windowsShellPath(path: string): string {
-  if (!path.startsWith("/") || path.startsWith("//") || path.includes("\\")) return path;
-  const match = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i.exec(path);
-  if (!match?.[1]) return path;
-
-  return `${match[1].toUpperCase()}:\\${match[2]?.replaceAll("/", "\\") ?? ""}`;
-}
-
 /**
  * Pi's raw `shellPath` and `shellCommandPrefix` settings, as Pi's settings manager resolves them:
  * the path expands `~` and `file://`; the prefix is unchanged.
@@ -85,7 +77,7 @@ export function shellOptions(
 ): ShellOptions {
   const { shellPath, shellCommandPrefix } = settings;
   let path = typeof shellPath === "string" && shellPath ? shellPath : undefined;
-  if (path && process.platform === "win32") path = windowsShellPath(path);
+  if (path && process.platform === "win32") path = windowsDrivePath(path);
   if (path) path = expandHomePath(path, home);
   if (path?.startsWith("file://")) path = fileURLToPath(path);
 
@@ -105,8 +97,6 @@ function exitSignal(code: number): string | undefined {
 }
 
 const exitSchema = z.object({ exit_code: z.number() });
-
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 const TIMEOUT = /Command timed out after (\S+) seconds$/;
 
@@ -267,7 +257,7 @@ export class Jobs {
     try {
       await once(log, "open");
     } catch (error) {
-      throw new Error(`Job log file could not be opened: ${errorText(error)}`);
+      throw new Error(`Job log file could not be opened: ${errorMessage(error)}`);
     }
 
     // The binding can end while the file opens.
@@ -292,7 +282,7 @@ export class Jobs {
       this.records.set(job_id, stoppedJob(entry));
       log.end();
       this.emit({ kind: "changed", jobId: job_id });
-      throw new Error(`Job entry could not be saved: ${errorText(error)}`);
+      throw new Error(`Job entry could not be saved: ${errorMessage(error)}`);
     }
 
     this.records.set(job_id, record);
@@ -373,7 +363,7 @@ export class Jobs {
       ended = exited(live, code);
       text = code === 0 ? "" : `Command exited with code ${code}`;
     } catch (error) {
-      text = errorText(error);
+      text = errorMessage(error);
       ended = thrown(live, text);
     }
 
@@ -424,7 +414,7 @@ export class Jobs {
     } catch (error) {
       // Without its end entry, the job shows as cancelled after a restart; its result still arrives.
       this.options.warn?.(
-        `pi-subagents: the end of job ${done.job_id} could not be saved: ${errorText(error)}`
+        `pi-subagents: the end of job ${done.job_id} could not be saved: ${errorMessage(error)}`
       );
     }
 
@@ -477,11 +467,7 @@ export class Jobs {
 
     // Pi catches session_shutdown errors. Its supervising task needs the stderr record as well.
     if (getDepth() > 0)
-      await forwardStderr(
-        failures
-          .map(({ id, error }) => `\n${STOP_FAILURE_PREFIX}job ${id}: ${error.message}\n`)
-          .join("")
-      );
+      await forwardStopFailures(failures.map(({ id, error }) => `job ${id}: ${error.message}`));
     throw new AggregateError(
       failures.map(({ error }) => error),
       `Job cleanup failed: ${failures.map(({ error }) => error.message).join("; ")}`

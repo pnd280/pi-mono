@@ -8,12 +8,10 @@ The decisions are in [ADR 0001](adr/0001-hold-run-for-background-results.md) and
 
 ## Delivery timing
 
-The [`resultDelivery`](../README.md#configuration) setting chooses when a ready result reaches a busy supervisor:
+The [`resultDelivery`](../README.md#configuration) setting chooses when a ready result joins the run of a busy supervisor:
 
-| Value                | When a ready result joins the run                                          |
-| -------------------- | -------------------------------------------------------------------------- |
-| `turn_end` (default) | After the model's reply and its tool calls, before the next model request. |
-| `settle`             | After the model's final reply.                                             |
+- With `turn_end` (the default), the result joins after the model's reply and its tool calls, before the next model request.
+- With `settle`, the result joins after the model's final reply.
 
 Delivery at the end of a turn skips failed, aborted, and length-truncated replies, so that Pi can retry or recover first.
 

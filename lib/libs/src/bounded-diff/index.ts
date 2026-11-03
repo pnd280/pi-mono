@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { processPatch } from "./processor.ts";
 
+export { PATCH_QUEUE_BYTES } from "./processor.ts";
+
 const limitsSchema = z.object({
   maxSourceBytes: z.int().nonnegative(),
   maxPatchBytes: z.int().nonnegative(),

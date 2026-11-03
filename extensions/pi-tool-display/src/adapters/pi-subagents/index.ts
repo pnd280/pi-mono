@@ -4,6 +4,7 @@ import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { registeredBy } from "@pi-mono/utils/provenance";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { OPEN_EVENT } from "pi-subagents/constants";
+import { deliverySchema, detailsSchema, type ToolDetails } from "pi-subagents/details";
 import { z } from "zod";
 
 import type {
@@ -12,7 +13,7 @@ import type {
   SummaryCategory,
   ToolDisplayAdapter
 } from "../../contracts.ts";
-import { jobAdapter } from "./jobs.ts";
+import { jobAdapter, messageResult, times } from "./jobs.ts";
 
 const argsSchema = z.object({
   description: z.string().min(1),
@@ -21,32 +22,10 @@ const argsSchema = z.object({
   model: z.string().optional(),
   thinking: z.string().optional(),
   background: z.boolean().optional(),
-  delivery: z.enum(["follow_up", "steer"]).optional()
+  delivery: deliverySchema.optional()
 });
 // Rendering also receives streamed arguments and completion messages without a prompt.
 const partialArgsSchema = argsSchema.partial().extend({ prompt: z.string().optional() });
-const detailsSchema = z.object({
-  task_id: z.string().min(1).optional(),
-  binding_id: z.string().min(1).optional(),
-  description: z.string(),
-  model: z.string(),
-  thinking: z.string(),
-  background: z.boolean(),
-  delivery: z.enum(["follow_up", "steer"]),
-  state: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
-  started_at: z.number().nonnegative(),
-  ended_at: z.number().nonnegative().nullable(),
-  activity: z.string(),
-  returned: z.enum(["background", "input"]).optional(),
-  error: z.string().optional(),
-  usage: z.object({
-    input: z.number().nonnegative(),
-    output: z.number().nonnegative(),
-    cache_read: z.number().nonnegative(),
-    cache_write: z.number().nonnegative(),
-    cost: z.number().nonnegative()
-  })
-});
 const parametersSchema = z.object({
   type: z.literal("object"),
   properties: z.object({
@@ -73,17 +52,15 @@ const abortCategory: SummaryCategory = {
   count: { one: "aborted {n} subagent", other: "aborted {n} subagents" }
 };
 
-type Details = z.infer<typeof detailsSchema>;
-
 /** Non-breaking spaces keep the group on one row when it fits. */
-function usage({ usage }: Details): string {
+function usage({ usage }: ToolDetails): string {
   if (!Object.values(usage).some((value) => value > 0)) return "";
 
   return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
 }
 
 /** Only expanded fields name a returned call's task; failures put usage before the reason. */
-function secondary(details: Details): string {
+function secondary(details: ToolDetails): string {
   if (details.returned) return details.task_id === undefined ? "Waiting for capacity" : "";
   if (details.state === "queued") return "Waiting for capacity";
   if (details.state === "running") return "";
@@ -92,12 +69,12 @@ function secondary(details: Details): string {
   return [usage(details), details.error].filter(Boolean).join(" · ");
 }
 
-function status(details: Details): NonNullable<DisplayProgress["status"]> {
+function status(details: ToolDetails): NonNullable<DisplayProgress["status"]> {
   if (details.returned === "background")
-    return { glyph: "↗", text: "in background", tone: "returned" };
+    return { glyph: TUI_GLYPHS.returned.background, text: "in background", tone: "returned" };
   if (details.returned === "input")
     return {
-      glyph: "↪",
+      glyph: TUI_GLYPHS.returned.input,
       text: details.delivery === "steer" ? "steered" : "input queued",
       tone: "returned"
     };
@@ -126,7 +103,7 @@ function fields(
   ];
 }
 
-function openAction(result: Parameters<NonNullable<ToolDisplayAdapter["action"]>>[1]) {
+function openAction(result: BorrowedToolResult | undefined) {
   const details = detailsSchema.safeParse(result?.details).data;
 
   return details?.task_id && details.binding_id
@@ -194,12 +171,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
       status: status(details),
       secondary: secondary(details),
       // Returned calls describe their fixed acknowledgement, not the child's later state.
-      ...(details.returned
-        ? {}
-        : {
-            startedAt: details.started_at,
-            ...(details.ended_at === null ? {} : { endedAt: details.ended_at })
-          }),
+      ...(details.returned ? {} : times(details)),
       fields: fields(details.task_id, details.background, details.delivery),
       ...prompt,
       ...(details.state === "completed" && !details.returned ? { resultPreview: true } : {})
@@ -244,8 +216,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
       identity: `${details.model}:${details.thinking}`,
       status: { glyph: TUI_GLYPHS.outcome.cancelled, text: "aborted", tone: "success" },
       secondary: usage(details),
-      startedAt: details.started_at,
-      ...(details.ended_at === null ? {} : { endedAt: details.ended_at }),
+      ...times(details),
       fields: fields(details.task_id, undefined, undefined)
     };
   }
@@ -256,16 +227,10 @@ export function subagentResultCard(
   message: Pick<Parameters<MessageRenderer>[0], "content" | "details">
 ): { args: { description: string }; result: BorrowedToolResult } | undefined {
   const details = detailsSchema.safeParse(message.details).data;
-  if (!details) return undefined;
-  const { content } = message;
 
-  return {
-    args: { description: details.description },
-    result: {
-      content: typeof content === "string" ? [{ type: "text", text: content }] : content,
-      details: message.details
-    }
-  };
+  return details
+    ? { args: { description: details.description }, result: messageResult(message) }
+    : undefined;
 }
 
 export function piSubagentAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {

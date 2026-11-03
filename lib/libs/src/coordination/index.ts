@@ -1,9 +1,10 @@
 import type { EventBus } from "@earendil-works/pi-coding-agent";
+import { errorMessage } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
 export type Notify = (message: string, type: "warning" | "error") => void;
 
-export type NotifyContext = {
+type NotifyContext = {
   hasUI: boolean;
   ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
 };
@@ -269,9 +270,5 @@ export function reportFailure(
   what: string,
   error: unknown
 ): void {
-  report(
-    notify,
-    `${participant.id}: ${what} failed: ${error instanceof Error ? error.message : String(error)}`,
-    "error"
-  );
+  report(notify, `${participant.id}: ${what} failed: ${errorMessage(error)}`, "error");
 }
