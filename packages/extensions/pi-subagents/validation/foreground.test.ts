@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
@@ -19,6 +20,7 @@ import { readRunFile } from "../src/history/sessions.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
+import { LATE_DIALOG_ANSWERS } from "./provider.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 /** The supervisor's run and end entries, which are its only task entries. */
@@ -632,7 +634,8 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         scenario: string;
         method: RpcExtensionUIRequest["method"];
         answer: (request: RpcExtensionUIRequest) => boolean | string;
-        result: string;
+        /** The child's reply, or a function of the submitted answer that gives it. */
+        result: string | ((submitted: boolean | string) => string);
       }> = [
         {
           scenario: "delegate-dialog",
@@ -662,12 +665,14 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           answer: editor((shown) => shown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim()),
           result: "Editor prefill kept"
         },
-        // An edit by whitespace only reaches the child as typed.
+        // An edit by whitespace only reaches the child exactly as submitted, because the RPC
+        // client's answer is not normalised. The child reports the SHA-256 of what it received.
         {
           scenario: "delegate-editor",
           method: "editor",
           answer: editor((shown) => ` ${shown}`),
-          result: "Editor prefill changed"
+          result: (submitted) =>
+            `Editor answer ${createHash("sha256").update(String(submitted)).digest("hex")}`
         }
       ];
 
@@ -687,9 +692,57 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             : { type: "extension_ui_response", id: request.id, value }
         );
         await work;
-        expect(contentText((await host.results()).at(-1)!.content), result).toContain(result);
+        const expected = typeof result === "string" ? result : result(value);
+        expect(contentText((await host.results()).at(-1)!.content), expected).toContain(expected);
       }
     });
+  });
+
+  test("cancels the open dialogs of a cancelled run, also against a late answer", async () => {
+    await withFixture(
+      async (directory, start) => {
+        const host = await start();
+        const answer = (file: string) => readFile(join(directory, "work", file), "utf8");
+        const after = host.records.length;
+        const work = host.prompt("delegate-late-dialogs");
+        const open = (method: RpcExtensionUIRequest["method"]) =>
+          host.wait(
+            (record) => record.type === "extension_ui_request" && record.method === method,
+            after
+          );
+        await open("select");
+        const editor = await open("editor");
+        if (editor.type !== "extension_ui_request") throw new Error("Missing editor dialog");
+        const aborted = host.command(`abort ${(await taskList(host))[0]!.task_id}`);
+
+        // The selection closes at the cancellation, so the child receives it as cancelled unanswered.
+        await expect
+          .poll(() => answer(LATE_DIALOG_ANSWERS.select).catch(() => undefined), {
+            timeout: STEP_TIMEOUT_MS
+          })
+          .toBe("cancelled");
+        // Pi's editor cannot close, so the supervisor's client can still answer it.
+        await host.connection.respond({
+          type: "extension_ui_response",
+          id: editor.id,
+          value: "Late edit"
+        });
+
+        expect(JSON.parse((await aborted).message)).toMatchObject({
+          state: "inactive",
+          outcome: "cancelled"
+        });
+        await work;
+        expect(await answer(LATE_DIALOG_ANSWERS.editor)).toBe("cancelled");
+      },
+      // The late answer must reach the child before its stop deadline, so the deadline must be
+      // longer than a fixture step.
+      {
+        settings: {
+          "ext.pi-subagents": { maxDepth: LONG_GRACE_LIMIT, maxConcurrent: LONG_GRACE_LIMIT }
+        }
+      }
+    );
   });
 
   test("respects capacity, admits queued launches FIFO, and rejects a full queue", async ({

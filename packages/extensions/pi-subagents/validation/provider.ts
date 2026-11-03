@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -49,6 +50,12 @@ const RUN_HELD = "run-held";
 
 /** A `background-idle` supervisor creates this file after its final turn for its child. */
 const IDLE_RELEASE = "idle-release";
+
+/**
+ * A `late-dialogs` child writes the answers that its open select and editor dialogs receive to
+ * these files, `cancelled` for a cancelled dialog and `value <answer>` otherwise.
+ */
+export const LATE_DIALOG_ANSWERS = { select: "late-select-answer", editor: "late-editor-answer" };
 
 /** An editor prefill that the supervisor shows sanitised and cut: tabs, CRLF, and over 2,000 lines. */
 const EDITOR_PREFILL = Array.from(
@@ -309,6 +316,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["delegate-dialog", "dialog"],
     ["delegate-selection", "selection"],
     ["delegate-editor", "editor"],
+    ["delegate-late-dialogs", "late-dialogs"],
     ["delegate-trust", "report-trust"],
     ["delegate-tools", "report-tools"],
     ["delegate-job", "job-group-hold"],
@@ -485,7 +493,7 @@ function abortToolResponse({ message, events, text }: FixtureStreamContext): "to
 function plainResponse(
   scenario: string,
   context: Parameters<ProviderStreams["stream"]>[1],
-  answer: boolean
+  answer: boolean | string
 ): string {
   if (scenario === "input-payload")
     return `Input occurrences: ${context.messages.filter((item) => item.role === "user" && contentText(item.content) === "input-payload").length}; earlier context: ${context.messages.some((item) => item.role === "user" && contentText(item.content).endsWith("-hold"))}`;
@@ -507,9 +515,11 @@ function plainResponse(
     return remembered ? "Remembered fixture seed" : "No earlier fixture seed";
   }
 
-  if (scenario === "dialog") return answer ? "Dialog accepted" : "Dialog declined";
-  if (scenario === "selection") return answer ? "Selected second option" : "Selected wrong option";
-  if (scenario === "editor") return answer ? "Editor prefill kept" : "Editor prefill changed";
+  if (scenario === "dialog") return answer === true ? "Dialog accepted" : "Dialog declined";
+  if (scenario === "selection")
+    return answer === true ? "Selected second option" : "Selected wrong option";
+  if (scenario === "editor")
+    return answer === true ? "Editor prefill kept" : `Editor answer ${answer}`;
   if (scenario === "report-trust")
     return JSON.stringify({
       approve: process.argv.includes("--approve"),
@@ -533,7 +543,7 @@ function plainResponse(
 }
 
 function createStream(
-  dialogAnswer: () => boolean,
+  dialogAnswer: () => boolean | string,
   idleWake: () => boolean
 ): ProviderStreams["streamSimple"] {
   return (model, context, { signal, reasoning } = {}) => {
@@ -554,6 +564,18 @@ function createStream(
         model,
         signal,
         run: async (stream) => abortToolResponse(stream)
+      });
+    if (scenario === "late-dialogs")
+      return createFixtureStream({
+        model,
+        signal,
+        // The run holds until the editor dialog has its answer, so the child can still receive it.
+        run: async ({ text }) => {
+          while (!existsSync(join(process.cwd(), LATE_DIALOG_ANSWERS.editor))) await setTimeout(25);
+          text("Late dialogs answered");
+
+          return "stop";
+        }
       });
     if (scenario === "report-selection")
       return createFixtureStream({
@@ -794,7 +816,7 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   });
   let ignoreShutdown = false;
   let noisyShutdown = false;
-  let answer = false;
+  let answer: boolean | string = false;
   let settleHold = false;
   let exitHold = false;
   let digestCompact = false;
@@ -858,8 +880,28 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       answer =
         (await ctx.ui.select("Fixture selection", ["Same", "\u001b[31mSame\u001b[0m"])) ===
         "\u001b[31mSame\u001b[0m";
-    if (prompt === "editor")
-      answer = (await ctx.ui.editor("Fixture editor", EDITOR_PREFILL)) === EDITOR_PREFILL;
+
+    if (prompt === "editor") {
+      const received = await ctx.ui.editor("Fixture editor", EDITOR_PREFILL);
+      // A changed answer is reported by its SHA-256, so a test can check the exact text received.
+      answer =
+        received === EDITOR_PREFILL ||
+        (received === undefined
+          ? "cancelled"
+          : createHash("sha256").update(received).digest("hex"));
+    }
+
+    // The dialogs stay open while the run streams, so the run can be cancelled with them open.
+    if (prompt === "late-dialogs")
+      for (const [method, file] of Object.entries(LATE_DIALOG_ANSWERS)) {
+        const dialog =
+          method === "select"
+            ? ctx.ui.select("Fixture late selection", ["First", "Second"])
+            : ctx.ui.editor("Fixture late editor", "Late prefill");
+        void dialog.then((received) =>
+          writeFile(join(ctx.cwd, file), received === undefined ? "cancelled" : `value ${received}`)
+        );
+      }
 
     return { systemPrompt: `${event.systemPrompt}\nSUBAGENTS_PREPARED_CONTEXT` };
   });

@@ -109,6 +109,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** A supervisor cannot resume or abort another supervisor's tasks, and no input reaches them.
 - **High, e2e:** Child dialogs reach the supervisor's client, and answers reach the requesting child with the selected value preserved even when sanitised labels collide.
 - **High, e2e:** An editor dialog submitted with its forwarded prefill unchanged returns the child's prefill exactly, also when the supervisor shows the prefill sanitised and cut.
+- **High, e2e:** When a run is cancelled or ends while a child dialog is open, the dialog closes, and the child receives it as cancelled. An editor dialog stays open because Pi cannot close it, and a late answer to it reaches the child as cancelled.
 - **High, e2e:** (S6) Abort and background commands reach only owned descendants, and nested dialog answers return to the requesting child.
 - **High, e2e:** (R1) Active-task input reaches the same conversation once across running, settling, and exit races, without another capacity slot or duplicate usage or completion.
 - **High, e2e:** (R1) The result of a run that took active-task input keeps the final reply that the input followed, before the input's reply.

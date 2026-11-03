@@ -46,8 +46,7 @@ async function sendUpdate(host: Supervisor, directory: string, message: string):
   await work;
 }
 
-// Steer input shares this route; only `Run.input` (src/tasks/run.ts) maps it to Pi's steer queue.
-test.each(["follow_up", "settling", "exiting"] as const)(
+test.each(["follow_up", "steer", "settling", "exiting"] as const)(
   "preserves input and usage through %s delivery",
   async (mode) => {
     await withFixture(
@@ -59,7 +58,7 @@ test.each(["follow_up", "settling", "exiting"] as const)(
         const id = detailsSchema.parse(initial.details).task_id!;
         if (mode === "settling") await ready(`${directory}/work/settle-ready`);
         if (mode === "exiting") await ready(`${directory}/work/exit-ready`);
-        const message = `update-id ${id} follow_up`;
+        const message = `update-id ${id} ${mode === "steer" ? "steer" : "follow_up"}`;
         // The settling child holds its settle hook until the input arrives.
         if (mode === "settling") await host.prompt(message);
         else if (mode === "exiting") {
