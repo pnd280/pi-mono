@@ -14,6 +14,7 @@
     "./output-text": "./src/output-text.ts",
     "./utf8": "./src/utf8.ts",
     "./shell": "./src/shell.ts",
+    "./skill-reference": "./src/skill-reference.ts",
     "./task-envelope": "./src/task-envelope.ts",
     "./errors": "./src/errors.ts"
   },

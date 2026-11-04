@@ -46,6 +46,17 @@ Consumers choose their own failure handling. pi-fff-guard passes unexpected acce
 
 [`modelReferenceSchema`](../src/model-reference.ts) trims and validates a `provider/model-id` setting; the model ID may contain slashes. `splitModelReference` splits a valid reference at its first slash and throws `TypeError` otherwise. Callers own registry lookup, availability errors, and thinking-level support.
 
+## Skill references
+
+[`expandSkillReferences`](../src/skill-reference.ts) replaces each whitespace-separated token that the caller's `resolve` function maps to a registered `/skill:<name>` command with the `formatSkillReference` output for that command. `skillReferenceCatalog` projects Pi's registered commands onto skill paths and prompt-template names.
+
+- Complete references that are already in the format, with the registered path, stay unchanged. The longest candidate is checked first. When the format ends in a placeholder, a reference must be followed by whitespace or the end of the text.
+- A leading reference that starts a registered skill command, up to a literal space, or a registered prompt-template name, up to any whitespace, gets one leading space. Pi's native skill insertion and prompt-template expansion then leave it literal. A leading command that isn't a reference stays unchanged.
+
+[`skillReferenceFormatSchema`](../src/skill-reference.ts) validates an `expansionFormat` setting: at most 512 Unicode code points, with a `{path}` placeholder. Use it for every format that you pass to these helpers.
+
+Callers own token matching, the settings section and its loading, and any check that skips the call.
+
 ## Task envelopes
 
 [`formatTaskEnvelope`](../src/task-envelope.ts) writes the model-facing text of a subagent task result. It escapes the task ID and summary and preserves the body unchanged. Callers own summary and body limits.

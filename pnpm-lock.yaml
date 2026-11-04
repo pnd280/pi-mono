@@ -559,6 +559,9 @@ importers:
       '@pi-mono/libs':
         specifier: workspace:*
         version: link:../../libs
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../../utils
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -607,6 +610,25 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/extensions/pi-t3-skills:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: catalog:pi-host
+        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.88)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(ws@8.22.0)(zod@4.6.7)
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../../utils
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      pi-skills:
+        specifier: workspace:*
+        version: link:../pi-skills
 
   packages/extensions/pi-todo:
     dependencies:

@@ -1,10 +1,11 @@
 import { CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { joinInputChain } from "@pi-mono/libs/input-chain";
+import { defaultSkillReferenceFormat } from "@pi-mono/utils/skill-reference";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
 import { loadExpansionFormat } from "./config.ts";
 import { completeInlineSlash } from "./editor.ts";
-import { defaultExpansionFormat, expandSkillInput } from "./tokens.ts";
+import { expandSkillInput } from "./tokens.ts";
 
 /** Expands references before later transforms; observers still see the typed text. */
 const INPUT_RANK = 100;
@@ -12,7 +13,7 @@ const INPUT_RANK = 100;
 export default function skills(pi: ExtensionAPI): void {
   const input = joinInputChain(pi, { id: "pi-skills" });
   const getCommands = () => pi.getCommands();
-  let format = defaultExpansionFormat;
+  let format = defaultSkillReferenceFormat;
 
   // Pi's `input` event runs before its native skill insertion, so leading references stay literal.
   input.transform(INPUT_RANK, (event) => {
