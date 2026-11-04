@@ -16,9 +16,9 @@ Input expansion and completion must compose with Pi's existing providers and reg
 
 ### Input expansion
 
-[Input expansion](../src/tokens.ts) owns catalogue projection, substitution, and the native-insertion guard. [Input-hook wiring](../src/index.ts) passes the current commands.
+[Input expansion](../src/tokens.ts) matches `/skill:<name>` tokens. The shared [skill-reference module](../../../utils/src/skill-reference.ts) owns the format schema, catalogue projection, substitution, and the native-insertion guard.
 
-The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
+[Input-hook wiring](../src/index.ts) passes the current commands. The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
 
 - [ ] Pi's `input` event runs before native skill insertion and prompt-template expansion.
 - [ ] `getCommands()` reports each skill with its registered file path, which expansion inserts exactly.

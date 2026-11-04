@@ -14,6 +14,8 @@ This package tests pure validation and transformation. [Libs](../../libs/docs/te
 - **High, unit:** Output omission classification uses recorded ranges for generated notices, not literal lookalikes in source text.
 - **High, unit:** Output joining and slicing preserve source text and its omission ranges as UTF-16 offsets.
 - **High, unit:** Output joining and slicing reject overlapping omission ranges.
+- **High, unit:** Skill-reference expansion puts one space before a leading reference that would start a registered skill command, for an existing reference and for a substitution that starts with another skill's command, and doesn't add a second space.
+- **High, unit:** Skill-reference expansion leaves a leading registered `/skill:<name>` command unchanged when the text doesn't start with a reference.
 - **High, unit:** Patch parsing accepts only one unified patch within the caller's byte bound, and rejects invalid hunk counts and unordered or overlapping ranges in either source version.
 - **High, unit:** Task-envelope parsing preserves the body exactly, including closing-tag lookalikes.
 - **High, unit:** Task-envelope parsing rejects mismatched framing, task IDs, or states.

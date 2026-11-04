@@ -94,6 +94,11 @@ export const extensionGroups: ExtensionGroup[] = [
         summary: "Turns /skill:<name> anywhere in a prompt into a file link, with Tab completion."
       },
       {
+        name: "pi-t3-skills",
+        summary:
+          "Turns T3 Code's $name skill chips into file links instead of pasted skill contents."
+      },
+      {
         name: "pi-read",
         summary: "Lets the model select and highlight an exact span of a file when reading it.",
         sample: { kind: "output", text: "src/example.ts:12:4-15:9" }

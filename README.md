@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.png" />
-  <img alt="Good defaults, engineered with care. 17 extensions for the Pi coding agent, shown in a sample Pi session with a subagent card, compact tool cards, a diff of the edit, and a run summary." src="docs/assets/hero-light.png" />
+  <img alt="Good defaults, engineered with care. 18 extensions for the Pi coding agent, shown in a sample Pi session with a subagent card, compact tool cards, a diff of the edit, and a run summary." src="docs/assets/hero-light.png" />
 </picture>
 
 # pi-mono
@@ -20,6 +20,7 @@ Only Linux support is guaranteed. Windows and macOS are not thoroughly tested.
 | [pi-subagents](packages/extensions/pi-subagents/README.md)                     | Delegates foreground and background work to resumable Pi processes, with task views and cancellation. |
 | [pi-smart-compact](packages/extensions/pi-smart-compact/README.md)             | Lets the model compact its own context mid-task, so long tasks keep going.                            |
 | [pi-skills](packages/extensions/pi-skills/README.md)                           | Turns `/skill:<name>` anywhere in a prompt into a file link, with **Tab** completion.                 |
+| [pi-t3-skills](packages/extensions/pi-t3-skills/README.md)                     | Turns T3 Code's `$name` skill chips into file links instead of pasted skill contents.                 |
 | [pi-tool-display](packages/extensions/pi-tool-display/README.md)               | Shows tool calls as compact, expandable cards with file diffs.                                        |
 | [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) | Loads `AGENTS.md` files from subdirectories when the model starts working in them.                    |
 | [pi-profiles](packages/extensions/pi-profiles/README.md)                       | Switches the model, thinking level, tools, and instructions together with one key.                    |

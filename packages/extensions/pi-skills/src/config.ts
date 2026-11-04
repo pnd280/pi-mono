@@ -1,10 +1,12 @@
 import { readScopedSections, type ScopedSection } from "@pi-mono/libs/settings-file";
+import {
+  defaultSkillReferenceFormat,
+  skillReferenceFormatSchema
+} from "@pi-mono/utils/skill-reference";
 import { z } from "zod";
 
-import { defaultExpansionFormat } from "./tokens.ts";
-
 const sectionSchema = z.strictObject({
-  expansionFormat: z.string().max(512).includes("{path}").optional()
+  expansionFormat: skillReferenceFormatSchema.optional()
 });
 
 function readExpansionFormat(section: ScopedSection): string | undefined {
@@ -23,5 +25,5 @@ export function loadExpansionFormat(
     "ext.pi-skills"
   ).map(readExpansionFormat);
 
-  return project ?? global ?? defaultExpansionFormat;
+  return project ?? global ?? defaultSkillReferenceFormat;
 }

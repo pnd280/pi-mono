@@ -13,7 +13,7 @@
 
 Expansion covers what you type and extension `sendUserMessage()` calls. The prompt history of pi-prompt-manager saves the text before expansion.
 
-Expansion doesn't cover commands that Pi handles before extensions see the input, text produced by prompt templates, or custom `sendMessage()` messages.
+Expansion doesn't cover commands that Pi handles before extensions see the input, text produced by prompt templates, custom `sendMessage()` messages, or messages that another extension sends from its `session_start` handler before this extension's handler runs.
 
 ## Completion
 

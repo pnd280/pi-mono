@@ -7,7 +7,7 @@
 ## Upgrade procedure
 
 1. Run the [focused checks](../../../docs/development.md#focused-validation) for `@pi-mono/utils`.
-2. Run the checks of the libs modules and extensions whose input or output assumptions changed. The [code navigation](../AGENTS.md#code-navigation) table lists the FFF and shared-library consumers. This package needs no standalone terminal scenario.
+2. Run the checks of the libs modules and extensions whose input or output assumptions changed. The [code navigation](../AGENTS.md#code-navigation) table lists the FFF, skill-reference, and shared-library consumers. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist
@@ -17,6 +17,7 @@
 - [ ] Pi tool results still carry text that the [output-text](../src/output-text.ts) consumers transform with omission ranges as UTF-16 offsets.
 - [ ] Pi's native `edit` results still supply one unified patch that [`parsePatch`](../src/patch.ts) accepts.
 - [ ] Pi's byte-limited tool output still clips a head or tail edge that [`decodeUtf8Window`](../src/utf8.ts) identifies correctly.
+- [ ] Pi still runs input handlers before its native skill insertion, which starts only at a leading `/skill:<name>` followed by a literal space or the end, and before prompt-template expansion, which ends the name at any whitespace, as the [skill-reference guard](../src/skill-reference.ts) assumes.
 - [ ] [Thinking levels](../src/thinking-levels.ts) match `MODEL_THINKING_LEVELS` in Pi's `@earendil-works/pi-ai/providers/model-schema`, in the same order.
 
 This package keeps its own copy of the thinking levels, because installed extensions can't import that entry point.
