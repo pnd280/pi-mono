@@ -135,7 +135,7 @@ function list(names: readonly string[] | undefined, absent: string): string {
 function profileDetails({ profile, change, modelAvailable }: ProfileChoice): string {
   if (!profile)
     return [
-      "Undoes the current profile's tool changes and adds no system prompts. The model and thinking level stay.",
+      "Undoes the current profile's tool changes, stops its MCP servers, and adds no system prompts. The model and thinking level stay.",
       "",
       `A switch now requests: ${change}`
     ].join("\n");
@@ -158,6 +158,7 @@ function profileDetails({ profile, change, modelAvailable }: ProfileChoice): str
       ),
       "none"
     )}`,
+    `MCP servers: ${list(profile.mcpServers && Object.keys(profile.mcpServers), "none")}`,
     `A switch now requests: ${modelAvailable ? change : "nothing, because the profile cannot apply"}`,
     "",
     profile.prompts.length > 0 ? "Appended system prompts:" : "Appended system prompts: none",

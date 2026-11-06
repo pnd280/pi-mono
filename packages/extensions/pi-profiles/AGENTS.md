@@ -1,11 +1,13 @@
 # [pi-profiles](README.md) development
 
-Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applies the decisions of [src/selection.ts](src/selection.ts), and keeps the lifecycle, the holds, the notices, and the settings reads. The selection module needs no Pi host. It decides what a switch, a restoration, and the `deny` enforcement do to the tools, what the extension's `tool_search` sees, and the state of each tool in the menu. The `/profile` menu lives in [src/menu.ts](src/menu.ts), which loads on first use; the adapter gives it a snapshot of the profiles and tools. The menu only shows state: the change that it shows for a profile comes from the plan of the switch, and it switches through the same path as `/profile <name>`, after it closes, so it cannot change tools in a different way.
+Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applies the decisions of [src/selection.ts](src/selection.ts), and keeps the lifecycle, the holds, the notices, and the settings reads. The selection module needs no Pi host. It decides what a switch, a restoration, and the `deny` enforcement do to the tools and the MCP servers, what the extension's `tool_search` sees, and the state of each tool in the menu. The `/profile` menu lives in [src/menu.ts](src/menu.ts), which loads on first use; the adapter gives it a snapshot of the profiles and tools. The menu only shows state: the change that it shows for a profile comes from the plan of the switch, and it switches through the same path as `/profile <name>`, after it closes, so it cannot change tools in a different way.
 
 ## Must not regress
 
 - Read project settings only when `ctx.isProjectTrusted()` is true. Profiles select tools and system prompt text, so an untrusted project must never supply or change them. See [where settings apply](docs/configuration.md#where-settings-apply) for the merge rules.
 - Read settings only on session start.
+- Skip a project profile whose MCP server has `auth`. Pi refuses `auth` in a project `mcp.json`, so that a repository cannot choose where a Pi login token goes, and it does not check servers that extensions register.
+- Register only the selected profile's MCP servers, after its tools are set, and save no server entry in the session.
 - Register the extension's `tool_search` on every load without reading settings. [Pi compatibility](docs/pi-compatibility.md#limitations) gives the reason.
 - Add prompts only through the [prompt part](../../libs/src/prompt-parts/README.md) at rank `200`, which appends to `systemPromptOptions.appendSystemPrompt` and keeps the text that Pi and earlier handlers put there.
 - Hold each switch, so that every part, such as pi-model-prompt's, sees the profile and its model.

@@ -82,6 +82,19 @@ Recheck each row of the [MCP tools](tools.md#mcp-tools) tables against these con
 - [ ] Pi restores tools whose server has not connected as pending, and declares pending tools when they register.
 - [ ] `setActiveToolsByName()` drops all pending tools when a call turns off a tool (`_pendingToolNames`).
 
+### MCP servers
+
+The [adapter](../src/index.ts) relies on these contracts.
+
+- [ ] `pi.registerMcpServer()` validates the entry and throws for an invalid entry, a name that another extension registered, or a name that differs from a registered one only in `-` and `_` (`registerMcpServer` in `core/extensions/loader.js`).
+- [ ] Pi does not export `validateMcpServerConfig`.
+- [ ] The built-in MCP extension connects a server that registers during the session at once, and closes an unregistered one (`mcp_servers_change` handler in `extensions/mcp/index.js`).
+- [ ] The built-in MCP extension keeps the connection of a registered server whose entry serialises the same with `JSON.stringify`, and reconnects it otherwise (`registeredConfig` in `extensions/mcp/index.js`).
+- [ ] Pi loads the extension again for each session and on `/reload`, and drops the registrations of the previous load.
+- [ ] A server in `mcp.json` takes precedence over a registered server whose name is the same, or differs only in `-` and `_` (`registeredServers` in `extensions/mcp/index.js`).
+
+The extension does not register again a server whose entry serialises the same, so the server list does not change and Pi does not turn on `codemode` and `tool_search` again. Key order counts, because Pi tries `toolExposure` patterns in order. The [MCP servers](switching.md#mcp-servers) and [profile MCP servers](tools.md#profile-mcp-servers) sections describe what users see.
+
 ### Prompt and lifecycle coordinators
 
 The extension adds its prompt part at rank `200` and holds each switch. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks. The libs [lifecycle](../../../libs/src/lifecycle/README.md) coordinator owns the checks of the startup commit, the shortcut claim, and the shutdown revoke.

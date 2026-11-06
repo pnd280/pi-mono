@@ -9,7 +9,7 @@ The menu shows the state when it opens. In RPC mode, `/profile` shows a plain li
 ## Profiles view
 
 - The "Profiles" view lists the profiles, then `clear`, and marks the current one. Press **Enter** to switch.
-- The details show the profile's model, thinking level, tool lists, and appended prompts, and the tool change that a switch would request now. Pi can still leave out an MCP tool that a `--tools` list does not name.
+- The details show the profile's model, thinking level, tool lists, appended prompts, and "MCP servers: <names>" (or "none"), and the tool change that a switch would request now. The details of `clear` say that it stops the current profile's MCP servers. Pi can still leave out an MCP tool that a `--tools` list does not name.
 - The details also show when the model is unknown or has no credentials.
 - The `defer` list shows each [group](tools.md#groups) in square brackets.
 

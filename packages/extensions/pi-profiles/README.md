@@ -60,6 +60,7 @@ A switch changes these settings for the current session only:
 | `thinking`            | Sets the thinking level, which Pi limits to what the model supports. | pi-profiles does not set the level.            |
 | `appendSystemPrompts` | Adds the files' texts to the system prompt from the next request.    | Adds no text.                                  |
 | `tools`               | Selects the declared tools; see [tools](#tools).                     | Keeps the tools that are declared without one. |
+| `mcpServers`          | Registers the profile's MCP servers while the profile is selected.   | Registers none.                                |
 
 pi-profiles refuses a switch while the agent runs, and does not apply a profile whose model is unknown or has no credentials. pi-profiles saves each switch in the session, so resume, `/fork`, `/tree`, and `/reload` keep the branch's profile.
 
@@ -83,10 +84,11 @@ This profile defers the GitHub MCP tools that the branch has not used, so the mo
 }
 ```
 
-| When you…                                                | Read                                 |
-| -------------------------------------------------------- | ------------------------------------ |
-| Use `*` patterns, `defer`, groups, or codemode-only mode | [Profile tools](docs/tools.md)       |
-| Use MCP servers with profiles                            | [MCP tools](docs/tools.md#mcp-tools) |
+| When you…                                                | Read                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------- |
+| Use `*` patterns, `defer`, groups, or codemode-only mode | [Profile tools](docs/tools.md)                           |
+| Define MCP servers in a profile                          | [Profile MCP servers](docs/tools.md#profile-mcp-servers) |
+| Use MCP tools with profiles                              | [MCP tools](docs/tools.md#mcp-tools)                     |
 
 ## Tool search
 
@@ -114,8 +116,9 @@ The section has a `profiles` array, an optional `defaultProfile` for interactive
 - In the interactive terminal, when profiles are configured, pi-profiles replaces the editor with the same editor plus the profile name. It keeps the editor of an extension that loaded earlier.
 - An extension that loads later and discards the earlier editor removes the profile name.
 - A switch changes the system prompt or the declared tools, so the provider may not reuse its prompt cache for the next request.
+- pi-profiles registers the selected profile's MCP servers with Pi, which starts their processes or connects to their URLs; see [MCP servers](docs/switching.md#mcp-servers).
 - pi-profiles writes no files of its own. Pi saves the selection entries in the session file.
-- pi-profiles makes no network requests itself.
+- pi-profiles makes no network requests itself; Pi's MCP support connects registered servers.
 
 ## Validation
 
