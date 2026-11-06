@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { withCodemodeNotice } from "@pi-mono/libs/codemode-notice";
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
@@ -222,20 +223,28 @@ export default function subagents(
     const taskExposure = tasks ? "model-only" : "hidden";
     const jobExposure = jobs ? "model-only" : "hidden";
     pi.registerTool({
-      ...createSubagentTool(
-        currentTasks,
-        emitOpen,
-        () => pi.events.emit(counterChannel, delegated),
-        docs
+      ...withCodemodeNotice(
+        createSubagentTool(
+          currentTasks,
+          emitOpen,
+          () => pi.events.emit(counterChannel, delegated),
+          docs
+        )
       ),
       exposure: taskExposure
     });
-    pi.registerTool({ ...createAbortTool(currentTasks, emitOpen), exposure: taskExposure });
     pi.registerTool({
-      ...createJobTool(currentJobs, emitOpenJob, delivers),
+      ...withCodemodeNotice(createAbortTool(currentTasks, emitOpen)),
+      exposure: taskExposure
+    });
+    pi.registerTool({
+      ...withCodemodeNotice(createJobTool(currentJobs, emitOpenJob, delivers)),
       exposure: jobExposure
     });
-    pi.registerTool({ ...createJobAbortTool(currentJobs, emitOpenJob), exposure: jobExposure });
+    pi.registerTool({
+      ...withCodemodeNotice(createJobAbortTool(currentJobs, emitOpenJob)),
+      exposure: jobExposure
+    });
   };
 
   // Registered at load, so Pi activates them before any session_start handler, such as a profile,

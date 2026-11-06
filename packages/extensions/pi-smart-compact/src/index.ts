@@ -3,6 +3,7 @@ import type {
   ExtensionContext,
   ToolDefinition
 } from "@earendil-works/pi-coding-agent";
+import { withCodemodeNotice } from "@pi-mono/libs/codemode-notice";
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { z } from "zod";
 
@@ -122,35 +123,37 @@ export default function smartCompact(pi: ExtensionAPI) {
     config = {};
     if (ctx.mode === "tui") ctx.ui.setStatus(compactionStatusKey, undefined);
   });
-  pi.registerTool({
-    name: "compact",
-    exposure: "model-only",
-    label: "Compact context",
-    description: "Compact the session context",
-    parameters: compactParameters,
-    async execute(_id, args, signal, _onUpdate, ctx) {
-      if (!binding) throw new Error(unavailable);
-      const parsed = compactInput.safeParse(args);
-      if (!parsed.success) throw new Error("Invalid compact parameters");
-      binding.request(parsed.data.instructions, signal);
-      const rule = ctx.model && selectRule(config, ctx.model);
-      const modelOverride = rule?.model;
-      let thinkingLevel = rule?.thinkingLevel ?? pi.getThinkingLevel();
+  pi.registerTool(
+    withCodemodeNotice({
+      name: "compact",
+      exposure: "model-only",
+      label: "Compact context",
+      description: "Compact the session context",
+      parameters: compactParameters,
+      async execute(_id, args, signal, _onUpdate, ctx) {
+        if (!binding) throw new Error(unavailable);
+        const parsed = compactInput.safeParse(args);
+        if (!parsed.success) throw new Error("Invalid compact parameters");
+        binding.request(parsed.data.instructions, signal);
+        const rule = ctx.model && selectRule(config, ctx.model);
+        const modelOverride = rule?.model;
+        let thinkingLevel = rule?.thinkingLevel ?? pi.getThinkingLevel();
 
-      if (
-        modelOverride &&
-        rule.thinkingLevel === undefined &&
-        findConfiguredModel(ctx.modelRegistry, modelOverride)?.reasoning === false
-      )
-        thinkingLevel = "off";
+        if (
+          modelOverride &&
+          rule.thinkingLevel === undefined &&
+          findConfiguredModel(ctx.modelRegistry, modelOverride)?.reasoning === false
+        )
+          thinkingLevel = "off";
 
-      return {
-        content: [{ type: "text", text: compactAcknowledgement }],
-        details: {
-          scheduled: true,
-          ...(modelOverride ? { modelOverride, thinkingLevel } : {})
-        } satisfies CompactDetails
-      };
-    }
-  });
+        return {
+          content: [{ type: "text", text: compactAcknowledgement }],
+          details: {
+            scheduled: true,
+            ...(modelOverride ? { modelOverride, thinkingLevel } : {})
+          } satisfies CompactDetails
+        };
+      }
+    })
+  );
 }

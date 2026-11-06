@@ -22,6 +22,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, unit:** For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
 - **Critical, e2e:** In every load order, startup commits run once per `session_start` emission, in ascending rank, after every extension's `session_start` handler.
 - **Critical, e2e:** In every load order, every participant's shutdown revoke runs before any participant's shutdown handler awaits.
+- **High, e2e:** A model-only tool's declared description has the codemode notice exactly while `codemode` is declared.
 - **High, e2e:** A shared custom view receives each owned input once while focused, including controls remapped to transcript paging.
 - **High, e2e:** Close, abort, and remount of a shared custom view make old callbacks inert, restore host input, and preserve unrelated overlays.
 - **High, e2e:** After-close effects of a shared custom view run once, after final closure only.
