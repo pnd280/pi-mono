@@ -9,6 +9,7 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 | Library                                                | Responsibility                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [tool-schema](src/tool-schema/README.md)               | Zod input projection into a limited Pi tool-schema profile                |
+| [codemode-notice](src/codemode-notice/README.md)       | A codemode notice in model-only tool descriptions while codemode is on    |
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
 | [input-chain](src/input-chain/README.md)               | Input observers and ranked transforms from one `input` handler            |
 | [prompt-parts](src/prompt-parts/README.md)             | Ranked system-prompt parts appended once per run                          |

@@ -1,11 +1,12 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { withCodemodeNotice } from "@pi-mono/libs/codemode-notice";
 
 import type { TodoController } from "./state/controller.ts";
 import type { TaskDetails } from "./state/model.ts";
 import { TodoParamsSchema } from "./tool-schema.ts";
 
 export function createTodoTool(controller: TodoController) {
-  return {
+  return withCodemodeNotice({
     name: "todo",
     exposure: "model-only",
     label: "Todos",
@@ -21,5 +22,5 @@ export function createTodoTool(controller: TodoController) {
     async execute(_id, raw) {
       return controller.apply(raw);
     }
-  } satisfies ToolDefinition<typeof TodoParamsSchema, TaskDetails>;
+  } satisfies ToolDefinition<typeof TodoParamsSchema, TaskDetails>);
 }
