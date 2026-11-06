@@ -47,7 +47,17 @@ The CLI probe runs `--help` with only the fingerprint extension enabled. It uses
 
 Hash `Function.prototype.toString.call(method)` so a method's own `toString` override cannot hide a changed implementation. A failed compatibility gate must disable only the affected feature without breaking Pi startup or leaving partial hooks for that feature installed. Check replacement instances before attaching their private hooks too.
 
-When you add, rename, or remove a fingerprinted hook, update `owners` in the script and the table above in the same change. A changed hash means the method body changed: diff the old and new source of that method, verify the hook still holds, and only then replace the hash. Review the affected contracts before changing a version pin. `pi-smart-compact` also pins `VERSION`.
+When you add, rename, or remove a fingerprinted hook, update `owners` in the script and the table above in the same change. A changed hash means the method body changed: diff the old and new source of that method, verify the hook still holds, and only then replace the hash.
+
+To get both sources, [fetch the previous release](#fetch-a-release), then diff the hooked file from the table above, such as `diff -u .tmp/pi-releases/<previous>/node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js`. A changed CLI hash with no API source change comes from bundling; verify it with the CLI probe above. Review the affected contracts before changing a version pin. `pi-smart-compact` also pins `VERSION`.
+
+## Fetch a release
+
+This installs `pi-coding-agent` of one release with all its dependencies, without install scripts. The Pi family lands in `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`; for 1.5.0 that is eight packages, including `pi-schema` and `pi-telemetry` through `pi-ai`, and about 150 MB in total.
+
+```sh
+npm install --prefix .tmp/pi-releases/<version> --ignore-scripts --no-audit --no-fund --no-package-lock @earendil-works/pi-coding-agent@<version>
+```
 
 ## Private hook replacement
 

@@ -40,17 +40,21 @@ The website has no `test` task; run only its `check`.
 
 Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
 
+To run one-off TypeScript against workspace source, put a `*.test.ts` file in a `.tmp/<probe>/` directory and run `vp test run --root .tmp/<probe> --silent=false`. Plain `node` strips types only, so it rejects workspace code that uses TypeScript-only syntax, such as parameter properties.
+
 Workspace commands:
 
-| Command                  | Scope                                                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `vpr check`              | Formatting, linting, type checking, `docs:check`, and `fingerprints:check`                                                       |
-| `vpr docs:check`         | Markdown links and anchors, inline prototype member names, "Last verified" lines, bold bullet labels, and testing-guide sections |
-| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods      |
-| `vpr test`               | All tests in one Vitest invocation                                                                                               |
-| `vpr lint`               | Linting and type checking                                                                                                        |
-| `vp fmt --check`         | Formatting without writes                                                                                                        |
-| `vp fmt`                 | Apply formatting                                                                                                                 |
+| Command                  | Scope                                                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vpr check`              | Formatting, linting, type checking, `docs:check`, `fingerprints:check`, and `lockfile:check`                                                                                                                  |
+| `vpr docs:check`         | Markdown links and anchors, inline prototype member names, "Last verified" lines, bold bullet labels, testing-guide sections, extension README `jsonc` blocks, and the extension count in the README and hero |
+| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods                                                                                   |
+| `vpr lockfile:check`     | One lockfile snapshot for each Pi host package                                                                                                                                                                |
+| `vpr test`               | All tests in one Vitest invocation                                                                                                                                                                            |
+| `vpr test:count`         | The number of tests and test files in each package, without running them                                                                                                                                      |
+| `vpr lint`               | Linting and type checking                                                                                                                                                                                     |
+| `vp fmt --check`         | Formatting without writes                                                                                                                                                                                     |
+| `vp fmt`                 | Apply formatting                                                                                                                                                                                              |
 
 Use `vpr check` for the repository's `stylish` lint format; the built-in `vp check` does not support custom output formats.
 
@@ -103,7 +107,7 @@ Users [install](../README.md#install) the generated `release` branch. Pull reque
 - The job never force-pushes, so commits that users installed stay available.
 - In a fork, the `release` job does not run, so forks do not publish a `release` branch or tags.
 
-To release a version, raise `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
+To release a version, follow the [release procedure](release.md), which raises `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
 
 The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. It runs these steps:
 
@@ -121,6 +125,8 @@ To inspect the tree, run `node .scripts/build-release.ts`. It writes `.tmp/relea
 ## Documentation
 
 Correct inaccurate guidance and document what readers need to use or maintain the project. Keep entry documents short by moving task-specific detail, not by compressing facts into fragments. Purpose, practical setup, and constraints needed by all readers belong inline. Put substantial task-specific guidance behind a link that says when to follow it. Prefer source links over prose repeating implementation or configuration, but summarise the point inline before linking. Retain non-obvious rationale and observable limits.
+
+Write skills, `AGENTS.md` files, and docs under `docs/agents/` to [writing for agents](../.agents/skills/_aux/writing-for-agents/SKILL.md).
 
 Use one H1, sentence-case headings, consecutive heading levels, numbered procedures, bullets for unordered items, tables for lookup and comparison, and language-tagged fences. Give parent headings substantive text before subheadings; remove headings that add no structure.
 

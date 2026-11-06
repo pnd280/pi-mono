@@ -241,6 +241,12 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
     `\n${changed} changed, ${unclaimed} unclaimed fingerprint(s), ${missing} missing owner file(s), ${versionMismatches} version mismatch(es).`
   );
 
+  if (changed) {
+    console.log(
+      "Changed: diff the method source of the previous and installed releases before you replace the hash. See .agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints."
+    );
+  }
+
   if (unclaimed) {
     console.log("Unclaimed: add the hooked method to `owners`, or remove the stale hash.");
   }

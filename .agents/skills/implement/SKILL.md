@@ -15,7 +15,7 @@ Work **autonomously** from start to report: make each decision yourself and reco
 
    When subagent delegation is unavailable, run code review yourself on the task's changes and preserve the pre-existing changes. Done when every finding has an outcome and the verification checks pass; then go to step 5.
 
-   Otherwise, split the task's changes into **chunks** with disjoint paths, such as one per package, and keep each change with its tests and docs. Every subagent for a chunk gets its **brief**: the task, your implementation decisions, the autonomy rule above, the chunk's changed behaviour and paths, and the pre-existing changes in those paths to preserve.
+   Otherwise, split the task's changes into **chunks** with disjoint paths, such as one per package, and keep each change with its tests and docs. Split chunks so that each reviewer's diff fits in one tool output (50 KB). Review a new standard or rule that the task adds as a chunk of its own. Every subagent for a chunk gets its **brief**: the task, your implementation decisions, the autonomy rule above, the chunk's changed behaviour and paths, and the pre-existing changes in those paths to preserve.
 
    Fan out an audit-only code review, one subagent per chunk. Each subagent runs only the Audit phase, leaves the working tree as it found it, and returns every finding with its audit, `path:line` references, evidence, and planned action (revise, keep with a reason, decision needed, or unresolved). Done when every chunk has returned its findings and the working tree is unchanged.
 
@@ -37,3 +37,5 @@ Work **autonomously** from start to report: make each decision yourself and reco
    - each review finding and its outcome;
    - the decisions made during implementation, reconciliation, and fixes;
    - the proposals that wait for user approval.
+
+   When the user approves a proposed invariant after the report, add the invariant and its test as the [testing policy](../../../docs/agents/testing.md#coverage) requires, then run steps 2 to 4 on them before you report again.

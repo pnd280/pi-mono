@@ -13,7 +13,7 @@ When you change code:
 
 1. Read the affected package's `docs/testing.md` and the tests for the invariants your change touches.
 2. For a listed invariant, run its tests. For a regression fix, show the failure (red) with an existing test before the fix and the pass (green) after it. Add a case only when no retained test exposes the defect.
-3. If the change creates a [high or critical](#severity) risk that no listed invariant covers, stop and propose the invariant to the user, with its severity and the plausible defect. Add the invariant and its test only after explicit approval.
+3. If the change creates a [high or critical](#severity) risk that no listed invariant covers, stop and propose the invariant to the user, with its severity and the plausible defect. Add the invariant and its test only after explicit approval. When a design interview or plan comes before the implementation, propose the invariants there, so that their tests are part of the implementation and its review.
 4. When behaviour is removed or drops below the bar, remove its invariant and tests in the same change.
 
 A bug fix alone does not warrant a new test. If the fixed behaviour is not listed, fix it without a test, or propose an invariant under step 3.
@@ -61,6 +61,7 @@ Choose the layer in this order:
 - Tautological tests cannot reveal incorrect behaviour. Use independently specified results or invariants, rather than expectations derived from the result or a duplicate of the implementation's algorithm.
 - Change-detector tests fail during equivalent internal refactors. Assert observable contracts rather than implementation details.
 - A passing reduced suite does not prove that removed coverage was redundant. Preserve distinct regression scenarios of listed invariants during cleanup.
+- A new test must go red: remove or break the behaviour that it guards, see the test fail, then restore the behaviour. Report the failure output.
 
 ## Ownership
 

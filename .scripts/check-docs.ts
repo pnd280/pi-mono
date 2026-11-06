@@ -1,7 +1,9 @@
 // Check workspace Markdown: relative links and heading anchors must resolve, inline
 // `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z"
 // line must name the installed Pi version. Docs outside agent skills, prompt resources, and
-// changelogs must also follow the structural conventions checked by checkConventions().
+// changelogs must also follow the structural conventions checked by checkConventions(). Every run
+// also checks that each "N extensions" count in the README and the hero image source matches
+// packages/extensions/.
 // Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -361,6 +363,22 @@ function checkCompatibilityDoc(lines: string[], name: string): string[] {
   return problems;
 }
 
+// docs/development.md#extension-readmes: a jsonc block must be valid JSON once its comments are
+// removed, because Pi reads settings.json as plain JSON. The READMEs put comments on lines of their own.
+function checkJsonc(text: string, name: string): string[] {
+  return Array.from(text.matchAll(/^```jsonc\n([\s\S]*?)^```$/gm), ({ 1: body = "", index }) => {
+    try {
+      JSON.parse(body.replace(/^[ \t]*\/\/.*$/gm, ""));
+
+      return "";
+    } catch (error) {
+      const line = text.slice(0, index).split("\n").length;
+
+      return `${name}:${line}: jsonc block is not valid JSON after removing comments: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }).filter(Boolean);
+}
+
 function checkConventions(text: string, name: string): string[] {
   const path = name.split(sep).join("/");
 
@@ -368,6 +386,9 @@ function checkConventions(text: string, name: string): string[] {
 
   const lines = withoutFences(text).split("\n");
   const problems = checkLabels(lines, name);
+
+  if (/^packages\/extensions\/[^/]+\/README\.md$/.test(path))
+    problems.push(...checkJsonc(text, name));
 
   if (/^packages\/(?:.+\/)?docs\/testing\.md$/.test(path)) {
     problems.push(...checkTestingGuide(lines, name));
@@ -418,9 +439,27 @@ function checkFile(file: string): string[] {
   return problems;
 }
 
+// A new extension must raise the count in the README and in the hero image source.
+function checkExtensionCount(): string[] {
+  const directory = join(root, "packages/extensions");
+  const count = readdirSync(directory).filter((entry) =>
+    existsSync(join(directory, entry, "package.json"))
+  ).length;
+
+  return ["README.md", "docs/assets/hero.html"].flatMap((file) => {
+    const text = readFileSync(join(root, file), "utf8");
+
+    return Array.from(text.matchAll(/\b(\d+) extensions\b/g), ({ 1: found, index }) =>
+      Number(found) === count
+        ? ""
+        : `${file}:${text.slice(0, index).split("\n").length}: "${found} extensions"; packages/extensions/ has ${count}. After you fix hero.html, make the PNGs again with the command in its comment.`
+    ).filter(Boolean);
+  });
+}
+
 const files =
   process.argv.length > 2 ? process.argv.slice(2).map((file) => resolve(file)) : markdownFiles();
-const problems = files.flatMap(checkFile);
+const problems = [...files.flatMap(checkFile), ...checkExtensionCount()];
 
 for (const problem of problems) console.error(problem);
 

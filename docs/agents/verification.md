@@ -2,7 +2,7 @@
 
 [Workspace development](../development.md)
 
-1. List the changed files, the affected packages, and their [shared-code consumers](architecture.md#reuse-decision). Done when you have the `package.json` name of every package to check.
+1. List the changed files with `git status --short` and `git diff HEAD --stat`, then the affected packages and their [shared-code consumers](architecture.md#reuse-decision). The index can hold changes that someone else staged, so `git diff` alone can miss them. Done when you have the `package.json` name of every package to check.
 2. Run the checks for the kind of change. Done when every check passes, or each failure is recorded as existing before the change.
    - When you change Markdown, check the changed files with `vp fmt --check <files>` and `node .scripts/check-docs.ts <files>`. Vite+ formatting ignores `.agents/`, so leave those files out of `vp fmt --check`. Docs-only changes need no application tests.
    - For code or tooling changes, run these from the repository root for each package on the list, then follow the [testing policy](testing.md#coverage):
@@ -23,3 +23,5 @@
    - behaviour that wasn't verified, and behaviour now protected by tests.
 
    If a test run executed no tests, say "no tests ran", including for packages that have no tests or intentionally don't need them.
+
+When the user asks for a commit, commit only your paths (`git commit -- <paths>`). Leave the staging of other changes as you found it: do not reset or unstage an index that you did not stage.
