@@ -85,7 +85,7 @@ Setup: fullscreen fixture, compact mode.
 
 ### Subagent cards
 
-Setup: launch the [subagent fixture](../../pi-subagents/README.md#validation) with `-e "$PWD/packages/extensions/pi-tool-display/index.ts"`, in regular and then fullscreen mode. Use compact mode (`collapsedMode: "compact"`).
+Setup: launch the [subagent fixture](../../pi-subagents/docs/validation.md#launch-the-terminal-fixture) with `-e "$PWD/packages/extensions/pi-tool-display/index.ts"`, in regular and then fullscreen mode. Use compact mode (`collapsedMode: "compact"`).
 
 | Do                                                                                                                                             | Expect                                                                                                                      |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |

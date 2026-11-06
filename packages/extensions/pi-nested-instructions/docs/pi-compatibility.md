@@ -52,7 +52,7 @@ Discovery preserves `turn_end.entries` when it adds notices or markers, because 
 
 ## Persisted notice contract
 
-The [notice interface](../src/notices.ts) writes version 3. A note identifies Pi as the sender, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. The `messageDigest` validates the full canonical model-facing message before the [ledger](../GLOSSARY.md#delivery) decodes and compares its instruction body.
+The [notice interface](../src/notices.ts) writes version 3. Display extensions decode notices with the `pi-nested-instructions/notices` export. A note identifies Pi as the sender, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. The `messageDigest` validates the full canonical model-facing message before the [ledger](../GLOSSARY.md#delivery) decodes and compares its instruction body.
 
 The reader validates the current schema strictly:
 

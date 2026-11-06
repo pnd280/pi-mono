@@ -2,7 +2,7 @@
 
 Clean arguments in `message_end`. The `tool_call` event runs after Pi validates the arguments, which is too late.
 
-Preserve the documented [argument-cleaning rules](README.md#behaviour).
+Preserve the documented [argument-cleaning rules](README.md#usage).
 
 ## Validation
 

@@ -12,4 +12,4 @@ Keep Pi's content blocks and details unchanged when adding selection previews.
 
 ## Validation
 
-[Package validation](README.md#validation) routes tests, appearance checks, and Pi upgrades.
+[Package docs](README.md#docs) route tests, appearance checks, and Pi upgrades.

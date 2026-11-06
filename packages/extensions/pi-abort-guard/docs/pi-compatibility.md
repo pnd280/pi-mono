@@ -25,7 +25,7 @@
 - [ ] Manual compaction still emits `session_compact` or `session_compact_failed`, and successful tree navigation still emits `session_tree`, so pending confirmation can be cleared. A failed branch summary emits no terminal event.
 - [ ] `agent_start`, `session_before_compact`, and `session_before_tree` still fire before each new run, compaction, and tree navigation, so confirmation from an operation without a terminal event is cleared.
 - [ ] `keyText("app.interrupt")` still names the active interrupt keys.
-- [ ] Retries, compactions, and branch summaries still show their own status indicators instead of the working message, as the [README](../README.md#behaviour) states.
+- [ ] Retries, compactions, and branch summaries still show their own status indicators instead of the working message, as the [README](../README.md#usage) states.
 
 ## Limitations
 

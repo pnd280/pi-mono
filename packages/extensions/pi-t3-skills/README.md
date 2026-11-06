@@ -1,6 +1,6 @@
 # pi-t3-skills
 
-[T3 Code](https://github.com/pingdotgg/t3code) sends a skill chip to Pi as `$<name>` text, and its Pi integration then pastes the skill's contents into the prompt. With this extension, each chip becomes a link to the skill's file, and the skill contents aren't added.
+[T3 Code](https://github.com/pingdotgg/t3code) sends a skill chip to Pi as `$<name>` text, and its Pi integration then pastes the skill's contents into the prompt. With this extension, each chip becomes a link to the skill's file, in a format that you can configure, and the skill contents aren't added.
 
 For a skill registered at `/skills/review/SKILL.md`, this prompt from T3 Code:
 
@@ -22,29 +22,26 @@ Pick skills with T3 Code's composer as usual. Every chip that matches a register
 
 The reference stays plain prompt text. The model isn't guaranteed to read the file. A chip changes only when it is separated by whitespace and matches a registered skill exactly.
 
-| When you…                            | Read                                       |
-| ------------------------------------ | ------------------------------------------ |
-| Wonder why a chip didn't change      | [matching](docs/rules.md#matching)         |
-| Type `/skill:<name>` in T3 Code      | [matching](docs/rules.md#matching)         |
-| Still see skill contents in a prompt | [skill blocks](docs/rules.md#skill-blocks) |
-
-### Only `$<name>` chips are supported
-
 Skills picked from T3 Code's `$` or `/` menu become `$<name>` chips and work. A `/skill:<name>` that you type yourself doesn't change; for it, install [pi-skills](../pi-skills/README.md).
 
 ## Configuration
 
-Set `expansionFormat` under the `ext.pi-t3-skills` key in Pi's global settings or a trusted project's `.pi/settings.json`:
+Put the `ext.pi-t3-skills` key in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), or in `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). A trusted project's format overrides the global one. Settings load on session start, so run `/reload` after you edit them.
 
-```json
+This example shows every field. Remove the comments before you copy it, because Pi reads `settings.json` as plain JSON:
+
+```jsonc
 {
   "ext.pi-t3-skills": {
+    // Optional. What each chip becomes. Default: "[{command}](<{path}>)".
+    // Must contain {path}, the skill file's path. Can contain {command}, which becomes /skill:<name>.
+    // Up to 512 Unicode code points. An invalid format is ignored.
     "expansionFormat": "[{command}](<{path}>)"
   }
 }
 ```
 
-The format must contain `{path}`, and can contain `{command}`, which becomes `/skill:<name>`. The value above is the default. For file locations, limits, and the rules for leading references, read [expansion format](docs/rules.md#expansion-format).
+For file locations, limits, and the rules for leading references, read [expansion format](docs/rules.md#expansion-format).
 
 ## Side effects
 
@@ -52,8 +49,13 @@ The format must contain `{path}`, and can contain `{command}`, which becomes `/s
 - When a prompt contains a `<skill>` block, the extension reads the skill files of the prompt's chips, to recognise the blocks that T3 Code added.
 - The extension writes no files and makes no network requests.
 
-## Validation
+## Docs
 
-| When you…                   | Read                             |
-| --------------------------- | -------------------------------- |
-| Decide where a test belongs | [test coverage](docs/testing.md) |
+| When you…                                                | Read                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------ |
+| Wonder why a chip didn't change, or type `/skill:<name>` | [Matching](docs/rules.md#matching)                     |
+| Still see skill contents in a prompt                     | [Skill blocks](docs/rules.md#skill-blocks)             |
+| Want to know when the extension is active                | [Activation](docs/rules.md#activation)                 |
+| Use the extension together with pi-skills                | [Use with pi-skills](docs/rules.md#use-with-pi-skills) |
+| Need every format rule, limit, or settings location      | [Expansion format](docs/rules.md#expansion-format)     |
+| Decide where a test belongs                              | [Test coverage](docs/testing.md)                       |

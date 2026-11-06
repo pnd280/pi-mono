@@ -1,10 +1,8 @@
 # pi-read
 
-The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. Pi's `read` gains a `selection` argument. The result keeps the usual surrounding lines, adds a short preview of just the selected span, and highlights the span when you expand the read.
+The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. pi-read gives Pi's `read` a `selection` argument: the result keeps the usual surrounding lines, adds a short preview of just the selected span, and highlights the span when you expand the read.
 
-## Usage
-
-Put the filename in `path`, the span in `selection`, and the lines to read in `offset` and `limit`; the read window and the selection are independent. For `src/example.ts:12:4-15:9`:
+For `src/example.ts:12:4-15:9`, the model puts the filename in `path`, the span in `selection`, and the lines to read in `offset` and `limit`:
 
 ```json
 {
@@ -20,7 +18,15 @@ Put the filename in `path`, the span in `selection`, and the lines to read in `o
 }
 ```
 
-`path` doesn't parse location suffixes such as `:12:4`.
+## Controls
+
+| Control           | Effect                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `read` model tool | Pi's `read` with an optional `selection` argument that adds a preview of the selected span and highlights it in the expanded read. |
+
+## Usage
+
+The read window and the selection are independent: `offset` and `limit` choose the lines to read, and `selection` marks the span. `path` doesn't parse location suffixes such as `:12:4`.
 
 ### Coordinates
 
@@ -41,13 +47,7 @@ The extension appends the preview after the file content and leaves the content 
 
 Expand a successful text read to see the selection highlighted in context. Pi's image handling and truncation limits still apply.
 
-## Side effects
-
-- It replaces the built-in `read` tool and adds prompt guidance about source references.
-- Previews become part of tool results and session history.
-- It writes no files, makes no network requests, and keeps no other state.
-
-## Compatibility
+### Other read extensions
 
 Don't load another `read` replacement alongside this extension.
 
@@ -59,10 +59,17 @@ With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how r
 | `original`       | This extension's own rendering, ungrouped.                                                                                                             |
 | `generic`        | No highlighting, and the appended preview is shown.                                                                                                    |
 
-## Validation
+## Side effects
 
-| When you…                         | Read                                                      |
-| --------------------------------- | --------------------------------------------------------- |
-| Change selection or preview logic | [Test coverage](docs/testing.md)                          |
-| Change how reads look             | [Manual appearance checks](docs/testing.md#manual-checks) |
-| Upgrade Pi                        | [Pi compatibility](docs/pi-compatibility.md)              |
+- pi-read replaces the built-in `read` tool and adds prompt guidance about source references.
+- Previews become part of tool results and session history.
+- pi-read writes no files, makes no network requests, and keeps no other state.
+
+## Docs
+
+| When you…                                                    | Read                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------- |
+| Interpret pi-read results in a display adapter or other tool | [Selective-read result interpretation](docs/result.md)    |
+| Change selection or preview logic                            | [Test coverage](docs/testing.md)                          |
+| Change how reads look                                        | [Manual appearance checks](docs/testing.md#manual-checks) |
+| Upgrade Pi                                                   | [Pi compatibility](docs/pi-compatibility.md)              |

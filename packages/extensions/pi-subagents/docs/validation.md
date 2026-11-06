@@ -2,7 +2,19 @@
 
 [pi-subagents](../README.md) · [Test coverage](testing.md)
 
-Use the [offline terminal launcher](../README.md#validation) with `delegate-display` for wide characters, control sequences, and a 12-line prompt; use `delegate-slow` for a running card. Use completed [tasks](../GLOSSARY.md#tasks-and-processes) for list paging. The launcher loads only `pi-subagents` and its offline provider. Use Pi's default keybindings in every procedure except [Remapped controls](#remapped-controls).
+The offline e2e suite checks cleanup with real Pi processes and Linux `/proc`; see [test fixtures](../validation/README.md). This guide covers the manual checks in a terminal.
+
+## Launch the terminal fixture
+
+From the repository root, run:
+
+```sh
+vpr 'pi-subagents#validate:terminal' regular
+```
+
+Use `fullscreen` instead of `regular` for Pi's fullscreen mode. The launcher turns on `jobs`. It prints a disposable workspace path and retains it for replay with `--reuse <directory>`. Exit Pi and check that its processes have stopped before you remove that directory.
+
+Use the launcher with `delegate-display` for wide characters, control sequences, and a 12-line prompt; use `delegate-slow` for a running card. Use completed [tasks](../GLOSSARY.md#tasks-and-processes) for list paging. The launcher loads only `pi-subagents` and its offline provider. Use Pi's default keybindings in every procedure except [Remapped controls](#remapped-controls).
 
 ## Task cards and command output
 

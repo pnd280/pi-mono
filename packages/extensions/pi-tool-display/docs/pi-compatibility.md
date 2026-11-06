@@ -6,7 +6,7 @@
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.5.0"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
-For host integration, a failed gate leaves the affected feature disabled as described in the [README](../README.md#compatibility).
+For host integration, a failed gate leaves the affected feature disabled as described in the [README](../README.md#pi-version-fallbacks).
 
 ## Upgrade procedure
 
@@ -63,9 +63,9 @@ Adapter selection treats the `resolveToolRenderers` chain as the owner's rendere
 - [ ] `showStatus` reuses the native status row.
 - [ ] The selected mode survives reconstruction and reload without being persisted.
 - [ ] `collapsedMode` sets the starting mode and the mode after a programmatic collapse from `verbose`.
-- [ ] **Ctrl+O** follows the [mode cycle](../README.md#usage).
+- [ ] **Ctrl+O** follows the [mode cycle](../README.md#controls).
 
-The two expansion methods and their called-only private dependencies, `getStartupExpansionState` and `showStatus`, need reviewed source hashes in the API and installed CLI builds. `getStartupExpansionState` sets the initial expansion. Unlike the host hooks, these methods get no exception when the Pi version equals `inspectedPiVersion`: every hash must match. A mismatch disables only mode cycling, with the [fallback that the README describes](../README.md#compatibility). Host rendering and session-scoped collection stay active.
+The two expansion methods and their called-only private dependencies, `getStartupExpansionState` and `showStatus`, need reviewed source hashes in the API and installed CLI builds. `getStartupExpansionState` sets the initial expansion. Unlike the host hooks, these methods get no exception when the Pi version equals `inspectedPiVersion`: every hash must match. A mismatch disables only mode cycling, with the [fallback that the README describes](../README.md#pi-version-fallbacks). Host rendering and session-scoped collection stay active.
 
 ### Row chrome
 
