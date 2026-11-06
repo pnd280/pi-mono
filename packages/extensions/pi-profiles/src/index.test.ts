@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,13 +17,16 @@ import {
   createAgentSession,
   createAgentSessionFromServices,
   createAgentSessionServices,
+  createMcpExtension,
   DefaultResourceLoader,
   ModelRuntime,
   SessionManager,
   SettingsManager,
+  type AgentSession,
   type AgentSessionServices,
   type ExtensionAPI,
   type ExtensionContext,
+  type McpTransportFactory,
   type ToolExposure
 } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
@@ -94,6 +97,92 @@ function foreignSearch(pi: ExtensionAPI) {
     });
   });
 }
+
+type McpMessage = Parameters<ReturnType<McpTransportFactory>["send"]>[0];
+
+/**
+ * Pi's MCP extension with in-memory servers. Each server offers one tool, `ping`, so a server with
+ * `direct` exposure shows in the declared tools while it is connected. `events` records each
+ * connection and close, by server name.
+ */
+function fakeMcp() {
+  const events: string[] = [];
+
+  const createTransport: McpTransportFactory = ({ name }) => {
+    let deliver: ((message: McpMessage) => void) | undefined;
+    const closeListeners: (() => void)[] = [];
+    let closed = false;
+    events.push(`connect ${name}`);
+
+    return {
+      start: () => Promise.resolve(),
+      send: (message) => {
+        if ("method" in message && "id" in message) {
+          const result =
+            message.method === "initialize"
+              ? {
+                  protocolVersion: "2025-06-18",
+                  capabilities: { tools: {} },
+                  serverInfo: { name, version: "1" }
+                }
+              : { tools: [{ name: "ping", inputSchema: { type: "object" } }] };
+          queueMicrotask(() => deliver?.({ jsonrpc: "2.0", id: message.id, result }));
+        }
+
+        return Promise.resolve();
+      },
+      close: () => {
+        if (!closed) {
+          closed = true;
+          events.push(`close ${name}`);
+          for (const listener of closeListeners) listener();
+        }
+
+        return Promise.resolve();
+      },
+      onMessage: (listener) => {
+        deliver = listener;
+
+        return () => {};
+      },
+      onError: () => () => {},
+      onClose: (listener) => {
+        closeListeners.push(listener);
+
+        return () => {};
+      }
+    };
+  };
+
+  /** The declarable MCP tools, and how often each server connected and closed. */
+  const state = (session: AgentSession) => {
+    const active = session.getActiveToolNames();
+    const count = (kind: string) =>
+      Object.fromEntries(
+        [...new Set(events)]
+          .filter((event) => event.startsWith(`${kind} `))
+          .map((event) => [event.slice(kind.length + 1), events.filter((e) => e === event).length])
+      );
+
+    return {
+      tools: session
+        .getAllTools()
+        .filter(
+          ({ name, exposure }) =>
+            name.startsWith("mcp__") && exposure !== "hidden" && active.includes(name)
+        )
+        .map(({ name }) => name)
+        .sort(),
+      connects: count("connect"),
+      closes: count("close")
+    };
+  };
+
+  return { events, state, extension: createMcpExtension({ createTransport }) };
+}
+
+const mcpTools = (requests: readonly Request[]) =>
+  requests.map(({ tools }) => tools.filter((name) => name.startsWith("mcp__")));
 
 type Request = {
   model: string;
@@ -263,7 +352,7 @@ async function host(
     diagnostics: []
   };
 
-  return { session, requests, errors, services };
+  return { session, requests, errors, services, notify };
 }
 
 it("applies the profile's model, thinking, tools, and prompts, and undoes them on the next switch, also to no profile; tool_search loads searchable tools without a defer list", async () => {
@@ -853,3 +942,140 @@ it.each([
     expect([...first.errors, ...resumed.errors, ...flagged.errors]).toEqual([]);
   }
 );
+
+it("connects only the selected profile's MCP servers on a switch, no profile, tree navigation, and resume, keeps a server whose entry stays, and saves no server entry", async () => {
+  const server = (env: Record<string, string>) => ({ command: "fake", exposure: "direct", env });
+  const shared = server({ TOKEN: "SECRET-SHARED" });
+  const dirs = await workspace({
+    profiles: [
+      { name: "one", description: "One", mcpServers: { shared, only: server({}) } },
+      { name: "two", description: "Two", mcpServers: { shared, other: server({}) } },
+      {
+        name: "three",
+        description: "Three",
+        mcpServers: { shared: server({ TOKEN: "SECRET-CHANGED" }) }
+      }
+    ]
+  });
+  const mcp = fakeMcp();
+  const fixture = await host(dirs, {
+    extensions: [earlierExtension, mcp.extension],
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+  const settled = (expected: ReturnType<typeof mcp.state>) =>
+    expect.poll(() => mcp.state(fixture.session), { timeout: STEP_TIMEOUT_MS }).toEqual(expected);
+
+  await fixture.session.prompt("/profile one");
+  await settled({
+    tools: ["mcp__only__ping", "mcp__shared__ping"],
+    connects: { shared: 1, only: 1 },
+    closes: {}
+  });
+  await fixture.session.prompt("one");
+  const oneLeaf = fixture.session.sessionManager.getLeafId()!;
+
+  // `shared` keeps its connection, because its entry stays the same.
+  await fixture.session.prompt("/profile two");
+  await settled({
+    tools: ["mcp__other__ping", "mcp__shared__ping"],
+    connects: { shared: 1, only: 1, other: 1 },
+    closes: { only: 1 }
+  });
+  await fixture.session.prompt("two");
+
+  await fixture.session.prompt("/profile three");
+  await settled({
+    tools: ["mcp__shared__ping"],
+    connects: { shared: 2, only: 1, other: 1 },
+    closes: { only: 1, shared: 1, other: 1 }
+  });
+  await fixture.session.prompt("three");
+
+  await fixture.session.prompt("/profile clear");
+  await settled({
+    tools: [],
+    connects: { shared: 2, only: 1, other: 1 },
+    closes: { only: 1, shared: 2, other: 1 }
+  });
+  await fixture.session.prompt("none");
+
+  await fixture.session.navigateTree(oneLeaf);
+  await settled({
+    tools: ["mcp__only__ping", "mcp__shared__ping"],
+    connects: { shared: 3, only: 2, other: 1 },
+    closes: { only: 1, shared: 2, other: 1 }
+  });
+  await fixture.session.prompt("back to one");
+
+  const resumedMcp = fakeMcp();
+  const resumed = await host(dirs, {
+    extensions: [earlierExtension, resumedMcp.extension],
+    sessionManager: SessionManager.open(fixture.session.sessionManager.getSessionFile()!)
+  });
+  await expect
+    .poll(() => resumedMcp.state(resumed.session), { timeout: STEP_TIMEOUT_MS })
+    .toEqual({
+      tools: ["mcp__only__ping", "mcp__shared__ping"],
+      connects: { shared: 1, only: 1 },
+      closes: {}
+    });
+  await resumed.session.prompt("resumed");
+
+  expect(mcpTools(fixture.requests)).toEqual([
+    ["mcp__only__ping", "mcp__shared__ping"],
+    ["mcp__other__ping", "mcp__shared__ping"],
+    ["mcp__shared__ping"],
+    [],
+    ["mcp__only__ping", "mcp__shared__ping"]
+  ]);
+  expect(mcpTools(resumed.requests)).toEqual([["mcp__only__ping", "mcp__shared__ping"]]);
+  const saved = await readFile(fixture.session.sessionManager.getSessionFile()!, "utf8");
+  expect(saved).toContain("pi-profiles.selection");
+  expect(saved).not.toContain("SECRET-");
+  expect([...fixture.errors, ...resumed.errors]).toEqual([]);
+});
+
+it("skips a trusted project profile whose MCP server sends a Pi login token, so none of its servers connect", async () => {
+  const url = "https://mcp.example.test/mcp";
+  const dirs = await workspace(
+    { profiles: [] },
+    {
+      profiles: [
+        { name: "safe", description: "Safe", mcpServers: { safe: { url, exposure: "direct" } } },
+        {
+          name: "leak",
+          description: "Leak",
+          mcpServers: {
+            plain: { url, exposure: "direct" },
+            leak: { url, exposure: "direct", auth: { provider: "faux" } }
+          }
+        }
+      ]
+    }
+  );
+  const mcp = fakeMcp();
+  const fixture = await host(dirs, {
+    projectTrusted: true,
+    extensions: [earlierExtension, mcp.extension]
+  });
+
+  await fixture.session.prompt("/profile leak");
+  // The project's other profile connects its server, so the skip comes from `auth`.
+  await fixture.session.prompt("/profile safe");
+  await expect
+    .poll(() => mcp.state(fixture.session), { timeout: STEP_TIMEOUT_MS })
+    .toEqual({ tools: ["mcp__safe__ping"], connects: { safe: 1 }, closes: {} });
+  await fixture.session.prompt("one");
+
+  expect(fixture.notify).toHaveBeenCalledWith(
+    "pi-profiles: project profiles[1] skipped: an MCP server uses auth, which only global profiles can use",
+    "warning"
+  );
+  expect(fixture.notify).toHaveBeenCalledWith(
+    "Usage: /profile <name> or /profile clear; no profile has that name",
+    "warning"
+  );
+  expect(mcp.events).toEqual(["connect safe"]);
+  expect(mcpTools(fixture.requests)).toEqual([["mcp__safe__ping"]]);
+  expect(fixture.errors).toEqual([]);
+});

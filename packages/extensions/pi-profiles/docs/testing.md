@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests the trust boundary for project settings, what a switch declares and appends, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply. Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
+This package tests the trust boundary for project settings, what a switch declares and appends, which MCP servers a selection connects, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply. Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
 
 ## Must not regress
 
@@ -41,6 +41,12 @@ This package tests the trust boundary for project settings, what a switch declar
 - **High, e2e:** A `defer` group is deferred only as a whole: when one of its tools is declared and the branch used it, all its tools stay declared.
 - **High, e2e:** When the extension's `tool_search` loads one tool of a group, it loads the others too, also after resume.
 - **High, e2e:** With another extension's `tool_search`, a switch and a restoration declare all tools of a group that has two or more tools.
+
+### MCP servers
+
+- **Critical, e2e:** A trusted project profile whose MCP server uses `auth` is skipped, so none of its servers connect.
+- **Critical, e2e:** The session file keeps no MCP server entries, which can contain secrets.
+- **High, e2e:** A switch, no profile, tree navigation, and resume connect only the servers of the selected profile. A server whose entry stays the same keeps its connection, and a server with a changed entry connects again.
 
 ### Restoration
 

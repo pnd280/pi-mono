@@ -6,8 +6,9 @@ pi-profiles saves each switch in the session, so a resumed, forked, or reloaded 
 
 ## Restoration
 
-- Each switch, also to no profile, saves the selection in the session. The model does not see it.
+- Each switch, also to no profile, saves the selection in the session. The model does not see it. The selection names the profile but keeps none of its server entries, which can contain secrets in `env` or `headers`.
 - Resume, `/fork`, and `/tree` use the latest selection on the branch: its texts are added, its tools are declared, and `tool_search` can load its deferred tools.
+- Resume, `/fork`, `/tree`, and `/reload` register the servers of the branch's restored selection from the current settings; see [MCP servers](switching.md#mcp-servers). `/tree` to a branch with another selection changes the servers. A branch with no selection, or a selected profile that is no longer configured, has no servers.
 - If a request followed the switch, also one that did not change the tools, the tools of the last request are declared instead, so later changes, such as tools that `tool_search` loaded, stay.
 - Pi also turns on extension tools that the branch never recorded. pi-profiles keeps them on only when they are new since the switch.
 - `/tree` to a branch with no selection and no recorded tools undoes the outgoing profile's tool changes.
@@ -24,6 +25,7 @@ When pi-profiles no longer owns `tool_search`, restoration declares deferred too
 - `defaultProfile` applies when an interactive session starts on a branch without a selection and without `--profile`, including resumed sessions from before you used profiles.
 - No profile is a selection, so after `/profile clear` the default profile does not apply to that branch.
 - At session start, pi-profiles applies the selection, `--profile`, or `defaultProfile` after the startup work of [pi-nested-instructions](../../pi-nested-instructions/README.md). So the selection entry follows its startup messages in every load order.
+- When Pi starts, the servers of the profile from `--profile` or `defaultProfile` register, or else those of the restored selection.
 - A profile from `--profile` or `defaultProfile` replaces `--model` and `--thinking` choices for that session.
 - Print, JSON, and RPC modes, including subagents, never apply `defaultProfile`. Without `--profile`, they keep the model and tools that they were given.
 

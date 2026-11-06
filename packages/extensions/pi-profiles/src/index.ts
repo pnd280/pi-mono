@@ -3,6 +3,7 @@ import {
   CustomEditor,
   type ExtensionAPI,
   type ExtensionContext,
+  type McpServerConfig,
   type SessionStartEvent,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
@@ -18,6 +19,7 @@ import {
   enforcedTools,
   latestSelection,
   planRestore,
+  planServers,
   planSwitch,
   reportTools,
   searchableTools,
@@ -61,6 +63,11 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   let switching: Promise<void> | undefined;
   /** The outgoing selection, for a tree destination that has no selection or tool record. */
   let treeSelection: Selection | undefined;
+  /**
+   * The MCP servers that the extension registered, by name. Pi loads the extension again with each
+   * session and on `/reload`, and drops the registrations of the previous load.
+   */
+  const servers = new Map<string, McpServerConfig>();
 
   // Pi skips its built-in `tool_search` when an extension registers one while loading. This copy is
   // Pi's own tool, but it sees the deferred tools as `deferred`, so it finds and loads them too, and
@@ -147,15 +154,38 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   /**
+   * Registers the profile's MCP servers, and unregisters the others, so that only the selected
+   * profile's servers connect. A server that Pi refuses is left out, with an error.
+   */
+  function selectServers(profile: Profile | undefined, ctx: ExtensionContext): void {
+    const plan = planServers(servers, profile?.mcpServers);
+
+    for (const name of plan.unregister) {
+      pi.unregisterMcpServer(name);
+      servers.delete(name);
+    }
+
+    for (const [name, config] of plan.register) {
+      try {
+        pi.registerMcpServer(name, config);
+        servers.set(name, config);
+      } catch (error) {
+        reportError(ctx, `pi-profiles: MCP server ${name} not registered: ${errorMessage(error)}`);
+      }
+    }
+  }
+
+  /**
    * Without a profile, the model and thinking level stay, and the previous profile's tool changes
-   * are undone. `source` prefixes notices for switches that the user did not request.
+   * and MCP servers are undone. `source` prefixes notices for switches that the user did not request.
+   * Resolves whether the profile applied.
    */
   async function switchTo(
     profile: Profile | undefined,
     ctx: ExtensionContext,
     source = ""
-  ): Promise<void> {
-    if (session.signal.aborted) return;
+  ): Promise<boolean> {
+    if (session.signal.aborted) return false;
 
     if (!ctx.isIdle() || switching) {
       ctx.ui.notify(
@@ -163,18 +193,29 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
         "warning"
       );
 
-      return;
+      return false;
     }
 
-    switching = apply(profile, ctx, source).finally(() => {
-      switching = undefined;
-    });
+    let applied = false;
+    switching = apply(profile, ctx, source)
+      .then((result) => {
+        applied = result;
+      })
+      .finally(() => {
+        switching = undefined;
+      });
     // A run that starts now builds its prompt after the switch, with the profile and its model.
     prompt.hold(switching);
     await switching;
+
+    return applied;
   }
 
-  async function apply(profile: Profile | undefined, ctx: ExtensionContext, source: string) {
+  async function apply(
+    profile: Profile | undefined,
+    ctx: ExtensionContext,
+    source: string
+  ): Promise<boolean> {
     if (profile?.model) {
       const model = profileModel(profile.model, ctx);
       const current = ctx.model?.provider === model?.provider && ctx.model?.id === model?.id;
@@ -188,7 +229,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
           `${source}Profile ${profile.name} not applied: ${profile.model} is unavailable or has no credentials`
         );
 
-        return;
+        return false;
       }
     }
 
@@ -199,9 +240,13 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const result = plan.settle(pi.getActiveTools());
     rules = result.rules;
     pi.appendEntry<Selection>(SELECTION_ENTRY, result.entry);
+    // After the tools: a call that turns off a tool drops the pending tools of connecting servers.
+    selectServers(profile, ctx);
     showLabel(profile?.name);
     const title = profile ? `Profile ${profile.name}` : "No profile";
     ctx.ui.notify(displayText(`${source}${title}: ${result.change}`), "info");
+
+    return true;
   }
 
   function restoreTools(
@@ -231,20 +276,24 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const selection = restoreTools(ctx, reason === "reload");
     const flag = pi.getFlag("profile");
     const requested = typeof flag === "string" ? choose(flag) : undefined;
+    let applied = false;
     if (typeof flag === "string" && !requested && reason === "startup")
       reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
 
     if (requested && (reason === "startup" || !selection)) {
       // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such
       // as after /new, keep theirs, and use `--profile` in place of the default profile.
-      await switchTo(requested.profile, ctx);
+      applied = await switchTo(requested.profile, ctx);
     } else if (!selection) {
       // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
       if (ctx.mode === "tui" && loaded.defaultProfile)
-        await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
+        applied = await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
     } else if (ctx.hasUI && selection.name !== undefined && !findProfile(selection.name)) {
       ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
     }
+
+    // A switch registers its profile's servers. Otherwise the restored selection's servers register.
+    if (!applied) selectServers(findProfile(selection?.name), ctx);
   }
 
   // Startup and /reload both start a session, so edited settings apply after /reload.
@@ -282,8 +331,9 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   });
 
   pi.on("session_tree", (_event, ctx) => {
-    restoreTools(ctx, false, treeSelection);
+    const selection = restoreTools(ctx, false, treeSelection);
     treeSelection = undefined;
+    selectServers(findProfile(selection?.name), ctx);
   });
 
   pi.on("session_before_switch", async () => {
@@ -376,7 +426,9 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
             ui,
             signal,
             data: menuData(ctx),
-            onSwitch: (profile) => switchTo(profile, ctx),
+            onSwitch: async (profile) => {
+              await switchTo(profile, ctx);
+            },
             notify: (message, type) => ui.notify(message, type)
           });
         } catch (error) {

@@ -1,5 +1,10 @@
 import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
-import type { SessionEntry, ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type {
+  McpServerConfig,
+  SessionEntry,
+  ToolExposure,
+  ToolInfo
+} from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { Profile } from "./settings.ts";
@@ -174,6 +179,31 @@ export function planRestore(state: ToolState, options: RestoreOptions): RestoreP
     selection,
     rules: { deferred: selection?.deferred ?? [], deny: profile?.tools?.deny ?? [] },
     tools: restoreTarget(latest, state, options)
+  };
+}
+
+/**
+ * How the registered MCP servers become the selected profile's. A server whose config serialises
+ * the same, as Pi compares it, is not registered again, so it keeps its connection and the server
+ * list does not change. Key order counts, because Pi tries `toolExposure` patterns in order. A
+ * changed server is unregistered first, so a failed registration leaves no server of the previous
+ * profile.
+ */
+export function planServers(
+  registered: ReadonlyMap<string, McpServerConfig>,
+  next: Readonly<Record<string, McpServerConfig>> | undefined
+): { unregister: string[]; register: [string, McpServerConfig][] } {
+  const target = new Map(Object.entries(next ?? {}));
+
+  const kept = (name: string) => {
+    const config = registered.get(name);
+
+    return config !== undefined && JSON.stringify(config) === JSON.stringify(target.get(name));
+  };
+
+  return {
+    unregister: [...registered.keys()].filter((name) => !kept(name)),
+    register: [...target].filter(([name]) => !kept(name))
   };
 }
 

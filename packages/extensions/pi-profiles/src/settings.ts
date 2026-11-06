@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
+import type { McpServerConfig } from "@earendil-works/pi-coding-agent";
 import {
   readScopedSections,
   readSettingsFile,
@@ -25,10 +26,31 @@ const MAX_DESCRIPTION_LENGTH = 1024;
 const MAX_PROMPTS = 32;
 const MAX_TOOLS = 256;
 const MAX_TOOL_NAME_LENGTH = 256;
+const MAX_SERVERS = 32;
 
 /** A tool name, or a pattern where `*` matches any characters. */
 const toolNameSchema = z.string().min(1).max(MAX_TOOL_NAME_LENGTH);
 const toolListSchema = z.array(toolNameSchema).max(MAX_TOOLS);
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * MCP servers with Pi's name rule. Pi does not export its validator, and checks each entry when the
+ * extension registers the server, so here an entry only has to be an object. A custom check keeps
+ * the supplied object: a Zod record drops an own `__proto__` key.
+ */
+const mcpServersSchema = z.custom<Record<string, McpServerConfig>>((value) => {
+  if (!isObject(value)) return false;
+  const names = Object.keys(value);
+
+  return (
+    names.length <= MAX_SERVERS &&
+    names.every((name) => /^[A-Za-z0-9_-]+$/.test(name) && isObject(value[name])) &&
+    // Pi gives names that differ only in `-` and `_` the same tool namespace.
+    new Set(names.map((name) => name.replaceAll("-", "_"))).size === names.length
+  );
+});
 
 const profileSchema = z.strictObject({
   // One printable word, so `/profile <name>` and notices need no quoting or sanitising.
@@ -51,7 +73,8 @@ const profileSchema = z.strictObject({
         .max(MAX_TOOLS)
         .optional()
     })
-    .optional()
+    .optional(),
+  mcpServers: mcpServersSchema.optional()
 });
 
 const sectionSchema = z.looseObject({
@@ -152,6 +175,14 @@ function readSection(scoped: ScopedSection): Section {
       section.warnings.push(`profiles[${index}] skipped: the name ${CLEAR} is reserved`);
     } else if (section.profiles.some(({ name }) => name === profile.data.name)) {
       section.warnings.push(`profiles[${index}] skipped: duplicate name`);
+    } else if (
+      scoped.scope === "project" &&
+      Object.values(profile.data.mcpServers ?? {}).some((server) => "auth" in server)
+    ) {
+      // As in a project `mcp.json`: a repository must not choose where a Pi login token goes.
+      section.warnings.push(
+        `profiles[${index}] skipped: an MCP server uses auth, which only global profiles can use`
+      );
     } else {
       const { appendSystemPrompts = [], ...rest } = profile.data;
       const prompts = readPrompts(appendSystemPrompts, scoped.path);
