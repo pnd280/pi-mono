@@ -42,6 +42,8 @@ For every file an agent reads (the Agents and maintainers row and the Unclear ro
 
 Run the commands under "Quick signals" in the checklist. Record the counts for a before/after comparison, and use them to choose files to read. Counts never become findings on their own.
 
+When the counts are near zero, audit one area first, such as one package, and show its findings to the user before you fan out over the whole repository.
+
 ## 4. Read and compare against the checklist
 
 Read whole files in context. Sample across file types instead of reading only READMEs; problems usually repeat by file type (`docs/testing.md`, compatibility docs, `AGENTS.md`).
@@ -81,6 +83,8 @@ Fix pattern: one line a writer can apply elsewhere.
 - End with proposed guideline changes as a diff, and a sketch of where issues concentrate by file type.
 - State the scope actually read and what was sampled rather than read in full.
 
+When parallel workers audit, merge their reports into the single report, including every proposed guideline change and structural move. Give the user the proposals as one list to approve. Keep the report until the user has decided, and give its path in the reply.
+
 ## 6. Review a revision
 
 When the user has rewritten docs from the report, check the result rather than re-auditing from scratch:
@@ -88,7 +92,7 @@ When the user has rewritten docs from the report, check the result rather than r
 1. Compare signal counts before and after. A large rise in word count is worth reporting against the project's length guidance.
 2. Look for lost facts. Compare every inline-code token and number in the old version of each file against all current docs, and confirm each one that moved still says the same thing.
 3. Check relative links, heading anchors, and external URLs. Run the project's formatter check.
-4. Read a sample of rewritten sections against the report's fix patterns and against checklist section 8, and rewritten agent docs against writing-for-agents. Rewrites often introduce new stock phrasing or the wrong spelling variant.
+4. Read a sample of rewritten sections against the report's fix patterns and against checklist section 8, and rewritten agent docs against writing-for-agents. Rewrites often introduce new stock phrasing or the wrong spelling variant. When reviewers work in parallel, give each a diff that fits in one tool output, and review a new standard or guideline on its own before workers apply it.
 5. Confirm example output in the docs matches what the code produces.
 
 Lead the reply with what to fix before committing, then the decisions the user needs to make, then what was verified.

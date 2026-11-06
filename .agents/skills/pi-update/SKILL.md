@@ -18,7 +18,7 @@ Follow the six stages in order. Audit and planning requests skip stages 4 and 5:
 
 1. Read package instructions, [development guidance](../../../docs/development.md), and the [Pi API contracts](../../../docs/agents/pi-apis.md). Inspect staged, unstaged, and untracked work. Treat changes for the same target as an in-progress migration to verify and continue, reported separately in the handoff; preserve all other changes.
 2. Record target, declared workspace, and consumer-resolved versions. Run executable, terminal, and API checks against workspace-resolved Pi (`node_modules/.bin/pi` or `resolvePiExecutable`); a global CLI is not target evidence. Global Pi updates require an explicit request.
-3. Read every intervening changelog section and linked migration note. Obtain target release or tagged source first if unavailable locally; use `gh` for GitHub.
+3. Read every intervening changelog section and linked migration note. Fetch the published Pi family of the current and target versions with the [release fetch](references/compatibility-checks.md#fetch-a-release), which installs each package, with its `CHANGELOG.md`, `docs/`, and `dist/`, into `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`. Give subagents these paths, and keep `.tmp/pi-releases/` until the session ends. Use `gh` for tagged source on GitHub.
 4. Read relevant [Pi documentation](../../../docs/agents/pi-docs.md) fully and inspect examples, then declarations, exports, and implementation for unsettled contracts. Record source versions. Never edit installed or upstream Pi.
 5. Inventory imports, events, provider streams, helpers, private hooks, manifests, settings, tests, launchers, and compatibility claims, following [shared consumers](../../../docs/agents/architecture.md#reuse-decision). Read existing package `docs/pi-compatibility.md` guides, including shared packages. Where no guide exists, inspect the owning code and tests for Pi contracts; report unverified contracts rather than missing documents.
 6. Run relevant baseline checks to distinguish existing failures from regressions.
@@ -29,6 +29,8 @@ Follow the six stages in order. Audit and planning requests skip stages 4 and 5:
 
 Review in both directions: map release changes to package contracts, and revisit every package's limitations and replacement opportunities against target APIs. Package checklists are minimum coverage; historical evidence is not target-version proof. Apply the [compatibility checks](references/compatibility-checks.md) for each affected area. For replacement candidates, also apply the [Pi API reuse checks](../_aux/audit-reusability/references/pi-apis.md). Apply the [private hook replacement](references/compatibility-checks.md#private-hook-replacement) check to every private hook, even when the release does not change it.
 
+Give each Pi-family package that the target introduces a disposition: whether extensions can import it at runtime, from the target's `docs/extensions.md#available-imports`, and whether to adopt it.
+
 For every package, record affected paths and consumers, old and target contracts, versioned evidence, and performed or proposed checks. Classify each result:
 
 - **Required migration:** needed to preserve the supported contract.
@@ -38,7 +40,7 @@ For every package, record affected paths and consumers, old and target contracts
 
 Keep target-specific results in the handoff. Reusable checklist changes belong to an authorised migration when contracts or limitations change.
 
-**Complete when:** every package and relevant release change has a disposition supported by target-version evidence or a named evidence gap.
+**Complete when:** every package, new Pi-family package, and relevant release change has a disposition supported by target-version evidence or a named evidence gap.
 
 ### 3. Resolve consequential decisions
 
@@ -69,6 +71,6 @@ Select behavioural checks from the affected [compatibility areas](references/com
 
 ### 6. Hand off the result
 
-Report target and resolved versions, per-package dispositions, migrations and adoption opportunities, private hooks without a full public replacement and the Pi APIs they need, decisions, preserved policies, personal-setting and upstream-default changes, red/green evidence, and [verification results](../../../docs/agents/verification.md). Separate completed work from proposed work and blockers.
+Report target and resolved versions, per-package dispositions, migrations and adoption opportunities, private hooks without a full public replacement and the Pi APIs they need, each consequential decision with its options and recommendation as stage 3 requires, preserved policies, personal-setting and upstream-default changes, red/green evidence, and [verification results](../../../docs/agents/verification.md). Separate completed work from proposed work and blockers.
 
 **Complete when:** the handoff accounts for every package, consequential decision, and evidence gap, with exact check commands and results.

@@ -9,8 +9,10 @@
     "lint": "vp lint --format stylish .",
     "docs:check": "node .scripts/check-docs.ts",
     "fingerprints:check": "node .agents/skills/pi-update/scripts/fingerprints.ts",
-    "check": "vp fmt --check . && vp run lint && vp run docs:check && vp run fingerprints:check",
-    "test": "vp test run"
+    "lockfile:check": "node .agents/skills/pi-update/scripts/host-snapshots.ts",
+    "check": "vp fmt --check . && vp run lint && vp run docs:check && vp run fingerprints:check && vp run lockfile:check",
+    "test": "vp test run",
+    "test:count": "node .scripts/count-tests.ts"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",
