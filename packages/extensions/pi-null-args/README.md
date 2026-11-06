@@ -1,15 +1,15 @@
 # pi-null-args
 
-Models send an omitted optional tool argument as the text `"null"`, and Pi then rejects the whole call:
+Models send an omitted optional tool argument as the text `"null"`, and Pi then rejects the whole call. pi-null-args removes those arguments before Pi validates the call, so the tool uses its default value. It has no controls and no settings.
+
+Without the extension, Pi shows this error for a call with `"thinking": "null"`:
 
 ```text
 Validation failed for tool "subagent":
   - thinking: expected one of ["off","minimal","low","medium","high","xhigh","max"]
 ```
 
-pi-null-args removes those arguments before Pi validates the call, so the tool uses its default value.
-
-## Behaviour
+## Usage
 
 The extension checks each tool call in each finished assistant message. It uses the schemas of known built-in, extension, and MCP tools.
 
@@ -26,3 +26,10 @@ Pi removes a real JSON `null` from an optional argument when its property schema
 - The saved session records the cleaned tool call, not the arguments the model sent.
 - An optional argument that should be the text `"null"` is removed too.
 - The extension writes no files and makes no requests.
+
+## Docs
+
+| When you…                   | Read                                         |
+| --------------------------- | -------------------------------------------- |
+| Decide where a test belongs | [Testing](docs/testing.md)                   |
+| Upgrade Pi                  | [Pi compatibility](docs/pi-compatibility.md) |

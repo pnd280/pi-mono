@@ -1,6 +1,6 @@
 # [pi-abort-guard](README.md) development
 
-Preserve the documented [input behaviour](README.md#behaviour) and [editor-ownership limits](README.md#limitations).
+Preserve the documented [input behaviour](README.md#usage) and [editor-ownership limits](README.md#side-effects).
 
 ## Constraints
 

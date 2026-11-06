@@ -85,7 +85,7 @@ A `tool_search` that the SDK registers through `createToolSearchExtension()` get
 
 ### Tool search from pi-profiles
 
-The `tool_search` that [pi-profiles](../../pi-profiles/README.md#tool-search) registers gets the same cards and summary counts as Pi's built-in tool search, because the tool and its result are Pi's.
+The `tool_search` that [pi-profiles](../../pi-profiles/docs/tools.md#tool-search) registers gets the same cards and summary counts as Pi's built-in tool search, because the tool and its result are Pi's.
 
 - The loaded names include the tools that the current profile deferred, such as `bash`.
 - Failure warnings name the adapter `pi-profiles:tool_search`.

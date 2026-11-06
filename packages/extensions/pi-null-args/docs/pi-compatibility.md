@@ -20,7 +20,7 @@
 - [ ] Each `message_end` handler still receives the previous handler's replacement.
 - [ ] Tool-call replacement preserves metadata such as `argumentsError`, which Pi sets with empty arguments for malformed JSON.
 - [ ] `pi.getAllTools()` still returns each tool's `parameters`, including `required` lists and object-composition keywords.
-- [ ] Pi's real-`null` normalisation still matches the [documented behaviour](../README.md#behaviour).
+- [ ] Pi's real-`null` normalisation still matches the [documented behaviour](../README.md#usage).
 
 ## Limitations
 

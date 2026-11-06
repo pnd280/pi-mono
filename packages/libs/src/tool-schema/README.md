@@ -43,7 +43,7 @@ const args = input.parse({ line: 1 });
 
 The profile has [no automated coverage](../../docs/testing.md#not-tested).
 
-1. Check the [selective-read](../../../extensions/pi-read/README.md#validation) and [todo](../../../extensions/pi-todo/README.md#validation) consumers.
-2. Check the [subagents](../../../extensions/pi-subagents/README.md#validation) consumer.
+1. Check the [selective-read](../../../extensions/pi-read/docs/testing.md#manual-checks) and [todo](../../../extensions/pi-todo/docs/validation.md) consumers.
+2. Check the [subagents](../../../extensions/pi-subagents/docs/validation.md#launch-the-terminal-fixture) consumer.
 
-For schema changes, also run the [tool-display checks](../../../extensions/pi-tool-display/README.md#validation), including the installed-CLI test, because display adapter recognition inspects registered parameters.
+For schema changes, also run the [tool-display checks](../../../extensions/pi-tool-display/docs/testing.md), including the installed-CLI test, because display adapter recognition inspects registered parameters.

@@ -22,5 +22,5 @@ Domain terms are in the [glossary](GLOSSARY.md).
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Change discovery or persistence             | [Session lifetime](docs/design.md#session-lifetime)                                                                |
 | Change shared scope extraction              | [Shared scope extraction](docs/design.md#shared-scope-extraction), then check the utils helpers and `pi-fff-guard` |
-| Validate discovery, persistence, or notices | [Package validation](README.md#validation)                                                                         |
+| Validate discovery, persistence, or notices | [Package docs](README.md#docs)                                                                                     |
 | Upgrade Pi                                  | [Compatibility checklist](docs/pi-compatibility.md)                                                                |

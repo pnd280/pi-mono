@@ -151,6 +151,17 @@ User docs (the README and the user guides that it links) state what the user see
 
 Optional headings exist for substantive content only; omit a heading rather than fill it with boilerplate. Package `docs/testing.md` files follow the [package testing guide](agents/testing.md#package-testing-guide).
 
+#### Extension READMEs
+
+An extension README under `packages/extensions/` makes two questions quick to answer: what the extension can do, and how to configure it. The intro answers the first, and the Configuration section answers the second. Instead of the sections above, it uses these sections in this order, and leaves out a section that has no content:
+
+1. The title, then one or two sentences that state the problem and name every capability that the user can turn on or configure. Then one concrete example of what the user sees.
+2. `## Controls`: a Control / Effect table with every command, shortcut, CLI flag, and model tool that the extension adds, and every built-in command, flag, key, or mouse action whose effect the extension changes. Keys that work only inside a menu or dialog of the extension go in Usage or in the guide for that menu.
+3. `## Usage`: only steps or behaviour that the Controls table and the Configuration block cannot show. A short, complete rule set can stay here, also under `###` subsections. Move a rule list longer than one screen to a guide, and link it.
+4. `## Configuration`: the settings key, the settings files that it goes in, and when to run `/reload`. Name the global file as `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), and the project file as `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Then one `jsonc` block that shows every user setting, with a comment for each field that gives required or optional, the default or the effect when omitted, the allowed values, and the limits that users are likely to reach. Say that readers must remove the comments, because Pi reads `settings.json` as plain JSON. The block must be valid JSON after the comments are removed. The comments summarise the limits; a linked configuration guide under `docs/` owns the merge rules, every limit, and the error table. Merge rules that fit in a short paragraph can stay in the README instead of a guide.
+5. `## Side effects`: only effects that the user sees or must act on, such as files written, network requests, replaced built-ins, start-up warnings, and lost prompt caches.
+6. `## Docs`: the only "When you… / Read" table in the README. It lists every user guide, and then the maintainer docs in the last rows.
+
 ### Package instructions
 
 A package `AGENTS.md` is optional. Add one for non-obvious boundaries and conditional pointers to specialised guidance, not for an inventory of source files or a repeat of the README. State each instruction once, and link the README or the compatibility doc for its reason.

@@ -4,6 +4,8 @@
 
 This package tests interception, the missing-target and ignore policy, and allow and block decisions; utils owns scope parsing and FFF provenance.
 
+The tests require Git and `mkfifo`.
+
 ## Must not regress
 
 - **Critical, integration:** Fixture Git commands never write to a repository, index, or configuration selected by inherited `GIT_*` environment variables.

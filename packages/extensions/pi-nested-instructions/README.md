@@ -1,8 +1,8 @@
 # pi-nested-instructions
 
-Pi on its own loads instruction files at startup, only from the agent directory, the working directory, and its parents. pi-nested-instructions loads `AGENTS.md` files from subdirectories as the model starts working in them. For example, when the model reads `packages/api/src/server.ts`, the instructions in `packages/api/AGENTS.md` are added before its next request.
+Pi on its own loads instruction files at startup, only from the agent directory, the working directory, and its parents. pi-nested-instructions loads `AGENTS.md` files from subdirectories as the model starts working in them, and has no commands or settings.
 
-Pi's startup loading of global, cwd, and parent instructions, and its reload behaviour, are unchanged. Pi's `--no-context-files` option does not stop nested discovery; to disable it, do not load this extension.
+For example, when the model reads `packages/api/src/server.ts`, the instructions in `packages/api/AGENTS.md` are added before its next request.
 
 ## Usage
 
@@ -16,25 +16,22 @@ In each directory below the working directory, discovery uses the first readable
 
 Discovery reads only tool inputs. It never runs commands, reads tool results, or lists glob matches.
 
-| When you…                                                                   | Read                                                               |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Want the full filename order, symlink rules, or reload and compaction rules | [Instruction loading rules](docs/loading.md)                       |
-| Want to know which tool inputs and Bash syntax trigger discovery            | [Input discovery](docs/input-discovery.md)                         |
-| Understand notices with invalid metadata                                    | [Invalid notice metadata](docs/loading.md#invalid-notice-metadata) |
+Pi's startup loading of global, cwd, and parent instructions, and its reload behaviour, are unchanged. Pi's `--no-context-files` option does not stop nested discovery; to disable it, do not load this extension.
 
 ## Side effects
 
-- Reads filesystem metadata and the instruction files that apply.
-- Appends metadata entries and visible notices to Pi's session.
-- Never writes source files or makes network requests. Discovery failures never fail a tool call.
+- pi-nested-instructions reads filesystem metadata and the instruction files that apply.
+- It appends metadata entries and visible notices to Pi's session.
+- It never writes source files or makes network requests. Discovery failures never fail a tool call.
 
-## For tool authors
+## Docs
 
-Display extensions can decode notices with the `pi-nested-instructions/notices` export. Terms are defined in the [glossary](GLOSSARY.md).
-
-## Validation
-
-| When you…                                    | Read                                                                                                               |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Change adapter policy, selection, or refresh | The [coverage specification](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).                    |
-| Change notice presentation                   | The [pi-tool-display adapter checks](../pi-tool-display/src/adapters/pi-nested-instructions/README.md#validation). |
+| When you…                                                                   | Read                                                                                                          |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Want the full filename order, symlink rules, or reload and compaction rules | [Instruction loading rules](docs/loading.md)                                                                  |
+| Want to know which tool inputs and Bash syntax trigger discovery            | [Input discovery](docs/input-discovery.md)                                                                    |
+| Understand notices with invalid metadata                                    | [Invalid notice metadata](docs/loading.md#invalid-notice-metadata)                                            |
+| Look up a term, such as scope, read marker, or notice                       | [Glossary](GLOSSARY.md)                                                                                       |
+| Decode notices in a display extension                                       | [Persisted notice contract](docs/pi-compatibility.md#persisted-notice-contract)                               |
+| Change adapter policy, selection, or refresh                                | [Test coverage](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md)                             |
+| Change notice presentation                                                  | [pi-tool-display adapter checks](../pi-tool-display/src/adapters/pi-nested-instructions/README.md#validation) |

@@ -1,14 +1,14 @@
 # pi-fff-guard
 
-The guard stops FFF searches that would silently return nothing, or only matches from other files, because their target is missing or Git-ignored. For example, `ffgrep` with `path: "node_modules/zod"` finds no matches, because FFF's index leaves out ignored paths ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)). With this guard the model is told why, and can retry with another tool.
+The guard stops FFF searches that would silently return nothing, or only matches from other files, because their target is missing or Git-ignored. It has no commands or settings: it checks every search of the official FFF tools.
 
-## Compatibility
-
-The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.5.0 and FFF 0.11.0.
-
-The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. It leaves built-in tools and unrecognised forks alone.
+For example, `ffgrep` with `path: "node_modules/zod"` finds no matches, because FFF's index leaves out ignored paths ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)). With this guard the model is told why, and can retry with another tool.
 
 ## Usage
+
+The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.5.0 and FFF 0.11.0, and it doesn't check FFF versions at runtime.
+
+The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. It leaves built-in tools and unrecognised forks alone.
 
 | Target                                   | Result                                                                    |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
@@ -24,7 +24,7 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 - Inspection fails for paths or filters with more than 128 components, and for link chains of 32 or more links.
 - If inspection fails and no other target is blocked, the guard allows the call and shows a diagnostic in the UI or on stderr.
 - If you cancel, the guard blocks the call.
-- Tools that wrap FFF must dispatch child calls through Pi hooks; calling `execute()` directly skips the guard.
+- The guard doesn't check FFF searches that another extension runs without Pi hooks, for example by calling FFF's `execute()` directly.
 - Slash commands and `@` autocomplete aren't checked.
 
 ## Side effects
@@ -33,15 +33,11 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 - It keeps no state, makes no network requests, and writes nothing to the project.
 - It never runs replacement searches or ends turns.
 
-## Validation
+## Docs
 
-The tests require Git and `mkfifo`.
-
-| When you…                                      | Read                                         |
-| ---------------------------------------------- | -------------------------------------------- |
-| Change interception or search scopes           | [Test coverage](docs/testing.md)             |
-| Change Pi or FFF versions, or retire the guard | [Pi compatibility](docs/pi-compatibility.md) |
-
-## Retirement
-
-The guard doesn't check FFF versions at runtime. Once a released FFF version fixes [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714), follow the [retirement checks](docs/pi-compatibility.md#retirement-checks) before removing it.
+| When you…                                                               | Read                                                            |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Need the rules for paths, globs, exclusions, repositories, and symlinks | [Search scopes](docs/search-scopes.md)                          |
+| Want to remove the guard after a released FFF version fixes FFF #714    | [Retirement checks](docs/pi-compatibility.md#retirement-checks) |
+| Change interception or search scopes, or need the test prerequisites    | [Test coverage](docs/testing.md)                                |
+| Change Pi or FFF versions                                               | [Pi compatibility](docs/pi-compatibility.md)                    |

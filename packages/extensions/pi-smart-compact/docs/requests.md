@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md)
 
-The `compact` tool asks Pi to compact; it does not confirm that compaction succeeded. For who can call it, **Escape** behaviour, and an example, see [usage](../README.md#compact).
+The `compact` tool asks Pi to compact; it does not confirm that compaction succeeded. For who can call it, see [controls](../README.md#controls). For an example, see [usage](../README.md#usage), and for **Escape** behaviour, see [`compact`](../README.md#compact).
 
 ## What happens after a request
 
