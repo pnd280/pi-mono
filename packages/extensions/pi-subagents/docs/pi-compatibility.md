@@ -18,6 +18,8 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 
 - [ ] The official subagent example's invocation selection still handles script, compiled-binary, and PATH launches.
 - [ ] `--model provider/id`, `--thinking`, `--session`, `--approve`, and `--no-approve` retain their meanings.
+- [ ] When `--mode`, `--approve`, or `--no-approve` appears again later in the arguments, the later flag applies, so the extension's flags apply over the same flags in [launch arguments](tasks.md#launch-arguments).
+- [ ] `VALUE_FLAGS` in [tool-schema.ts](../src/tasks/tool-schema.ts) still lists each Pi flag that always takes the next argument, whatever it is (`args[++i]` in Pi's `dist/cli/args.js`), apart from the flags that other parameters own. No other flag, including an unknown flag, takes a next `--mode`.
 - [ ] An unknown provider in `--model` fails the launch.
 - [ ] An unlisted model ID under a known provider can reach that provider.
 - [ ] An invalid thinking level gives a warning, and Pi uses its default level.
@@ -48,7 +50,7 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 
 Resume opens the task's [child file](../GLOSSARY.md#history) with `--session` and checks its session ID before `begin`.
 
-Children receive no `--tools`, so Pi restores a resumed child's tool loadout from its child file. The package's tools register when the extension loads, and again at `session_start` when their exposure, docs, or delivery text changed, and they stay active. The [depth tests](../validation/descendants.test.ts) cover the active and the hidden case.
+When `launch_args` gives no `--tools`, the child receives no `--tools`, so Pi restores a resumed child's tool loadout from its child file. The package's tools register when the extension loads, and again at `session_start` when their exposure, docs, or delivery text changed, and they stay active. The [depth tests](../validation/descendants.test.ts) cover the active and the hidden case.
 
 The supervisor reads the final text and statistics before stdin EOF. Because Pi loads new extension instances after `session_shutdown`, a revoked [session binding](../GLOSSARY.md#tasks-and-processes) is never opened again. Because shortcuts are set up after `resources_discover`, the panel shortcut that the startup handler claims works at once.
 
@@ -101,7 +103,7 @@ A handled command can start model work. Work that the connection observed must s
 
 Background results use the `custom` role, so they do not keep the child's earlier reply in its result. Live task totals use the `late_usage` delta of the custom `message_end`, because the patch's `appendUsage` call does not emit `entry_appended`.
 
-The child receives `-e` only for an absolute source path; otherwise, its settings must load the package. See [what a child inherits](children.md#what-a-child-inherits) for the user-visible result.
+The extension adds `--extension` with its own source path only when that path is absolute; otherwise, the child's settings must load the package. [Launch arguments](tasks.md#launch-arguments) can add other `-e` flags. See [what a child inherits](children.md#what-a-child-inherits) for the user-visible result.
 
 The before-change hooks invalidate old bindings before teardown. When Pi emits no session event after a change, the [session binding](../GLOSSARY.md#tasks-and-processes) reopens its task registry at the next interaction. Tasks stopped by the change remain cancelled. Ordinary messages need a snapshot refresh, because they do not emit `entry_appended`.
 

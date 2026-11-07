@@ -180,6 +180,7 @@ Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as pro
 - The first line shows the description and the task state. Queued, failed, and cancelled tasks name their state; running tasks show elapsed time, and completed tasks show `✓`. Returned calls use the fixed labels below. Before details exist, the line shows `preparing`, `waiting to run`, or `starting`.
 - Elapsed time appears only when a start time is known.
 - The second line shows the `model` and `thinking` that the call requested, if any, as `model:thinking` before details exist, then the resolved model, with `Waiting for capacity` or usage such as `↑48k ↓3.1k $0.21`.
+- When the task has `launch_args`, the second line shows them after the model, separated by spaces and cut at the card width. `Waiting for capacity` or the usage then moves to the next line.
 - Usage omits cache counts and appears only when a value is positive.
 - A failed or cancelled call shows usage before its error text. Line breaks in the error become spaces before wrapping.
 - The card does not show running activity.

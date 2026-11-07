@@ -80,6 +80,8 @@ export type ChildResult = {
 type ChildSelection = {
   model: string;
   thinking: string;
+  /** Extra Pi arguments; the flags that the extension sets follow them, so the extension's win. */
+  launchArgs: readonly string[];
   trusted: boolean;
   /** The supervisor's own extension entry; Pi loads a path that settings also name only once. */
   extension?: string;
@@ -157,6 +159,7 @@ export class ChildRun {
   constructor(private readonly options: ChildOptions) {
     const args = [
       ...options.invocation.args,
+      ...options.launchArgs,
       "--mode",
       "rpc",
       "--model",

@@ -10,6 +10,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 - **Critical, e2e:** Untrusted project settings cannot affect launch configuration or the `subagent` description, and cannot turn on `jobs`.
 - **Critical, e2e:** Children receive the supervisor's project-trust flag.
+- **Critical, e2e:** `launch_args` reach the child argv before the extension's flags; flags owned by `model`, `thinking`, or `task_id`, and a last flag that needs a value, are rejected before any side effect; a resume that omits `launch_args` reuses the value that the task's latest run requested.
 - **High, e2e:** Foreground calls report the child's final text and correct state.
 - **High, e2e:** Launch failures include the failed step, exit code, and stderr.
 - **High, e2e:** Active children stay within configured [capacity](../GLOSSARY.md#tasks-and-processes), and queued launches start in FIFO order.

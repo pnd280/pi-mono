@@ -250,6 +250,8 @@ export type DisplayProgress = {
   description: string;
   /** Model identity; an empty value omits it. */
   identity: string;
+  /** Launch arguments, joined with spaces; they follow the identity on one row, cut at its width. */
+  launchArgs?: string;
   /** Omit before the task reports a state; the renderer then shows the call lifecycle. */
   status?: DisplayProgressStatus;
   startedAt?: number;

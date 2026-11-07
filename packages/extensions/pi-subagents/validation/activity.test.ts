@@ -35,6 +35,7 @@ test.skipIf(process.platform !== "linux")(
         depth: 1,
         model: task.model,
         thinking: task.thinking,
+        launchArgs: [],
         trusted: true,
         sessionFile,
         taskId: task.task_id,

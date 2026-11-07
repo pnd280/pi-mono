@@ -20,7 +20,7 @@ import { readRunFile } from "../src/history/sessions.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
-import { LATE_DIALOG_ANSWERS } from "./provider.ts";
+import { LATE_DIALOG_ANSWERS, LAUNCH_FLAG, REJECTED_LAUNCH_ARGS } from "./provider.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 /** The supervisor's run and end entries, which are its only task entries. */
@@ -432,6 +432,47 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       // The later runs stay at the end of the child file, but they are not on the selected ancestry.
       await host.request({ type: "prompt", message: `/fixture-tree ${launched}` });
       expect(await selection(`selection-id ${taskId}`)).toBe("subagents-fixture/reasoning:high");
+    });
+  });
+
+  test("passes launch_args before the extension's flags, rejects owned flags and a last value flag, and reuses them on resume", async () => {
+    await withFixture(async (_directory, start) => {
+      const host = await start();
+
+      /** Whether the child's argv has the launch arguments before the extension's `--mode`. */
+      const argvOrder = async (scenario: string) => {
+        await host.prompt(scenario);
+        const result = (await host.results()).at(-1)!;
+        expect(detailsSchema.parse(result.details).state).toBe("completed");
+        const argv = z
+          .array(z.string())
+          .parse(JSON.parse(/^\[.*\]$/m.exec(contentText(result.content))?.[0] ?? "null"));
+        const flag = argv.indexOf(`--${LAUNCH_FLAG}`);
+
+        return flag >= 0 && argv[flag + 1] === "marker" && flag < argv.indexOf("--mode");
+      };
+
+      const runEntries = async () =>
+        (await host.entries()).filter(
+          (entry) => entry.type === "custom" && entry.customType === RUN_ENTRY
+        ).length;
+
+      expect(await argvOrder("delegate-launch-args")).toBe(true);
+      const runs = await runEntries();
+
+      // Each flag that another parameter owns, and a last flag that needs a value, fails its call
+      // before a task, record, or process exists. The exact text separates this check from a launch
+      // that Pi itself rejects or that never starts RPC.
+      await host.prompt("delegate-owned-arg");
+      const rejected = (await host.results()).slice(-REJECTED_LAUNCH_ARGS.length);
+      expect(rejected.map((result) => [result.isError, contentText(result.content)])).toEqual(
+        REJECTED_LAUNCH_ARGS.map(([, error]) => [true, error])
+      );
+      expect(await runEntries()).toBe(runs);
+      const tasks = await taskList(host);
+      expect(tasks).toHaveLength(1);
+
+      expect(await argvOrder(`argv-id ${tasks[0]!.task_id}`)).toBe(true);
     });
   });
 

@@ -186,8 +186,9 @@ export class Tasks {
   }
 
   /**
-   * The requested model and thinking level. A resume reuses each omitted value from the task's
-   * latest run; a new task uses the supervisor's current one.
+   * The requested model, thinking level, and launch arguments. A resume reuses each omitted value
+   * from the task's latest run; a new task uses the supervisor's current selection and no
+   * arguments.
    */
   private selection(request: ToolInput): Selection {
     const launch = this.options.launch();
@@ -195,8 +196,9 @@ export class Tasks {
     const model = request.model ?? previous?.requested_model ?? launch.model;
     if (model === undefined) throw new Error("Select a model before launching a subagent");
     const thinking = request.thinking ?? previous?.requested_thinking ?? launch.thinking;
+    const launchArgs = request.launch_args ?? previous?.requested_launch_args ?? [];
 
-    return { launch, model, thinking };
+    return { launch, model, thinking, launchArgs };
   }
 
   private claim(taskId?: string): () => void {

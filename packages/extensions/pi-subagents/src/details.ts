@@ -19,6 +19,8 @@ export const detailsSchema = z.object({
   description: z.string(),
   model: z.string(),
   thinking: z.string(),
+  /** The extra Pi CLI arguments of the run; absent when it has none. */
+  launch_args: z.array(z.string()).optional(),
   background: z.boolean(),
   delivery: deliverySchema,
   state: z.enum(["queued", "running", "completed", "failed", "cancelled"]),

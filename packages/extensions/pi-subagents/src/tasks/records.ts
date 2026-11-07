@@ -28,6 +28,8 @@ export const runRecordSchema = z.object({
   /** The requested selection; `end` records the applied one. */
   model: z.string(),
   thinking: z.string(),
+  /** The requested extra Pi CLI arguments; a record without them requested none. */
+  launch_args: z.array(z.string()).default([]),
   background: z.boolean(),
   started_at: z.number()
 });
@@ -66,6 +68,7 @@ const fields = {
   /** The latest run's requested selection; a resume that omits a value uses it again. */
   requested_model: z.string(),
   requested_thinking: z.string(),
+  requested_launch_args: z.array(z.string()),
   background: z.boolean(),
   /** The latest run's start and end. */
   started_at: z.number(),
@@ -142,6 +145,7 @@ export function startRun(
     thinking: launch?.thinking ?? run.thinking,
     requested_model: run.model,
     requested_thinking: run.thinking,
+    requested_launch_args: run.launch_args,
     background: run.background,
     started_at: run.started_at,
     ended_at: null,

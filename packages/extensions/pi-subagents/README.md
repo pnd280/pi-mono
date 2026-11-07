@@ -35,6 +35,7 @@ Your current Pi session is the supervisor. Each child starts with a fresh conver
 
 - Set `task_id` to continue a task: an inactive task resumes, and an active task receives input. See [send input or resume](docs/tasks.md#send-input-or-resume).
 - Omit `model` and `thinking` to use the supervisor's current selection, or set `model` to `provider/id`. See [model and thinking](docs/tasks.md#model-and-thinking).
+- Set `launch_args` to give the child more Pi CLI arguments, such as `["--no-extensions", "-e", "path"]`. See [launch arguments](docs/tasks.md#launch-arguments).
 - A turn abort stops running foreground work, and tree navigation, fork, and session switch stop all running work. Restored tasks never restart automatically. See [turn aborts](docs/tasks.md#turn-aborts) and [branch changes](docs/history.md#branch-changes).
 - Top-level launches queue in FIFO order when capacity is full. Nested launches fail immediately with the configured capacity in the error, so a task never waits for capacity that its own ancestors hold.
 
