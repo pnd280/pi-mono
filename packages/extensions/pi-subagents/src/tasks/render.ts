@@ -48,6 +48,8 @@ type Facts = {
   color: Color;
   activity: string;
   identity: string;
+  /** Extra Pi arguments, joined with spaces; the model row cuts them at its width. */
+  launchArgs: string;
   usage: string;
   /** A failure reason; a cancelled task uses `warning`. */
   error: { text: string; color: "error" | "warning" } | undefined;
@@ -67,6 +69,7 @@ const argsSchema = z.object({
   task_id: z.string().optional(),
   model: z.string().optional(),
   thinking: z.string().optional(),
+  launch_args: z.array(z.string()).optional(),
   background: z.boolean().optional(),
   delivery: z.string().optional()
 });
@@ -204,6 +207,7 @@ function pendingFacts(abort: boolean, view: View, args: Args, failed: boolean): 
     color: failed ? "error" : "dim",
     activity: "",
     identity: abort ? "" : [args.model, args.thinking].filter(Boolean).join(":"),
+    launchArgs: abort ? "" : (args.launch_args?.join(" ") ?? ""),
     usage: "",
     error: undefined,
     taskId: args.task_id,
@@ -219,6 +223,7 @@ function detailFacts(details: ToolDetails, failed: boolean) {
   return {
     description: details.description,
     identity: `${details.model}:${details.thinking}`,
+    launchArgs: details.launch_args?.join(" ") ?? "",
     usage: usage(details),
     taskId: details.task_id,
     failed
@@ -340,7 +345,20 @@ class CardRow {
       ...labelled("status", theme.fg(card.color, displayLine(card.status)) + activity)
     ];
     const identity = displayLine(card.identity);
-    if (identity) rows.push(...labelled("model", theme.fg("muted", identity)));
+    const launchArgs = displayLine(card.launchArgs);
+    // Launch arguments share the model row and are cut, not wrapped.
+    if (launchArgs)
+      rows.push(
+        ...labelled(
+          "model",
+          truncateToWidth(
+            theme.fg("muted", [identity, launchArgs].filter(Boolean).join(" ")),
+            valueWidth,
+            "…"
+          )
+        )
+      );
+    else if (identity) rows.push(...labelled("model", theme.fg("muted", identity)));
     if (card.usage) rows.push(...labelled("usage", theme.fg("muted", card.usage)));
     if (card.error)
       rows.push(...labelled("error", theme.fg(card.error.color, displayLine(card.error.text))));

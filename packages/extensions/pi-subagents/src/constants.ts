@@ -18,7 +18,7 @@ export const MARKER_ENTRY = "pi-subagents.marker";
 /** The `setStatus` key of the child-to-supervisor coordination channel. */
 export const PROTOCOL_KEY = "pi-subagents.protocol";
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export const RESULT_MESSAGE = "pi-subagents.result";
 

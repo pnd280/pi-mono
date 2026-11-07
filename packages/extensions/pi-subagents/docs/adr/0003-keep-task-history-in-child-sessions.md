@@ -14,11 +14,11 @@ Each task keeps one child session file for its whole life. A run is one child pr
 
 ### Records
 
-| Writer     | Custom entry          | When                                                         | Content                                                                                                                                               |
-| ---------- | --------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Child      | `pi-subagents.marker` | Start of each run, before the work prompt                    | `run_id`                                                                                                                                              |
-| Supervisor | `pi-subagents.run`    | After the child acknowledges `begin`, before the work prompt | `task_id`, `run_id`, `previous_run_id`, `session_file`, `session_id`, `description`, requested `model` and `thinking`, `background`, and `started_at` |
-| Supervisor | `pi-subagents.end`    | After the supervisor observes the child process exit         | `run_id`, `outcome`, a bounded `error`, `ended_at`, `usage`, `context`, `cache_hit`, and the final `model`, `thinking`, and `background`              |
+| Writer     | Custom entry          | When                                                         | Content                                                                                                                                                               |
+| ---------- | --------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Child      | `pi-subagents.marker` | Start of each run, before the work prompt                    | `run_id`                                                                                                                                                              |
+| Supervisor | `pi-subagents.run`    | After the child acknowledges `begin`, before the work prompt | `task_id`, `run_id`, `previous_run_id`, `session_file`, `session_id`, `description`, requested `model`, `thinking`, and `launch_args`, `background`, and `started_at` |
+| Supervisor | `pi-subagents.end`    | After the supervisor observes the child process exit         | `run_id`, `outcome`, a bounded `error`, `ended_at`, `usage`, `context`, `cache_hit`, and the final `model`, `thinking`, and `background`                              |
 
 - The `pi-subagents.result` message, the late `usage` entry from [ADR 0002](0002-count-late-background-usage.md), and the compaction reminder stay unchanged.
 - A supervisor writes no task state while a run is active. Live usage, context, activity, model changes, and background promotion stay in memory until `end`.

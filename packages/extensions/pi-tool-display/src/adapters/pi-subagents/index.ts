@@ -21,6 +21,7 @@ const argsSchema = z.object({
   task_id: z.string().min(1).optional(),
   model: z.string().optional(),
   thinking: z.string().optional(),
+  launch_args: z.array(z.string()).optional(),
   background: z.boolean().optional(),
   delivery: deliverySchema.optional()
 });
@@ -103,6 +104,10 @@ function fields(
   ];
 }
 
+function launchArgs(args: readonly string[] | undefined): Pick<DisplayProgress, "launchArgs"> {
+  return args && args.length > 0 ? { launchArgs: args.join(" ") } : {};
+}
+
 function openAction(result: BorrowedToolResult | undefined) {
   const details = detailsSchema.safeParse(result?.details).data;
 
@@ -159,6 +164,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
         label: "Subagent",
         description: args.description ?? "…",
         identity: [args.model, args.thinking].filter(Boolean).join(":"),
+        ...launchArgs(args.launch_args),
         secondary: "",
         fields: fields(args.task_id, args.background, args.delivery),
         ...prompt
@@ -168,6 +174,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
       label: "Subagent",
       description: details.description,
       identity: `${details.model}:${details.thinking}`,
+      ...launchArgs(details.launch_args),
       status: status(details),
       secondary: secondary(details),
       // Returned calls describe their fixed acknowledgement, not the child's later state.
@@ -214,6 +221,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
       label: "Subagent",
       description: details.description,
       identity: `${details.model}:${details.thinking}`,
+      ...launchArgs(details.launch_args),
       status: { glyph: TUI_GLYPHS.outcome.cancelled, text: "aborted", tone: "success" },
       secondary: usage(details),
       ...times(details),

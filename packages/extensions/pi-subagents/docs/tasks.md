@@ -9,6 +9,8 @@ A [task](../GLOSSARY.md#tasks-and-processes) keeps its ID for its whole life. Th
 Set `task_id` in a `subagent` call to continue a task with its earlier conversation. An inactive task resumes; an active task receives input and returns immediately. IDs appear in tool results and `/subagents list`. Only the supervisor model sends task input.
 
 - Use `delivery: "follow_up"` (the default) to add input after the current work, or `delivery: "steer"` to deliver it before the next model request.
+- Input to an active task uses only `prompt` and `delivery`. When the call also sets `model`, `thinking`, `background`, or `launch_args`, the result starts with a warning line that names the ignored fields.
+- A launch or resume ignores `delivery`. When the call sets it, the result starts with a warning line.
 - Active-task input uses the existing capacity slot and result destination, and reports no additional usage.
 - When input continues a run after a final reply, the run's result contains that reply before the later replies.
 - Active descendant input is routed to its supervisor.
@@ -20,7 +22,7 @@ A resume continues the task's latest run on the selected ancestry. For what the 
 
 Omit `model` and `thinking` to use the supervisor's current selection for a new task. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
 
-The child resolves the model with the extensions that it loads itself; see [what a child inherits](children.md#what-a-child-inherits). A [virtual model](https://pi.dev/docs/latest/virtual-models), or another model that an extension registers, is available to a child only when the child's settings load that extension. This also applies when the supervisor's current selection is a virtual model. A model from the supervisor's `-e` or from SDK code is not available to the child:
+The child resolves the model with the extensions that it loads itself; see [what a child inherits](children.md#what-a-child-inherits). A [virtual model](https://pi.dev/docs/latest/virtual-models), or another model that an extension registers, is available to a child only when the child loads that extension: through its settings, or through `-e <path>` in [`launch_args`](#launch-arguments). This also applies when the supervisor's current selection is a virtual model. The extension does not forward the supervisor's CLI flags, such as `-e`, or models that SDK code registers. Without one of these loads, such a model is not available to the child:
 
 - An unknown provider, such as `router/auto`, fails the launch.
 - An ID under a known provider, such as `openai-codex/auto`, can reach that provider as an unlisted model ID.
@@ -28,6 +30,16 @@ The child resolves the model with the extensions that it loads itself; see [what
 On resume, each omitted value repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
 
 A task shows its requested selection while queued, then the child's resolved model and clamped thinking level at launch. Each response that did not fail supplies the physical model and thinking level. The panel follows these updates; a tool card stops updating when its call returns.
+
+## Launch arguments
+
+Set `launch_args` to an array of more Pi CLI arguments for the child, such as `["--no-extensions", "-e", "path"]`. The array has at most 32 items, and each item has at most 2,048 characters.
+
+- The arguments come after the arguments that start Pi and before the flags that the extension sets: `--mode`, `--model`, `--thinking`, `--approve` or `--no-approve`, `--extension`, and `--session`. When Pi reads a flag two times, the extension's flag wins.
+- A call fails before it starts a task when an item is a flag that another parameter owns: `--model` and `--provider` (`model`), `--thinking` (`thinking`), and `--session`, `--session-id`, `--no-session`, `--fork`, `-c`, `--continue`, `-r`, and `--resume` (`task_id`). The check also finds the `--flag=value` form. It also rejects a value that is equal to one of these flags. The error names the flag.
+- A call also fails before it starts a task when the last item is a Pi flag that always takes the next argument, such as `--append-system-prompt` or `-e`. Pi would take the extension's `--mode` as its value, and the child would not start RPC.
+- The extension does not check other arguments. Pi rejects an unknown option, and the launch then fails.
+- On resume, an omitted `launch_args` repeats the value that the task's latest run requested. An array replaces it, and `[]` removes it.
 
 ## Cancel a task
 

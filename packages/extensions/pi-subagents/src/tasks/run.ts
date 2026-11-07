@@ -45,8 +45,18 @@ export type LaunchContext = {
   parentSession: string | undefined;
 };
 
-/** A call's model and thinking level, and the launch context they came from. */
-export type Selection = { launch: LaunchContext; model: string; thinking: string };
+/** A call's model, thinking level, and extra Pi arguments, and the launch context they came from. */
+export type Selection = {
+  launch: LaunchContext;
+  model: string;
+  thinking: string;
+  launchArgs: string[];
+};
+
+/** The details field of a run's launch arguments; empty arguments omit it. */
+function launchArgsDetails(launchArgs: string[]): Pick<ToolDetails, "launch_args"> {
+  return launchArgs.length ? { launch_args: launchArgs } : {};
+}
 
 /** Ask the user a child's dialog; no response means that the request needs no answer. */
 export type DialogHandler = (
@@ -150,12 +160,16 @@ export type RunHost = {
 /** An inactive direct task whose child file this process now holds the writer lease for. */
 type Resumed = { record: TaskRecord; lease: WriterLease };
 
-function queuedDetails(request: ToolInput, { model, thinking }: Selection): ToolDetails {
+function queuedDetails(
+  request: ToolInput,
+  { model, thinking, launchArgs }: Selection
+): ToolDetails {
   return {
     ...(request.task_id === undefined ? {} : { task_id: request.task_id }),
     description: boundedText(request.description),
     model: boundedText(model),
     thinking: boundedText(thinking),
+    ...launchArgsDetails(launchArgs),
     background: request.background ?? false,
     delivery: request.delivery ?? "follow_up",
     state: "queued",
@@ -309,7 +323,7 @@ export class Run {
     if (host.lifetime.aborted) throw new Error("Subagent session ended");
     const {
       request,
-      selection: { launch, model, thinking }
+      selection: { launch, model, thinking, launchArgs }
     } = call;
     const depth = host.depth + 1;
     this.previous = resumed?.record;
@@ -320,6 +334,7 @@ export class Run {
       description: boundedText(request.description),
       model,
       thinking,
+      ...launchArgsDetails(launchArgs),
       background: request.background ?? false,
       delivery: request.delivery ?? "follow_up",
       state: "running",
@@ -334,6 +349,7 @@ export class Run {
       depth,
       model,
       thinking,
+      launchArgs,
       trusted: launch.trusted,
       ...(launch.parentSession === undefined ? {} : { parentSession: launch.parentSession }),
       prompt: request.prompt,
@@ -473,7 +489,7 @@ export class Run {
     this.usageStart = start.usageStart;
     const {
       request: { description },
-      selection: { model, thinking }
+      selection: { model, thinking, launchArgs }
     } = this.call;
     const entry: RunRecord = {
       task_id: this.taskId,
@@ -484,6 +500,7 @@ export class Run {
       description,
       model,
       thinking,
+      launch_args: launchArgs,
       background: details.background,
       started_at: Date.now()
     };

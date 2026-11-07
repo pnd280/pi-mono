@@ -1,3 +1,4 @@
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
@@ -116,12 +117,19 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
     (row, index) => `${index ? indent : `${theme.fg(colors.marker, marker)} `}${row}`
   );
   const identity = displayLine(progress.identity);
+  const launchArgs = displayLine(progress.launchArgs ?? "");
   const secondaryText = displayLine(progress.secondary);
+  // Launch arguments follow the identity on its own row, cut rather than wrapped.
+  if (launchArgs)
+    rows.push(
+      `${indent}${truncateToWidth(theme.fg("dim", [identity, launchArgs].filter(Boolean).join(" ")), detailWidth, "…")}`
+    );
   const secondary = [
-    ...(identity ? [theme.fg("dim", identity)] : []),
+    ...(identity && !launchArgs ? [theme.fg("dim", identity)] : []),
     ...(secondaryText ? [theme.fg(colors.secondary, secondaryText)] : [])
   ].join(separator);
-  rows.push(...wrapRows(secondary, detailWidth).map((row) => `${indent}${row}`));
+  if (secondary || !launchArgs)
+    rows.push(...wrapRows(secondary, detailWidth).map((row) => `${indent}${row}`));
 
   if (!p.expanded) return { rows, stale };
 

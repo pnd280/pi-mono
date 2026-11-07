@@ -125,7 +125,7 @@ A call that returns before its task finishes shows the fixed `↗ returned; task
 
 Other labelled rows show the selection, usage, error, and task ID:
 
-- `model`: the model and thinking level. Before the task reports, only an explicitly requested model or thinking level appears.
+- `model`: the model and thinking level, then the [launch arguments](tasks.md#launch-arguments) separated by spaces. When the row has launch arguments, it is cut at the card width instead of wrapped. Before the task reports, only an explicitly requested model, thinking level, or launch arguments appear.
 - `usage`: usage such as `↑48k ↓3.1k $0.21`, when a value is positive.
 - `error`: the first line of a failure's error. Cancellation uses the warning colour, like other cancelled status details; the panel's `⊘` glyph uses the error colour, like pi-tool-display headings. See [notices and colours](../../pi-tool-display/docs/presentation.md#notices-and-colours).
 - `task`: the first eight characters of the task ID; expansion shows the full ID.

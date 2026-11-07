@@ -79,6 +79,7 @@ type Call =
       task_id?: string;
       model?: string;
       thinking?: string;
+      launch_args?: string[];
       background?: boolean;
       delivery?: "steer" | "follow_up";
     }
@@ -240,8 +241,58 @@ function selectionPlan(scenario: string): Call[] | undefined {
   ];
 }
 
+/** The flag that `report-argv` children accept, so that it can be a launch argument. */
+export const LAUNCH_FLAG = "fixture-launch";
+
+/** The error for a launch argument that another `subagent` parameter owns. */
+const owned = (flag: string, owner: string) =>
+  `launch_args cannot contain ${flag}: use the ${owner} parameter`;
+
+/**
+ * Last launch arguments that fail the call, each with its error: every flag that another parameter
+ * owns, one in `flag=value` form, and a flag that needs a value.
+ */
+export const REJECTED_LAUNCH_ARGS: readonly (readonly [string, string])[] = [
+  ["--model", owned("--model", "model")],
+  ["--provider", owned("--provider", "model")],
+  ["--thinking", owned("--thinking", "thinking")],
+  ["--session", owned("--session", "task_id")],
+  ["--session-id", owned("--session-id", "task_id")],
+  ["--no-session", owned("--no-session", "task_id")],
+  ["--fork", owned("--fork", "task_id")],
+  ["-c", owned("-c", "task_id")],
+  ["--continue", owned("--continue", "task_id")],
+  ["-r", owned("-r", "task_id")],
+  ["--resume", owned("--resume", "task_id")],
+  ["--session-id=fixture", owned("--session-id", "task_id")],
+  ["--append-system-prompt", "launch_args cannot end with --append-system-prompt: give it a value"]
+];
+
+/**
+ * A launch with launch arguments, one call for each rejected argument in one turn, and a resume that
+ * omits them. Each child reports its argv.
+ */
+function launchArgsPlan(scenario: string): Call[] | undefined {
+  const launchArgs = [`--${LAUNCH_FLAG}`, "marker"];
+  if (scenario === "delegate-launch-args")
+    return [{ description: "Fixture argv task", prompt: "report-argv", launch_args: launchArgs }];
+  if (scenario === "delegate-owned-arg")
+    return REJECTED_LAUNCH_ARGS.map(([arg]) => ({
+      description: "Fixture owned argument",
+      prompt: "report-argv",
+      launch_args: [...launchArgs, arg]
+    }));
+  const resumed = /^argv-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+
+  return resumed
+    ? [{ description: "Resume argv task", prompt: "report-argv", task_id: resumed }]
+    : undefined;
+}
+
 function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
-  const continuation = continuationPlan(scenario) ?? selectionPlan(scenario) ?? jobPlan(scenario);
+  const continuation = [continuationPlan, selectionPlan, launchArgsPlan, jobPlan].reduce<
+    Call[] | undefined
+  >((plan, next) => plan ?? next(scenario), undefined);
   if (continuation) return continuation;
   if (scenario === "failure-then-reply")
     return supervisorPlan(completed === 0 ? "delegate-launch-error" : "delegate-reply");
@@ -525,6 +576,7 @@ function plainResponse(
       approve: process.argv.includes("--approve"),
       no_approve: process.argv.includes("--no-approve")
     });
+  if (scenario === "report-argv") return JSON.stringify(process.argv);
   if (scenario === "report-docs")
     return (
       getCurrentTools(context.messages).find((tool) => tool.name === "subagent")?.description ?? ""
@@ -784,6 +836,7 @@ function createStream(
 
 export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> {
   await assertFixtureWorkspace(process.cwd());
+  pi.registerFlag(LAUNCH_FLAG, { description: "A fixture launch argument", type: "string" });
   pi.registerCommand("fixture-reload", {
     description: "Reload the fixture extensions",
     handler: async (_args, ctx) => {

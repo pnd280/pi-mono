@@ -13,6 +13,7 @@ import { createRenderers, type CardState } from "./render.ts";
 import {
   abortInputSchema,
   abortParameters,
+  checkLaunchArgs,
   toolInputSchema,
   toolParameters,
   type AbortInput,
@@ -51,16 +52,38 @@ const BACKGROUND_UPDATED = [
   "Work on something else, or briefly tell the user what you sent and end your response."
 ].join("\n");
 
-function toolResult(result: Submission) {
+/** Input to a running task uses only `prompt` and `delivery`. */
+const INPUT_IGNORED = ["model", "thinking", "background", "launch_args"] as const;
+
+/** One line that names the parameters the call set but the task did not use. */
+function ignoredWarning(request: ToolInput, result: Submission): string | undefined {
+  if (result.kind === "input") {
+    const ignored = INPUT_IGNORED.filter((name) => request[name] !== undefined);
+
+    return ignored.length
+      ? `Warning: ignored ${ignored.join(", ")}: the task is running`
+      : undefined;
+  }
+
+  return request.delivery === undefined
+    ? undefined
+    : "Warning: ignored delivery: the task was not running";
+}
+
+function toolResult(request: ToolInput, result: Submission) {
+  const ignored = ignoredWarning(request, result);
   if (result.kind === "input")
     return taskResult({
       details: result.details,
       body: result.details.background
         ? BACKGROUND_UPDATED
         : "Additional context sent to the running foreground task. Its original call will return the final result.",
-      summary: result.details.background ? "Background task updated" : "Foreground task updated"
+      summary: result.details.background ? "Background task updated" : "Foreground task updated",
+      notice: ignored
     });
-  const warning = result.interrupted ? INTERRUPTED_WARNING : undefined;
+  const warning =
+    [ignored, result.interrupted ? INTERRUPTED_WARNING : undefined].filter(Boolean).join("\n") ||
+    undefined;
 
   return result.kind === "background"
     ? taskResult({
@@ -102,6 +125,7 @@ export function createSubagentTool(
     ) {
       const parsed = toolInputSchema.safeParse(raw);
       if (!parsed.success) throw new Error("Invalid subagent parameters");
+      checkLaunchArgs(parsed.data.launch_args ?? []);
       const tasks = await current();
       let details: ToolDetails | undefined;
       let timer: ReturnType<typeof setInterval> | undefined;
@@ -120,6 +144,7 @@ export function createSubagentTool(
 
       try {
         return toolResult(
+          parsed.data,
           await tasks.submit(parsed.data, {
             ...(signal ? { signal } : {}),
             onChange: (next) => {
