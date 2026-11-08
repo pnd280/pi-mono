@@ -5,7 +5,7 @@
 
 # pi-subagents
 
-Long reviews and parallel investigations fill one conversation with every intermediate step. pi-subagents runs each piece as a task in a separate Pi process and returns only its final result to your conversation, with configurable nesting depth, capacity, and result delivery, optional background shell jobs, a task panel, the position of its "Waiting for background results" working message, and your own instructions for the `subagent` tool.
+Long reviews and parallel investigations fill one conversation with every intermediate step. pi-subagents runs each piece as a task in a separate Pi process and returns only its final result to your conversation, with configurable nesting depth, capacity, and result delivery, task templates, optional background shell jobs, a task panel, the position of its "Waiting for background results" working message, and your own instructions for the `subagent` tool.
 
 For example, send this prompt:
 
@@ -34,8 +34,9 @@ The tools are model-only, so codemode scripts cannot invoke them.
 Your current Pi session is the supervisor. Each child starts with a fresh conversation in the same working directory, so the prompt must supply the context that the child needs. Keep parallel edits in different files. The child's system prompt tells it that only its final reply returns; see [result instructions](docs/children.md#result-instructions).
 
 - Set `task_id` to continue a task: an inactive task resumes, and an active task receives input. See [send input or resume](docs/tasks.md#send-input-or-resume).
-- Omit `model` and `thinking` to use the supervisor's current selection, or set `model` to `provider/id`. See [model and thinking](docs/tasks.md#model-and-thinking).
+- For a new task, omit `model` and `thinking` to use the values of the call's [template](docs/tasks.md#templates), or else the supervisor's current selection. Set `model` to `provider/id` to select a model. See [model and thinking](docs/tasks.md#model-and-thinking).
 - Set `launch_args` to give the child more Pi CLI arguments, such as `["--no-extensions", "-e", "path"]`. See [launch arguments](docs/tasks.md#launch-arguments).
+- Set `template` to start a new task with the default values of a template from the `templates` setting. The `subagent` description lists the templates. See [templates](docs/tasks.md#templates).
 - A turn abort stops running foreground work, and tree navigation, fork, and session switch stop all running work. Restored tasks never restart automatically. See [turn aborts](docs/tasks.md#turn-aborts) and [branch changes](docs/history.md#branch-changes).
 - Top-level launches queue in FIFO order when capacity is full. Nested launches fail immediately with the configured capacity in the error, so a task never waits for capacity that its own ancestors hold.
 
@@ -55,7 +56,7 @@ Limits:
 
 Put the `ext.pi-subagents` section in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), in `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust), or in both. Valid trusted-project values override global values, and invalid values are ignored. Settings load at session start and at `/reload`, so run `/reload` after you edit settings or a docs file. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
 
-This example shows every field with its default, except `docs`, which has no default. Remove the comments before you copy it, because Pi reads `settings.json` as plain JSON:
+This example shows every field with its default, except `docs` and `templates`, which have no default. Remove the comments before you copy it, because Pi reads `settings.json` as plain JSON:
 
 ```jsonc
 {
@@ -78,7 +79,30 @@ This example shows every field with its default, except `docs`, which has no def
     // Optional. Markdown files whose text is added to the subagent tool description. Default: no docs.
     // A relative path resolves from the directory of this settings file. Each file is at most 1 MiB.
     // A project list replaces the global list, and an empty array removes the docs.
-    "docs": ["prompts/subagent.md"]
+    "docs": ["prompts/subagent.md"],
+    // Optional. Named default values for new tasks; a call sets `template` to use one. Default: no templates.
+    // For merge and validation rules, see docs/tasks.md#template-settings.
+    "templates": {
+      // The name: a lowercase letter, then lowercase letters, digits, or hyphens.
+      "scout": {
+        // Required. Tells the model when to use the template. At least one character that is not white space.
+        "description": "File and symbol discovery, narrow test runs.",
+        // Optional. A provider/id model. Default: the supervisor's model.
+        "model": "openai/gpt-5-mini",
+        // Optional. "off", "minimal", "low", "medium", "high", "xhigh", or "max".
+        // Default: the supervisor's current thinking level.
+        "thinking": "low",
+        // Optional. true starts the task in the background. Default: false.
+        "background": false,
+        // Optional. Pi CLI arguments, always added after the call's launch_args.
+        // At most 32 items of at most 2,048 characters. Nothing expands $VAR. Default: no arguments.
+        "launchArgs": ["--tools", "read,bash"],
+        // Optional. Files that the child adds to its system prompt. A relative path resolves from the
+        // directory of this settings file. Each file must be readable when settings load.
+        // At most 32 items of at most 2,048 characters. Default: no files.
+        "appendSystemPrompts": ["prompts/scout.md"]
+      }
+    }
   }
 }
 ```

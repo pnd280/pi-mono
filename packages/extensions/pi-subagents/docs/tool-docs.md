@@ -18,7 +18,7 @@ The text goes into the tool's description, so it accompanies the current tool de
 ## How files are read
 
 - A leading `~` expands to the home directory. Other relative paths resolve against the directory of the settings file that lists them.
-- Each file is trimmed. The files follow the built-in description in list order, separated by a blank line.
+- Each file is trimmed. The files follow the built-in description and the [template list](tasks.md#templates) in list order, separated by a blank line.
 - Each file must be a regular file of at most 1 MiB. Run `/reload` after you edit one.
 - A trusted project's `docs` replaces the global list, and an empty array removes the docs.
 

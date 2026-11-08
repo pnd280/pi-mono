@@ -28,7 +28,7 @@ import { Delivery } from "./delivery.ts";
 import { shellOptions } from "./jobs/registry.ts";
 import { createJobAbortTool, createJobTool } from "./jobs/tool.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
-import { createAbortTool, createSubagentTool } from "./tasks/tool.ts";
+import { createAbortTool, createSubagentTool, templateGuidance } from "./tasks/tool.ts";
 
 // Commands load at first use. Concurrent calls share one import.
 let commands: Promise<typeof CommandsModule> | undefined;
@@ -210,14 +210,20 @@ export default function subagents(
   let registered: string | undefined;
 
   /**
-   * Registers the four tools when their exposure, docs, or delivery changed since the last
-   * registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi
+   * Registers the four tools when their exposure, docs, templates, or delivery changed since the
+   * last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi
    * activates a `model-only` tool when it is first registered or when its exposure changes to
    * `model-only`. With `--tools`, every registration activates each listed tool again, which would
    * undo the active tools that a profile chose; an unchanged registration is therefore skipped.
    */
-  const registerTools = (tasks: boolean, jobs: boolean, docs: string, delivers: boolean) => {
-    const key = JSON.stringify([tasks, jobs, docs, delivers]);
+  const registerTools = (
+    tasks: boolean,
+    jobs: boolean,
+    docs: string,
+    templates: string,
+    delivers: boolean
+  ) => {
+    const key = JSON.stringify([tasks, jobs, docs, templates, delivers]);
     if (key === registered) return;
     registered = key;
     const taskExposure = tasks ? "model-only" : "hidden";
@@ -228,7 +234,8 @@ export default function subagents(
           currentTasks,
           emitOpen,
           () => pi.events.emit(counterChannel, delegated),
-          docs
+          docs,
+          templates
         )
       ),
       exposure: taskExposure
@@ -249,12 +256,12 @@ export default function subagents(
 
   // Registered at load, so Pi activates them before any session_start handler, such as a profile,
   // chooses the active tools.
-  registerTools(true, true, "", depth === 0);
+  registerTools(true, true, "", "", depth === 0);
 
   /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
   const open = async (ctx: ExtensionContext, { docs, ...opened } = session(ctx)) => {
     await binding.open(opened);
-    const { maxDepth, jobs } = opened.config;
+    const { maxDepth, jobs, templates } = opened.config;
     // Jobs apply at all depths. They run commands through Pi's built-in shell.
     const foreign =
       jobs &&
@@ -263,7 +270,7 @@ export default function subagents(
     jobsOn = jobs && !foreign;
     // Print, JSON, and child runs end with their final reply, and their jobs end with them.
     const delivers = depth === 0 && ctx.mode !== "print" && ctx.mode !== "json";
-    registerTools(depth < maxDepth, jobsOn, docs, delivers);
+    registerTools(depth < maxDepth, jobsOn, docs, templateGuidance(templates), delivers);
   };
 
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {

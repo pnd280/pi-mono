@@ -4,9 +4,16 @@ import { z } from "zod";
 
 import { deliverySchema } from "../details.ts";
 
-/** Bounds that keep a run record well below `RECORD_MAX_BYTES`. */
-const LAUNCH_ARGS_MAX = 32;
-const LAUNCH_ARG_MAX_LENGTH = 2048;
+// The bounds of a call's launch arguments, a template's launch arguments, and a template's
+// prompt files. Together they keep a run record well below `RECORD_MAX_BYTES`.
+export const LAUNCH_ARGS_MAX_ITEMS = 32;
+
+export const LAUNCH_ARG_MAX_LENGTH = 2048;
+
+/** Pi CLI arguments for a child, in a call or a template. */
+export const launchArgsSchema = z
+  .array(z.string().max(LAUNCH_ARG_MAX_LENGTH))
+  .max(LAUNCH_ARGS_MAX_ITEMS);
 
 export const toolInputSchema = z.strictObject({
   delivery: deliverySchema
@@ -37,21 +44,24 @@ export const toolInputSchema = z.strictObject({
     .min(1)
     .optional()
     .describe(
-      "A provider/id model. Defaults to the task's previously requested model on resume, and to your current model otherwise."
+      "A provider/id model. Defaults to the task's previously requested model on resume, and otherwise to the template's model, then your current model."
     ),
   thinking: z
     .enum(MODEL_THINKING_LEVELS)
     .optional()
     .describe(
-      "Defaults to the task's previously requested level on resume, and to your current level otherwise."
+      "Defaults to the task's previously requested level on resume, and otherwise to the template's level, then your current level."
     ),
-  launch_args: z
-    .array(z.string().max(LAUNCH_ARG_MAX_LENGTH))
-    .max(LAUNCH_ARGS_MAX)
+  launch_args: launchArgsSchema
     .optional()
     .describe(
-      'Extra Pi CLI arguments for the child process, such as ["--no-extensions", "-e", "path"]. Defaults to the task\'s previous value on resume; [] clears it.'
-    )
+      'Extra Pi CLI arguments for the child process, such as ["--no-extensions", "-e", "path"]. Defaults to the task\'s previous value on resume, where [] clears it. A template\'s arguments follow these.'
+    ),
+  template: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("The name of a template from the list in this description.")
 });
 
 /** The `launch_args` flags that other parameters own; each fails the call before any side effect. */
@@ -99,18 +109,78 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 /**
  * Throws when a launch argument is a flag that another parameter owns, alone or as `flag=value`,
  * or when the last argument is a flag that needs a value. A value that equals such a flag also
- * fails.
+ * fails. The messages name the arguments as `field`.
  */
-export function checkLaunchArgs(args: readonly string[]): void {
+export function checkLaunchArgs(args: readonly string[], field = "launch_args"): void {
   for (const arg of args) {
     const flag = arg.includes("=") ? arg.slice(0, arg.indexOf("=")) : arg;
     const owner = OWNED_FLAGS.get(flag);
-    if (owner) throw new Error(`launch_args cannot contain ${flag}: use the ${owner} parameter`);
+    if (owner) throw new Error(`${field} cannot contain ${flag}: use the ${owner} parameter`);
   }
 
   const last = args.at(-1);
   if (last !== undefined && VALUE_FLAGS.has(last))
-    throw new Error(`launch_args cannot end with ${last}: give it a value`);
+    throw new Error(`${field} cannot end with ${last}: give it a value`);
+}
+
+/** Pi keeps all values of these flags; for the other value flags, the last value wins. */
+const LIST_FLAGS: ReadonlySet<string> = new Set([
+  "--extension",
+  "-e",
+  "--skill",
+  "--prompt-template",
+  "--theme",
+  "--append-system-prompt"
+]);
+
+const FLAG_ALIASES: ReadonlyMap<string, string> = new Map([
+  ["-t", "--tools"],
+  ["-xt", "--exclude-tools"],
+  ["-n", "--name"]
+]);
+
+/** The long name of a flag that takes one value, alone or as `flag=value`. */
+function singleValueFlag(arg: string): string | undefined {
+  const flag = arg.includes("=") ? arg.slice(0, arg.indexOf("=")) : arg;
+  const name = FLAG_ALIASES.get(flag) ?? flag;
+
+  return VALUE_FLAGS.has(name) && !LIST_FLAGS.has(name) ? name : undefined;
+}
+
+/** The single-value flags that the arguments set. Pi reads the token after a value flag as its value. */
+function singleValueFlags(args: readonly string[]): string[] {
+  const flags: string[] = [];
+  let isValue = false;
+
+  for (const arg of args) {
+    if (isValue) {
+      isValue = false;
+      continue;
+    }
+
+    const flag = singleValueFlag(arg);
+    if (flag !== undefined) flags.push(flag);
+    isValue = VALUE_FLAGS.has(arg);
+  }
+
+  return flags;
+}
+
+/**
+ * Throws when a call's launch argument sets a single-value flag that the template's launch
+ * arguments also set. The template's value would replace the call's value without notice.
+ */
+export function checkTemplateArgs(
+  call: readonly string[],
+  template: readonly string[],
+  name: string
+): void {
+  const templateFlags = new Set(singleValueFlags(template));
+
+  for (const flag of singleValueFlags(call)) {
+    if (templateFlags.has(flag))
+      throw new Error(`launch_args cannot contain ${flag}: template ${name} sets it`);
+  }
 }
 
 export type ToolInput = z.infer<typeof toolInputSchema>;

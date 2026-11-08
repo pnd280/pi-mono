@@ -8,9 +8,10 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 ### Launch, capacity, and tools
 
-- **Critical, e2e:** Untrusted project settings cannot affect launch configuration or the `subagent` description, and cannot turn on `jobs`.
+- **Critical, e2e:** Untrusted project settings cannot affect launch configuration, templates, or the `subagent` description, and cannot turn on `jobs`.
 - **Critical, e2e:** Children receive the supervisor's project-trust flag.
 - **Critical, e2e:** `launch_args` reach the child argv before the extension's flags; flags owned by `model`, `thinking`, or `task_id`, and a last flag that needs a value, are rejected before any side effect; a resume that omits `launch_args` reuses the value that the task's latest run requested.
+- **High, e2e:** A `template` call starts the child with the call's `model` and `thinking` when the call sets them, and with the template's values when it does not. The child's argv has the call's `launch_args`, then the template's `launchArgs`, then a `--append-system-prompt <absolute path>` pair for each prompt file in order, before the extension's flags. These calls fail before any side effect: an unknown template, a template that settings left out for an unknown field or an unreadable prompt file, `template` with `task_id`, and call `launch_args` that set a single-value flag that the template also sets.
 - **High, e2e:** Foreground calls report the child's final text and correct state.
 - **High, e2e:** Launch failures include the failed step, exit code, and stderr.
 - **High, e2e:** Active children stay within configured [capacity](../GLOSSARY.md#tasks-and-processes), and queued launches start in FIFO order.
@@ -128,6 +129,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files, are not tested automatically. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks for these cases.
 - A child that blocks shutdown can survive supervisor SIGKILL, because no independent watchdog exists to stop it.
 - The wording of the `subagent` guidance and of a child's [result instructions](children.md#result-instructions) is below the severity bar. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns where the instructions appear in the system prompt.
+- The template's `background` value is below the severity bar, because the call's result shows at once whether the task runs in the background.
 - Card appearance, the activity that cards and panel rows name, task-list pagination, and the panel shortcut are below the severity bar.
 - Job card appearance, the widget's job count, panel job rows, and the job log viewer are below the severity bar.
 - A job process that leaves its process group is not tested because job cleanup does not stop it.

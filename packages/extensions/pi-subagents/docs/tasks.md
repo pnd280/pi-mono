@@ -20,7 +20,7 @@ A resume continues the task's latest run on the selected ancestry. For what the 
 
 ## Model and thinking
 
-Omit `model` and `thinking` to use the supervisor's current selection for a new task. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
+For a new task, an omitted `model` or `thinking` uses the value of the call's [template](#templates) when the template sets one, and otherwise the supervisor's current selection. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
 
 The child resolves the model with the extensions that it loads itself; see [what a child inherits](children.md#what-a-child-inherits). A [virtual model](https://pi.dev/docs/latest/virtual-models), or another model that an extension registers, is available to a child only when the child loads that extension: through its settings, or through `-e <path>` in [`launch_args`](#launch-arguments). This also applies when the supervisor's current selection is a virtual model. The extension does not forward the supervisor's CLI flags, such as `-e`, or models that SDK code registers. Without one of these loads, such a model is not available to the child:
 
@@ -40,6 +40,61 @@ Set `launch_args` to an array of more Pi CLI arguments for the child, such as `[
 - A call also fails before it starts a task when the last item is a Pi flag that always takes the next argument, such as `--append-system-prompt` or `-e`. Pi would take the extension's `--mode` as its value, and the child would not start RPC.
 - The extension does not check other arguments. Pi rejects an unknown option, and the launch then fails.
 - On resume, an omitted `launch_args` repeats the value that the task's latest run requested. An array replaces it, and `[]` removes it.
+
+## Templates
+
+A [template](../GLOSSARY.md#tasks-and-processes) gives the default launch values for a new task. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, `background`, and `launchArgs` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the prompt files. Without templates, the description has no list.
+
+### Template settings
+
+| Field                 | Required | Effect                                                                                                                                                                                                           |
+| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| name (the key)        | Yes      | A lowercase letter, then lowercase letters, digits, or hyphens.                                                                                                                                                  |
+| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the task label, which is the call's `description`.                                                      |
+| `model`               | No       | The default model, as `provider/id`.                                                                                                                                                                             |
+| `thinking`            | No       | The default thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                        |
+| `background`          | No       | The default value of the call's `background`.                                                                                                                                                                    |
+| `launchArgs`          | No       | Pi CLI arguments that every call of the template adds. At most 32 items of at most 2,048 characters, with the same rejected flags as [`launch_args`](#launch-arguments).                                         |
+| `appendSystemPrompts` | No       | Files that the child adds to its system prompt. At most 32 items of at most 2,048 characters. A leading `~` expands to the home directory, and a relative path resolves from the directory of the settings file. |
+
+- Templates from global settings and from trusted project settings combine. For the same name, the project template replaces the global template completely; its fields are not merged.
+- A `templates` value that is not an object is ignored for its settings file, with a warning.
+- Run `/reload` after you change a template. Pi reads the prompt files when each child starts, so a change to the text of a prompt file needs no `/reload`. When a file no longer exists, Pi adds its path as text.
+
+A template is left out in these cases:
+
+- It has an unknown field, an invalid value, or an invalid name.
+- Its `launchArgs` has a rejected argument.
+- A prompt file cannot be read when settings load. A prompt file must be a regular UTF-8 file of at most 1 MiB. Run `/reload` after you correct the file.
+
+The UI then shows a warning that names the template and its settings file. A project template that is left out does not replace the global template of the same name.
+
+### What a call receives
+
+- For `model` and `thinking`, see [model and thinking](#model-and-thinking). The call's `background` replaces the template's value; when neither sets it, the task runs in the foreground.
+- The child's launch arguments are, in this order: the call's `launch_args`, the template's `launchArgs`, and a `--append-system-prompt <absolute path>` pair for each prompt file. The extension's own flags follow them. The template's part comes last, so that the template's value wins for a flag that Pi reads once. This also applies to a flag that the check below does not know, such as a flag that another extension registers.
+- Pi expands a leading `~/` only in the values of `-e`, `--skill`, `--prompt-template`, `--theme`, and `--session-dir`. It resolves relative paths in the values of the first four from the child's working directory. No part of the extension or Pi expands `$VAR`, because the child starts without a shell. Use absolute paths in other values.
+- A nested child reads the same global and project settings with the supervisor's trust decision, so it has the same templates.
+
+A call fails before it starts a task in these cases:
+
+- The name is not a configured template. The error lists the valid names.
+- The call also sets `task_id`. A template applies only to a new task.
+- The call's `launch_args` sets a flag that takes one value and that the template's `launchArgs` also sets. The error names the flag and the template. The check covers these flags:
+  - `--api-key`
+  - `--system-prompt`
+  - `--name` or `-n`
+  - `--session-dir`
+  - `--models`
+  - `--tools` or `-t`
+  - `--exclude-tools` or `-xt`
+  - `--export`
+
+The check does not cover flags that Pi collects, such as `-e`. Their values add to the template's values.
+
+The task does not keep the template name. It keeps the resolved model, thinking level, and launch arguments; for where they appear, see [task card details](interface.md#task-card-details) and the fields of [task pages](commands.md#task-pages).
+
+A resume uses the rules of [model and thinking](#model-and-thinking) and [launch arguments](#launch-arguments). These rules also apply to the template's arguments and prompt files. A resume does not repeat `background`, so set it again to resume a task in the background.
 
 ## Cancel a task
 

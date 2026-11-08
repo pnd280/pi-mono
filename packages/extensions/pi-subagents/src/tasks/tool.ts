@@ -6,6 +6,7 @@ import type {
 import { formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
 
 import { forwardDialog } from "../child/dialogs.ts";
+import type { Template } from "../config.ts";
 import type { ToolDetails } from "../details.ts";
 import { taskResult } from "../result.ts";
 import { INTERRUPTED_WARNING, type Submission, type Tasks } from "./registry.ts";
@@ -25,15 +26,41 @@ const PROGRESS_INTERVAL_MS = 1_000;
 const ABORT_REASON = "Cancelled by supervisor";
 
 /**
- * The built-in guidance states only how tasks work. Configured `docs` follow it and hold the
- * policy, such as when to delegate, because docs can add to the guidance but cannot replace it.
+ * The configured templates with the values that they set; empty without templates. Prompt files
+ * are left out, because the model does not choose them.
  */
-function toolGuidance(docs: string): string {
+export function templateGuidance(templates: ReadonlyMap<string, Template>): string {
+  if (!templates.size) return "";
+
+  return [
+    "Templates (set `template` to use one; a call value overrides model, thinking, and background; template launch arguments and prompt files are always added):",
+    ...[...templates].map(([name, template]) => {
+      const values = [
+        template.model === undefined ? "" : `model: ${template.model}`,
+        template.thinking === undefined ? "" : `thinking: ${template.thinking}`,
+        template.background === undefined ? "" : `background: ${template.background}`,
+        template.launchArgs.length ? `launch_args: ${template.launchArgs.join(" ")}` : ""
+      ].filter(Boolean);
+
+      return values.length
+        ? `- ${name}: ${template.description}\n  ${values.join(" · ")}`
+        : `- ${name}: ${template.description}`;
+    })
+  ].join("\n");
+}
+
+/**
+ * The built-in guidance states only how tasks work. The template list follows it. Configured
+ * `docs` come last and hold the policy, such as when to delegate or which template to use,
+ * because docs can add to the guidance but cannot replace it.
+ */
+function toolGuidance(docs: string, templates: string): string {
   return [
     "Launch an agent in a separate Pi process. You receive only its final message.",
     "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, and relevant verification commands.",
     "Children share your working directory, so parallel tasks must not edit the same files. Launch independent tasks concurrently with multiple tool calls.",
     "Use task_id to continue a task with its previous context, or to send input to an active task.",
+    ...(templates ? [templates] : []),
     ...(docs ? [docs] : [])
   ].join("\n\n");
 }
@@ -106,14 +133,15 @@ export function createSubagentTool(
   current: () => Promise<Tasks>,
   open: (id: string, binding?: string) => void,
   delegated: () => void,
-  docs: string
+  docs: string,
+  templates: string
 ) {
   return {
     name: "subagent",
     label: "Subagent",
     exposure: "model-only",
     executionMode: "parallel",
-    description: toolGuidance(docs),
+    description: toolGuidance(docs, templates),
     parameters: toolParameters,
     ...createRenderers(open),
     async execute(
