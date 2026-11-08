@@ -49,7 +49,7 @@ const templateSchema = z.strictObject({
     .optional()
 });
 
-/** The default launch values of a new task that names the template. */
+/** The default launch values of a new task or a resume that names the template. */
 export type Template = Omit<
   z.output<typeof templateSchema>,
   "name" | "launchArgs" | "appendSystemPrompts"

@@ -11,7 +11,7 @@ Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY
 - Children load their own configured extensions and tools. When Pi reports an absolute source path for this package, children also load it through `-e`; otherwise, their settings must load it.
 - A child whose settings load another copy of the package fails to launch.
 - Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
-- A child gets the [launch arguments](tasks.md#launch-arguments) of its call and of its [template](tasks.md#templates), or on resume those of the task's latest run, before the flags that the extension sets.
+- A child gets the selected [launch arguments](tasks.md#launch-arguments), with those of its [template](tasks.md#what-a-call-receives), before the flags that the extension sets.
 
 Because a child loads its own extensions, a model that an extension registers is available to it only under the conditions in [model and thinking](tasks.md#model-and-thinking).
 

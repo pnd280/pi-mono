@@ -17,7 +17,7 @@ Delegated work with one task ID and one child file for its whole life. It can ha
 _Avoid_: job, "subagent" when the task is meant
 
 **Template**:
-The default launch values for a new task, from settings. A call replaces its single values, and its launch arguments and prompt files are always added. See [templates](docs/tasks.md#templates).
+The default launch values for a new task or a resume, from settings. A call replaces its single values, and its launch arguments and prompt files are always added. See [templates](docs/tasks.md#templates).
 _Avoid_: agent definition, profile, role
 
 **Run**:

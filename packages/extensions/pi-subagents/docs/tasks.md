@@ -9,7 +9,7 @@ A [task](../GLOSSARY.md#tasks-and-processes) keeps its ID for its whole life. Th
 Set `task_id` in a `subagent` call to continue a task with its earlier conversation. An inactive task resumes; an active task receives input and returns immediately. IDs appear in tool results and `/subagents list`. Only the supervisor model sends task input.
 
 - Use `delivery: "follow_up"` (the default) to add input after the current work, or `delivery: "steer"` to deliver it before the next model request.
-- Input to an active task uses only `prompt` and `delivery`. When the call also sets `model`, `thinking`, `background`, or `launch_args`, the result starts with a warning line that names the ignored fields.
+- Input to an active task uses only `prompt` and `delivery`. When the call also sets `model`, `thinking`, `background`, `launch_args`, or `template`, the result starts with a warning line that names the ignored fields.
 - A launch or resume ignores `delivery`. When the call sets it, the result starts with a warning line.
 - Active-task input uses the existing capacity slot and result destination, and reports no additional usage.
 - When input continues a run after a final reply, the run's result contains that reply before the later replies.
@@ -20,14 +20,14 @@ A resume continues the task's latest run on the selected ancestry. For what the 
 
 ## Model and thinking
 
-For a new task, an omitted `model` or `thinking` uses the value of the call's [template](#templates) when the template sets one, and otherwise the supervisor's current selection. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
+An omitted `model` or `thinking` uses the value of the call's [template](#templates) when the template sets one. Otherwise, a new task uses the supervisor's current selection. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
 
 The child resolves the model with the extensions that it loads itself; see [what a child inherits](children.md#what-a-child-inherits). A [virtual model](https://pi.dev/docs/latest/virtual-models), or another model that an extension registers, is available to a child only when the child loads that extension: through its settings, or through `-e <path>` in [`launch_args`](#launch-arguments). This also applies when the supervisor's current selection is a virtual model. The extension does not forward the supervisor's CLI flags, such as `-e`, or models that SDK code registers. Without one of these loads, such a model is not available to the child:
 
 - An unknown provider, such as `router/auto`, fails the launch.
 - An ID under a known provider, such as `openai-codex/auto`, can reach that provider as an unlisted model ID.
 
-On resume, each omitted value repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
+On resume, each value that neither the call nor its template sets repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
 
 A task shows its requested selection while queued, then the child's resolved model and clamped thinking level at launch. Each response that did not fail supplies the physical model and thinking level. The panel follows these updates; a tool card stops updating when its call returns.
 
@@ -39,13 +39,13 @@ Set `launch_args` to an array of more Pi CLI arguments for the child, such as `[
 - A call fails before it starts a task when an item is a flag that another parameter owns: `--model` and `--provider` (`model`), `--thinking` (`thinking`), and `--session`, `--session-id`, `--no-session`, `--fork`, `-c`, `--continue`, `-r`, and `--resume` (`task_id`). The check also finds the `--flag=value` form. It also rejects a value that is equal to one of these flags. The error names the flag.
 - A call also fails before it starts a task when the last item is a Pi flag that always takes the next argument, such as `--append-system-prompt` or `-e`. Pi would take the extension's `--mode` as its value, and the child would not start RPC.
 - The extension does not check other arguments. Pi rejects an unknown option, and the launch then fails.
-- On resume, an omitted `launch_args` repeats the value that the task's latest run requested. An array replaces it, and `[]` removes it.
+- On resume, an omitted `launch_args` repeats the value that the task's latest run requested. An array replaces it, and `[]` removes it. A call with a [template](#templates) always replaces it, also when the template adds no arguments.
 
 ## Templates
 
-A [template](../GLOSSARY.md#tasks-and-processes) gives the default launch values for a new task. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, and `background` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the `launchArgs` or the prompt files. Without templates, the description has no list.
+A [template](../GLOSSARY.md#tasks-and-processes) fills in the launch values that a call leaves out, for a new task or a resume. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, and `background` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the `launchArgs` or the prompt files. Without templates, the description has no list.
 
-The task label is the call's `description` after the template name in brackets, such as `[explorer] Lease ownership`. The task record, the child session name, and background results keep this label. The `subagent` description does not tell the model to add the prefix. A resume keeps the `description` of the call without a change.
+The task label is the call's `description` after the template name in brackets, such as `[explorer] Lease ownership`. The task record, the child session name, and background results keep this label. The `subagent` description does not tell the model to add the prefix. A resume with a template also adds the prefix, and does not remove a prefix that the call's `description` already has. A resume without a template keeps the `description` of the call without a change.
 
 ### Template settings
 
@@ -86,7 +86,6 @@ The UI then shows a warning that names the template when its name is valid, and 
 A call fails before it starts a task in these cases:
 
 - The name is not a configured template. The error lists the valid names.
-- The call also sets `task_id`. A template applies only to a new task.
 - The call's `launch_args` sets a flag that takes one value and that the template's `launchArgs` also sets. The error names the flag and the template. The check covers these flags:
   - `--api-key`
   - `--system-prompt`
@@ -101,7 +100,7 @@ The check does not cover flags that Pi collects, such as `-e`. Their values add 
 
 The task has no `template` field; only its label holds the template name. It keeps the resolved model, thinking level, and launch arguments; for where they appear, see [task card details](interface.md#task-card-details) and the fields of [task pages](commands.md#task-pages).
 
-A resume uses the rules of [model and thinking](#model-and-thinking) and [launch arguments](#launch-arguments). These rules also apply to the template's arguments and prompt files. A resume does not repeat `background`, so set it again to resume a task in the background.
+A resume uses the rules of [model and thinking](#model-and-thinking) and [launch arguments](#launch-arguments). A resume does not repeat `background`, so set it again, or use a template that sets it, to resume a task in the background.
 
 ## Cancel a task
 

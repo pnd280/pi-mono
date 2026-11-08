@@ -33,7 +33,7 @@ export function templateGuidance(templates: ReadonlyMap<string, Template>): stri
   if (!templates.size) return "";
 
   return [
-    "Templates (set `template` to use one; a call value overrides model, thinking, and background; template launch arguments and prompt files are always added):",
+    "Templates (set `template` to use one, also with task_id; a call value overrides model, thinking, and background; template launch arguments and prompt files are always added):",
     ...[...templates].map(([name, template]) => {
       const values = [
         template.model === undefined ? "" : `model: ${template.model}`,
@@ -79,7 +79,7 @@ const BACKGROUND_UPDATED = [
 ].join("\n");
 
 /** Input to a running task uses only `prompt` and `delivery`. */
-const INPUT_IGNORED = ["model", "thinking", "background", "launch_args"] as const;
+const INPUT_IGNORED = ["model", "thinking", "background", "launch_args", "template"] as const;
 
 /** One line that names the parameters the call set but the task did not use. */
 function ignoredWarning(request: ToolInput, result: Submission): string | undefined {
