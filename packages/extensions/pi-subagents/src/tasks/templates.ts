@@ -5,6 +5,7 @@ import { checkTemplateArgs, type ToolInput } from "./tool-schema.ts";
  * The call with the values of its template filled in. A call value replaces the template's model,
  * thinking level, and background value. The template's launch arguments and prompt files follow
  * the call's launch arguments, so that the template's value wins for a flag that Pi reads once.
+ * The task label starts with the template name in brackets.
  */
 export function applyTemplate(
   request: ToolInput,
@@ -32,6 +33,7 @@ export function applyTemplate(
 
   return {
     ...call,
+    description: `[${name}] ${call.description}`,
     ...(model === undefined ? {} : { model }),
     ...(thinking === undefined ? {} : { thinking }),
     ...(background === undefined ? {} : { background }),

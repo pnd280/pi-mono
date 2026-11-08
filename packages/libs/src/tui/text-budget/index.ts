@@ -21,6 +21,32 @@ export function wrapRows(text: string, width: number): string[] {
   );
 }
 
+/**
+ * Puts styled items on rows of `width`, broken only between items, so no row ends with
+ * `separator`. An item wider than `width` wraps on its own rows.
+ */
+export function pack(items: readonly string[], separator: string, width: number): string[] {
+  const rows: string[] = [];
+  let row = "";
+
+  for (const item of items) {
+    if (row && visibleWidth(row + separator + item) <= width) {
+      row += separator + item;
+      continue;
+    }
+
+    if (row) rows.push(row);
+    const wrapped = wrapRows(item, width);
+    row = wrapped.pop() ?? "";
+    // A spread could exceed the argument limit for a long item in a narrow column.
+    for (const line of wrapped) rows.push(line);
+  }
+
+  if (row) rows.push(row);
+
+  return rows;
+}
+
 /** Wraps the first row at `firstWidth` and the remaining text at `restWidth`. */
 export function wrapHangingRows(text: string, firstWidth: number, restWidth: number): string[] {
   const [first, ...wrapped] = wrapRows(text, firstWidth);

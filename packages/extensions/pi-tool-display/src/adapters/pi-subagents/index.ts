@@ -4,7 +4,12 @@ import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { registeredBy } from "@pi-mono/utils/provenance";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { OPEN_EVENT } from "pi-subagents/constants";
-import { deliverySchema, detailsSchema, type ToolDetails } from "pi-subagents/details";
+import {
+  deliverySchema,
+  detailsSchema,
+  launchArgItems,
+  type ToolDetails
+} from "pi-subagents/details";
 import { z } from "zod";
 
 import type {
@@ -95,17 +100,15 @@ function status(details: ToolDetails): NonNullable<DisplayProgress["status"]> {
 function fields(
   task: string | undefined,
   background: boolean | undefined,
-  delivery: string | undefined
+  delivery: string | undefined,
+  launchArgs: readonly string[] = []
 ): DisplayProgress["fields"] {
   return [
     ...(task ? [{ label: "task_id", value: task }] : []),
+    ...(launchArgs.length ? [{ label: "launch_args", items: launchArgItems(launchArgs) }] : []),
     ...(background ? [{ label: "background", value: "true" }] : []),
     ...(delivery === "steer" ? [{ label: "delivery", value: "steer" }] : [])
   ];
-}
-
-function launchArgs(args: readonly string[] | undefined): Pick<DisplayProgress, "launchArgs"> {
-  return args && args.length > 0 ? { launchArgs: args.join(" ") } : {};
 }
 
 function openAction(result: BorrowedToolResult | undefined) {
@@ -164,9 +167,8 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
         label: "Subagent",
         description: args.description ?? "…",
         identity: [args.model, args.thinking].filter(Boolean).join(":"),
-        ...launchArgs(args.launch_args),
         secondary: "",
-        fields: fields(args.task_id, args.background, args.delivery),
+        fields: fields(args.task_id, args.background, args.delivery, args.launch_args),
         ...prompt
       };
 
@@ -174,12 +176,11 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
       label: "Subagent",
       description: details.description,
       identity: `${details.model}:${details.thinking}`,
-      ...launchArgs(details.launch_args),
       status: status(details),
       secondary: secondary(details),
       // Returned calls describe their fixed acknowledgement, not the child's later state.
       ...(details.returned ? {} : times(details)),
-      fields: fields(details.task_id, details.background, details.delivery),
+      fields: fields(details.task_id, details.background, details.delivery, details.launch_args),
       ...prompt,
       ...(details.state === "completed" && !details.returned ? { resultPreview: true } : {})
     };
@@ -221,11 +222,10 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
       label: "Subagent",
       description: details.description,
       identity: `${details.model}:${details.thinking}`,
-      ...launchArgs(details.launch_args),
       status: { glyph: TUI_GLYPHS.outcome.cancelled, text: "aborted", tone: "success" },
       secondary: usage(details),
       ...times(details),
-      fields: fields(details.task_id, undefined, undefined)
+      fields: fields(details.task_id, undefined, undefined, details.launch_args)
     };
   }
 };
