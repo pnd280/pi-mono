@@ -43,7 +43,7 @@ Set `launch_args` to an array of more Pi CLI arguments for the child, such as `[
 
 ## Templates
 
-A [template](../GLOSSARY.md#tasks-and-processes) gives the default launch values for a new task. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, `background`, and `launchArgs` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the prompt files. Without templates, the description has no list.
+A [template](../GLOSSARY.md#tasks-and-processes) gives the default launch values for a new task. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, and `background` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the `launchArgs` or the prompt files. Without templates, the description has no list.
 
 ### Template settings
 

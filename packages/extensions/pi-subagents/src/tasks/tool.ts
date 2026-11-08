@@ -26,8 +26,8 @@ const PROGRESS_INTERVAL_MS = 1_000;
 const ABORT_REASON = "Cancelled by supervisor";
 
 /**
- * The configured templates with the values that they set; empty without templates. Prompt files
- * are left out, because the model does not choose them.
+ * The configured templates with the values that they set; empty without templates. Launch
+ * arguments and prompt files are left out, because the model does not choose them.
  */
 export function templateGuidance(templates: ReadonlyMap<string, Template>): string {
   if (!templates.size) return "";
@@ -38,8 +38,7 @@ export function templateGuidance(templates: ReadonlyMap<string, Template>): stri
       const values = [
         template.model === undefined ? "" : `model: ${template.model}`,
         template.thinking === undefined ? "" : `thinking: ${template.thinking}`,
-        template.background === undefined ? "" : `background: ${template.background}`,
-        template.launchArgs.length ? `launch_args: ${template.launchArgs.join(" ")}` : ""
+        template.background === undefined ? "" : `background: ${template.background}`
       ].filter(Boolean);
 
       return values.length
