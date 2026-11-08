@@ -444,7 +444,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  test("passes launch_args and template values before the extension's flags, rejects owned flags, a last value flag, and invalid template calls, and reuses launch_args on resume", async () => {
+  test("passes launch_args and template values before the extension's flags, rejects owned flags, a last value flag, and invalid template calls, reuses launch_args on resume, and applies a template on resume", async () => {
     await withFixture(
       async (directory, start) => {
         // The template file's prompt paths resolve from its own directory.
@@ -492,38 +492,41 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
 
         expect(await argvOrder(`argv-id ${tasks[0]!.task_id}`)).toBe(true);
 
+        /** The last `count` results by label, with each child's selection, launch arguments, and level. */
+        const launches = async (count: number) =>
+          Object.fromEntries(
+            (await host.results()).slice(-count).map((result) => {
+              const details = detailsSchema.parse(result.details);
+              expect(details.state).toBe("completed");
+              const text = contentText(result.content);
+              const argv = z
+                .array(z.string())
+                .parse(JSON.parse(/^\[.*\]$/m.exec(text)?.[0] ?? "null"));
+
+              const mode = argv.indexOf("--mode");
+
+              return [
+                details.description,
+                {
+                  selection: /Selection: (\S+)/.exec(text)?.[1],
+                  // The child's `process.argv` starts with Node and the Pi script.
+                  args: argv.slice(2, mode),
+                  thinking: argv[argv.indexOf("--thinking", mode) + 1]
+                }
+              ];
+            })
+          );
+
         // A call value replaces the template's value, and an omitted one takes it. The call's
         // launch arguments come first, then the template's, then its prompt files as absolute paths
         // in order. The extension's `--thinking` after `--mode` is the requested level.
         await host.prompt("delegate-template");
-        const launched = new Map(
-          (await host.results()).slice(-3).map((result) => {
-            const details = detailsSchema.parse(result.details);
-            expect(details.state).toBe("completed");
-            const text = contentText(result.content);
-            const argv = z
-              .array(z.string())
-              .parse(JSON.parse(/^\[.*\]$/m.exec(text)?.[0] ?? "null"));
-
-            const mode = argv.indexOf("--mode");
-
-            return [
-              details.description,
-              {
-                selection: /Selection: (\S+)/.exec(text)?.[1],
-                // The child's `process.argv` starts with Node and the Pi script.
-                args: argv.slice(2, mode),
-                thinking: argv[argv.indexOf("--thinking", mode) + 1]
-              }
-            ];
-          })
-        );
         const templateArgs = [
           "--tools",
           "read",
           ...prompts.flatMap((path) => ["--append-system-prompt", path])
         ];
-        expect(Object.fromEntries(launched)).toEqual({
+        expect(await launches(3)).toEqual({
           "[fixture] Template defaults": {
             selection: "subagents-fixture/reasoning:high",
             args: [`--${LAUNCH_FLAG}`, "marker", ...templateArgs],
@@ -542,11 +545,22 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             thinking: "high"
           }
         });
+
+        // On resume, the template's values replace those of the task's latest run, which requested
+        // the default model and the marker arguments.
+        await host.prompt(`template-resume ${tasks[0]!.task_id}`);
+        expect(await launches(1)).toEqual({
+          "[fixture] Template resume": {
+            selection: "subagents-fixture/reasoning:high",
+            args: templateArgs,
+            thinking: "high"
+          }
+        });
         const templateRuns = await runEntries();
 
-        // An unknown or left-out template, a template on a resume, and a call flag that the
-        // template also sets fail before a task, record, or process exists.
-        await host.prompt(`template-rejected ${tasks[0]!.task_id}`);
+        // An unknown or left-out template, and a call flag that the template also sets, fail before
+        // a task, record, or process exists.
+        await host.prompt("template-rejected");
         const failed = (await host.results()).slice(-REJECTED_TEMPLATE_CALLS.length);
         expect(failed.map((result) => [result.isError, contentText(result.content)])).toEqual(
           REJECTED_TEMPLATE_CALLS.map(([, error]) => [true, error])

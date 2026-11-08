@@ -34,9 +34,9 @@ The tools are model-only, so codemode scripts cannot invoke them.
 Your current Pi session is the supervisor. Each child starts with a fresh conversation in the same working directory, so the prompt must supply the context that the child needs. Keep parallel edits in different files. The child's system prompt tells it that only its final reply returns; see [result instructions](docs/children.md#result-instructions).
 
 - Set `task_id` to continue a task: an inactive task resumes, and an active task receives input. See [send input or resume](docs/tasks.md#send-input-or-resume).
-- For a new task, omit `model` and `thinking` to use the values of the call's [template](docs/tasks.md#templates), or else the supervisor's current selection. Set `model` to `provider/id` to select a model. See [model and thinking](docs/tasks.md#model-and-thinking).
+- Set `model` to `provider/id` to select a model. See [model and thinking](docs/tasks.md#model-and-thinking).
 - Set `launch_args` to give the child more Pi CLI arguments, such as `["--no-extensions", "-e", "path"]`. See [launch arguments](docs/tasks.md#launch-arguments).
-- Set `template` to start a new task with the default values of a template from the `templates` setting. The `subagent` description lists the templates. See [templates](docs/tasks.md#templates).
+- Set `template` to fill in the values that a launch or resume leaves out from a template in the `templates` setting. The `subagent` description lists the templates. See [templates](docs/tasks.md#templates).
 - A turn abort stops running foreground work, and tree navigation, fork, and session switch stop all running work. Restored tasks never restart automatically. See [turn aborts](docs/tasks.md#turn-aborts) and [branch changes](docs/history.md#branch-changes).
 - Top-level launches queue in FIFO order when capacity is full. Nested launches fail immediately with the configured capacity in the error, so a task never waits for capacity that its own ancestors hold.
 
@@ -80,7 +80,7 @@ This example shows every field with its default, except `docs` and `templates`, 
     // A relative path resolves from the directory of this settings file. Each file is at most 1 MiB.
     // A project list replaces the global list, and an empty array removes the docs.
     "docs": ["prompts/subagent.md"],
-    // Optional. Named default values for new tasks; a call sets `template` to use one. Default: no templates.
+    // Optional. Named default values for new tasks and resumes; a call sets `template` to use one. Default: no templates.
     // For merge and validation rules, see docs/tasks.md#template-settings.
     // Each entry is a template object, or the path of a JSON file that holds one template object.
     // A relative path resolves from the directory of this settings file.
@@ -91,10 +91,10 @@ This example shows every field with its default, except `docs` and `templates`, 
         "name": "scout",
         // Required. Tells the model when to use the template. At least one character that is not white space.
         "description": "File and symbol discovery, narrow test runs.",
-        // Optional. A provider/id model. Default: the supervisor's model.
+        // Optional. A provider/id model. Default: none; the call's default applies.
         "model": "openai/gpt-5-mini",
         // Optional. "off", "minimal", "low", "medium", "high", "xhigh", or "max".
-        // Default: the supervisor's current thinking level.
+        // Default: none; the call's default applies.
         "thinking": "low",
         // Optional. true starts the task in the background. Default: false.
         "background": false,

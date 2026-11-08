@@ -44,18 +44,18 @@ export const toolInputSchema = z.strictObject({
     .min(1)
     .optional()
     .describe(
-      "A provider/id model. Defaults to the task's previously requested model on resume, and otherwise to the template's model, then your current model."
+      "A provider/id model. Defaults to the template's model, then on resume to the task's previously requested model, then to your current model."
     ),
   thinking: z
     .enum(MODEL_THINKING_LEVELS)
     .optional()
     .describe(
-      "Defaults to the task's previously requested level on resume, and otherwise to the template's level, then your current level."
+      "Defaults to the template's level, then on resume to the task's previously requested level, then to your current level."
     ),
   launch_args: launchArgsSchema
     .optional()
     .describe(
-      'Extra Pi CLI arguments for the child process, such as ["--no-extensions", "-e", "path"]. Defaults to the task\'s previous value on resume, where [] clears it. A template\'s arguments follow these.'
+      'Extra Pi CLI arguments for the child process, such as ["--no-extensions", "-e", "path"]. Defaults to the task\'s previous value on resume, where [] clears it. A template\'s arguments follow these, and with a template the previous value is not used.'
     ),
   template: z
     .string()

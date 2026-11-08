@@ -324,17 +324,15 @@ const unknownTemplate = (name: string) => `Unknown template ${name}; the templat
 
 /**
  * Template calls that fail with `FIXTURE_TEMPLATES`, each with its error: an unknown name, the two
- * templates that are left out, a resume of the task that the scenario names, and a call flag that
- * the template also sets.
+ * templates that are left out, and a call flag that the template also sets.
  */
 export const REJECTED_TEMPLATE_CALLS: readonly (readonly [
-  { template: string; launch_args?: string[]; resume?: true },
+  { template: string; launch_args?: string[] },
   string
 ])[] = [
   [{ template: "missing" }, unknownTemplate("missing")],
   [{ template: "unknown-key" }, unknownTemplate("unknown-key")],
   [{ template: "no-prompt" }, unknownTemplate("no-prompt")],
-  [{ template: "fixture", resume: true }, "template cannot be used with task_id"],
   [
     { template: "fixture", launch_args: ["-t", "bash"] },
     "launch_args cannot contain --tools: template fixture sets it"
@@ -344,7 +342,8 @@ export const REJECTED_TEMPLATE_CALLS: readonly (readonly [
 /**
  * Three `fixture` template calls in one turn, which the descriptions name: with launch arguments,
  * with a call thinking level, and with a call model. Each child reports its selection and argv.
- * Also the rejected template calls in one turn, and a call of the `project` template.
+ * Also a `fixture` resume of the task that the scenario names, the rejected template calls in one
+ * turn, and a call of the `project` template.
  */
 function templatePlan(scenario: string): Call[] | undefined {
   if (scenario === "delegate-template")
@@ -370,15 +369,23 @@ function templatePlan(scenario: string): Call[] | undefined {
     ];
   if (scenario === "delegate-project-template")
     return [{ description: "Project template", prompt: "reply", template: "project" }];
-  const rejected = /^template-rejected ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+  if (scenario === "template-rejected")
+    return REJECTED_TEMPLATE_CALLS.map(([call]) => ({
+      description: "Rejected template call",
+      prompt: "report-launch",
+      ...call
+    }));
+  const resumed = /^template-resume ([0-9a-f-]{36})$/.exec(scenario)?.[1];
 
-  return rejected
-    ? REJECTED_TEMPLATE_CALLS.map(([{ resume, ...call }]) => ({
-        description: "Rejected template call",
-        prompt: "report-launch",
-        ...call,
-        ...(resume ? { task_id: rejected } : {})
-      }))
+  return resumed
+    ? [
+        {
+          description: "Template resume",
+          prompt: "report-launch",
+          template: "fixture",
+          task_id: resumed
+        }
+      ]
     : undefined;
 }
 

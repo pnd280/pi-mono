@@ -2,10 +2,11 @@ import type { Template } from "../config.ts";
 import { checkTemplateArgs, type ToolInput } from "./tool-schema.ts";
 
 /**
- * The call with the values of its template filled in. A call value replaces the template's model,
- * thinking level, and background value. The template's launch arguments and prompt files follow
- * the call's launch arguments, so that the template's value wins for a flag that Pi reads once.
- * The task label starts with the template name in brackets.
+ * The call with the values of its template filled in, for a new task or a resume. A call value
+ * replaces the template's model, thinking level, and background value. The template's launch
+ * arguments and prompt files follow the call's launch arguments, so that the template's value wins
+ * for a flag that Pi reads once. The call then sets `launch_args`, so a resume does not repeat the
+ * latest run's arguments. The task label starts with the template name in brackets.
  */
 export function applyTemplate(
   request: ToolInput,
@@ -13,7 +14,6 @@ export function applyTemplate(
 ): ToolInput {
   const { template: name, ...call } = request;
   if (name === undefined) return request;
-  if (call.task_id !== undefined) throw new Error("template cannot be used with task_id");
   const template = templates.get(name);
 
   if (!template) {
