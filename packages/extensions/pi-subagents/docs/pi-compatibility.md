@@ -50,7 +50,7 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 
 Resume opens the task's [child file](../GLOSSARY.md#history) with `--session` and checks its session ID before `begin`.
 
-When `launch_args` gives no `--tools`, the child receives no `--tools`, so Pi restores a resumed child's tool loadout from its child file. The package's tools register when the extension loads, and again at `session_start` when their exposure, docs, or delivery text changed, and they stay active. The [depth tests](../validation/descendants.test.ts) cover the active and the hidden case.
+When `launch_args` gives no `--tools`, the child receives no `--tools`, so Pi restores a resumed child's tool loadout from its child file. The package's tools register when the extension loads, and again at `session_start` under the [registration rule](../AGENTS.md#boundaries), and they stay active. The [depth tests](../validation/descendants.test.ts) cover the active and the hidden case.
 
 The supervisor reads the final text and statistics before stdin EOF. Because Pi loads new extension instances after `session_shutdown`, a revoked [session binding](../GLOSSARY.md#tasks-and-processes) is never opened again. Because shortcuts are set up after `resources_discover`, the panel shortcut that the startup handler claims works at once.
 
@@ -125,7 +125,7 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 - [ ] `ctx.ui.editor` still takes no abort signal, and the interactive editor still expands tabs, normalises line ends, and trims the text that it returns.
 - [ ] The exported terminal components, theme tokens, and truncation helpers retain their contracts.
 
-These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped.
+These `--tools` contracts set the [registration rule](../AGENTS.md#boundaries). Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped.
 
 Fire-and-forget child UI is dropped. Because `ctx.ui.editor` takes no signal, a forwarded editor stays open after its run is cancelled, and `editorText` in the [dialog forwarder](../src/child/dialogs.ts) copies the editor's whitespace changes to detect an unchanged prefill; when Pi adds an editor signal, pass it and close the editor on cancellation.
 

@@ -25,6 +25,7 @@ import {
   type RunReturn,
   type Selection
 } from "./run.ts";
+import { applyTemplate } from "./templates.ts";
 import type { ToolInput } from "./tool-schema.ts";
 import { TaskTree } from "./tree.ts";
 
@@ -165,8 +166,9 @@ export class Tasks {
    * foreground call returns the run's result; a background or promoted call returns when its run
    * starts. Errors before the task is claimed throw; later failures return as a result.
    */
-  async submit(request: ToolInput, handlers: CallHandlers): Promise<Submission> {
+  async submit(call: ToolInput, handlers: CallHandlers): Promise<Submission> {
     if (handlers.signal?.aborted) throw new Error("Cancelled by turn abort");
+    const request = applyTemplate(call, this.config.templates);
 
     if (request.task_id !== undefined) {
       const delivery = request.delivery ?? "follow_up";

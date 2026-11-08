@@ -80,6 +80,7 @@ type Call =
       model?: string;
       thinking?: string;
       launch_args?: string[];
+      template?: string;
       background?: boolean;
       delivery?: "steer" | "follow_up";
     }
@@ -289,10 +290,95 @@ function launchArgsPlan(scenario: string): Call[] | undefined {
     : undefined;
 }
 
+/** The prompt files of the `fixture` template, in order, relative to the global settings file. */
+export const TEMPLATE_PROMPTS = ["template-prompt.md", "template-rules.md"];
+
+/**
+ * Global templates: `fixture` is the only valid one. The other two are left out, one for an unknown
+ * field and one for a prompt file that does not exist.
+ */
+export const FIXTURE_TEMPLATES = {
+  fixture: {
+    description: "Fixture template",
+    model: REASONING_MODEL,
+    thinking: "high",
+    launchArgs: ["--tools", "read"],
+    appendSystemPrompts: TEMPLATE_PROMPTS
+  },
+  "unknown-key": { description: "Template with an unknown field", color: "red" },
+  "no-prompt": { description: "Template without its prompt file", appendSystemPrompts: ["none.md"] }
+};
+
+const unknownTemplate = (name: string) => `Unknown template ${name}; the templates are fixture`;
+
+/**
+ * Template calls that fail with `FIXTURE_TEMPLATES`, each with its error: an unknown name, the two
+ * templates that are left out, a resume of the task that the scenario names, and a call flag that
+ * the template also sets.
+ */
+export const REJECTED_TEMPLATE_CALLS: readonly (readonly [
+  { template: string; launch_args?: string[]; resume?: true },
+  string
+])[] = [
+  [{ template: "missing" }, unknownTemplate("missing")],
+  [{ template: "unknown-key" }, unknownTemplate("unknown-key")],
+  [{ template: "no-prompt" }, unknownTemplate("no-prompt")],
+  [{ template: "fixture", resume: true }, "template cannot be used with task_id"],
+  [
+    { template: "fixture", launch_args: ["-t", "bash"] },
+    "launch_args cannot contain --tools: template fixture sets it"
+  ]
+];
+
+/**
+ * Three `fixture` template calls in one turn, which the descriptions name: with launch arguments,
+ * with a call thinking level, and with a call model. Each child reports its selection and argv.
+ * Also the rejected template calls in one turn, and a call of the `project` template.
+ */
+function templatePlan(scenario: string): Call[] | undefined {
+  if (scenario === "delegate-template")
+    return [
+      {
+        description: "Template defaults",
+        prompt: "report-launch",
+        template: "fixture",
+        launch_args: [`--${LAUNCH_FLAG}`, "marker"]
+      },
+      {
+        description: "Template call thinking",
+        prompt: "report-launch",
+        template: "fixture",
+        thinking: "low"
+      },
+      {
+        description: "Template call model",
+        prompt: "report-launch",
+        template: "fixture",
+        model: FIXTURE_MODEL
+      }
+    ];
+  if (scenario === "delegate-project-template")
+    return [{ description: "Project template", prompt: "reply", template: "project" }];
+  const rejected = /^template-rejected ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+
+  return rejected
+    ? REJECTED_TEMPLATE_CALLS.map(([{ resume, ...call }]) => ({
+        description: "Rejected template call",
+        prompt: "report-launch",
+        ...call,
+        ...(resume ? { task_id: rejected } : {})
+      }))
+    : undefined;
+}
+
 function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
-  const continuation = [continuationPlan, selectionPlan, launchArgsPlan, jobPlan].reduce<
-    Call[] | undefined
-  >((plan, next) => plan ?? next(scenario), undefined);
+  const continuation = [
+    continuationPlan,
+    selectionPlan,
+    launchArgsPlan,
+    templatePlan,
+    jobPlan
+  ].reduce<Call[] | undefined>((plan, next) => plan ?? next(scenario), undefined);
   if (continuation) return continuation;
   if (scenario === "failure-then-reply")
     return supervisorPlan(completed === 0 ? "delegate-launch-error" : "delegate-reply");
@@ -629,12 +715,17 @@ function createStream(
           return "stop";
         }
       });
-    if (scenario === "report-selection")
+    if (scenario === "report-selection" || scenario === "report-launch")
       return createFixtureStream({
         model,
         signal,
         run: async ({ text }) => {
-          text(`Selection: ${model.provider}/${model.id}:${reasoning ?? "off"}`);
+          const selection = `Selection: ${model.provider}/${model.id}:${reasoning ?? "off"}`;
+          text(
+            scenario === "report-launch"
+              ? `${selection}\n${JSON.stringify(process.argv)}`
+              : selection
+          );
 
           return "stop";
         }

@@ -8,7 +8,15 @@ import {
 } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
 import { expandHomePath } from "@pi-mono/utils/paths";
+import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
+
+import {
+  checkLaunchArgs,
+  LAUNCH_ARG_MAX_LENGTH,
+  LAUNCH_ARGS_MAX_ITEMS,
+  launchArgsSchema
+} from "./tasks/tool-schema.ts";
 
 const resultDeliverySchema = z.enum(["turn_end", "settle"]);
 
@@ -22,9 +30,32 @@ const sectionSchema = z.object({
   jobs: z.boolean().optional().catch(undefined),
   resultDelivery: resultDeliverySchema.optional().catch(undefined),
   shortcut: canonicalKeySchema.optional().catch(undefined),
-  docs: z.unknown().optional()
+  docs: z.unknown().optional(),
+  templates: z.unknown().optional()
 });
 const docsSchema = z.array(z.string().trim().min(1));
+const TEMPLATE_NAME = /^[a-z][a-z0-9-]*$/;
+const templateSchema = z.strictObject({
+  description: z.string().trim().min(1),
+  model: z.string().min(1).optional(),
+  thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
+  background: z.boolean().optional(),
+  launchArgs: launchArgsSchema.optional(),
+  appendSystemPrompts: z
+    .array(z.string().trim().min(1).max(LAUNCH_ARG_MAX_LENGTH))
+    .max(LAUNCH_ARGS_MAX_ITEMS)
+    .optional()
+});
+
+/** The default launch values of a new task that names the template. */
+export type Template = Omit<
+  z.output<typeof templateSchema>,
+  "launchArgs" | "appendSystemPrompts"
+> & {
+  launchArgs: string[];
+  /** Absolute paths. */
+  appendSystemPrompts: string[];
+};
 
 export type SubagentsConfig = {
   maxDepth: number;
@@ -35,32 +66,102 @@ export type SubagentsConfig = {
   resultDelivery: ResultDelivery;
   /** Opens the task panel. */
   shortcut: string;
+  /** Valid templates by name, global first. */
+  templates: ReadonlyMap<string, Template>;
 };
 
-type ScopeSettings = Omit<z.output<typeof sectionSchema>, "docs"> & {
+type ScopeSettings = Omit<z.output<typeof sectionSchema>, "docs" | "templates"> & {
   /** Absolute paths; absent when the scope sets no valid list. */
   docPaths?: string[];
+  templates: Map<string, Template>;
   warnings: string[];
 };
 
-function readSection(section: ScopedSection): ScopeSettings {
-  if (section.status === "unreadable") return { warnings: [] };
-  const { path } = section;
-  const { docs, ...limits } = sectionSchema.safeParse(section.value).data ?? {};
-  if (docs === undefined) return { ...limits, warnings: [] };
-  const paths = docsSchema.safeParse(docs);
+/** The text of a settings-owned file, or `undefined` when it cannot be read. */
+function readFile(path: string): string | undefined {
+  try {
+    return readSettingsFile(path);
+  } catch {
+    // The caller reports the path without the error, which can hold file contents.
+    return undefined;
+  }
+}
 
-  if (!paths.success)
-    return {
-      ...limits,
-      warnings: [`ext.pi-subagents.docs in ${path} is invalid; expected an array of file paths`]
-    };
+/** Relative paths belong to the settings file that names them. */
+function settingsPath(entry: string, settings: string): string {
+  return resolve(dirname(settings), expandHomePath(entry, homedir()));
+}
+
+/** A valid template, or the reason why it is left out. */
+function readTemplate(name: string, value: unknown, path: string): Template | string {
+  if (!TEMPLATE_NAME.test(name)) return `its name does not match ${TEMPLATE_NAME.source}`;
+  const parsed = templateSchema.safeParse(value);
+
+  if (!parsed.success) {
+    const fields = parsed.error.issues.flatMap((issue) =>
+      issue.code === "unrecognized_keys" ? issue.keys : issue.path.slice(0, 1).map(String)
+    );
+
+    return fields.length ? `invalid fields: ${[...new Set(fields)].join(", ")}` : "not an object";
+  }
+
+  const { launchArgs = [], appendSystemPrompts = [], ...values } = parsed.data;
+
+  try {
+    checkLaunchArgs(launchArgs, "launchArgs");
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  const prompts = appendSystemPrompts.map((entry) => settingsPath(entry, path));
+  // Pi reads the file when the child starts; the check finds a wrong path at load.
+  const unreadable = prompts.find((prompt) => readFile(prompt) === undefined);
+  if (unreadable !== undefined) return `${unreadable} could not be read`;
+
+  return { ...values, launchArgs, appendSystemPrompts: prompts };
+}
+
+function readTemplates(value: unknown, path: string, warnings: string[]): Map<string, Template> {
+  const templates = new Map<string, Template>();
+  const entries = z.record(z.string(), z.unknown()).safeParse(value);
+
+  if (!entries.success) {
+    warnings.push(
+      `ext.pi-subagents.templates in ${path} is invalid; expected an object of templates`
+    );
+
+    return templates;
+  }
+
+  for (const [name, entry] of Object.entries(entries.data)) {
+    const template = readTemplate(name, entry, path);
+    if (typeof template === "string")
+      warnings.push(`template ${name} in ${path} is left out: ${template}`);
+    else templates.set(name, template);
+  }
+
+  return templates;
+}
+
+const unset = (): ScopeSettings => ({ templates: new Map(), warnings: [] });
+
+function readSection(section: ScopedSection): ScopeSettings {
+  if (section.status === "unreadable") return unset();
+  const { path } = section;
+  const { docs, templates, ...limits } = sectionSchema.safeParse(section.value).data ?? {};
+  const warnings: string[] = [];
+  const paths = docs === undefined ? undefined : docsSchema.safeParse(docs);
+  if (paths?.success === false)
+    warnings.push(`ext.pi-subagents.docs in ${path} is invalid; expected an array of file paths`);
 
   return {
     ...limits,
-    // Relative paths belong to the scope that names them.
-    docPaths: paths.data.map((entry) => resolve(dirname(path), expandHomePath(entry, homedir()))),
-    warnings: []
+    ...(paths?.success ? { docPaths: paths.data.map((entry) => settingsPath(entry, path)) } : {}),
+    templates:
+      templates === undefined
+        ? new Map<string, Template>()
+        : readTemplates(templates, path, warnings),
+    warnings
   };
 }
 
@@ -69,14 +170,7 @@ function readDocs(paths: readonly string[], warnings: string[]): string {
   const docs: string[] = [];
 
   for (const path of paths) {
-    let text: string | undefined;
-
-    try {
-      text = readSettingsFile(path);
-    } catch {
-      // Reported below without the file contents.
-    }
-
+    const text = readFile(path);
     if (text === undefined) warnings.push(`${path} could not be read; its docs are left out`);
     else if (text.trim()) docs.push(text.trim());
   }
@@ -86,13 +180,14 @@ function readDocs(paths: readonly string[], warnings: string[]): string {
 
 /**
  * Valid trusted-project values override global values. A project `docs` list replaces the
- * global list; `docs` joins the readable files for the `subagent` description.
+ * global list; `docs` joins the readable files for the `subagent` description. A valid project
+ * template replaces the global template of the same name.
  */
 export function loadConfig(
   cwd: string,
   { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): SubagentsConfig & { docs: string; warnings: string[] } {
-  const [global = { warnings: [] }, project = { warnings: [] }] = readScopedSections(
+  const [global = unset(), project = unset()] = readScopedSections(
     { cwd, projectTrusted, agentDir },
     "ext.pi-subagents"
   ).map(readSection);
@@ -106,6 +201,7 @@ export function loadConfig(
     jobs: project.jobs ?? global.jobs ?? false,
     resultDelivery: project.resultDelivery ?? global.resultDelivery ?? "turn_end",
     shortcut: project.shortcut ?? global.shortcut ?? "ctrl+alt+s",
+    templates: new Map([...global.templates, ...project.templates]),
     docs,
     warnings
   };

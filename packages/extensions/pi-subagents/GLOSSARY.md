@@ -16,6 +16,10 @@ _Avoid_: parent, host, orchestrator
 Delegated work with one task ID and one child file for its whole life. It can have many runs. See [continue and cancel tasks](docs/tasks.md).
 _Avoid_: job, "subagent" when the task is meant
 
+**Template**:
+The default launch values for a new task, from settings. A call replaces its single values, and its launch arguments and prompt files are always added. See [templates](docs/tasks.md#templates).
+_Avoid_: agent definition, profile, role
+
 **Run**:
 One child process of a task, from launch to exit. A resume starts a new run in the same child file. See [runs and entries](docs/history.md#runs-and-entries).
 _Avoid_: attempt, session, turn

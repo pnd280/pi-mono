@@ -20,7 +20,14 @@ import { readRunFile } from "../src/history/sessions.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
-import { LATE_DIALOG_ANSWERS, LAUNCH_FLAG, REJECTED_LAUNCH_ARGS } from "./provider.ts";
+import {
+  FIXTURE_TEMPLATES,
+  LATE_DIALOG_ANSWERS,
+  LAUNCH_FLAG,
+  REJECTED_LAUNCH_ARGS,
+  REJECTED_TEMPLATE_CALLS,
+  TEMPLATE_PROMPTS
+} from "./provider.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 /** The supervisor's run and end entries, which are its only task entries. */
@@ -435,45 +442,112 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  test("passes launch_args before the extension's flags, rejects owned flags and a last value flag, and reuses them on resume", async () => {
-    await withFixture(async (_directory, start) => {
-      const host = await start();
+  test("passes launch_args and template values before the extension's flags, rejects owned flags, a last value flag, and invalid template calls, and reuses launch_args on resume", async () => {
+    await withFixture(
+      async (directory, start) => {
+        const prompts = TEMPLATE_PROMPTS.map((name) => join(directory, "agent", name));
+        await Promise.all(prompts.map((path) => writeFile(path, `Fixture prompt ${path}\n`)));
+        const host = await start();
 
-      /** Whether the child's argv has the launch arguments before the extension's `--mode`. */
-      const argvOrder = async (scenario: string) => {
-        await host.prompt(scenario);
-        const result = (await host.results()).at(-1)!;
-        expect(detailsSchema.parse(result.details).state).toBe("completed");
-        const argv = z
-          .array(z.string())
-          .parse(JSON.parse(/^\[.*\]$/m.exec(contentText(result.content))?.[0] ?? "null"));
-        const flag = argv.indexOf(`--${LAUNCH_FLAG}`);
+        /** Whether the child's argv has the launch arguments before the extension's `--mode`. */
+        const argvOrder = async (scenario: string) => {
+          await host.prompt(scenario);
+          const result = (await host.results()).at(-1)!;
+          expect(detailsSchema.parse(result.details).state).toBe("completed");
+          const argv = z
+            .array(z.string())
+            .parse(JSON.parse(/^\[.*\]$/m.exec(contentText(result.content))?.[0] ?? "null"));
+          const flag = argv.indexOf(`--${LAUNCH_FLAG}`);
 
-        return flag >= 0 && argv[flag + 1] === "marker" && flag < argv.indexOf("--mode");
-      };
+          return flag >= 0 && argv[flag + 1] === "marker" && flag < argv.indexOf("--mode");
+        };
 
-      const runEntries = async () =>
-        (await host.entries()).filter(
-          (entry) => entry.type === "custom" && entry.customType === RUN_ENTRY
-        ).length;
+        const runEntries = async () =>
+          (await host.entries()).filter(
+            (entry) => entry.type === "custom" && entry.customType === RUN_ENTRY
+          ).length;
 
-      expect(await argvOrder("delegate-launch-args")).toBe(true);
-      const runs = await runEntries();
+        expect(await argvOrder("delegate-launch-args")).toBe(true);
+        const runs = await runEntries();
 
-      // Each flag that another parameter owns, and a last flag that needs a value, fails its call
-      // before a task, record, or process exists. The exact text separates this check from a launch
-      // that Pi itself rejects or that never starts RPC.
-      await host.prompt("delegate-owned-arg");
-      const rejected = (await host.results()).slice(-REJECTED_LAUNCH_ARGS.length);
-      expect(rejected.map((result) => [result.isError, contentText(result.content)])).toEqual(
-        REJECTED_LAUNCH_ARGS.map(([, error]) => [true, error])
-      );
-      expect(await runEntries()).toBe(runs);
-      const tasks = await taskList(host);
-      expect(tasks).toHaveLength(1);
+        // Each flag that another parameter owns, and a last flag that needs a value, fails its call
+        // before a task, record, or process exists. The exact text separates this check from a launch
+        // that Pi itself rejects or that never starts RPC.
+        await host.prompt("delegate-owned-arg");
+        const rejected = (await host.results()).slice(-REJECTED_LAUNCH_ARGS.length);
+        expect(rejected.map((result) => [result.isError, contentText(result.content)])).toEqual(
+          REJECTED_LAUNCH_ARGS.map(([, error]) => [true, error])
+        );
+        expect(await runEntries()).toBe(runs);
+        const tasks = await taskList(host);
+        expect(tasks).toHaveLength(1);
 
-      expect(await argvOrder(`argv-id ${tasks[0]!.task_id}`)).toBe(true);
-    });
+        expect(await argvOrder(`argv-id ${tasks[0]!.task_id}`)).toBe(true);
+
+        // A call value replaces the template's value, and an omitted one takes it. The call's
+        // launch arguments come first, then the template's, then its prompt files as absolute paths
+        // in order. The extension's `--thinking` after `--mode` is the requested level.
+        await host.prompt("delegate-template");
+        const launched = new Map(
+          (await host.results()).slice(-3).map((result) => {
+            const details = detailsSchema.parse(result.details);
+            expect(details.state).toBe("completed");
+            const text = contentText(result.content);
+            const argv = z
+              .array(z.string())
+              .parse(JSON.parse(/^\[.*\]$/m.exec(text)?.[0] ?? "null"));
+
+            const mode = argv.indexOf("--mode");
+
+            return [
+              details.description,
+              {
+                selection: /Selection: (\S+)/.exec(text)?.[1],
+                // The child's `process.argv` starts with Node and the Pi script.
+                args: argv.slice(2, mode),
+                thinking: argv[argv.indexOf("--thinking", mode) + 1]
+              }
+            ];
+          })
+        );
+        const templateArgs = [
+          "--tools",
+          "read",
+          ...prompts.flatMap((path) => ["--append-system-prompt", path])
+        ];
+        expect(Object.fromEntries(launched)).toEqual({
+          "Template defaults": {
+            selection: "subagents-fixture/reasoning:high",
+            args: [`--${LAUNCH_FLAG}`, "marker", ...templateArgs],
+            thinking: "high"
+          },
+          "Template call thinking": {
+            selection: "subagents-fixture/reasoning:low",
+            args: templateArgs,
+            thinking: "low"
+          },
+          // The scripted model has no thinking levels, so the child applies `off` to the template's
+          // requested level.
+          "Template call model": {
+            selection: "subagents-fixture/scripted:off",
+            args: templateArgs,
+            thinking: "high"
+          }
+        });
+        const templateRuns = await runEntries();
+
+        // An unknown or left-out template, a template on a resume, and a call flag that the
+        // template also sets fail before a task, record, or process exists.
+        await host.prompt(`template-rejected ${tasks[0]!.task_id}`);
+        const failed = (await host.results()).slice(-REJECTED_TEMPLATE_CALLS.length);
+        expect(failed.map((result) => [result.isError, contentText(result.content)])).toEqual(
+          REJECTED_TEMPLATE_CALLS.map(([, error]) => [true, error])
+        );
+        expect(await runEntries()).toBe(templateRuns);
+        expect(await taskList(host)).toHaveLength(4);
+      },
+      { settings: { "ext.pi-subagents": { templates: FIXTURE_TEMPLATES } } }
+    );
   });
 
   test.each([false, true])(
@@ -505,6 +579,21 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           expect(description).not.toContain(
             trusted ? "GLOBAL_SUBAGENT_DOCS" : "PROJECT_SUBAGENT_DOCS"
           );
+          // Global and trusted project templates combine; an untrusted project template is unknown.
+          expect(description).toContain("GLOBAL_TEMPLATE");
+          expect(description?.includes("PROJECT_TEMPLATE")).toBe(trusted);
+
+          if (!trusted) {
+            const runs = (await host.entries()).filter(isRunEntry).length;
+            await host.prompt("delegate-project-template");
+            const rejected = (await host.results()).at(-1)!;
+            expect([rejected.isError, contentText(rejected.content)]).toEqual([
+              true,
+              "Unknown template project; the templates are global"
+            ]);
+            expect((await host.entries()).filter(isRunEntry)).toHaveLength(runs);
+          }
+
           // Only a trusted project turns on jobs.
           await host.prompt("report-job-tools");
           const tools = await host.request({ type: "get_last_assistant_text" });
@@ -514,9 +603,20 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         },
         {
           // In either direction, loading the wrong settings disables the tool and breaks this call.
-          settings: { "ext.pi-subagents": { maxDepth: trusted ? 0 : 2, docs: ["docs.md"] } },
+          settings: {
+            "ext.pi-subagents": {
+              maxDepth: trusted ? 0 : 2,
+              docs: ["docs.md"],
+              templates: { global: { description: "GLOBAL_TEMPLATE" } }
+            }
+          },
           projectSettings: {
-            "ext.pi-subagents": { maxDepth: trusted ? 2 : 0, docs: ["docs.md"], jobs: true }
+            "ext.pi-subagents": {
+              maxDepth: trusted ? 2 : 0,
+              docs: ["docs.md"],
+              jobs: true,
+              templates: { project: { description: "PROJECT_TEMPLATE" } }
+            }
           }
         }
       );
