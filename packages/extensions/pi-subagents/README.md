@@ -82,9 +82,13 @@ This example shows every field with its default, except `docs` and `templates`, 
     "docs": ["prompts/subagent.md"],
     // Optional. Named default values for new tasks; a call sets `template` to use one. Default: no templates.
     // For merge and validation rules, see docs/tasks.md#template-settings.
-    "templates": {
-      // The name: a lowercase letter, then lowercase letters, digits, or hyphens.
-      "scout": {
+    // Each entry is a template object, or the path of a JSON file that holds one template object.
+    // A relative path resolves from the directory of this settings file.
+    "templates": [
+      "templates/reviewer.json",
+      {
+        // Required. A lowercase letter, then lowercase letters, digits, or hyphens.
+        "name": "scout",
         // Required. Tells the model when to use the template. At least one character that is not white space.
         "description": "File and symbol discovery, narrow test runs.",
         // Optional. A provider/id model. Default: the supervisor's model.
@@ -98,11 +102,11 @@ This example shows every field with its default, except `docs` and `templates`, 
         // At most 32 items of at most 2,048 characters. Nothing expands $VAR. Default: no arguments.
         "launchArgs": ["--tools", "read,bash"],
         // Optional. Files that the child adds to its system prompt. A relative path resolves from the
-        // directory of this settings file. Each file must be readable when settings load.
+        // directory of the file that holds the template. Each file must be readable when settings load.
         // At most 32 items of at most 2,048 characters. Default: no files.
         "appendSystemPrompts": ["prompts/scout.md"]
       }
-    }
+    ]
   }
 }
 ```

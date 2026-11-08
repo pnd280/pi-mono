@@ -47,27 +47,32 @@ A [template](../GLOSSARY.md#tasks-and-processes) gives the default launch values
 
 ### Template settings
 
-| Field                 | Required | Effect                                                                                                                                                                                                           |
-| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| name (the key)        | Yes      | A lowercase letter, then lowercase letters, digits, or hyphens.                                                                                                                                                  |
-| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the task label, which is the call's `description`.                                                      |
-| `model`               | No       | The default model, as `provider/id`.                                                                                                                                                                             |
-| `thinking`            | No       | The default thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                        |
-| `background`          | No       | The default value of the call's `background`.                                                                                                                                                                    |
-| `launchArgs`          | No       | Pi CLI arguments that every call of the template adds. At most 32 items of at most 2,048 characters, with the same rejected flags as [`launch_args`](#launch-arguments).                                         |
-| `appendSystemPrompts` | No       | Files that the child adds to its system prompt. At most 32 items of at most 2,048 characters. A leading `~` expands to the home directory, and a relative path resolves from the directory of the settings file. |
+The `templates` setting is an array. Each entry is a template object, or the path of a template file that holds one template object as plain JSON. A leading `~` in the path expands to the home directory, and a relative path resolves from the directory of the settings file. A template file is a regular UTF-8 file of at most 1 MiB.
+
+| Field                 | Required | Effect                                                                                                                                                                                                                          |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                | Yes      | A lowercase letter, then lowercase letters, digits, or hyphens.                                                                                                                                                                 |
+| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the task label, which is the call's `description`.                                                                     |
+| `model`               | No       | The default model, as `provider/id`.                                                                                                                                                                                            |
+| `thinking`            | No       | The default thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                                       |
+| `background`          | No       | The default value of the call's `background`.                                                                                                                                                                                   |
+| `launchArgs`          | No       | Pi CLI arguments that every call of the template adds. At most 32 items of at most 2,048 characters, with the same rejected flags as [`launch_args`](#launch-arguments).                                                        |
+| `appendSystemPrompts` | No       | Files that the child adds to its system prompt. At most 32 items of at most 2,048 characters. A leading `~` expands to the home directory, and a relative path resolves from the directory of the file that holds the template. |
 
 - Templates from global settings and from trusted project settings combine. For the same name, the project template replaces the global template completely; its fields are not merged.
-- A `templates` value that is not an object is ignored for its settings file, with a warning.
+- In one settings file, a later entry replaces an earlier entry of the same name, with a warning.
+- A `templates` value that is not an array is ignored for its settings file, with a warning.
 - Run `/reload` after you change a template. Pi reads the prompt files when each child starts, so a change to the text of a prompt file needs no `/reload`. When a file no longer exists, Pi adds its path as text.
 
 A template is left out in these cases:
 
+- It is not an object or a path.
+- Its template file cannot be read, or is not valid JSON.
 - It has an unknown field, an invalid value, or an invalid name.
 - Its `launchArgs` has a rejected argument.
 - A prompt file cannot be read when settings load. A prompt file must be a regular UTF-8 file of at most 1 MiB. Run `/reload` after you correct the file.
 
-The UI then shows a warning that names the template and its settings file. A project template that is left out does not replace the global template of the same name.
+The UI then shows a warning that names the template when its name is valid, and its template file or its position in the settings file. A project template that is left out does not replace the global template of the same name.
 
 ### What a call receives
 

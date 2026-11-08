@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
@@ -21,11 +21,13 @@ import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
 import {
+  FIXTURE_TEMPLATE,
   FIXTURE_TEMPLATES,
   LATE_DIALOG_ANSWERS,
   LAUNCH_FLAG,
   REJECTED_LAUNCH_ARGS,
   REJECTED_TEMPLATE_CALLS,
+  TEMPLATE_FILE,
   TEMPLATE_PROMPTS
 } from "./provider.ts";
 import type { Supervisor } from "./supervisor.ts";
@@ -445,8 +447,14 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
   test("passes launch_args and template values before the extension's flags, rejects owned flags, a last value flag, and invalid template calls, and reuses launch_args on resume", async () => {
     await withFixture(
       async (directory, start) => {
-        const prompts = TEMPLATE_PROMPTS.map((name) => join(directory, "agent", name));
-        await Promise.all(prompts.map((path) => writeFile(path, `Fixture prompt ${path}\n`)));
+        // The template file's prompt paths resolve from its own directory.
+        const templateFile = join(directory, "agent", TEMPLATE_FILE);
+        const prompts = TEMPLATE_PROMPTS.map((name) => join(dirname(templateFile), name));
+        await mkdir(dirname(templateFile));
+        await Promise.all([
+          writeFile(templateFile, JSON.stringify(FIXTURE_TEMPLATE)),
+          ...prompts.map((path) => writeFile(path, `Fixture prompt ${path}\n`))
+        ]);
         const host = await start();
 
         /** Whether the child's argv has the launch arguments before the extension's `--mode`. */
@@ -607,7 +615,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             "ext.pi-subagents": {
               maxDepth: trusted ? 0 : 2,
               docs: ["docs.md"],
-              templates: { global: { description: "GLOBAL_TEMPLATE" } }
+              templates: [{ name: "global", description: "GLOBAL_TEMPLATE" }]
             }
           },
           projectSettings: {
@@ -615,7 +623,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
               maxDepth: trusted ? 2 : 0,
               docs: ["docs.md"],
               jobs: true,
-              templates: { project: { description: "PROJECT_TEMPLATE" } }
+              templates: [{ name: "project", description: "PROJECT_TEMPLATE" }]
             }
           }
         }
