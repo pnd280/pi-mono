@@ -290,24 +290,35 @@ function launchArgsPlan(scenario: string): Call[] | undefined {
     : undefined;
 }
 
-/** The prompt files of the `fixture` template, in order, relative to the global settings file. */
+/** The file of the `fixture` template, relative to the global settings file. */
+export const TEMPLATE_FILE = "templates/fixture.json";
+
+/** The prompt files of the `fixture` template, in order, relative to its template file. */
 export const TEMPLATE_PROMPTS = ["template-prompt.md", "template-rules.md"];
 
-/**
- * Global templates: `fixture` is the only valid one. The other two are left out, one for an unknown
- * field and one for a prompt file that does not exist.
- */
-export const FIXTURE_TEMPLATES = {
-  fixture: {
-    description: "Fixture template",
-    model: REASONING_MODEL,
-    thinking: "high",
-    launchArgs: ["--tools", "read"],
-    appendSystemPrompts: TEMPLATE_PROMPTS
-  },
-  "unknown-key": { description: "Template with an unknown field", color: "red" },
-  "no-prompt": { description: "Template without its prompt file", appendSystemPrompts: ["none.md"] }
+/** The content of `TEMPLATE_FILE`. */
+export const FIXTURE_TEMPLATE = {
+  name: "fixture",
+  description: "Fixture template",
+  model: REASONING_MODEL,
+  thinking: "high",
+  launchArgs: ["--tools", "read"],
+  appendSystemPrompts: TEMPLATE_PROMPTS
 };
+
+/**
+ * Global templates: `fixture`, from `TEMPLATE_FILE`, is the only valid one. The two inline ones are
+ * left out, one for an unknown field and one for a prompt file that does not exist.
+ */
+export const FIXTURE_TEMPLATES = [
+  TEMPLATE_FILE,
+  { name: "unknown-key", description: "Template with an unknown field", color: "red" },
+  {
+    name: "no-prompt",
+    description: "Template without its prompt file",
+    appendSystemPrompts: ["none.md"]
+  }
+];
 
 const unknownTemplate = (name: string) => `Unknown template ${name}; the templates are fixture`;
 

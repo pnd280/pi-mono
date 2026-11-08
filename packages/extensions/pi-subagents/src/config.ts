@@ -35,7 +35,9 @@ const sectionSchema = z.object({
 });
 const docsSchema = z.array(z.string().trim().min(1));
 const TEMPLATE_NAME = /^[a-z][a-z0-9-]*$/;
+const templateNameSchema = z.string().regex(TEMPLATE_NAME);
 const templateSchema = z.strictObject({
+  name: templateNameSchema,
   description: z.string().trim().min(1),
   model: z.string().min(1).optional(),
   thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
@@ -50,7 +52,7 @@ const templateSchema = z.strictObject({
 /** The default launch values of a new task that names the template. */
 export type Template = Omit<
   z.output<typeof templateSchema>,
-  "launchArgs" | "appendSystemPrompts"
+  "name" | "launchArgs" | "appendSystemPrompts"
 > & {
   launchArgs: string[];
   /** Absolute paths. */
@@ -92,52 +94,84 @@ function settingsPath(entry: string, settings: string): string {
   return resolve(dirname(settings), expandHomePath(entry, homedir()));
 }
 
-/** A valid template, or the reason why it is left out. */
-function readTemplate(name: string, value: unknown, path: string): Template | string {
-  if (!TEMPLATE_NAME.test(name)) return `its name does not match ${TEMPLATE_NAME.source}`;
+/** A valid template and its name, or the reason why it is left out and its name when valid. */
+type TemplateRead = { name: string; template: Template } | { name?: string; reason: string };
+
+/** Relative prompt paths resolve from the directory of `path`, the file that holds the template. */
+function readTemplate(value: unknown, path: string): TemplateRead {
   const parsed = templateSchema.safeParse(value);
 
   if (!parsed.success) {
+    const name = z.object({ name: templateNameSchema }).safeParse(value).data?.name;
     const fields = parsed.error.issues.flatMap((issue) =>
       issue.code === "unrecognized_keys" ? issue.keys : issue.path.slice(0, 1).map(String)
     );
+    const reason = fields.length
+      ? `invalid fields: ${[...new Set(fields)].join(", ")}`
+      : "not an object";
 
-    return fields.length ? `invalid fields: ${[...new Set(fields)].join(", ")}` : "not an object";
+    return { ...(name === undefined ? {} : { name }), reason };
   }
 
-  const { launchArgs = [], appendSystemPrompts = [], ...values } = parsed.data;
+  const { name, launchArgs = [], appendSystemPrompts = [], ...values } = parsed.data;
 
   try {
     checkLaunchArgs(launchArgs, "launchArgs");
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return { name, reason: error instanceof Error ? error.message : String(error) };
   }
 
   const prompts = appendSystemPrompts.map((entry) => settingsPath(entry, path));
   // Pi reads the file when the child starts; the check finds a wrong path at load.
   const unreadable = prompts.find((prompt) => readFile(prompt) === undefined);
-  if (unreadable !== undefined) return `${unreadable} could not be read`;
+  if (unreadable !== undefined) return { name, reason: `${unreadable} could not be read` };
 
-  return { ...values, launchArgs, appendSystemPrompts: prompts };
+  return { name, template: { ...values, launchArgs, appendSystemPrompts: prompts } };
 }
 
+/** A template file holds one template as plain JSON. */
+function readTemplateFile(path: string): TemplateRead {
+  const text = readFile(path);
+  if (text === undefined) return { reason: "the file could not be read" };
+  let value: unknown;
+
+  try {
+    value = JSON.parse(text);
+  } catch {
+    // The error can hold file contents.
+    return { reason: "the file is not valid JSON" };
+  }
+
+  return readTemplate(value, path);
+}
+
+/** Each entry is a template or the path of a template file. A later entry replaces an earlier one of the same name. */
 function readTemplates(value: unknown, path: string, warnings: string[]): Map<string, Template> {
   const templates = new Map<string, Template>();
-  const entries = z.record(z.string(), z.unknown()).safeParse(value);
+  const entries = z.array(z.unknown()).safeParse(value);
 
   if (!entries.success) {
     warnings.push(
-      `ext.pi-subagents.templates in ${path} is invalid; expected an object of templates`
+      `ext.pi-subagents.templates in ${path} is invalid; expected an array of templates and template file paths`
     );
 
     return templates;
   }
 
-  for (const [name, entry] of Object.entries(entries.data)) {
-    const template = readTemplate(name, entry, path);
-    if (typeof template === "string")
-      warnings.push(`template ${name} in ${path} is left out: ${template}`);
-    else templates.set(name, template);
+  for (const [index, entry] of entries.data.entries()) {
+    const file = typeof entry === "string" ? settingsPath(entry, path) : undefined;
+    const source = file ?? `templates[${index}] in ${path}`;
+    const read = file === undefined ? readTemplate(entry, path) : readTemplateFile(file);
+    const label = read.name === undefined ? "template" : `template ${read.name}`;
+
+    if ("reason" in read) {
+      warnings.push(`${label} from ${source} is left out: ${read.reason}`);
+      continue;
+    }
+
+    if (templates.has(read.name))
+      warnings.push(`${label} from ${source} replaces an earlier template of the same name`);
+    templates.set(read.name, read.template);
   }
 
   return templates;
