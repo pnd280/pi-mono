@@ -250,15 +250,19 @@ export type DisplayProgress = {
   description: string;
   /** Model identity; an empty value omits it. */
   identity: string;
-  /** Launch arguments, joined with spaces; they follow the identity on one row, cut at its width. */
-  launchArgs?: string;
   /** Omit before the task reports a state; the renderer then shows the call lifecycle. */
   status?: DisplayProgressStatus;
   startedAt?: number;
   endedAt?: number;
   secondary: string;
-  /** Expanded fields; omit default values. */
-  fields: readonly { label: string; value: string }[];
+  /**
+   * Expanded fields; omit default values. A field with `items` breaks rows only between them,
+   * and its untrusted items keep their spaces.
+   */
+  fields: readonly (
+    | { label: string; value: string }
+    | { label: string; items: readonly string[] }
+  )[];
   prompt?: string;
   /** Collapsed cards preview the first result lines. Omission hides the result until expanded. */
   resultPreview?: boolean;

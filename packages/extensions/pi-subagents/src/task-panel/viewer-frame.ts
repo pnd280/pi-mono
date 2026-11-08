@@ -2,10 +2,10 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Loader, truncateToWidth, visibleWidth, type TUI } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
-import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-import { wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
+import { pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import type { JobRecord } from "../details.ts";
+import { launchArgItems, type JobRecord } from "../details.ts";
 import type { TaskRecord } from "../tasks/records.ts";
 import { elapsed } from "../tasks/render.ts";
 import { contextLabel, status, usageParts } from "./board.ts";
@@ -77,30 +77,6 @@ export type MetadataRow = {
   error?: boolean;
 };
 
-/** Values on rows of `width`, broken only between values, so no separator ends a row. */
-function pack(values: readonly string[], separator: string | undefined, width: number): string[] {
-  const rows: string[] = [];
-  let row = "";
-
-  for (const value of values) {
-    if (row && separator && visibleWidth(row + separator + value) <= width) {
-      row += separator + value;
-      continue;
-    }
-
-    if (row) rows.push(row);
-    // A value wider than the column wraps on its own rows.
-    const wrapped = wrapRows(value, width);
-    row = wrapped.pop() ?? "";
-    // A spread could exceed the argument limit for a long command in a narrow column.
-    for (const line of wrapped) rows.push(line);
-  }
-
-  if (row) rows.push(row);
-
-  return rows;
-}
-
 /**
  * Label/value rows with one dim label column. Long values wrap under the value column. When the
  * column leaves no room for a wide character, each label stands above its values, as on the cards.
@@ -116,7 +92,10 @@ function metadataTable(theme: Theme, rows: readonly MetadataRow[], width: number
 
   return shown.flatMap(({ label, values, separator, error }) => {
     const name = (text: string) => theme.fg(error ? "error" : "dim", text);
-    const packed = pack(values, separator && theme.fg("dim", separator), room);
+    const packed =
+      separator === undefined
+        ? values.flatMap((value) => wrapRows(value, room))
+        : pack(values, theme.fg("dim", separator), room);
     if (stacked) return [...wrapRows(name(label), width), ...packed];
 
     return packed.map((value, index) =>
@@ -148,7 +127,7 @@ function statusValue(
 }
 
 /**
- * A task viewer's `status`, `model`, `usage`, and `error` rows. `parent` is the listed task that
+ * A task viewer's `status`, `model`, `args`, `usage`, and `error` rows. `parent` is the listed task that
  * launched a descendant. Usage has the format of Pi's token and context widgets.
  */
 export function taskRows(
@@ -189,7 +168,13 @@ export function taskRows(
       separator: " • ",
       values: [usageParts(record, true).join(" "), `${contextLabel(record)}${share}`]
     },
-    { label: "error", error: true, values: [compactDisplayText(record.error ?? "")] }
+    { label: "error", error: true, values: [compactDisplayText(record.error ?? "")] },
+    // Last, so long arguments cannot push usage or an error out of the header.
+    {
+      label: "args",
+      separator: " ",
+      values: launchArgItems(record.requested_launch_args).map(displayText)
+    }
   ];
 }
 

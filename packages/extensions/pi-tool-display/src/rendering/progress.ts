@@ -1,8 +1,7 @@
-import { truncateToWidth } from "@earendil-works/pi-tui";
 import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { displayLine, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { displayLine, pack, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import type { DisplayProgress, DisplayProgressStatus } from "../contracts.ts";
 import type { Projection } from "./types.ts";
@@ -117,29 +116,23 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
     (row, index) => `${index ? indent : `${theme.fg(colors.marker, marker)} `}${row}`
   );
   const identity = displayLine(progress.identity);
-  const launchArgs = displayLine(progress.launchArgs ?? "");
   const secondaryText = displayLine(progress.secondary);
-  // Launch arguments follow the identity on its own row, cut rather than wrapped.
-  if (launchArgs)
-    rows.push(
-      `${indent}${truncateToWidth(theme.fg("dim", [identity, launchArgs].filter(Boolean).join(" ")), detailWidth, "…")}`
-    );
   const secondary = [
-    ...(identity && !launchArgs ? [theme.fg("dim", identity)] : []),
+    ...(identity ? [theme.fg("dim", identity)] : []),
     ...(secondaryText ? [theme.fg(colors.secondary, secondaryText)] : [])
   ].join(separator);
-  if (secondary || !launchArgs)
-    rows.push(...wrapRows(secondary, detailWidth).map((row) => `${indent}${row}`));
+  rows.push(...wrapRows(secondary, detailWidth).map((row) => `${indent}${row}`));
 
   if (!p.expanded) return { rows, stale };
 
-  for (const field of progress.fields)
-    rows.push(
-      ...wrapRows(
-        `${theme.fg("dim", `${displayLine(field.label)}:`)} ${displayLine(field.value)}`,
-        detailWidth
-      ).map((row) => `${indent}${row}`)
-    );
+  for (const field of progress.fields) {
+    const label = theme.fg("dim", `${displayLine(field.label)}:`);
+    const fieldRows =
+      "items" in field
+        ? pack([label, ...field.items.map(displayText)], " ", detailWidth)
+        : wrapRows(`${label} ${displayLine(field.value)}`, detailWidth);
+    rows.push(...fieldRows.map((row) => `${indent}${row}`));
+  }
 
   if (progress.prompt !== undefined) {
     const retained = sliceTerminalText(progress.prompt, 0, 16 * 1024).text;

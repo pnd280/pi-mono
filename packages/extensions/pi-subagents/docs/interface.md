@@ -74,6 +74,7 @@ The read-only viewer follows the selected task's live branch or the history of i
 
 - `status`: a spinner and the elapsed time while the task is active, then `foreground` or `background`. After the run ends, `✓ completed in`, `✗ failed after`, or `⊘ cancelled after` the duration, such as `1m 12s`; a run without an end time shows only the outcome. For a descendant, `launched by` and the parent's description follow.
 - `model`: the resolved model, then `thinking` and the thinking level.
+- `args`: the [launch arguments](tasks.md#launch-arguments) that the latest run requested, including the template's, as a JSON array such as `["--tools", "read", "--append-system-prompt", "/my prompts/a.md", ""]`. Each argument shows exactly: quotes keep its spaces, `""` is an empty argument, and `\u` escapes show control and text-direction characters. Rows break between arguments; an argument wider than the column wraps on its own rows. This row is last, so long arguments do not push the other rows out of view.
 - `usage`: the total usage in the format of the [pi-editor-widgets](../../pi-editor-widgets/README.md) token and context widgets, such as `↑30 ↓7.4k R325k W42k CH98.5% $0.552 • 48k/200k (24.0%)`: cache reads (`R`) and writes (`W`), the latest request's cache hit rate (`CH`), the cost to three decimals, and the latest context use. Zero token counts and a zero cost are left out. A known cache hit rate shows, including zero, when the task has reported cache reads or writes. Known context use also shows when zero; unknown use shows `?/200k` without a percentage.
 - `error`: the first line of a failed or cancelled run's result.
 
@@ -125,7 +126,8 @@ A call that returns before its task finishes shows the fixed `↗ returned; task
 
 Other labelled rows show the selection, usage, error, and task ID:
 
-- `model`: the model and thinking level, then the [launch arguments](tasks.md#launch-arguments) separated by spaces. When the row has launch arguments, it is cut at the card width instead of wrapped. Before the task reports, only an explicitly requested model, thinking level, or launch arguments appear.
+- `model`: the model and thinking level. Before the task reports, only an explicitly requested model and thinking level appear.
+- `args`: on expanded cards only, the [launch arguments](tasks.md#launch-arguments) in the format of the [task viewer's](#task-viewer) `args` row. Before the task reports, the row shows the launch arguments of the call.
 - `usage`: usage such as `↑48k ↓3.1k $0.21`, when a value is positive.
 - `error`: the first line of a failure's error. Cancellation uses the warning colour, like other cancelled status details; the panel's `⊘` glyph uses the error colour, like pi-tool-display headings. See [notices and colours](../../pi-tool-display/docs/presentation.md#notices-and-colours).
 - `task`: the first eight characters of the task ID; expansion shows the full ID.

@@ -180,7 +180,6 @@ Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as pro
 - The first line shows the description and the task state. Queued, failed, and cancelled tasks name their state; running tasks show elapsed time, and completed tasks show `✓`. Returned calls use the fixed labels below. Before details exist, the line shows `preparing`, `waiting to run`, or `starting`.
 - Elapsed time appears only when a start time is known.
 - The second line shows the `model` and `thinking` that the call requested, if any, as `model:thinking` before details exist, then the resolved model, with `Waiting for capacity` or usage such as `↑48k ↓3.1k $0.21`.
-- When the task has `launch_args`, the second line shows them after the model, separated by spaces and cut at the card width. `Waiting for capacity` or the usage then moves to the next line.
 - Usage omits cache counts and appears only when a value is positive.
 - A failed or cancelled call shows usage before its error text. Line breaks in the error become spaces before wrapping.
 - The card does not show running activity.
@@ -191,7 +190,7 @@ Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as pro
 - Results show the child's reply without the model-facing `<task>` envelope and its summary.
 - Collapsed completed cards preview three reply lines, or all four when there are exactly four, under a `└` branch. Long lines end with `…`.
 - Failed or cancelled cards show the recorded errors in place of a reply preview.
-- Expanded cards show the task ID, non-default options, a ten-line prompt preview, and the retained results.
+- Expanded cards show the task ID, the `launch_args` in the format of the [pi-subagents task viewer](../../pi-subagents/docs/interface.md#task-viewer), non-default options, a ten-line prompt preview, and the retained results.
 
 ### Abort cards
 

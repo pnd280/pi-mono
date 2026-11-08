@@ -524,19 +524,19 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           ...prompts.flatMap((path) => ["--append-system-prompt", path])
         ];
         expect(Object.fromEntries(launched)).toEqual({
-          "Template defaults": {
+          "[fixture] Template defaults": {
             selection: "subagents-fixture/reasoning:high",
             args: [`--${LAUNCH_FLAG}`, "marker", ...templateArgs],
             thinking: "high"
           },
-          "Template call thinking": {
+          "[fixture] Template call thinking": {
             selection: "subagents-fixture/reasoning:low",
             args: templateArgs,
             thinking: "low"
           },
           // The scripted model has no thinking levels, so the child applies `off` to the template's
           // requested level.
-          "Template call model": {
+          "[fixture] Template call model": {
             selection: "subagents-fixture/scripted:off",
             args: templateArgs,
             thinking: "high"

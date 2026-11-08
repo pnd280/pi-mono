@@ -7,6 +7,7 @@ Long output must fit a fixed number of rows without slow layout in render loops.
 ## Behaviour
 
 - `wrapRows` wraps ANSI-styled text and clamps wide graphemes that cannot fit.
+- `pack` puts items on rows, broken only between items, so no row ends with the separator. An item wider than the row wraps on its own rows.
 - `wrapHangingRows` wraps a first row beside a marker at one width and the remaining text at another, so continuation rows can take a tree prefix. It consumes each break once and retains explicit blank rows.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `displayLine` normalises raw text into one compact line from a bounded prefix (2048 UTF-16 code units by default), appending `…` only when it clips.

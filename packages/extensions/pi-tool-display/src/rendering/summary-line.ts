@@ -1,6 +1,7 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { pack } from "@pi-mono/libs/tui/text-budget";
 
 import type { RunSummary, SummarySegment } from "../run-summary.ts";
 import type { DisplayTheme } from "./types.ts";
@@ -100,20 +101,8 @@ export function renderRunSummary(summary: RunSummary, options: SummaryLineOption
   const items = summary.segments.map((segment, index) =>
     truncateToWidth(segmentText(segment, theme, index === 0), contentWidth, "…")
   );
-  const rows: string[] = [];
-  let current = "";
-
-  for (const item of items) {
-    // Wrap only between items, aligned with the first item.
-    if (current && visibleWidth(current + separator + item) <= contentWidth)
-      current += separator + item;
-    else {
-      if (current) rows.push(current);
-      current = item;
-    }
-  }
-
-  if (current) rows.push(current);
+  // Wrap only between items, aligned with the first item.
+  const rows = pack(items, separator, contentWidth);
   const marker = theme.fg("muted", open ? TUI_GLYPHS.expanded : TUI_GLYPHS.closed);
   const lines = rows.map((row, y) => `${y ? INDENT : `${marker} `}${row}`);
   const count = theme.fg("dim", `${calls} ${calls === 1 ? "call" : "calls"} `);

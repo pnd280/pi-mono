@@ -130,6 +130,8 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - A child that blocks shutdown can survive supervisor SIGKILL, because no independent watchdog exists to stop it.
 - The wording of the `subagent` guidance and of a child's [result instructions](children.md#result-instructions) is below the severity bar. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns where the instructions appear in the system prompt.
 - The template's `background` value is below the severity bar, because the call's result shows at once whether the task runs in the background.
+- The template name before the task label is below the severity bar.
+- The exact launch-argument display, including its `\u` escapes, is not tested. `displayText` already removes terminal controls; the escapes only keep values exact and stop text-direction reordering.
 - Card appearance, the activity that cards and panel rows name, task-list pagination, and the panel shortcut are below the severity bar.
 - Job card appearance, the widget's job count, panel job rows, and the job log viewer are below the severity bar.
 - A job process that leaves its process group is not tested because job cleanup does not stop it.

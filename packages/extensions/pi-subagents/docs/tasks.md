@@ -45,6 +45,8 @@ Set `launch_args` to an array of more Pi CLI arguments for the child, such as `[
 
 A [template](../GLOSSARY.md#tasks-and-processes) gives the default launch values for a new task. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, and `background` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the `launchArgs` or the prompt files. Without templates, the description has no list.
 
+The task label is the call's `description` after the template name in brackets, such as `[explorer] Lease ownership`. The task record, the child session name, and background results keep this label. The `subagent` description does not tell the model to add the prefix. A resume keeps the `description` of the call without a change.
+
 ### Template settings
 
 The `templates` setting is an array. Each entry is a template object, or the path of a template file that holds one template object as plain JSON. A leading `~` in the path expands to the home directory, and a relative path resolves from the directory of the settings file. A template file is a regular UTF-8 file of at most 1 MiB.
@@ -52,7 +54,7 @@ The `templates` setting is an array. Each entry is a template object, or the pat
 | Field                 | Required | Effect                                                                                                                                                                                                                          |
 | --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`                | Yes      | A lowercase letter, then lowercase letters, digits, or hyphens.                                                                                                                                                                 |
-| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the task label, which is the call's `description`.                                                                     |
+| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the [task label](#templates).                                                                                          |
 | `model`               | No       | The default model, as `provider/id`.                                                                                                                                                                                            |
 | `thinking`            | No       | The default thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                                       |
 | `background`          | No       | The default value of the call's `background`.                                                                                                                                                                                   |
@@ -97,7 +99,7 @@ A call fails before it starts a task in these cases:
 
 The check does not cover flags that Pi collects, such as `-e`. Their values add to the template's values.
 
-The task does not keep the template name. It keeps the resolved model, thinking level, and launch arguments; for where they appear, see [task card details](interface.md#task-card-details) and the fields of [task pages](commands.md#task-pages).
+The task has no `template` field; only its label holds the template name. It keeps the resolved model, thinking level, and launch arguments; for where they appear, see [task card details](interface.md#task-card-details) and the fields of [task pages](commands.md#task-pages).
 
 A resume uses the rules of [model and thinking](#model-and-thinking) and [launch arguments](#launch-arguments). These rules also apply to the template's arguments and prompt files. A resume does not repeat `background`, so set it again to resume a task in the background.
 

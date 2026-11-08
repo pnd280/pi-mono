@@ -3,12 +3,12 @@ import { MouseRegion, truncateToWidth, type Component } from "@earendil-works/pi
 import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { displayLine, pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
-import { detailsSchema, type ToolDetails } from "../details.ts";
+import { detailsSchema, launchArgItems, type ToolDetails } from "../details.ts";
 
 /** The task or job that a click on a card opens. */
 export type CardState = { id?: string | undefined; bindingId?: string | undefined };
@@ -48,8 +48,8 @@ type Facts = {
   color: Color;
   activity: string;
   identity: string;
-  /** Extra Pi arguments, joined with spaces; the model row cuts them at its width. */
-  launchArgs: string;
+  /** Extra Pi arguments; only expanded cards show them. */
+  launchArgs: readonly string[];
   usage: string;
   /** A failure reason; a cancelled task uses `warning`. */
   error: { text: string; color: "error" | "warning" } | undefined;
@@ -207,7 +207,7 @@ function pendingFacts(abort: boolean, view: View, args: Args, failed: boolean): 
     color: failed ? "error" : "dim",
     activity: "",
     identity: abort ? "" : [args.model, args.thinking].filter(Boolean).join(":"),
-    launchArgs: abort ? "" : (args.launch_args?.join(" ") ?? ""),
+    launchArgs: abort ? [] : (args.launch_args ?? []),
     usage: "",
     error: undefined,
     taskId: args.task_id,
@@ -223,7 +223,7 @@ function detailFacts(details: ToolDetails, failed: boolean) {
   return {
     description: details.description,
     identity: `${details.model}:${details.thinking}`,
-    launchArgs: details.launch_args?.join(" ") ?? "",
+    launchArgs: details.launch_args ?? [],
     usage: usage(details),
     taskId: details.task_id,
     failed
@@ -345,20 +345,16 @@ class CardRow {
       ...labelled("status", theme.fg(card.color, displayLine(card.status)) + activity)
     ];
     const identity = displayLine(card.identity);
-    const launchArgs = displayLine(card.launchArgs);
-    // Launch arguments share the model row and are cut, not wrapped.
-    if (launchArgs)
-      rows.push(
-        ...labelled(
-          "model",
-          truncateToWidth(
-            theme.fg("muted", [identity, launchArgs].filter(Boolean).join(" ")),
-            valueWidth,
-            "…"
+    if (identity) rows.push(...labelled("model", theme.fg("muted", identity)));
+    if (view.expanded && card.launchArgs.length)
+      pack(launchArgItems(card.launchArgs).map(displayText), " ", valueWidth).forEach(
+        (row, index) =>
+          rows.push(
+            ...(index
+              ? [`${pad}${theme.fg("muted", row)}`]
+              : labelled("args", theme.fg("muted", row)))
           )
-        )
       );
-    else if (identity) rows.push(...labelled("model", theme.fg("muted", identity)));
     if (card.usage) rows.push(...labelled("usage", theme.fg("muted", card.usage)));
     if (card.error)
       rows.push(...labelled("error", theme.fg(card.error.color, displayLine(card.error.text))));
