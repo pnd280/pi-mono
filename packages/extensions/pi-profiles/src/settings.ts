@@ -6,6 +6,7 @@ import {
   readScopedSections,
   readSettingsFile,
   type ScopedSection,
+  type SettingsScope,
   type SettingsScopeOptions
 } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
@@ -86,6 +87,8 @@ const sectionSchema = z.looseObject({
 export type Profile = Omit<z.output<typeof profileSchema>, "appendSystemPrompts"> & {
   /** The non-empty texts of the `appendSystemPrompts` files, read when settings load. */
   prompts: string[];
+  /** The settings scope (`global` or `project`) that supplies the profile. */
+  scope: SettingsScope;
 };
 
 /** The trimmed texts of the files, or the index of the first file that cannot be read. */
@@ -191,7 +194,7 @@ function readSection(scoped: ScopedSection): Section {
         section.warnings.push(
           `profiles[${index}] skipped: appendSystemPrompts[${prompts}] could not be read`
         );
-      else section.profiles.push({ ...rest, prompts });
+      else section.profiles.push({ ...rest, prompts, scope: scoped.scope });
     }
   }
 

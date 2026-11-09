@@ -23,6 +23,7 @@ import {
   planSwitch,
   reportTools,
   searchableTools,
+  selectedProfile,
   SELECTION_ENTRY,
   withGroups,
   type Rules,
@@ -132,10 +133,19 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     });
   }
 
-  const currentName = (ctx: ExtensionContext) =>
-    latestSelection(ctx.sessionManager.getBranch())?.name;
+  const currentSelection = (ctx: ExtensionContext) =>
+    latestSelection(ctx.sessionManager.getBranch());
+  /**
+   * Whether the choice, a profile or no profile, is the selection. A selection whose profile the
+   * settings no longer supply matches no choice, also not a profile of the same name.
+   */
+  const isCurrent = (choice: Profile | undefined, selection: Selection | undefined) =>
+    choice ? selectedProfile(selection, [choice]) !== undefined : selection?.name === undefined;
   const findProfile = (name: string | undefined) =>
     config?.profiles.find((profile) => profile.name === name);
+  /** The selection's profile, when the current settings still supply it. */
+  const selected = (selection: Selection | undefined) =>
+    selectedProfile(selection, config?.profiles ?? []);
 
   /** What a `/profile` or `--profile` argument selects: a profile, or none for `clear`. */
   const choose = (name: string): { profile: Profile | undefined } | undefined => {
@@ -288,12 +298,12 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
       if (ctx.mode === "tui" && loaded.defaultProfile)
         applied = await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
-    } else if (ctx.hasUI && selection.name !== undefined && !findProfile(selection.name)) {
+    } else if (ctx.hasUI && selection.name !== undefined && !selected(selection)) {
       ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
     }
 
     // A switch registers its profile's servers. Otherwise the restored selection's servers register.
-    if (!applied) selectServers(findProfile(selection?.name), ctx);
+    if (!applied) selectServers(selected(selection), ctx);
   }
 
   // Startup and /reload both start a session, so edited settings apply after /reload.
@@ -310,9 +320,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       arrival.claimShortcut(loaded.shortcut, {
         description: "Switch to the next profile, or to no profile after the last",
         handler: async (shortcutCtx) => {
-          const names = [...loaded.profiles.map(({ name }) => name), undefined];
-          const next = names[(names.indexOf(currentName(shortcutCtx)) + 1) % names.length];
-          await switchTo(findProfile(next), shortcutCtx);
+          const cycle = [...loaded.profiles, undefined];
+          const selection = currentSelection(shortcutCtx);
+          const index = cycle.findIndex((choice) => isCurrent(choice, selection));
+          await switchTo(cycle[(index + 1) % cycle.length], shortcutCtx);
         }
       });
       if (ctx.mode === "tui") labelEditor(ctx);
@@ -333,7 +344,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   pi.on("session_tree", (_event, ctx) => {
     const selection = restoreTools(ctx, false, treeSelection);
     treeSelection = undefined;
-    selectServers(findProfile(selection?.name), ctx);
+    selectServers(selected(selection), ctx);
   });
 
   pi.on("session_before_switch", async () => {
@@ -349,7 +360,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   );
 
   // The coordinator calls parts after every hold, such as a switch, has settled.
-  prompt.part(PROMPT_RANK, (ctx) => findProfile(currentName(ctx))?.prompts.join("\n\n"));
+  prompt.part(PROMPT_RANK, (ctx) => selected(currentSelection(ctx))?.prompts.join("\n\n"));
 
   /**
    * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools`
@@ -375,22 +386,23 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
   /** The configured profiles, then `clear` for no profile. */
   const choices = () => [
-    ...(config?.profiles ?? []).map(({ name, description }) => ({
-      name,
-      description: compactDisplayText(description)
+    ...(config?.profiles ?? []).map((profile) => ({
+      name: profile.name,
+      description: compactDisplayText(profile.description),
+      profile
     })),
-    { name: CLEAR, description: "No profile" }
+    { name: CLEAR, description: "No profile", profile: undefined }
   ];
 
   /** The profiles, with the change that each switch would make now, and the state of every tool. */
   function menuData(ctx: ExtensionContext): MenuData {
     const state = toolState(ctx);
-    const current = latestSelection(state.branch)?.name;
-    const profile = findProfile(current);
+    const selection = latestSelection(state.branch);
+    const profile = selected(selection);
     const choices = [...(config?.profiles ?? []), undefined].map((choice) => ({
       name: choice?.name ?? CLEAR,
       profile: choice,
-      current: choice?.name === current,
+      current: isCurrent(choice, selection),
       change: planSwitch(choice, state).change,
       modelAvailable: !choice?.model || profileModel(choice.model, ctx) !== undefined
     }));
@@ -440,10 +452,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
       if (name === "" && ctx.hasUI) {
         const list = choices();
-        const current = currentName(ctx) ?? CLEAR;
+        const selection = currentSelection(ctx);
         const options = list.map(
           (choice) =>
-            `${choice.name}${choice.name === current ? " (current)" : ""}: ${choice.description}`
+            `${choice.name}${isCurrent(choice.profile, selection) ? " (current)" : ""}: ${choice.description}`
         );
         const choice = await ctx.ui.select("Profile", options);
         if (choice === undefined) return;
