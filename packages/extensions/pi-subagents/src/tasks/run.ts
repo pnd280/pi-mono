@@ -191,14 +191,22 @@ function failure(details: ToolDetails, error: unknown, aborted: boolean): RunRet
   };
 }
 
-/** Take the writer lease of a claimed direct task, then check its child file under the lease. */
-async function resume(host: RunHost, taskId: string | undefined): Promise<Resumed | undefined> {
+/**
+ * Check the child file of a claimed direct task, take its writer lease, then check the file again
+ * under the lease. The first check refuses a file of another directory before the lease exists.
+ */
+async function resume(
+  host: RunHost,
+  taskId: string | undefined,
+  cwd: string
+): Promise<Resumed | undefined> {
   if (taskId === undefined) return;
   const record = host.owned(taskId);
+  await checkSession(record, cwd);
   const lease = await WriterLease.acquire(record.session_file, [process.pid]);
 
   try {
-    await checkSession(record);
+    await checkSession(record, cwd);
     host.lifetime.throwIfAborted();
   } catch (error) {
     await lease.release().catch(() => {});
@@ -213,7 +221,7 @@ async function resume(host: RunHost, taskId: string | undefined): Promise<Resume
  * 0003:
  *
  * 1. reserve a capacity slot;
- * 2. for a resume, take the writer lease, then check the child file;
+ * 2. for a resume, check the child file, take the writer lease, then check the file again;
  * 3. spawn the child and begin the run;
  * 4. for a new task, take the writer lease of the reported file; append `run`, then prompt;
  * 5. wait for the child's exit and for any forced stop of its process group;
@@ -286,7 +294,7 @@ export class Run {
       const { ChildRun } = await loadChild();
       reservation = await host.capacity.acquire(signal);
       if (signal?.aborted) throw new Error("Cancelled by turn abort");
-      resumed = await resume(host, call.request.task_id);
+      resumed = await resume(host, call.request.task_id, call.selection.launch.cwd);
       if (signal?.aborted) throw new Error("Cancelled by turn abort");
       details = { ...details, state: "running", started_at: Date.now() };
       run = new Run(ChildRun, host, call, reservation, resumed, change);

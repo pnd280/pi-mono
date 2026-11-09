@@ -37,6 +37,7 @@ Set `launch_args` to an array of more Pi CLI arguments for the child, such as `[
 
 - The arguments come after the arguments that start Pi and before the flags that the extension sets: `--mode`, `--model`, `--thinking`, `--approve` or `--no-approve`, `--extension`, and `--session`. When Pi reads a flag two times, the extension's flag wins.
 - A call fails before it starts a task when an item is a flag that another parameter owns: `--model` and `--provider` (`model`), `--thinking` (`thinking`), and `--session`, `--session-id`, `--no-session`, `--fork`, `-c`, `--continue`, `-r`, and `--resume` (`task_id`). The check also finds the `--flag=value` form. It also rejects a value that is equal to one of these flags. The error names the flag.
+- A call also fails before it starts a task when an item is `--`. Pi reads every argument after `--` as a message, also the extension's project-trust flag, and a child always takes the supervisor's project-trust decision.
 - A call also fails before it starts a task when the last item is a Pi flag that always takes the next argument, such as `--append-system-prompt` or `-e`. Pi would take the extension's `--mode` as its value, and the child would not start RPC.
 - The extension does not check other arguments. Pi rejects an unknown option, and the launch then fails.
 - On resume, an omitted `launch_args` repeats the value that the task's latest run requested. An array replaces it, and `[]` removes it. A call with a [template](#templates) always replaces it, also when the template adds no arguments.
@@ -51,15 +52,15 @@ The task label is the call's `description` after the template name in brackets, 
 
 The `templates` setting is an array. Each entry is a template object, or the path of a template file that holds one template object as plain JSON. A leading `~` in the path expands to the home directory, and a relative path resolves from the directory of the settings file. A template file is a regular UTF-8 file of at most 1 MiB.
 
-| Field                 | Required | Effect                                                                                                                                                                                                                          |
-| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                | Yes      | A lowercase letter, then lowercase letters, digits, or hyphens.                                                                                                                                                                 |
-| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the [task label](#templates).                                                                                          |
-| `model`               | No       | The default model, as `provider/id`.                                                                                                                                                                                            |
-| `thinking`            | No       | The default thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                                       |
-| `background`          | No       | The default value of the call's `background`.                                                                                                                                                                                   |
-| `launchArgs`          | No       | Pi CLI arguments that every call of the template adds. At most 32 items of at most 2,048 characters, with the same rejected flags as [`launch_args`](#launch-arguments).                                                        |
-| `appendSystemPrompts` | No       | Files that the child adds to its system prompt. At most 32 items of at most 2,048 characters. A leading `~` expands to the home directory, and a relative path resolves from the directory of the file that holds the template. |
+| Field                 | Required | Effect                                                                                                                                                                                                                                                     |
+| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                | Yes      | A lowercase letter, then lowercase letters, digits, or hyphens.                                                                                                                                                                                            |
+| `description`         | Yes      | Tells the model when to use the template, with at least one character that is not white space. It is not the [task label](#templates).                                                                                                                     |
+| `model`               | No       | The default model, as `provider/id`.                                                                                                                                                                                                                       |
+| `thinking`            | No       | The default thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                                                                  |
+| `background`          | No       | The default value of the call's `background`.                                                                                                                                                                                                              |
+| `launchArgs`          | No       | Pi CLI arguments that every call of the template adds. At most 32 items of at most 2,048 characters, with the same rejected flags as [`launch_args`](#launch-arguments). For how paths in them resolve, see [what a call receives](#what-a-call-receives). |
+| `appendSystemPrompts` | No       | Files that the child adds to its system prompt. At most 32 items of at most 2,048 characters. A leading `~` expands to the home directory, and a relative path resolves from the directory of the file that holds the template.                            |
 
 - Templates from global settings and from trusted project settings combine. For the same name, the project template replaces the global template completely; its fields are not merged.
 - In one settings file, a later entry replaces an earlier entry of the same name, with a warning.
@@ -71,7 +72,7 @@ A template is left out in these cases:
 - It is not an object or a path.
 - Its template file cannot be read, or is not valid JSON.
 - It has an unknown field, an invalid value, or an invalid name.
-- Its `launchArgs` has a rejected argument.
+- Its `launchArgs` has a rejected argument, or `--system-prompt` or `--append-system-prompt`. Pi reads the value of these flags from a file of that name in the child's working directory, the project, when one exists. Use `appendSystemPrompts` instead.
 - A prompt file cannot be read when settings load. A prompt file must be a regular UTF-8 file of at most 1 MiB. Run `/reload` after you correct the file.
 
 The UI then shows a warning that names the template when its name is valid, and its template file or its position in the settings file. A project template that is left out does not replace the global template of the same name.
@@ -81,6 +82,7 @@ The UI then shows a warning that names the template when its name is valid, and 
 - For `model` and `thinking`, see [model and thinking](#model-and-thinking). The call's `background` replaces the template's value; when neither sets it, the task runs in the foreground.
 - The child's launch arguments are, in this order: the call's `launch_args`, the template's `launchArgs`, and a `--append-system-prompt <absolute path>` pair for each prompt file. The extension's own flags follow them. The template's part comes last, so that the template's value wins for a flag that Pi reads once. This also applies to a flag that the check below does not know, such as a flag that another extension registers.
 - Pi expands a leading `~/` only in the values of `-e`, `--skill`, `--prompt-template`, `--theme`, and `--session-dir`. It resolves relative paths in the values of the first four from the child's working directory. No part of the extension or Pi expands `$VAR`, because the child starts without a shell. Use absolute paths in other values.
+- In a template's `launchArgs`, the extension resolves the value after `--extension`, `-e`, `--skill`, `--prompt-template`, or `--theme` when settings load, as for prompt files: a leading `~` expands to the home directory, and a relative path resolves from the directory of the file that holds the template. A `file://` URL stays unchanged, because Pi converts it to an absolute path. After `--extension` or `-e`, a value that starts with `builtin:`, `npm:`, `git:`, `http://`, `https://`, or `ssh://` also stays unchanged, because Pi installs or loads these sources by name. Pi reads other forms, such as `github:owner/repo`, as local paths, so the extension resolves them too. So a relative path in a template does not make the child read an extension, skill, prompt template, theme, or system prompt from the project directory. The extension does not know the flags that other extensions register. The call's `launch_args` stay unchanged.
 - A nested child reads the same global and project settings with the supervisor's trust decision, so it has the same templates.
 
 A call fails before it starts a task in these cases:
@@ -88,7 +90,6 @@ A call fails before it starts a task in these cases:
 - The name is not a configured template. The error lists the valid names.
 - The call's `launch_args` sets a flag that takes one value and that the template's `launchArgs` also sets. The error names the flag and the template. The check covers these flags:
   - `--api-key`
-  - `--system-prompt`
   - `--name` or `-n`
   - `--session-dir`
   - `--models`

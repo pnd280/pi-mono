@@ -51,6 +51,15 @@ export async function createFixtureWorkspace(
   });
 }
 
+/** Creates `<directory>/<name>`, a fixture working directory beside `work/`, and returns its path. */
+export async function createFixtureDirectory(directory: string, name: string): Promise<string> {
+  const path = join(directory, name);
+  await mkdir(path);
+  await writeFile(join(path, marker), "disposable subagents workspace\n");
+
+  return path;
+}
+
 export async function fixtureLaunch(directory: string) {
   await assertFixtureWorkspace(join(directory, "work"));
 

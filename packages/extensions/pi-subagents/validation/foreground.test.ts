@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
@@ -25,12 +25,14 @@ import {
   FIXTURE_TEMPLATES,
   LATE_DIALOG_ANSWERS,
   LAUNCH_FLAG,
+  ORIGIN_TEMPLATES,
   REJECTED_LAUNCH_ARGS,
   REJECTED_TEMPLATE_CALLS,
   TEMPLATE_FILE,
   TEMPLATE_PROMPTS
 } from "./provider.ts";
 import type { Supervisor } from "./supervisor.ts";
+import { createFixtureDirectory } from "./workspace.ts";
 
 /** The supervisor's run and end entries, which are its only task entries. */
 function isRunEntry(entry: SessionEntry): boolean {
@@ -444,7 +446,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  test("passes launch_args and template values before the extension's flags, rejects owned flags, a last value flag, and invalid template calls, reuses launch_args on resume, and applies a template on resume", async () => {
+  test("passes launch_args and template values before the extension's flags, rejects owned and trust flags, `--`, a last value flag, and invalid template calls, reuses launch_args on resume, and applies a template on resume", async () => {
     await withFixture(
       async (directory, start) => {
         // The template file's prompt paths resolve from its own directory.
@@ -572,8 +574,96 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     );
   });
 
+  test("resolves a global template's path launch arguments from its file, not the untrusted project, and leaves out a template with a system prompt flag", async () => {
+    /**
+     * The path values of the `origin` template file. The template's directory and the project each
+     * hold a file at `path` that adds `ORIGIN_<TEMPLATE|PROJECT>_<kind>` to the child's system
+     * prompt. The comment of each row names the defect that the earlier rows cannot catch. The
+     * kinds are in sorted order.
+     */
+    const sources = [
+      // The child receives `launchArgs` unresolved and loads `./` from the project.
+      { args: ["-e", "./origin.ts"], path: "origin.ts", kind: "EXTENSION" },
+      // The remote-source exemption covers a package-like value that Pi reads as a local path.
+      { args: ["-e", "github:owner/repo"], path: "github:owner/repo/index.ts", kind: "PACKAGE" },
+      // The remote-source exemption applies to `--skill`, where Pi reads `npm:` as a local path.
+      { args: ["--skill", "npm:origin"], path: "npm:origin/SKILL.md", kind: "SKILL" }
+    ];
+    /**
+     * The system prompt flags, each in its own inline template in `ORIGIN_TEMPLATES` order, so that
+     * a rejection that misses one flag fails its own call.
+     */
+    const promptFlags = ["--system-prompt", "--append-system-prompt"];
+
+    await withFixture(
+      async (directory, start) => {
+        const scopes = {
+          TEMPLATE: join(directory, "agent", "templates"),
+          PROJECT: join(directory, "work")
+        };
+        const writes = Object.entries(scopes).flatMap(([scope, base]) =>
+          sources.map(async ({ path, kind }) => {
+            const origin = `ORIGIN_${scope}_${kind}`;
+            await mkdir(dirname(join(base, path)), { recursive: true });
+            await writeFile(
+              join(base, path),
+              kind === "SKILL"
+                ? `---\nname: origin-${scope.toLowerCase()}\ndescription: ${origin}\n---\n`
+                : `export default (pi) => pi.on("before_agent_start", (event) => ({ systemPrompt: event.systemPrompt + "\\n${origin}" }));\n`
+            );
+          })
+        );
+        await Promise.all(writes);
+        await Promise.all([
+          writeFile(
+            join(scopes.TEMPLATE, "origin.json"),
+            JSON.stringify({
+              name: ORIGIN_TEMPLATES[0],
+              description: "Template with path launch arguments",
+              launchArgs: sources.flatMap(({ args }) => args)
+            })
+          ),
+          // Pi reads the value of a system prompt flag from the file of that name in the project.
+          writeFile(join(scopes.PROJECT, "README.md"), "ORIGIN_PROJECT_PROMPT\n")
+        ]);
+        const host = await start({ trusted: false });
+
+        await host.prompt("delegate-origins");
+        const [origin, ...rejected] = (await host.results()).slice(-ORIGIN_TEMPLATES.length);
+        expect(detailsSchema.parse(origin!.details).state).toBe("completed");
+        // The child's provider request has only the template directory's files.
+        expect(/^Origins: .*$/m.exec(contentText(origin!.content))?.[0]).toBe(
+          `Origins: ${sources.map(({ kind }) => `ORIGIN_TEMPLATE_${kind}`).join(" ")}`
+        );
+        // Settings leave out the templates with a system prompt flag, so their calls fail before a
+        // task, record, or process exists.
+        expect(rejected.map((result) => [result.isError, contentText(result.content)])).toEqual(
+          ORIGIN_TEMPLATES.slice(1).map((name) => [
+            true,
+            expect.stringContaining(`Unknown template ${name}`) as unknown
+          ])
+        );
+        expect(await taskList(host)).toHaveLength(1);
+      },
+      {
+        settings: {
+          "ext.pi-subagents": {
+            templates: [
+              "templates/origin.json",
+              ...promptFlags.map((flag, index) => ({
+                name: ORIGIN_TEMPLATES[index + 1],
+                description: "Template with a system prompt flag",
+                launchArgs: [flag, "README.md"]
+              }))
+            ]
+          }
+        }
+      }
+    );
+  });
+
   test.each([false, true])(
-    "uses only trusted project settings for limits and docs, and passes the chosen trust flag (%s)",
+    "uses only trusted project settings for limits and docs, passes the chosen trust flag, and refuses a resume from another directory (%s)",
     async (trusted) => {
       await withFixture(
         async (directory, start) => {
@@ -614,6 +704,23 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
               "Unknown template project; the templates are global"
             ]);
             expect((await host.entries()).filter(isRunEntry)).toHaveLength(runs);
+
+            // Pi opens a child file in the directory of its header. A trusted fork of this session in
+            // another directory would resume the child here with its own trust, so the resume fails
+            // before a child starts.
+            const task = (await taskList(host))[0]!;
+            const other = await createFixtureDirectory(directory, "other");
+            const fork = await start({ fork: (await host.state()).sessionFile!, cwd: other });
+            const forkRuns = (await fork.entries()).filter(isRunEntry).length;
+            const child = await readFile(task.session_file);
+            await fork.prompt(`resume-id ${task.task_id}`);
+            const refused = (await fork.results()).at(-1)!;
+            expect(refused.isError).toBe(true);
+            expect(contentText(refused.content)).toContain(
+              `Task ${task.task_id} belongs to ${await realpath(join(directory, "work"))}, not ${await realpath(other)}; resume it from a supervisor in that directory`
+            );
+            expect((await fork.entries()).filter(isRunEntry)).toHaveLength(forkRuns);
+            expect(await readFile(task.session_file)).toEqual(child);
           }
 
           // Only a trusted project turns on jobs.

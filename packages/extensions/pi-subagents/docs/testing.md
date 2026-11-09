@@ -9,8 +9,9 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 ### Launch, capacity, and tools
 
 - **Critical, e2e:** Untrusted project settings cannot affect launch configuration, templates, or the `subagent` description, and cannot turn on `jobs`.
-- **Critical, e2e:** Children receive the supervisor's project-trust flag.
-- **Critical, e2e:** `launch_args` reach the child argv before the extension's flags; flags owned by `model`, `thinking`, or `task_id`, and a last flag that needs a value, are rejected before any side effect; a resume that omits `launch_args` and `template` reuses the value that the task's latest run requested.
+- **Critical, e2e:** Children receive the supervisor's project-trust flag, and a resume from a supervisor in another directory than the child file's fails before a child starts.
+- **Critical, e2e:** `launch_args` reach the child argv before the extension's flags; flags owned by `model`, `thinking`, or `task_id`, `--`, and a last flag that needs a value, are rejected before any side effect; a resume that omits `launch_args` and `template` reuses the value that the task's latest run requested.
+- **Critical, e2e:** A global template's `launchArgs` cannot make a child load an extension, skill, prompt template, or theme from the project, or read a project file into its system prompt: relative and package-like values that Pi reads as local paths resolve from the directory of the template's file, except `-e` values with an npm, git, or built-in prefix, and settings leave out a template whose `launchArgs` contain `--system-prompt` or `--append-system-prompt`.
 - **High, e2e:** A `template` call starts the child with the call's `model` and `thinking` when the call sets them, and with the template's values when it does not. The child's argv has the call's `launch_args`, then the template's `launchArgs`, then a `--append-system-prompt <absolute path>` pair for each prompt file in order, before the extension's flags. A template from a template file resolves its prompt files from the directory of that file. On resume, the template's model, thinking level, and argv part replace those of the task's latest run. These calls fail before any side effect: an unknown template, a template that settings left out for an unknown field or an unreadable prompt file, and call `launch_args` that set a single-value flag that the template also sets.
 - **High, e2e:** Foreground calls report the child's final text and correct state.
 - **High, e2e:** Launch failures include the failed step, exit code, and stderr.
@@ -131,6 +132,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - The wording of the `subagent` guidance and of a child's [result instructions](children.md#result-instructions) is below the severity bar. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns where the instructions appear in the system prompt.
 - The template's `background` value is below the severity bar, because the call's result shows at once whether the task runs in the background.
 - The template name before the task label is below the severity bar.
+- `--prompt-template` and `--theme` values in template `launchArgs` are not tested separately, because they take the same resolution as the `--skill` value that the test of the global-template invariant uses.
 - The exact launch-argument display, including its `\u` escapes, is not tested. `displayText` already removes terminal controls; the escapes only keep values exact and stop text-direction reordering.
 - Card appearance, the activity that cards and panel rows name, task-list pagination, and the panel shortcut are below the severity bar.
 - Job card appearance, the widget's job count, panel job rows, and the job log viewer are below the severity bar.

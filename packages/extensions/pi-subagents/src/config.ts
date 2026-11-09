@@ -15,7 +15,8 @@ import {
   checkLaunchArgs,
   LAUNCH_ARG_MAX_LENGTH,
   LAUNCH_ARGS_MAX_ITEMS,
-  launchArgsSchema
+  launchArgsSchema,
+  resolveLaunchPaths
 } from "./tasks/tool-schema.ts";
 
 const resultDeliverySchema = z.enum(["turn_end", "settle"]);
@@ -94,10 +95,21 @@ function settingsPath(entry: string, settings: string): string {
   return resolve(dirname(settings), expandHomePath(entry, homedir()));
 }
 
+/**
+ * Pi reads the value of these flags from the file of that name when one exists, relative to the
+ * child's working directory, the project.
+ */
+const PROMPT_FLAGS: ReadonlySet<string> = new Set(["--system-prompt", "--append-system-prompt"]);
+
 /** A valid template and its name, or the reason why it is left out and its name when valid. */
 type TemplateRead = { name: string; template: Template } | { name?: string; reason: string };
 
-/** Relative prompt paths resolve from the directory of `path`, the file that holds the template. */
+/**
+ * Relative prompt paths, and relative local paths after `-e` and Pi's other path flags in
+ * `launchArgs`, resolve from the directory of `path`, the file that holds the template. The child
+ * would otherwise resolve them from its working directory, the project. For the same reason,
+ * `launchArgs` cannot hold Pi's system prompt flags.
+ */
 function readTemplate(value: unknown, path: string): TemplateRead {
   const parsed = templateSchema.safeParse(value);
 
@@ -121,12 +133,26 @@ function readTemplate(value: unknown, path: string): TemplateRead {
     return { name, reason: error instanceof Error ? error.message : String(error) };
   }
 
+  const promptFlag = launchArgs.find((arg) => PROMPT_FLAGS.has(arg));
+  if (promptFlag !== undefined)
+    return {
+      name,
+      reason: `launchArgs cannot contain ${promptFlag}: Pi can read its value as a file of the project; use appendSystemPrompts`
+    };
+
   const prompts = appendSystemPrompts.map((entry) => settingsPath(entry, path));
   // Pi reads the file when the child starts; the check finds a wrong path at load.
   const unreadable = prompts.find((prompt) => readFile(prompt) === undefined);
   if (unreadable !== undefined) return { name, reason: `${unreadable} could not be read` };
 
-  return { name, template: { ...values, launchArgs, appendSystemPrompts: prompts } };
+  return {
+    name,
+    template: {
+      ...values,
+      launchArgs: resolveLaunchPaths(launchArgs, (entry) => settingsPath(entry, path)),
+      appendSystemPrompts: prompts
+    }
+  };
 }
 
 /** A template file holds one template as plain JSON. */

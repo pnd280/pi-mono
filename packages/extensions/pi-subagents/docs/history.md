@@ -26,6 +26,8 @@ A child's descendants come from the `run` and `end` entries in its own session f
 
 Explicit resume continues the task's latest run on the selected ancestry, in the same child file as a new branch. Later runs, and user or custom messages that the run did not answer, are not part of the resumed context. `task_id`, `session_id`, and `session_file` stay the same for every run. A running child cannot navigate its tree, fork, or switch sessions.
 
+Pi opens the child file in the working directory that the file records, and the child takes the supervisor's project-trust decision. So a resume fails before the writer lease or a child starts when that directory is not the supervisor's working directory, for example after a fork of the supervisor session in another directory. The check compares real paths, so a symbolic link to the directory matches.
+
 An interrupted tool cycle produces a warning: old calls are not replayed automatically, completed effects remain, and the model can request the operation again. Only calls without a result produce it, and only in the run's last response when that response did not fail. Pi does not run the calls of a failed or aborted response.
 
 ## Writer lease
