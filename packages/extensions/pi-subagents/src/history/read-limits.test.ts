@@ -37,7 +37,7 @@ test.for(cases)("$reader rejects the $kind without blocking", async ({ reader, k
   const module = new URL(reader === "history" ? "./sessions.ts" : "./lease.ts", import.meta.url);
   const operation =
     reader === "history"
-      ? `() => api.checkSession({ session_file: file, session_id: "recorded" })`
+      ? `() => api.checkSession({ task_id: "task", session_file: file, session_id: "recorded" }, "/fixture")`
       : `() => api.WriterLease.acquire(file, [process.pid])`;
   const error =
     reader === "history"

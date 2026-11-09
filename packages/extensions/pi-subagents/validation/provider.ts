@@ -251,7 +251,8 @@ const owned = (flag: string, owner: string) =>
 
 /**
  * Last launch arguments that fail the call, each with its error: every flag that another parameter
- * owns, one in `flag=value` form, and a flag that needs a value.
+ * owns, one in `flag=value` form, `--`, which would hide the extension's trust flag, and a flag
+ * that needs a value.
  */
 export const REJECTED_LAUNCH_ARGS: readonly (readonly [string, string])[] = [
   ["--model", owned("--model", "model")],
@@ -266,6 +267,10 @@ export const REJECTED_LAUNCH_ARGS: readonly (readonly [string, string])[] = [
   ["-r", owned("-r", "task_id")],
   ["--resume", owned("--resume", "task_id")],
   ["--session-id=fixture", owned("--session-id", "task_id")],
+  [
+    "--",
+    "launch_args cannot contain --: it ends Pi's options, and children take the supervisor's project trust"
+  ],
   ["--append-system-prompt", "launch_args cannot end with --append-system-prompt: give it a value"]
 ];
 
@@ -340,10 +345,17 @@ export const REJECTED_TEMPLATE_CALLS: readonly (readonly [
 ];
 
 /**
+ * The global templates that `delegate-origins` calls in one turn, in order: `origin`, whose
+ * `launchArgs` name extension and skill paths, and two templates whose `launchArgs` hold a system
+ * prompt flag. Each child reports its origins.
+ */
+export const ORIGIN_TEMPLATES = ["origin", "system-prompt", "append-system-prompt"] as const;
+
+/**
  * Three `fixture` template calls in one turn, which the descriptions name: with launch arguments,
  * with a call thinking level, and with a call model. Each child reports its selection and argv.
  * Also a `fixture` resume of the task that the scenario names, the rejected template calls in one
- * turn, and a call of the `project` template.
+ * turn, a call of the `project` template, and the `ORIGIN_TEMPLATES` calls.
  */
 function templatePlan(scenario: string): Call[] | undefined {
   if (scenario === "delegate-template")
@@ -369,6 +381,12 @@ function templatePlan(scenario: string): Call[] | undefined {
     ];
   if (scenario === "delegate-project-template")
     return [{ description: "Project template", prompt: "reply", template: "project" }];
+  if (scenario === "delegate-origins")
+    return ORIGIN_TEMPLATES.map((template) => ({
+      description: `Template ${template}`,
+      prompt: "report-origins",
+      template
+    }));
   if (scenario === "template-rejected")
     return REJECTED_TEMPLATE_CALLS.map(([call]) => ({
       description: "Rejected template call",
@@ -681,6 +699,9 @@ function plainResponse(
       no_approve: process.argv.includes("--no-approve")
     });
   if (scenario === "report-argv") return JSON.stringify(process.argv);
+  // Each `ORIGIN_<word>` token in the system prompt of this request, once and sorted.
+  if (scenario === "report-origins")
+    return `Origins: ${[...new Set(getCurrentSystemPrompt(context.messages).match(/ORIGIN_\w+/g))].sort().join(" ")}`;
   if (scenario === "report-docs")
     return (
       getCurrentTools(context.messages).find((tool) => tool.name === "subagent")?.description ?? ""

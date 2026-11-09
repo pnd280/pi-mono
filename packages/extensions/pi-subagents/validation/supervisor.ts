@@ -21,7 +21,14 @@ export class Supervisor {
 
   static async start(
     directory: string,
-    options: { trusted?: boolean; sessionId?: string; fork?: string; depth?: number } = {}
+    options: {
+      trusted?: boolean;
+      sessionId?: string;
+      fork?: string;
+      depth?: number;
+      /** A working directory other than `work/`, from `createFixtureDirectory`. */
+      cwd?: string;
+    } = {}
   ): Promise<Supervisor> {
     const launch = await createPiLaunch({
       directory,
@@ -38,7 +45,11 @@ export class Supervisor {
         ...(options.fork ? ["--fork", options.fork] : [])
       ]
     });
-    const host = new Supervisor(launch);
+    const host = new Supervisor(
+      options.cwd === undefined
+        ? launch
+        : { ...launch, options: { ...launch.options, cwd: options.cwd } }
+    );
 
     try {
       await host.state();

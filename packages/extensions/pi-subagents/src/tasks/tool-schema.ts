@@ -108,19 +108,69 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 
 /**
  * Throws when a launch argument is a flag that another parameter owns, alone or as `flag=value`,
- * or when the last argument is a flag that needs a value. A value that equals such a flag also
- * fails. The messages name the arguments as `field`.
+ * or `--`, or when the last argument is a flag that needs a value. A value that equals such a flag
+ * also fails. Pi reads every argument after `--` as a message, so `--` would hide the extension's
+ * trust flag; a trust flag itself is harmless, because the extension's later one wins. The
+ * messages name the arguments as `field`.
  */
 export function checkLaunchArgs(args: readonly string[], field = "launch_args"): void {
   for (const arg of args) {
     const flag = arg.includes("=") ? arg.slice(0, arg.indexOf("=")) : arg;
     const owner = OWNED_FLAGS.get(flag);
     if (owner) throw new Error(`${field} cannot contain ${flag}: use the ${owner} parameter`);
+    if (arg === "--")
+      throw new Error(
+        `${field} cannot contain --: it ends Pi's options, and children take the supervisor's project trust`
+      );
   }
 
   const last = args.at(-1);
   if (last !== undefined && VALUE_FLAGS.has(last))
     throw new Error(`${field} cannot end with ${last}: give it a value`);
+}
+
+/** Pi's flags whose local path values a child resolves from its own working directory. */
+const PATH_FLAGS: ReadonlySet<string> = new Set([
+  "--extension",
+  "-e",
+  "--skill",
+  "--prompt-template",
+  "--theme"
+]);
+
+/**
+ * The prefixes of extension sources that Pi's package manager installs or loads by name: built-in,
+ * npm, and git sources. Pi reads other forms, such as `github:owner/repo`, as paths in the child's
+ * working directory.
+ */
+const REMOTE_SOURCE = /^(?:builtin:|npm:|git:|https?:\/\/|ssh:\/\/)/;
+
+/**
+ * The arguments with each local path value of a path flag, such as `-e`, replaced by
+ * `resolvePath(value)`. Pi converts a `file://` URL to an absolute path. Pi reads the token after
+ * a value flag as its value, so a path flag that is another flag's value is not a flag.
+ */
+export function resolveLaunchPaths(
+  args: readonly string[],
+  resolvePath: (path: string) => string
+): string[] {
+  let flag: string | undefined;
+
+  return args.map((arg) => {
+    const owner = flag;
+    flag = undefined;
+
+    if (owner !== undefined) {
+      const remote = (owner === "-e" || owner === "--extension") && REMOTE_SOURCE.test(arg);
+      const local = !remote && !arg.startsWith("file://");
+
+      return PATH_FLAGS.has(owner) && local ? resolvePath(arg) : arg;
+    }
+
+    if (VALUE_FLAGS.has(arg)) flag = arg;
+
+    return arg;
+  });
 }
 
 /** Pi keeps all values of these flags; for the other value flags, the last value wins. */

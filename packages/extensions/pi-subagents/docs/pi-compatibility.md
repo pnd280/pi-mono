@@ -19,6 +19,10 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 - [ ] The official subagent example's invocation selection still handles script, compiled-binary, and PATH launches.
 - [ ] `--model provider/id`, `--thinking`, `--session`, `--approve`, and `--no-approve` retain their meanings.
 - [ ] When `--mode`, `--approve`, or `--no-approve` appears again later in the arguments, the later flag applies, so the extension's flags apply over the same flags in [launch arguments](tasks.md#launch-arguments).
+- [ ] Pi reads every argument after `--` as a message. The [launch-argument check](tasks.md#launch-arguments) rejects `--`, so that the extension's trust flag applies.
+- [ ] Pi still resolves a relative value of `--extension`, `-e`, `--skill`, `--prompt-template`, and `--theme` from the working directory, and converts a `file://` value to an absolute path. Its package manager still reads the prefixes in `REMOTE_SOURCE` in [tool-schema.ts](../src/tasks/tool-schema.ts) as built-in, npm, or git sources: compare them with `parseSource`.
+- [ ] Pi still reads the value of `--system-prompt` and `--append-system-prompt` from a file of that name relative to the working directory when one exists, so [templates](tasks.md#templates) reject these flags.
+- [ ] Pi opens a `--session` file in the working directory of its header, so the [resume check](history.md#resume) compares that directory with the supervisor's.
 - [ ] `VALUE_FLAGS` in [tool-schema.ts](../src/tasks/tool-schema.ts) still lists each Pi flag that always takes the next argument, whatever it is (`args[++i]` in Pi's `dist/cli/args.js`), apart from the flags that other parameters own. No other flag, including an unknown flag, takes a next `--mode`.
 - [ ] An unknown provider in `--model` fails the launch.
 - [ ] An unlisted model ID under a known provider can reach that provider.

@@ -1,5 +1,6 @@
 import { constants } from "node:fs";
-import { open } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { hasErrorCode } from "@pi-mono/utils/errors";
@@ -224,12 +225,28 @@ async function readSession(file: string): Promise<Parsed | undefined> {
   }
 }
 
-/** Check that a task's file exists and still has the task's session identity. */
-export async function checkSession(task: Pick<TaskRecord, "session_file" | "session_id">) {
+/**
+ * Check that a task's file exists, still has the task's session identity, and belongs to `cwd`.
+ * Pi opens a session file in the directory of its header, and the child takes the project trust of
+ * the supervisor in `cwd`. As in Pi's trust manager, real paths compare, so that a symbolic link
+ * to the directory matches; when either has no real path, the resolved paths compare.
+ */
+export async function checkSession(
+  task: Pick<TaskRecord, "task_id" | "session_file" | "session_id">,
+  cwd: string
+) {
   const session = await readSession(task.session_file);
   if (!session) throw new Error("Subagent session file is missing");
   if (session.id !== task.session_id)
     throw new Error("Subagent session identity does not match its task");
+  const [owner, current] = await Promise.all([realpath(session.cwd), realpath(cwd)]).catch(() => [
+    resolve(session.cwd),
+    resolve(cwd)
+  ]);
+  if (owner !== current)
+    throw new Error(
+      `Task ${task.task_id} belongs to ${owner}, not ${current}; resume it from a supervisor in that directory`
+    );
 }
 
 /** One run's history: its child file's entries from the root to the run's final leaf. */

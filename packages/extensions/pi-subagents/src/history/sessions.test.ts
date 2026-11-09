@@ -52,11 +52,11 @@ test.for(cases)(
     const directory = await createValidationWorkspace("pi-subagents-history-");
     context.onTestFinished(() => rm(directory, { recursive: true, force: true }));
     const file = join(directory, "work", "child.jsonl");
-    const task = { session_file: file, session_id: "recorded" };
+    const task = { task_id: "task", session_file: file, session_id: "recorded" };
     const timestamp = 1_700_000_000;
     await writeFile(file, valid);
     await utimes(file, timestamp, timestamp);
-    await expect(checkSession(task)).resolves.toBeUndefined();
+    await expect(checkSession(task, header.cwd)).resolves.toBeUndefined();
     expect(await readFile(file)).toEqual(Buffer.from(valid));
     const before = await stat(file);
 
@@ -76,7 +76,7 @@ test.for(cases)(
       else expect(after.ino).toBe(before.ino);
     }
 
-    await expect(checkSession(task)).rejects.toThrow(
+    await expect(checkSession(task, header.cwd)).rejects.toThrow(
       replace === undefined
         ? "Subagent session history is unavailable"
         : "Subagent session identity does not match its task"
