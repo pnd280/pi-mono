@@ -12,4 +12,4 @@
 - Match the surrounding code. Prefer the smallest clean change; preserve unrelated work.
 - No speculative fallbacks, defensive try/catch, compatibility shims, or single-use abstractions. When replacing behavior, delete the old path.
 - Never take destructive actions, external writes, Git mutations, or scope expansions without explicit instructions.
-- Use `rg` instead of `grep` where applicable.
+- Use `rg`, `fd` instead of `grep`, `find` where applicable.
