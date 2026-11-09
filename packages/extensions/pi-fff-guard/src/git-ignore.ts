@@ -42,7 +42,8 @@ function runGit(
       ...process.env,
       LC_ALL: "C",
       GIT_OPTIONAL_LOCKS: "0",
-      GIT_TERMINAL_PROMPT: "0"
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_NO_LAZY_FETCH: "1"
     };
     // Explicit -C/cwd must not be redirected by a parent Git process's repository.
     for (const key of [
@@ -56,7 +57,8 @@ function runGit(
     const child = execFile(
       "git",
       // Inspected paths can lie in untrusted repositories, and check-ignore would run the command
-      // in their `core.fsmonitor` setting while it reads the index.
+      // in their `core.fsmonitor` setting, or a transport command of a promisor remote to lazily
+      // fetch a missing `.gitignore` blob, while it reads the index.
       ["-c", "core.fsmonitor=false", ...args],
       {
         cwd,
