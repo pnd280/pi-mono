@@ -14,19 +14,23 @@ export const SELECTION_ENTRY = "pi-profiles.selection";
 /** Pi's tool that loads inactive tools. Pi does not export the name. */
 const TOOL_SEARCH = "tool_search";
 
-const selectionSchema = z.object({
-  /** Absent when no profile is selected. */
-  name: z.string().optional(),
-  /** Active tools without the profile; the next switch starts from them again. */
-  base: z.array(z.string()),
-  /** Active tools right after the switch. */
-  tools: z.array(z.string()),
-  /**
-   * Tools that the profile deferred; `tool_search` can load them. The tools of an array are a
-   * group, which loads together.
-   */
-  deferred: z.array(z.union([z.string(), z.array(z.string())]))
-});
+const selectionSchema = z
+  .object({
+    /** Absent when no profile is selected. */
+    name: z.string().optional(),
+    /** The settings scope of the profile; absent without `name`. */
+    scope: z.enum(["global", "project"]).optional(),
+    /** Active tools without the profile; the next switch starts from them again. */
+    base: z.array(z.string()),
+    /** Active tools right after the switch. */
+    tools: z.array(z.string()),
+    /**
+     * Tools that the profile deferred; `tool_search` can load them. The tools of an array are a
+     * group, which loads together.
+     */
+    deferred: z.array(z.union([z.string(), z.array(z.string())]))
+  })
+  .refine(({ name, scope }) => (name === undefined) === (scope === undefined));
 
 export type Selection = z.output<typeof selectionSchema>;
 
@@ -127,6 +131,16 @@ type RestorePlan = {
 export const latestSelection = (branch: readonly SessionEntry[]) => latestEntry(branch)?.selection;
 
 /**
+ * The selection's profile, when the current settings supply it from the settings scope that
+ * supplied it at the switch. In an untrusted project, a project profile is not supplied, also
+ * when a global profile has its name.
+ */
+export const selectedProfile = (selection: Selection | undefined, profiles: readonly Profile[]) =>
+  selection?.name === undefined
+    ? undefined
+    : profiles.find(({ name, scope }) => name === selection.name && scope === selection.scope);
+
+/**
  * What a switch to the profile, or to no profile, does now. It undoes the latest selection's tool
  * changes, and resolves the profile's tools from the result, the base tools. The menu shows the
  * same plan's change.
@@ -154,6 +168,7 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
     settle: (active) => ({
       entry: {
         name: profile?.name,
+        scope: profile?.scope,
         // Code unit order, so that the entry does not follow load order. Restoration reads only
         // which tools they name.
         base: [...base].sort(),
@@ -173,12 +188,19 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
 export function planRestore(state: ToolState, options: RestoreOptions): RestorePlan {
   const latest = latestEntry(state.branch);
   const selection = latest?.selection;
-  const profile = options.profiles.find(({ name }) => name === selection?.name);
+  const profile = selectedProfile(selection, options.profiles);
+  // The saved tools and deferral of a profile that the settings no longer supply restore nothing,
+  // as on a branch without a selection, so untrusted project settings cannot choose them. The
+  // same holds for the outgoing selection that tree navigation undoes.
+  const applies = (saved: Selection) =>
+    saved.name === undefined || selectedProfile(saved, options.profiles) !== undefined;
+  const applied = latest && applies(latest.selection) ? latest : undefined;
+  const previous = options.previous && applies(options.previous) ? options.previous : undefined;
 
   return {
     selection,
-    rules: { deferred: selection?.deferred ?? [], deny: profile?.tools?.deny ?? [] },
-    tools: restoreTarget(latest, state, options)
+    rules: { deferred: applied?.selection.deferred ?? [], deny: profile?.tools?.deny ?? [] },
+    tools: restoreTarget(applied, state, { ...options, previous })
   };
 }
 

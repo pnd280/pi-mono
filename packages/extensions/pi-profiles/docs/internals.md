@@ -29,7 +29,8 @@ Restore only what Pi doesn't. [Pi compatibility](pi-compatibility.md#restoration
 
 - Declare a selection's tools when no request follows the selection: no system message and no response. Pi can omit the system message when a request changes neither the tools nor the prompt. A compaction checkpoint copies an earlier record, so it does not count as a request.
 - On `/reload`, turn off again only what the selection turned off and no later request declared. Pi loads the module again on `/reload`, and the extension keeps no state outside the session, so it cannot see the tools from before `/reload`.
-- When a tree destination has neither a selection nor recorded tools, undo the outgoing profile's tool changes.
+- Apply a selection's saved tools and deferral only when the current settings supply its profile from the same settings scope. Otherwise restore as for a branch without a selection, so a project profile in a project that is no longer trusted chooses no tools, also when a global profile has its name.
+- When a tree destination has neither a selection nor recorded tools, undo the outgoing profile's tool changes, under the same condition.
 - Set restored tools only when they change. A call that turns off a tool drops Pi's pending tools.
 - When the extension does not own `tool_search`, declare a selection's deferred `direct` and `model-only` tools again.
 - When no registered, non-hidden `tool_search` is active, declare all registered, non-hidden deferred tools again.

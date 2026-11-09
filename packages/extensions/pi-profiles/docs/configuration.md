@@ -6,7 +6,7 @@ The `ext.pi-profiles` section can be in Pi's global `settings.json`, in a truste
 
 ## Where settings apply
 
-- Project settings apply only in a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). In an untrusted project, pi-profiles ignores them.
+- Project settings apply only in a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). In an untrusted project, pi-profiles ignores them, also the tools that a saved selection of a project profile chose; see [sessions](sessions.md#restoration).
 - Pi reads project settings only from the current directory, not from parent directories.
 
 When both files set the section, the project settings take precedence:
@@ -55,4 +55,4 @@ pi-profiles shows settings problems as warnings when settings load. Each warning
 | `defaultProfile` names no valid profile                        | No profile applies by default. A project value, also `null`, does not fall back to the global value.                                                                       |
 | `--profile` names no valid profile                             | pi-profiles shows an error, or writes it to stderr in modes without a UI. The run continues as without `--profile`.                                                        |
 | `settings.json` can't be read, or the section is not an object | That file's section is ignored. The other file still applies.                                                                                                              |
-| The session's selected profile is no longer configured         | pi-profiles adds none of its texts and registers no MCP servers. Its saved selection still decides the tools on restoration; see [sessions](sessions.md).                  |
+| The session's selected profile is no longer configured         | pi-profiles adds none of its texts, registers no MCP servers, and restores none of its tools; see [sessions](sessions.md#restoration).                                     |

@@ -6,12 +6,13 @@ pi-profiles saves each switch in the session, so a resumed, forked, or reloaded 
 
 ## Restoration
 
-- Each switch, also to no profile, saves the selection in the session. The model does not see it. The selection names the profile but keeps none of its server entries, which can contain secrets in `env` or `headers`.
+- Each switch, also to no profile, saves the selection in the session. The model does not see it. The selection names the profile and its settings scope (`global` or `project`), but keeps none of its server entries, which can contain secrets in `env` or `headers`.
 - Resume, `/fork`, and `/tree` use the latest selection on the branch: its texts are added, its tools are declared, and `tool_search` can load its deferred tools.
+- A selection whose profile the current settings no longer supply from the same settings scope restores none of the profile's texts, tools, or deferral. For example, after you deny trust to a project, its project profile does not apply, also when a global profile has the same name. Pi's own tool restoration stays.
 - Resume, `/fork`, `/tree`, and `/reload` register the servers of the branch's restored selection from the current settings; see [MCP servers](switching.md#mcp-servers). `/tree` to a branch with another selection changes the servers. A branch with no selection, or a selected profile that is no longer configured, has no servers.
 - If a request followed the switch, also one that did not change the tools, the tools of the last request are declared instead, so later changes, such as tools that `tool_search` loaded, stay.
 - Pi also turns on extension tools that the branch never recorded. pi-profiles keeps them on only when they are new since the switch.
-- `/tree` to a branch with no selection and no recorded tools undoes the outgoing profile's tool changes.
+- `/tree` to a branch with no selection and no recorded tools undoes the outgoing profile's tool changes, when the current settings still supply that profile from the same settings scope.
 - `/reload` keeps the selection and the declared tools.
 - On `/reload`, Pi turns on again the `direct` and `model-only` extension tools that are active by default, as it does without profiles. pi-profiles then turns off again the tools that the selection turned off, unless a request after the switch declared them. So if you turn on such a tool after the last request, it turns off again, as on resume.
 - Pi restores the model and the thinking level of the branch on resume and `/fork`, but not on `/tree`. After `/tree`, switch again to use the profile's model.

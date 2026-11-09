@@ -821,7 +821,7 @@ it.each([
     [
       ["PROJECT", searching],
       ["PROJECT", [...both, "tool_search"]],
-      ["PROJECT-PLAN", both],
+      ["PROJECT-PLAN", ["alpha"]],
       ["PROJECT", searching],
       ["KEEP", both]
     ]
@@ -846,7 +846,10 @@ it.each([
     const dirs = await workspace(
       { profiles: [profile("plan"), profile("keep")], defaultProfile: "keep" },
       {
-        profiles: [profile("plan"), { ...profile("project"), tools: { defer: ["alpha"] } }],
+        profiles: [
+          { ...profile("plan"), tools: { deny: ["beta"] } },
+          { ...profile("project"), tools: { defer: ["alpha"] } }
+        ],
         defaultProfile: "project"
       },
       {
@@ -860,6 +863,7 @@ it.each([
     const fixture = await host(dirs, {
       mode: "tui",
       projectTrusted,
+      sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir),
       replies: projectTrusted
         ? [
             () =>
@@ -875,6 +879,7 @@ it.each([
     await fixture.session.prompt("one");
     await fixture.session.prompt("/profile project");
     await fixture.session.prompt("two");
+    const afterProject = fixture.session.sessionManager.getLeafId()!;
     await fixture.session.prompt("/profile keep");
     await fixture.session.prompt("three");
 
@@ -882,6 +887,41 @@ it.each([
       requests.map(([prompt, tools]) => ({ append: `EARLIER\n\n${prompt}`, tools }))
     );
     expect(fixture.errors).toEqual([]);
+    if (!projectTrusted) return;
+
+    // Denied trust on resume: the saved selection of the project plan, with no request after it,
+    // must not restore its tools or prompts, also though a global profile has its name. Pi keeps
+    // the tools of the last request.
+    await fixture.session.prompt("/profile plan");
+    const resumed = await host(dirs, {
+      mode: "tui",
+      sessionManager: SessionManager.open(fixture.session.sessionManager.getSessionFile()!),
+      replies: [
+        () => fauxAssistantMessage("done"),
+        () => fauxAssistantMessage("done"),
+        () =>
+          fauxAssistantMessage(fauxToolCall("tool_search", { query: "alpha" }), {
+            stopReason: "toolUse"
+          })
+      ]
+    });
+    await resumed.session.prompt("four");
+    // Leaving the project plan's selection for the start of the session, before any selection or
+    // request, must not undo its saved removal of `beta`.
+    resumed.session.setActiveToolsByName(["alpha"]);
+    await resumed.session.navigateTree(fixture.session.sessionManager.getEntries()[0]!.id);
+    await resumed.session.prompt("five");
+    // On the project profile's branch, its saved deferral must not let tool_search load `alpha`.
+    await resumed.session.navigateTree(afterProject);
+    await resumed.session.prompt("six");
+
+    expect(resumed.requests.map(({ append, tools }) => ({ append, tools }))).toEqual([
+      { append: "EARLIER", tools: both },
+      { append: "EARLIER", tools: ["alpha"] },
+      { append: "EARLIER", tools: searching },
+      { append: "EARLIER", tools: searching }
+    ]);
+    expect(resumed.errors).toEqual([]);
   }
 );
 
