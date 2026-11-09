@@ -225,7 +225,7 @@ function checkPrototypeNames(file: string, text: string, name: string): string[]
   return problems;
 }
 
-// The documentation conventions (docs/development.md#documentation) allow a bold label at the
+// The documentation conventions (docs/documentation.md) allow a bold label at the
 // start of a bullet only as the severity and layer of a "Must not regress" invariant
 // (docs/agents/testing.md#coverage), with Critical invariants before High ones in each group.
 const bulletLabel = /^[ \t]*(?:[-*+]|\d+\.)[ \t]+\*\*([^*\n]+?)(?::\*\*|\*\*:)/;
@@ -331,7 +331,7 @@ function checkTestingGuide(lines: string[], name: string): string[] {
 }
 
 // A compatibility doc opens with one "Last verified" quote line before its first section
-// (docs/development.md#writing-for-scanning).
+// (docs/documentation.md#writing-for-scanning).
 const verifiedLine = /^> Last verified against Pi \d+\.\d+\.\d+\b.* with .+\. Not covered: .+\.$/;
 
 function checkCompatibilityDoc(lines: string[], name: string): string[] {
@@ -363,7 +363,7 @@ function checkCompatibilityDoc(lines: string[], name: string): string[] {
   return problems;
 }
 
-// docs/development.md#extension-readmes: a jsonc block must be valid JSON once its comments are
+// docs/documentation.md#extension-readmes: a jsonc block must be valid JSON once its comments are
 // removed, because Pi reads settings.json as plain JSON. The READMEs put comments on lines of their own.
 function checkJsonc(text: string, name: string): string[] {
   return Array.from(text.matchAll(/^```jsonc\n([\s\S]*?)^```$/gm), ({ 1: body = "", index }) => {

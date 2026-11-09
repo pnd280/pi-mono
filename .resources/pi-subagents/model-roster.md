@@ -1,8 +1,18 @@
-Model roster: set `model` and `thinking` on every launch and resume; an explicit, authorized choice overrides it. Run `echo "$PI_MODEL"`: a `claude-` value selects the Claude values, any other the OpenAI values. For code review or audit work, prefer the OpenAI values whatever `$PI_MODEL` selects. Pick one role per task, Worker by default; split independent deliverables into separate tasks, and give inseparable mixed work its highest role. Copy the values exactly, without checking them; if the selection fails, report it and do not launch.
+Generic model roster: for a launch or resume that no template covers, set `model` and `thinking` from this list. Copy the values exactly, without checking them. For a reasoning gap, move up one entry in the same list.
 
-- Scout (file/symbol discovery, extraction, classification, repetitive checks, narrow research): Claude `anthropic/claude-haiku-5-5` `xhigh`; OpenAI `openai/gpt-6-luna` `max`
-- Worker (bounded implementation, exploration, docs, checks, routine review): Claude `anthropic/claude-opus-5-5` `medium`; OpenAI `openai/gpt-6.1-sol` `xhigh`
-- Lead (sustained architecture, hard debugging, security review, conflicting evidence, end-to-end integration): Claude `anthropic/claude-opus-5-5` `xhigh`; OpenAI `openai/gpt-6-astra` `high`
-- Expert (Lead work where depth outweighs speed and usage, or a Lead retry with a reasoning gap): Claude `anthropic/claude-opus-5-5` `xhigh`; OpenAI `openai/gpt-6-astra` `max`
+GPT reviews code and plans; a GPT task changes no files and reports findings with source pointers.
 
-Escalate to Expert for a reasoning gap; fix missing evidence, permissions, or credentials at the source. The role sets the model; delegation and write authority come from the task.
+- `openai/gpt-6-astra` `xhigh`: security, cross-module audit, subtle correctness, concurrency
+- `openai/gpt-6.1-sol` `xhigh`: default review
+- `openai/gpt-6-luna` `max`: narrow checks of code, diffs, or output against explicit criteria
+
+Claude writes documentation and prose:
+
+- `anthropic/claude-fable-5-2` `xhigh`
+
+Claude does everything else:
+
+- `anthropic/claude-opus-5-5` `xhigh`: depth outweighs speed and usage
+- `anthropic/claude-opus-5-5` `high`: sustained architecture, hard debugging, orchestration
+- `anthropic/claude-opus-5-5` `medium`: default
+- `anthropic/claude-haiku-5-5` `xhigh`: file and symbol discovery, extraction, narrow test or lint runs
