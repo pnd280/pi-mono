@@ -1,3 +1,4 @@
+import { unlinkSync } from "node:fs";
 import { access, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -105,10 +106,34 @@ describe("Git authority", () => {
     expect((await detect("node_modules/broken")).status).toBe("missing");
   });
 
-  it("runs no command from an inspected repository's core.fsmonitor setting", async () => {
-    const marker = join(directory.root, "fsmonitor-ran");
-    external.git("add", "src/main.ts");
-    external.git("config", "core.fsmonitor", `touch '${marker}'`);
+  it.each([
+    {
+      setting: "core.fsmonitor",
+      configure: (marker: string) => {
+        external.git("add", "src/main.ts");
+        external.git("config", "core.fsmonitor", `touch '${marker}'`);
+      }
+    },
+    {
+      // A skip-worktree `.gitignore` absent from disk is read from its index blob; a missing blob
+      // starts a promisor lazy fetch.
+      setting: "core.sshCommand of a promisor remote",
+      configure: (marker: string) => {
+        const hash = external.git("hash-object", ".gitignore").trim();
+        external.git("update-index", "--add", "--cacheinfo", `100644,${hash},.gitignore`);
+        external.git("update-index", "--skip-worktree", ".gitignore");
+        unlinkSync(join(external.root, ".gitignore"));
+        external.git("config", "core.repositoryformatversion", "1");
+        external.git("config", "extensions.partialClone", "origin");
+        external.git("config", "remote.origin.url", "git@example.invalid:fixture.git");
+        external.git("config", "remote.origin.promisor", "true");
+        // `#` drops the arguments that Git appends.
+        external.git("config", "core.sshCommand", `touch '${marker}'; exit 1 #`);
+      }
+    }
+  ])("runs no command from an inspected repository's $setting", async ({ configure }) => {
+    const marker = join(directory.root, "command-ran");
+    configure(marker);
     expect((await inspect(join(external.root, "src/main.ts"), directory.root)).status).toBe(
       "not-ignored"
     );
