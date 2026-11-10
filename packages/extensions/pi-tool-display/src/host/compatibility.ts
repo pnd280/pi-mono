@@ -13,7 +13,7 @@ import type { DisplayMode } from "../contracts.ts";
 /** Last selected mode per interactive host; survives rebinding and extension reloads. */
 export const hostMode = Symbol.for("pi-tool-display.mode");
 
-// Private Pi 1.5.0 TUI contracts. Native construction belongs to libs/native-tools.
+// Private Pi 1.5.1 TUI contracts. Native construction belongs to libs/native-tools.
 export type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 export type Host = {
@@ -45,7 +45,7 @@ export type Host = {
   switchTuiMode?: (this: Host, ...args: unknown[]) => boolean;
 };
 
-export const inspectedPiVersion = "1.5.0";
+export const inspectedPiVersion = "1.5.1";
 
 // Host middleware can survive disposal under a later owner's wrapper. Hash the
 // recorded predecessor; an unknown endpoint needs the inspected public version.
@@ -59,12 +59,12 @@ const hostHookHashes = {
     "b77e207e823c93abf621028aa6d854dfae138605f7930c3a84bffff2235dc9af"
   ]),
   handleEvent: new Set([
-    "8d10a8c0a05f1147b345e3f5f01a38f57cebcf748f0c3a32323db7d0a67ac515",
-    "2fb69f6136fc484033c017150e10057672a809266324326f63618713bbb7f2e2"
+    "bbd5aa0d9714c6bffc75d44aae21048f07d3b5030336143f87a99b996ee581ef",
+    "083d0f1e595cb1f4065647098420df3ca525ef18289b36ef7bc66111ddf0b076"
   ]),
   addMessageToChat: new Set([
-    "ee8473601020acf04999b8989587fa4a549a627ec391704a22d00066d6f5c845",
-    "e04ea185d7caeee81e3aa948a453fe0922ec0b75c0152015a4050c59b19d17cd"
+    "a40a8f6477fefd716c464fe007df3f0baeb88a4cc69a4069c0c6c9cff7116380",
+    "254e75b5cd4d9d706b5d837d8e7f8b4fe9ac08624e06c52e65febfc4d8ec330c"
   ]),
   addCustomEntryToChat: new Set([
     "f4b92d3a5982088767eedb941221b31c2274801cf006dd5a0371e210e9d10d3c",
@@ -79,8 +79,8 @@ const hostHookHashes = {
     "6262e89ae7d438f1ec26d80cdf3c0b1b20d9a255d5f5f5b379e29752d6c2c4d2"
   ]),
   addCacheWarmingUsage: new Set([
-    "8f05cbd4ee2bcb86c2104b5e0f526bc15bf0d3b070ac51e93bc40b78a513c2ca",
-    "a3feb007c168120f6f5b54c5744725d71046c7df5868fe4fed77197c2e20778b"
+    "4d0255af5a1130d688240549208a7f9c22175a3863dfd0ba6a3ead36e4747f3b",
+    "a42feaf5076aa7a24dee7c61873bbdf71f20ac32bec9edc4f44e8f2f6a111126"
   ]),
   showExtensionNotify: new Set([
     "63eaaf576b56a2c2a24230e03ac37bdbc801b35ec311bf86654dab584c8a8827",
@@ -105,9 +105,9 @@ export function hostHooksCompatible<H extends Host>(
   );
 }
 
-// Pi 1.5.0: toggleToolOutputExpansion only negates toolOutputExpanded through
-// setToolsExpanded, which updates the header, loaded resources, and chat rows, then
-// shows its status. Mode cycling depends on both bodies; recheck on Pi upgrades.
+// Pi 1.5.1: toggleToolOutputExpansion only negates toolOutputExpanded through
+// setToolsExpanded, which updates the header, loaded resources, chat rows, and pending
+// rows, then shows its status. Mode cycling depends on both bodies; recheck on Pi upgrades.
 // Hashes cover the unbundled API and the installed CLI's minified build. Keep
 // .agents/skills/pi-update/scripts/fingerprints.ts in sync with all hashed methods here.
 const modeHookHashes = {
@@ -124,8 +124,8 @@ const modeHookHashes = {
     "11df26132e3330a855c500dff55bbe2f3d9826fdba338a353502dd727b69e2d7"
   ]),
   setToolsExpanded: new Set([
-    "2a09d118eaceb306f5fee34efd7311dd2f17b89b704ee591e4872a7476b18728",
-    "d85be3dbecebd5e1573f709505d2a7f1a715c86b8f4e22a1b738f9732caa2a4b"
+    "e8f44ff247c4643aac2b92c0c75cec5d95eaec7593925821bedd28a527511525",
+    "90657218f5fe0c5f73c81b5925d3f5690b4084dcb25439614b71ae822a8db6ed"
   ])
 };
 
@@ -136,7 +136,7 @@ export function modeHooksCompatible(host: Host): boolean {
   );
 }
 
-// Pi 1.5.0: ToolExecutionComponent.render first applies pending streamed arguments,
+// Pi 1.5.1: ToolExecutionComponent.render first applies pending streamed arguments,
 // then a self-rendered row renders a margin row, selfRenderHeight renderer rows,
 // then image rows, and handleMouse subtracts that margin before routing to the
 // renderer slots. Row chrome rewrites both; recheck on Pi upgrades.
@@ -164,7 +164,7 @@ export function rowContractCompatible(
 export const hostHook = Symbol.for("pi-tool-display.hostIntegration");
 
 export function interactivePrototype(): Host & { [hostHook]?: () => void } {
-  // Pi 1.5.0 private methods are checked before installing any wrapper.
+  // Pi 1.5.1 private methods are checked before installing any wrapper.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return InteractiveMode.prototype as unknown as Host & { [hostHook]?: () => void };
 }

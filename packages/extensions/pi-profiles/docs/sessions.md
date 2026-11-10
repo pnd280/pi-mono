@@ -16,6 +16,7 @@ pi-profiles saves each switch in the session, so a resumed, forked, or reloaded 
 - `/reload` keeps the selection and the declared tools.
 - On `/reload`, Pi turns on again the `direct` and `model-only` extension tools that are active by default, as it does without profiles. pi-profiles then turns off again the tools that the selection turned off, unless a request after the switch declared them. So if you turn on such a tool after the last request, it turns off again, as on resume.
 - Pi restores the model and the thinking level of the branch on resume and `/fork`, but not on `/tree`. After `/tree`, switch again to use the profile's model.
+- After `/tree`, your next prompt saves the current thinking level in the branch when the branch's saved level differs. A later resume or `/fork` then restores the current level.
 
 When pi-profiles no longer owns `tool_search`, restoration declares deferred tools again; see [tool search](tools.md#tool-search). When an MCP server still connects during restoration, the model can lose tools that it loaded from that server; see [MCP tools](tools.md#mcp-tools).
 

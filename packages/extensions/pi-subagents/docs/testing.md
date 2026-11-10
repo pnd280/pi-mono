@@ -55,7 +55,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** Historical views leave child files unchanged.
 - **High, e2e:** Saved supervisor history grows by bounded [per-run records](adr/0003-keep-task-history-in-child-sessions.md#records), independent of the child's message count.
 - **High, e2e:** Nothing is written under `<agentDir>/pi-subagents/`, and no lease directory remains after the runs end.
-- **High, e2e:** Only one process, the holder of the [writer lease](../GLOSSARY.md#history), writes a task's child file. A forked supervisor cannot resume a task while the original child runs, also after the original supervisor is killed, and the file stays unchanged.
+- **High, e2e:** Only one process, the holder of the [writer lease](../GLOSSARY.md#history), writes a task's child file. A forked supervisor cannot resume a task while the original child runs, also after the original supervisor is killed, and the rejected resume leaves the file unchanged.
 - **High, e2e:** After the lease writers exit, the next resume succeeds and removes the stale lease entries.
 - **High, integration:** After a release cannot remove its lease entry, the same process can take the lease again, and a lease that it holds still excludes another writer.
 - **High, integration:** A contender for the writer lease never removes a lease entry that its holder replaced while the contender checked the entry's processes.
@@ -118,7 +118,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** (R1) The result of a run that took active-task input keeps the final reply that the input followed, before the input's reply.
 - **High, e2e:** (R3) Read-only `show` paging covers eligible items on the selected run's ancestry once, including tool summaries that complete after a cursor was given out, with correct cursors and ancestry-scoped cumulative usage.
 - **High, e2e:** (R3) `show` excludes thinking, arguments, and outputs.
-- **High, e2e:** (R4) After an abort during a tool call, `show --last` returns the text and cursor of the latest assistant message with content, and skips empty `error` messages.
+- **High, e2e:** (R4) After an abort during a tool call, `show --last` returns the text and cursor of the latest assistant message with content, and skips empty `aborted` messages.
 
 ## Not tested
 

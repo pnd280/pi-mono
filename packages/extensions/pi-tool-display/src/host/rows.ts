@@ -135,18 +135,19 @@ export class TranscriptRows {
   /**
    * Pi's `handleEvent`. A compaction inserts its summary into the binding that is
    * current when the event settles: success rebinds before it appends the summary,
-   * and a failure appends notices to the original binding. A binding that outlives
-   * the event binds its new rows.
+   * and a failure appends notices to the original binding. A settled run moves the
+   * user's deferred bash rows into the chat. A binding that outlives the event binds
+   * its new rows.
    */
   async handleEvent(type: string, handle: () => Promise<void>): Promise<void> {
     const host = this.host;
     const binding = host.ui && host.chatContainer ? this.binding : undefined;
     // message_end updates the component and clears the host's streaming reference.
     const streaming = host.streamingComponent;
-    const compaction = type === "compaction_end";
-    if (compaction) binding?.prepareInsertion();
+    const inserts = type === "compaction_end" || type === "agent_settled";
+    if (inserts) binding?.prepareInsertion();
     await handle();
-    if (compaction) this.binding?.finishInsertion();
+    if (inserts) this.binding?.finishInsertion();
 
     if (binding && this.binding === binding) {
       binding.assistantBoundary(host.streamingComponent ?? streaming);

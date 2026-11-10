@@ -184,11 +184,11 @@ test("pages tool summaries on the selected ancestry once without modifying the c
         ? [{ id: entry.id, message: entry.message }]
         : []
     );
-    // Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0 request one more response after the aborted tool
-    // and record it as an empty error. Without that message, this test does not cover the skip.
+    // Pi 1.5.1 requests one more response after the aborted tool and records it as an empty
+    // aborted message. Without that message, this test does not cover the skip.
     expect(assistants.map(({ message }) => [message.stopReason, message.content.length])).toEqual([
       ["toolUse", 2],
-      ["error", 0]
+      ["aborted", 0]
     ]);
     expect(JSON.parse((await host.command(`show ${aborting} --last`)).message)).toEqual({
       task_id: aborting,

@@ -24,7 +24,7 @@ Six owner files record reviewed SHA-256 hashes of private Pi method source. Each
 
 Gate private methods where the native implementation can be checked without rejecting supported wrapper composition. Include called-only private dependencies: smart compaction checks immediate message appends, editor widgets check UI-context construction, and tool display checks startup expansion and status-row reuse. Public component and session methods retain their declared contracts and do not need a fingerprint merely because an extension calls them.
 
-Tool display's host integration hooks and editor widgets' host and renderer hooks use `unwrapHook` from [shared owned hooks](../../../../packages/libs/src/owned-hooks/README.md) before checking compatibility. Its weak, process-global `Symbol.for` registry follows recorded predecessors across module reloads and after restoration. Each of these two owners exports `inspectedPiVersion = "1.5.0"` and compares it with Pi's public `VERSION`.
+Tool display's host integration hooks and editor widgets' host and renderer hooks use `unwrapHook` from [shared owned hooks](../../../../packages/libs/src/owned-hooks/README.md) before checking compatibility. Its weak, process-global `Symbol.for` registry follows recorded predecessors across module reloads and after restoration. Each of these two owners exports `inspectedPiVersion = "1.5.1"` and compares it with Pi's public `VERSION`.
 
 The deepest value returned by `unwrapHook` must be callable. A reviewed source hash accepts that value on any version. An unknown hash is accepted only when public `VERSION` equals the owner's pin. Otherwise, the affected feature stays disabled and reports its existing warning.
 
@@ -53,7 +53,7 @@ To get both sources, [fetch the previous release](#fetch-a-release), then diff t
 
 ## Fetch a release
 
-This installs `pi-coding-agent` of one release with all its dependencies, without install scripts. The Pi family lands in `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`; for 1.5.0 that is eight packages, including `pi-schema` and `pi-telemetry` through `pi-ai`, and about 150 MB in total.
+This installs `pi-coding-agent` of one release with all its dependencies, without install scripts. The Pi family lands in `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`; for 1.5.1 that is eight packages, including `pi-schema` and `pi-telemetry` through `pi-ai`, and about 150 MB in total.
 
 ```sh
 npm install --prefix .tmp/pi-releases/<version> --ignore-scripts --no-audit --no-fund --no-package-lock @earendil-works/pi-coding-agent@<version>

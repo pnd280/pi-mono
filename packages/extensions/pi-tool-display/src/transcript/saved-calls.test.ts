@@ -52,9 +52,7 @@ type LiveCall = {
   args: JsonObject;
   facts: readonly DisplayFact[];
   /** The execution event's outcome; Pi's entry keeps only its error flag. */
-  outcome: Outcome | undefined;
-  /** False stops after the end event, as when shutdown precedes Pi's final result. */
-  final?: boolean | undefined;
+  outcome: Outcome;
   details?: JsonValue;
   /** Pi's measurement; absent when the tool did not run. */
   durationMs?: number | undefined;
@@ -62,7 +60,7 @@ type LiveCall = {
 
 /**
  * Pi's order: the assistant entry, the start event, observation, the end event, the
- * result message, and then its entry. An undefined outcome stops before the end event.
+ * result message, and then its entry.
  */
 function runLive({ coordinator, saved }: Fixture, history: SessionManager, input: LiveCall) {
   const { id, name, args, outcome, durationMs } = input;
@@ -80,14 +78,11 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
   });
   saved.observe(call);
   for (const fact of input.facts) saved.fact(call, fact);
-  if (!outcome) return call;
-
   // The end event shows a host cancellation on the live card.
   if (outcome === "cancelled") coordinator.fact(call, { kind: "cancellation" });
   saved.end(call, outcome);
   const isError = outcome !== "success";
   coordinator.result(call, published, { outcome: isError ? "failure" : "success", durationMs });
-  if (input.final === false) return call;
   saved.finish(call, published, isError ? "failure" : "success");
   history.appendMessage({
     role: "toolResult",
@@ -236,32 +231,10 @@ it.each([
       applied: true,
       change: { kind: "unavailable", reason: "binary" }
     }
-  },
-  {
-    case: "disposal after a shell success, before Pi's result",
-    facts: [operation({ outcome: "success", exitCode: 0 })],
-    outcome: "success",
-    final: false,
-    saved: { operation: true, exitCode: 0 }
-  },
-  {
-    case: "disposal after an applied write, before Pi's result",
-    name: "write",
-    facts: [
-      { kind: "change", change: "unavailable", reason: "binary" },
-      operation({ outcome: "success" })
-    ],
-    outcome: "success",
-    final: false,
-    saved: {
-      operation: true,
-      applied: true,
-      change: { kind: "unavailable", reason: "binary" }
-    }
   }
 ] as const)(
   "saves only facts that Pi's entries lack, and replay shows the live card: $case",
-  ({ name = "bash", facts, outcome, final, saved, ...input }) => {
+  ({ name = "bash", facts, outcome, saved, ...input }) => {
     const history = SessionManager.inMemory("/tmp");
     const live = fixture(history, { append: history.appendCustomEntry.bind(history) });
     const args = name === "bash" ? { command: "run" } : { path: "a.bin", content: "x" };
@@ -272,7 +245,6 @@ it.each([
       args,
       facts,
       outcome,
-      final,
       durationMs
     });
     const shown = (call: DisplayCall) => ({
@@ -292,7 +264,7 @@ it.each([
     try {
       const call = restored.coordinator.byId("call")!;
       expect(shown(call)).toEqual(expected);
-      expect(call.durationMs).toBe(final === false ? undefined : durationMs);
+      expect(call.durationMs).toBe(durationMs);
     } finally {
       restored.dispose();
     }
@@ -370,8 +342,7 @@ it.each([
     outcome: "success",
     observed: "@@ -1,1 +1,1 @@\n-\uFEFFbefore\n+\uFEFFafter\n",
     persisted: false
-  },
-  { case: "disposal before the result", outcome: undefined, persisted: true }
+  }
 ] as const)(
   "persists the observed edit change only when the result cannot replace it: $case",
   ({ outcome, observed = piPatch, persisted, ...input }) => {

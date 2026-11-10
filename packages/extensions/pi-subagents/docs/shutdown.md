@@ -16,7 +16,7 @@ Graceful exit waits for child-task cleanup. It also waits for each job's process
 
 ### Process-group cleanup
 
-On Linux and macOS, a live supervisor sends SIGTERM to the child process group after the grace period. It sends SIGKILL after 2 more seconds if a member remains, also when the child itself has exited. When the child exits without a forced stop and members of its group remain, the supervisor starts the same forced stop at once. The stop ends when the group is gone.
+On Linux and macOS, a live supervisor sends SIGTERM to the child process group after the grace period. It sends SIGKILL after 2 more seconds if a member remains, also when the child itself has exited. A child that is already shutting down does not exit on the SIGTERM, so a child that blocks its shutdown ends with the SIGKILL. When the child exits without a forced stop and members of its group remain, the supervisor starts the same forced stop at once. The stop ends when the group is gone.
 
 If a member remains 1 second after SIGKILL, or the group cannot be checked, the run's result reports the failure. A cancelled run stays cancelled and names it; a failed run's first line starts with it.
 
@@ -34,7 +34,7 @@ A child supervisor writes the failed stops of its own tasks and jobs to stderr b
 
 ## Immediate stop
 
-Navigation and foreground abort use a separate immediate path. On Unix, the supervisor sends SIGSTOP to the child's process group and to each descendant as it discovers it, so that a stopped parent cannot start another child. It then sends SIGKILL to the collected groups and descendants. Windows uses forced tree termination, and starts no second `taskkill` while one runs.
+Navigation and foreground abort use a separate immediate path. On a graceful exit, Pi aborts the active run first, so a foreground task of that run also takes this path. On Unix, the supervisor sends SIGSTOP to the child's process group and to each descendant as it discovers it, so that a stopped parent cannot start another child. It then sends SIGKILL to the collected groups and descendants. Windows uses forced tree termination, and starts no second `taskkill` while one runs.
 
 In both paths, capacity remains reserved until process exit is observed and any forced stop ends: on Linux and macOS, the stop of the child's process group; on Windows, `taskkill`. When a forced stop fails while the child still runs, the child keeps its capacity slot until it exits.
 
@@ -48,6 +48,7 @@ The decision is in [ADR 0007](adr/0007-own-job-processes-and-bound-logs.md).
 
 - After supervisor SIGKILL, children rely on cooperative stdin-EOF shutdown. A child that blocks shutdown can remain alive with its commands, and there is no independent watchdog. For jobs, see [job limits](jobs.md#limits).
 - Force-kill does not reverse file changes and can bypass child cleanup.
+- Force-kill can interrupt a child while it saves a refreshed OAuth token. The old token can already be spent, so that login is then lost.
 - A process that holds the child's output pipes in another process group delays the run's result until it exits, unless a forced stop ran.
 - After the child exits, only the remaining members of its process group keep the group's number. If they all exit between a check and the next signal, and the system gives the number to a new group, that signal reaches the new group. Node.js has no process-group handle that prevents this.
 - On Windows, the supervisor stops no process after the child's own exit; a process that holds the child's output pipes then delays the run's result until it exits.

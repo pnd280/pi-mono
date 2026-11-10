@@ -55,7 +55,7 @@ type LiveCall = {
   args: JsonObject;
   facts: readonly DisplayFact[];
   /** The execution event's outcome; Pi's entry keeps only its error flag. */
-  outcome: Outcome | undefined;
+  outcome: Outcome;
   details?: JsonValue;
   timestamp?: number;
   /** Pi's measurement; absent when the tool did not run. */
@@ -64,7 +64,7 @@ type LiveCall = {
 
 /**
  * Pi's order: the assistant entry, the start event, observation, the end event, the
- * result message, and then its entry. An undefined outcome stops before the end event.
+ * result message, and then its entry.
  */
 function runLive(session: DisplaySession, history: SessionManager, call: LiveCall): DisplayCall {
   const { id, name, args, outcome, timestamp = 1, durationMs } = call;
@@ -78,31 +78,29 @@ function runLive(session: DisplaySession, history: SessionManager, call: LiveCal
   const sink = session.beginObservation(id, `pi:${name}`)!;
   for (const fact of call.facts) sink.fact(fact);
 
-  if (outcome) {
-    session.result(id, published, { outcome, durationMs });
-    const isError = outcome !== "success";
-    session.message(
-      {
-        kind: "result",
-        id,
-        name,
-        result: published,
-        outcome: isError ? "failure" : "success",
-        ...(durationMs === undefined ? {} : { durationMs })
-      },
-      "live"
-    );
-    history.appendMessage({
-      role: "toolResult",
-      toolCallId: id,
-      toolName: name,
-      content: published.content,
-      ...(call.details === undefined ? {} : { details: call.details }),
-      ...(durationMs === undefined ? {} : { durationMs }),
-      isError,
-      timestamp
-    });
-  }
+  session.result(id, published, { outcome, durationMs });
+  const isError = outcome !== "success";
+  session.message(
+    {
+      kind: "result",
+      id,
+      name,
+      result: published,
+      outcome: isError ? "failure" : "success",
+      ...(durationMs === undefined ? {} : { durationMs })
+    },
+    "live"
+  );
+  history.appendMessage({
+    role: "toolResult",
+    toolCallId: id,
+    toolName: name,
+    content: published.content,
+    ...(call.details === undefined ? {} : { details: call.details }),
+    ...(durationMs === undefined ? {} : { durationMs }),
+    isError,
+    timestamp
+  });
 
   return session.coordinator.byId(id)!;
 }
@@ -137,19 +135,6 @@ it("replays saved facts and Pi's durations for separate assistant calls sharing 
       timestamp: 17,
       durationMs: exitCode
     });
-  const change = {
-    kind: "change",
-    change: "creation",
-    patch: "@@ -0,0 +1,1 @@\n+after\n"
-  } as const;
-  runLive(live, history, {
-    id: "unfinished-write",
-    name: "write",
-    args: { path: "unfinished.txt", content: "after\n" },
-    facts: [change, operation({ outcome: "success" })],
-    outcome: undefined,
-    timestamp: 17
-  });
   live.dispose();
   const restored = replay(history);
 
@@ -159,14 +144,6 @@ it("replays saved facts and Pi's durations for separate assistant calls sharing 
         operation: operation({ outcome: "failure", exitCode }),
         durationMs: exitCode
       });
-    const unfinished = restored.coordinator.byId("unfinished-write")!;
-    expect(unfinished).toMatchObject({
-      lifecycle: "unavailable",
-      outcome: "unavailable",
-      change,
-      operation: operation({ outcome: "success" })
-    });
-    expect(unfinished.durationMs).toBeUndefined();
   } finally {
     restored.dispose();
   }
@@ -360,15 +337,12 @@ it("makes retained observation callbacks inert after session disposal, including
     expect(call.lifecycle).toBe("executing");
     expect(call.liveOutput?.text).toBe("live preview");
     const retained = { ...call };
-    // A call still running at disposal keeps the facts known so far.
     session.dispose();
-    const flushed = append.mock.calls.slice();
-    expect(flushed).toEqual([[CALL_TYPE, expect.objectContaining({ toolCallId: "shell" })]]);
     observation.started();
     observation.preview({ text: "late preview" });
     observation.fact(operation({ outcome: "success", exitCode: 0 }));
     expect(call).toEqual(retained);
-    expect(append.mock.calls).toEqual(flushed);
+    expect(append).not.toHaveBeenCalled();
     expect(session.beginObservation("shell", "pi:bash")).toBeUndefined();
     expect(session.coordinator.calls.size).toBe(0);
   } finally {

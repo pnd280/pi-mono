@@ -34,7 +34,7 @@ it("mounts the notes footer", async () => {
 
 Pass extension factories and optionally `"regular"` or `"fullscreen"`. Create feature-specific settings under the returned `directory` and `agentDir`, then call `bind()` to emit session startup against the real UI. `host`, `ui`, `session`, and `terminal` expose the installed boundary for consumer assertions.
 
-Always close custom UI and await `dispose()` in `finally`. When a cleanup step throws, such as a widget or footer disposer, `dispose()` still runs every other step, including host and session release, directory removal, and environment restoration, and then throws an `AggregateError`.
+Always close custom UI and await `dispose()` in `finally`. Like Pi's quit, `dispose()` aborts an active run and waits for it to settle before it emits `session_shutdown`. When a cleanup step throws, such as a widget or footer disposer, `dispose()` still runs every other step, including host and session release, directory removal, and environment restoration, and then throws an `AggregateError`.
 
 Do not run fixtures concurrently in the same test context, because environment stubs and Pi's theme are process-local.
 

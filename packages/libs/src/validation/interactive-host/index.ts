@@ -73,6 +73,8 @@ export async function hostFixture(
   // Every step runs even when an earlier one throws, so a failing disposer leaks nothing.
   const dispose = async () => {
     const steps = [
+      // Like Pi's quit, which aborts an active run and lets it settle before `session_shutdown`.
+      () => resources.session?.abort(),
       () => resources.session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" }),
       () => resources.host?.clearExtensionWidgets(),
       () => resources.host?.setExtensionFooter(undefined),

@@ -70,4 +70,6 @@ The [scope extraction](../src/scopes.ts) and [Bash inference](../src/bash.ts) so
 
 On Windows, native tool paths such as `/c/dir`, `/mnt/c/dir`, and `/cygdrive/c/dir` are read as `C:\dir`, as Pi's native tools read them.
 
+On Windows, the native `find` tool also accepts `\` as a separator in its pattern. Discovery reads the directories of a `find` pattern only when the pattern contains `/`, so a pattern such as `src\app\*.ts` gives only the scope of its `path` input.
+
 On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. A path operand or a path-valued option that starts with a drive component, such as `/c/`, is read as the drive path `C:/`, as in Git Bash and MSYS2. This applies to separate and attached option values. Other POSIX-rooted paths, such as `/tmp/pkg`, give no scope, because their mount root depends on the shell. A `cd` to such a path stops inference for the rest of the invocation.

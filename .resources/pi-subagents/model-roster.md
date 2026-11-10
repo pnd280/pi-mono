@@ -6,13 +6,8 @@ GPT reviews code and plans; a GPT task changes no files and reports findings wit
 - `openai/gpt-6.1-sol` `xhigh`: default review
 - `openai/gpt-6-luna` `max`: narrow checks of code, diffs, or output against explicit criteria
 
-Claude writes documentation and prose:
-
-- `anthropic/claude-fable-5-2` `xhigh`
-
 Claude does everything else:
 
-- `anthropic/claude-opus-5-5` `xhigh`: depth outweighs speed and usage
 - `anthropic/claude-opus-5-5` `high`: sustained architecture, hard debugging, orchestration
 - `anthropic/claude-opus-5-5` `medium`: default
 - `anthropic/claude-haiku-5-5` `xhigh`: file and symbol discovery, extraction, narrow test or lint runs

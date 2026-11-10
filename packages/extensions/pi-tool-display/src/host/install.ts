@@ -307,7 +307,7 @@ export function installHostIntegration(
     });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
-    // Pi 1.5.0 passes (items, messageMeta, options); forward every argument so
+    // Pi 1.5.1 passes (items, messageMeta, options); forward every argument so
     // footer, editor history, and saved-message metadata reach Pi's rows.
     hooks.replace(prototype, "renderSessionItems", function (this: Host, items, ...rest) {
       // Pi appends replay slices around a boundary compaction summary. Retain

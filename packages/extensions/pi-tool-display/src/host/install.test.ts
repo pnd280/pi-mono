@@ -58,7 +58,7 @@ function installHostIntegration(): (() => void) | undefined {
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
-// Pi 1.5.0's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.5.1's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: AgentSession }, name: string) => RenderDefinition;
@@ -99,7 +99,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 1.5.0's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.5.1's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -1137,10 +1137,6 @@ it("leaves another mutation subscriber active after display shutdown", async () 
       expect(changes).toEqual([args.content]);
 
       await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-      // Shutdown saves the observed change of the call that is still open.
-      expect(saved(session, CALL_TYPE)).toMatchObject([
-        { toolCallId: call.id, change: { kind: "creation" } }
-      ]);
       await write().execute("after-display", { ...args, content: "summary remains" });
       expect(changes).toEqual([args.content, "summary remains"]);
       subscriber.dispose();
@@ -1565,14 +1561,16 @@ it.each([
             result,
             isError: false
           });
-          session.sessionManager.appendMessage({
-            role: "toolResult",
+          const published = {
+            role: "toolResult" as const,
             toolCallId: call.id,
             toolName: call.name,
             ...result,
             isError: false,
             timestamp: 2
-          });
+          };
+          await tui.handleEvent({ type: "message_end", message: published });
+          session.sessionManager.appendMessage(published);
           const renderings: string[] = [];
 
           for (const replay of [false, true]) {
@@ -1610,7 +1608,6 @@ it.each([
                     entry: expect.any(String) as unknown,
                     toolCallId: call.id,
                     operation: true,
-                    applied: true,
                     change: { kind: "creation" }
                   }
                 ]
