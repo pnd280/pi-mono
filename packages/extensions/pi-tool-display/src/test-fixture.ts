@@ -21,7 +21,7 @@ export const plainTheme: DisplayTheme = {
   }
 };
 
-/** Pi 1.5.0 injects these into render contexts; fixtures show the keybinding ID as its key. */
+/** Pi 1.5.1 injects these into render contexts; fixtures show the keybinding ID as its key. */
 export const keybindingHints: KeybindingHints = {
   keyText: (keybinding) => keybinding,
   keyHint: (keybinding, description) => `${keybinding} ${description}`

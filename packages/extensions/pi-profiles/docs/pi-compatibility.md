@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-> Last verified against Pi 1.5.0 with the offline host tests, a source review of the 1.4.0 to 1.5.0 changes, and an offline SDK session that checked the order of the declared tools. Not covered: live providers; MCP servers; a terminal session of the installed CLI; and the manual checks.
+> Last verified against Pi 1.5.1 with the offline host tests and a source review of the 1.5.0 to 1.5.1 changes. Not covered: the offline SDK session that checked the order of the declared tools, which last ran on Pi 1.5.0; live providers; MCP servers; a terminal session of the installed CLI; and the manual checks.
 
 ## Upgrade procedure
 
@@ -71,7 +71,7 @@ The extension has its own copy of the matcher. If Pi exports it, use it. An `all
 
 Recheck each row of the [MCP tools](tools.md#mcp-tools) tables against these contracts.
 
-- [ ] Pi names MCP tools `mcp__<server>__<tool>`, replaces other characters with `_`, and shortens long or taken names with a hash (`createMcpToolName` in `extensions/mcp/tools.js`).
+- [ ] Pi names MCP tools `mcp__<server>__<tool>`, replaces other characters with `_`, and shortens long or taken names with a hash (`createMcpToolName` in `naming.js` in pi-mcp).
 - [ ] `hidden` exposure makes a tool unreachable.
 - [ ] Registering a `direct` or `model-only` tool without `defaultActive: false` declares it, whatever the active tools are (`_isActivatedOnRegistration` in `agent-session.js`).
 - [ ] `tool_search` declares undeclared `codemode` and `deferred` tools, including tools that a profile removed.
@@ -87,7 +87,7 @@ Recheck each row of the [MCP tools](tools.md#mcp-tools) tables against these con
 The [adapter](../src/index.ts) relies on these contracts.
 
 - [ ] `pi.registerMcpServer()` validates the entry and throws for an invalid entry, a name that another extension registered, or a name that differs from a registered one only in `-` and `_` (`registerMcpServer` in `core/extensions/loader.js`).
-- [ ] Pi does not export `validateMcpServerConfig`.
+- [ ] Pi does not export its `validateMcpServerConfig` (`core/mcp-servers.js`). The pi-mcp function of that name does not check `exposure`, `toolExposure`, or `auth`.
 - [ ] The built-in MCP extension connects a server that registers during the session at once, and closes an unregistered one (`mcp_servers_change` handler in `extensions/mcp/index.js`).
 - [ ] The built-in MCP extension keeps the connection of a registered server whose entry serialises the same with `JSON.stringify`, and reconnects it otherwise (`registeredConfig` in `extensions/mcp/index.js`).
 - [ ] Pi loads the extension again for each session and on `/reload`, and drops the registrations of the previous load.
@@ -118,6 +118,7 @@ The [selection](../src/selection.ts) module relies on these contracts.
 - [ ] Tool results in the branch carry `toolName`.
 - [ ] Nested calls from codemode scripts do not appear as tool results.
 - [ ] On resume and `/fork`, Pi restores the model and thinking level from `model_change` and `thinking_level_change` entries, which `setModel()` and `setThinkingLevel()` append.
+- [ ] When a run starts on a branch whose latest `thinking_level_change` entry differs from the current level, Pi appends an entry with the current level (`_recordThinkingLevel` in `agent-session.js`).
 - [ ] `pi.appendEntry()` entries appear in `getBranch()` as `custom` entries and are not sent to the model.
 
 When the destination branch has neither a selection nor a system message, the extension undoes the outgoing selection's changes. The host tests set `defaultTools: []` instead of `noTools`, so that Pi restores the tools. After `/reload`, the extension turns off again the tools that the selection turned off, unless the last request declared them (`getCurrentSystemMessage()`). After resume, `/fork`, and `/tree`, the extension turns off again the tools that the selection knew and the last request did not declare, because Pi turns on extension tools that the branch never recorded. The extension sets restored tools only when they change, so that Pi keeps its pending tools. It counts a later system or assistant message as a request, so a switch with no request after it is not recorded. A compaction checkpoint does not record a switch.
@@ -159,8 +160,8 @@ A new `CustomEditor` with `embedWorkingStatus: true` draws the working status in
 
 ## Limitations
 
-- In Pi 1.5.0, `pi.setActiveTools()` keeps the current order of the tools that stay active (`_applyToolLoadout()` in `agent-session.js`), so the extension no longer orders the declared tools. They keep Pi's activation order, which follows the load order. Only a call that turns tools off could reorder them, and that call drops Pi's pending tools.
-- In Pi 1.4.0, an offline tmux session of the installed CLI with isolated settings showed that a `deny` tool stayed off after the switch, after `/tree` to a branch with and without a recorded request, after `/fork`, and after resume. This session was not repeated on Pi 1.5.0, whose tool restoration in `agent-session.js` changed only in the tool order.
-- Pi 1.3.0 to 1.5.0 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
-- In Pi 1.3.0 to 1.5.0, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. Pi warns when it replaces the enabled built-in `tool-search`; the README's [side effects](../README.md#side-effects) section tells how to stop the warning. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
+- In Pi 1.5.0 and 1.5.1, `pi.setActiveTools()` keeps the current order of the tools that stay active (`_applyToolLoadout()` in `agent-session.js`), so the extension no longer orders the declared tools. They keep Pi's activation order, which follows the load order. Only a call that turns tools off could reorder them, and that call drops Pi's pending tools.
+- In Pi 1.4.0, an offline tmux session of the installed CLI with isolated settings showed that a `deny` tool stayed off after the switch, after `/tree` to a branch with and without a recorded request, after `/fork`, and after resume. This session was not repeated on Pi 1.5.0, whose tool restoration in `agent-session.js` changed only in the tool order, or on Pi 1.5.1, which did not change it.
+- Pi 1.3.0 to 1.5.1 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
+- In Pi 1.3.0 to 1.5.1, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. Pi warns when it replaces the enabled built-in `tool-search`; the README's [side effects](../README.md#side-effects) section tells how to stop the warning. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.

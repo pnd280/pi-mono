@@ -224,13 +224,21 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
       await nextPrompt;
     }
 
-    const reloadSummary = current.response("compact");
-    const compact = current.track(current.session.compact());
+    // Pi reloads only an idle session. A failed branch summary emits no terminal event, so its
+    // confirmation is still armed at the reload.
+    const reloadSummary = current.response("failed-tree");
+    const reloadTarget = current.session.sessionManager
+      .getEntries()
+      .find((entry) => entry.type === "message" && entry.message.role === "user");
+    const navigation = current.track<unknown>(
+      current.session.navigateTree(reloadTarget!.id, { summarize: true })
+    );
     await reloadSummary.started();
     current.press();
-    await current.session.reload({ beforeSessionStart: () => current.host.resetExtensionUI() });
+    expect(current.hint()).toContain("again to interrupt");
     reloadSummary.finish();
-    await compact;
+    await expect(navigation).rejects.toThrow("Offline summary failure");
+    await current.session.reload({ beforeSessionStart: () => current.host.resetExtensionUI() });
     const afterReload = current.response();
     const reloadedPrompt = current.track(current.session.prompt("Run after reload"));
     await afterReload.started();

@@ -16,7 +16,7 @@ import agentSummary from "./index.ts";
 import { milestoneChannel } from "./milestones.ts";
 import { summaryEntryType } from "./summary.ts";
 
-it("saves one summary per settled run and none for a run that reload or shutdown interrupts", async () => {
+it("saves one summary per settled run, also when quit cancels it, and none for a run that a reload discards", async () => {
   useStepPatchDeadline();
   // Only the live timer's interval is fake, so the timer count shows whether it still ticks.
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
@@ -179,29 +179,23 @@ it("saves one summary per settled run and none for a run that reload or shutdown
     expect(summaries()).toHaveLength(3);
     expect(summaries()[2]).toEqual(summary({}));
 
-    // Shutdown stops the live timer, and the run that settles during shutdown saves no summary.
+    // Quit cancels the run, which settles and saves its summary before shutdown.
     const last = held();
     faux.setResponses([
       fauxAssistantMessage(fauxToolCall("write", { path: "last.txt", content: "last\n" })),
       last.response
     ]);
-    void start("Interrupted run");
+    void start("Cancelled run");
     await last.entered();
     expect(vi.getTimerCount()).toBe(1);
-
-    duringShutdown = async () => {
-      last.release();
-      await settled(6);
-    };
-
     disposed = true;
     await fixture.dispose();
-    expect(session.messages.at(-1)).toMatchObject({
-      role: "assistant",
-      content: [{ type: "text", text: "Held response" }]
-    });
+    expect(session.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "aborted" });
     expect(vi.getTimerCount()).toBe(0);
-    expect(summaries()).toHaveLength(3);
+    expect(summaries()).toHaveLength(4);
+    expect(summaries()[3]).toEqual(
+      summary({ files: [{ path: "last.txt", status: "available", added: 1, removed: 0 }] })
+    );
   } finally {
     try {
       if (!disposed) await fixture.dispose();

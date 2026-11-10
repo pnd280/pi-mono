@@ -32,7 +32,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, and change facts and bounded patches.
 - **Critical, unit:** Call records above the whole-record byte limit are rejected, including when unknown fields cause the excess.
-- **High, unit:** An `edit` change fact is saved only when the result cannot replace it: a non-successful or missing result, or a missing, invalid or different `details.patch`. Line endings, file headers, and a BOM do not count as differences.
+- **High, unit:** An `edit` change fact is saved only when the result cannot replace it: a non-successful result, or a missing, invalid or different `details.patch`. Line endings, file headers, and a BOM do not count as differences.
 - **High, unit:** A `write` creation entry without a patch replays the same diff as the observed patch. When they differ, the entry keeps the observed patch.
 - **High, e2e:** Call facts use custom session entries, not model-context messages.
 

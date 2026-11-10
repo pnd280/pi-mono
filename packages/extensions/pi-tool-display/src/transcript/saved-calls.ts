@@ -25,11 +25,11 @@ function contentArgument(args: unknown): string | undefined {
 function recordedChange(
   call: DisplayCall,
   change: ChangeFact | undefined,
-  result: AgentToolResult<unknown> | undefined,
-  outcome: Outcome | undefined
+  result: AgentToolResult<unknown>,
+  outcome: Outcome
 ): RecordedChange {
   if (!change) return undefined;
-  const supplied = outcome === "success" ? record(result?.details).patch : undefined;
+  const supplied = outcome === "success" ? record(result.details).patch : undefined;
 
   if (call.adapter.family === "edit" && typeof supplied === "string") {
     const replaced =
@@ -90,21 +90,15 @@ function derivedOperation(
   };
 }
 
-/**
- * Add the operation fields that replay would otherwise derive differently. Without
- * Pi's final result, replay can see any published outcome, so the fields must hold
- * for each of them.
- */
+/** Add the operation fields that replay would otherwise derive differently. */
 function addOperationFacts(
   family: DisplayCall["adapter"]["family"],
   operation: OperationFact,
-  published: Outcome | undefined,
+  published: Outcome,
   facts: OperationRecord
 ): void {
-  // Derivation distinguishes only a successful published outcome from the others.
-  const outcomes: readonly Outcome[] = published ? [published] : ["success", "failure"];
   const differs = (field: "outcome" | "exitCode", value: unknown) =>
-    outcomes.some((outcome) => derivedOperation(family, outcome, facts)[field] !== value);
+    derivedOperation(family, published, facts)[field] !== value;
   const { exitCode } = operation;
   if (exitCode !== undefined && differs("exitCode", exitCode)) facts.exitCode = exitCode;
   if (
@@ -121,8 +115,8 @@ function addOperationFacts(
 function recordedFacts(
   call: DisplayCall,
   observed: ObservedCall | undefined,
-  result: AgentToolResult<unknown> | undefined,
-  published: Outcome | undefined,
+  result: AgentToolResult<unknown>,
+  published: Outcome,
   cancelled: boolean
 ): Omit<CallRecord, "entry" | "toolCallId"> | undefined {
   const operation = observed?.operation;
@@ -216,12 +210,8 @@ export class SavedCalls {
     if (!this.disposed && call.origin === "live") this.ended.set(call, outcome);
   }
 
-  /**
-   * Pi's final result message. Write at most one call entry; Pi appends the result
-   * after it. When disposal comes first, even after the end event, no published
-   * outcome is known.
-   */
-  finish(call: DisplayCall, result?: AgentToolResult<unknown>, published?: Outcome): void {
+  /** Pi's final result message. Write at most one call entry; Pi appends the result after it. */
+  finish(call: DisplayCall, result: AgentToolResult<unknown>, published: Outcome): void {
     if (this.disposed || call.origin !== "live") return;
     const observed = this.observed.get(call);
     const ended = this.ended.get(call);
@@ -261,10 +251,8 @@ export class SavedCalls {
     if (operation) coordinator.fact(call, operation);
   }
 
-  /** Save the facts of calls still running; they keep the facts known so far. */
+  /** Pi lets a run settle before it ends or replaces a session, so no call is still running. */
   dispose(): void {
-    if (this.disposed) return;
-    for (const call of new Set([...this.observed.keys(), ...this.ended.keys()])) this.finish(call);
     this.disposed = true;
   }
 

@@ -42,6 +42,6 @@ A tool summary, such as `read ×2, bash ×1`, counts the calls of one assistant 
 - With `--since <cursor>`, it contains the first items after that entry and `more`, which indicates whether another page is available. Pass the returned `cursor` to read forward; an unknown cursor is an error.
 - `--limit` is an integer from 1 to 100 and defaults to 20. Text items and tool summaries are cut at 2,000 bytes. Complete JSON pages fit 50 KiB and may contain fewer items than requested.
 - `usage` covers the selected child ancestry, including reported descendant usage. Late background descendant usage is included when its result was delivered to that descendant's supervisor.
-- `--last` returns `{ task_id, state, cursor, text }` from the active conversation, using the same text limits as the tool result. It follows Pi's active model context on the selected branch, and skips assistant messages without content, such as an empty error that Pi can add after an abort.
+- `--last` returns `{ task_id, state, cursor, text }` from the active conversation, using the same text limits as the tool result. It follows Pi's active model context on the selected branch, and skips assistant messages without content, such as an empty message that Pi can add after an abort.
 
 Reading a digest never modifies the child session. `session_file` from `list` is the task's child file. It can also contain runs that are not on the selected ancestry, and these are not shown.

@@ -1036,10 +1036,14 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       "group-survivor",
       "group-zombie"
     ].includes(prompt ?? "");
+
     // A member of this child's process group that ignores SIGTERM and has its own standard
     // streams, so the child's exit on SIGTERM closes the connection while the member runs.
-    if (prompt === "group-survivor")
+    if (prompt === "group-survivor") {
       spawn("sh", ["-c", "trap '' TERM; exec sleep 600"], { cwd: ctx.cwd, stdio: "ignore" });
+      // Pi's RPC mode ignores the first SIGTERM during its shutdown. This child exits on it.
+      process.removeAllListeners("SIGTERM");
+    }
 
     // Ordinary stderr output of a child supervisor before its tasks' cleanup failures: more than
     // the kept stderr excerpt, then an unfinished line. Its shutdown writes more output after them.
@@ -1137,6 +1141,9 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
 
     // pi-subagents loads first, so its handler has written the cleanup failures.
     if (noisyShutdown) await writeStderr(STDERR_NOISE);
+
+    // Pi aborts the run and saves its entries before this event, so the child file is at rest.
+    if (ignoreShutdown) await writeFile(join(process.cwd(), "shutdown-ready"), "ready");
 
     // Keep a handle alive as well as ignoring EOF, so the forced-stop path is observable.
     while (ignoreShutdown) await setTimeout(60_000);

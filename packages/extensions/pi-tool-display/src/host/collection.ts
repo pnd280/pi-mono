@@ -137,7 +137,6 @@ export class DisplayCollector {
   dispose(): void {
     if (!this.active) return;
     this.unsubscribe();
-    // Facts of running calls persist while this collector can still append.
     this.display.dispose();
     this.active = false;
   }

@@ -25,7 +25,8 @@ A _run_ is everything from your prompt until the agent settles, including retrie
 - Saved summaries show again when you resume a session with the extension loaded.
 - With [pi-tool-display](../pi-tool-display/README.md), the summary marker lines up with other message markers.
 - RPC, JSON, and print modes save summaries without the live timer and rate.
-- Shutdown or reload discards an unfinished run.
+- Quitting Pi or switching sessions during a run cancels the run, and the cancelled run gets a summary.
+- A run gets no summary when Pi is killed before the run settles, or when you quit, reload, or switch sessions just after it settles, while its file changes are still being compared.
 
 pi-agent-summary has no settings or environment variables. It shows the live timer and rate in the working message as `pi-agent-summary.elapsed` and `pi-agent-summary.throughput`, alongside other contributions such as `pi-todo` activity.
 

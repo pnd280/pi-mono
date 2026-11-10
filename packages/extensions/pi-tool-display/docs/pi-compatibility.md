@@ -2,9 +2,9 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.5.0 with a source review of the Pi 1.4.0 to 1.5.0 changes to the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, and the other manual [terminal checks](validation.md); physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP and FFF services; and other platforms.
+> Last verified against Pi 1.5.1 with a source review of the Pi 1.5.0 to 1.5.1 changes to the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the native tools, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, user `!` rows that Pi moves into the chat when a run settles, and the other manual [terminal checks](validation.md); idle cache-warming notices, which need a live provider; a shell timeout whose background processes outlive the shell; physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP and FFF services; and other platforms.
 
-A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.5.0"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
+A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.5.1"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
 For host integration, a failed gate leaves the affected feature disabled as described in the [README](../README.md#pi-version-fallbacks).
 
@@ -33,6 +33,7 @@ Work through every section below when you bump the supported Pi version, checkin
 - [ ] Adapter selection consults no resolver renderers for an unregistered name.
 - [ ] After disposal or rebinding, pending events don't reattach old row or assistant hooks.
 - [ ] Compaction insertion handling uses the current binding.
+- [ ] Settle insertion handling uses the current binding for the deferred `!` shell rows that Pi moves into the chat on `agent_settled`.
 
 The reload and disposal items follow the hook-restoration rule in [AGENTS.md](../AGENTS.md#pi-host-access). Keep the ownership invariant and its reinstallation test.
 
@@ -58,7 +59,7 @@ Adapter selection treats the `resolveToolRenderers` chain as the owner's rendere
 ### Mode cycling
 
 - [ ] `toggleToolOutputExpansion` only negates `toolOutputExpanded` through `setToolsExpanded`.
-- [ ] `setToolsExpanded` updates the header, loaded resources, and chat rows before `showStatus`.
+- [ ] `setToolsExpanded` updates the header, loaded resources, chat rows, and pending rows before `showStatus`.
 - [ ] `getStartupExpansionState` reflects `--verbose`.
 - [ ] `showStatus` reuses the native status row.
 - [ ] The selected mode survives reconstruction and reload without being persisted.
@@ -122,11 +123,13 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - [ ] Public listeners receive a tool result's `message_end` after extension replacement and before Pi appends the result entry, so call entries precede their results.
 - [ ] Copies and forks keep entry IDs and entry order.
 - [ ] Session changes and shutdown discard pending saved-output reads.
+- [ ] Quit and session changes abort the active run and wait for it to settle before `session_shutdown`.
+- [ ] `reload()` rejects during a run or a compaction.
 - [ ] `tool_execution_end.durationMs` reports the completed `execute()` duration when the tool ran.
 - [ ] A saved `toolResult` keeps that `durationMs`.
 - [ ] `ToolRenderContext.durationMs` supplies the final result's duration and is undefined for partial results.
 
-The [lifecycle](../../../libs/src/lifecycle/phases.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting.
+The [lifecycle](../../../libs/src/lifecycle/phases.md#shutdown-phase) shutdown revoke stops collection without awaiting. Call facts are [saved only with Pi's final result](recording.md#session-history), so they depend on the quit, session-change, and `reload()` contracts above.
 
 ### Extension notifications
 
@@ -169,21 +172,25 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
 - Public component methods such as `setExpanded` and `invalidate`, and public session and renderer-resolver calls, retain their declared contracts. They do not need private-method fingerprints. Existing row and assistant fingerprints also guard the private child-layout assumptions that display changes.
 - A public Pi mode-change API could replace the mode-switch wrappers shared with editor widgets.
-- In Pi 1.5.0, `renderSessionItems` takes `(items, messageMeta, options)`. `messageMeta` maps each message object to its saved entry ID and timestamp, and Pi passes them to `addMessageToChat`. The reconstruction wrapper forwards every argument and the same item objects, so these lookups still match, and the `addMessageToChat` wrapper forwards its options unchanged.
-- In Pi 1.5.0, the CLI `handleEvent` hash changed only through a minifier rename (`entries` to `entries2`). The API source is unchanged.
-- In Pi 1.5.0, `ToolExecutionComponent.updateArgs` records partial arguments and requests a render. The next `render` applies the latest arguments unless another method refreshes the row first. Summary chrome skips Pi's `render`, but `invalidate`, `setExpanded`, execution start, argument completion, and result updates can still refresh the row. Summaries use call state from events, so they are unaffected.
-- In Pi 1.5.0, `updateContent` reuses its prose and thinking `Markdown` instances across updates through a private slot list. Prose decoration wraps those instances in new children and leaves the slots unchanged. With an empty hidden-thinking label, Pi omits hidden thinking runs and their spacers itself; thinking suppression then finds fewer regions than runs and changes nothing.
-- In Pi 1.5.0, regular mode strips the OSC 133 markers that assistant and user rows add to their first line. Prose decoration wraps only `Markdown` children, so the markers stay at the start of the row. The model-scope notice moves to the fullscreen header, and extension changelog entries appear at startup in an empty transcript. Neither goes through a hooked method.
-- In Pi 1.5.0, the built-in MCP extension (`createMcpToolDefinition`, name sanitisation, and source info) and the codemode result details are unchanged. Codemode changes only its tool descriptions and caches its script highlighting in render state. `tool_search` changes only ranking and tokenisation, not its result. The `pi-mcp` package changes only OAuth, the streamable HTTP transport, and its README example; `pi-codemode` changes only its README example.
-- In Pi 1.5.0, `validateToolArguments` runs on `@earendil-works/pi-schema`. It still clones its input, drops optional nulls that the schema rejects, and converts values, and it now truncates fractional integers. Messages change, for example from `must be integer` to `expected integer, got string`. The `pi-agent-core` agent loop is unchanged.
-- In Pi 1.5.0, tool render contexts and message and entry renderer options supply `keyText` and `keyHint`, and the subagent result renderer forwards them. Expansion hints in `rendering/format.ts` and the mode-cycling warning still import `keyText`. Pi's extension loader resolves that import to the host copy, as the host hooks also require.
-- In Pi 1.5.0, the API suite covers nested codemode execution, session reload, and later wrappers. The CLI suite checks native construction and selective-read recognition.
-- In Pi 1.4.0 and 1.5.0, `registerToolRenderer` can replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. The extension keeps its lookup hook because Pi also calls resolvers for HTML export, resolvers run in extension load order, and a resolver receives no host to claim the row's call.
-- In Pi 1.4.0 and 1.5.0, `durationMs` measures the whole `execute()` call, not only the shell or file operation, so shell and mutation durations include tool setup.
-- In Pi 1.4.0, a codemode script that cannot get a worker fails with Pi's `Script failed` header and empty `details.calls`. A source review shows that the card hides the header and keeps the error.
+- In Pi 1.5.1, `renderSessionItems` takes `(items, messageMeta, options)`. `messageMeta` maps each message object to its saved entry ID and timestamp, and Pi passes them to `addMessageToChat`. The reconstruction wrapper forwards every argument and the same item objects, so these lookups still match, and the `addMessageToChat` wrapper forwards its options unchanged.
+- In Pi 1.5.1, `handleEvent` moves the user's deferred `!` shell rows from the pending-message area into the chat on `agent_settled`. The `handleEvent` wrapper sets a boundary before each row that Pi inserts during `agent_settled` or `compaction_end`.
+- In Pi 1.5.1, a TUI quit during a run stops the terminal, then cancels the run and waits for it to settle, then emits `session_shutdown`. A warning that the extension raises while that run settles goes to a Pi notification, which the stopped terminal never draws, instead of to stderr.
+- In Pi 1.5.1, `addCacheWarmingUsage` adds a repeated warming cost to the previous notice while that notice is the last chat row and has the same note. Pi inserts no row then, so the insertion observer sets no boundary.
+- In Pi 1.5.1, `ToolExecutionComponent.updateArgs` records partial arguments and requests a render. The next `render` applies the latest arguments unless another method refreshes the row first. Summary chrome skips Pi's `render`, but `invalidate`, `setExpanded`, execution start, argument completion, and result updates can still refresh the row. Summaries use call state from events, so they are unaffected.
+- In Pi 1.5.1, `updateContent` reuses its prose and thinking `Markdown` instances across updates through a private slot list. Prose decoration wraps those instances in new children and leaves the slots unchanged. With an empty hidden-thinking label, Pi omits hidden thinking runs and their spacers itself; thinking suppression then finds fewer regions than runs and changes nothing.
+- In Pi 1.5.1, regular mode strips the OSC 133 markers that assistant and user rows add to their first line. Prose decoration wraps only `Markdown` children, so the markers stay at the start of the row. The model-scope notice is in the fullscreen header, and extension changelog entries appear at startup in an empty transcript. Neither goes through a hooked method.
+- In Pi 1.5.1, the built-in MCP extension takes tool naming and input-schema normalisation from the `pi-mcp` package. Registered names, parameter schemas, source info, and MCP result details keep the shapes that the [built-in MCP adapter](../src/adapters/builtin/mcp/README.md) matches. Codemode result details and the `tool_search` result also keep their shapes.
+- In Pi 1.5.1, `validateToolArguments` runs on `@earendil-works/pi-schema`. It still clones its input, drops optional nulls that the schema rejects, converts values, and truncates fractional integers. Its messages read like `expected integer, got string`. The `pi-agent-core` agent loop is unchanged.
+- In Pi 1.5.1, tool render contexts and message and entry renderer options supply `keyText` and `keyHint`, and the subagent result renderer forwards them. Expansion hints in `rendering/format.ts` and the mode-cycling warning still import `keyText`. Pi's extension loader resolves that import to the host copy, as the host hooks also require.
+- In Pi 1.5.1, the API suite covers nested codemode execution, session reload, and later wrappers. The CLI suite checks native construction and selective-read recognition.
+- In Pi 1.4.0, 1.5.0, and 1.5.1, `registerToolRenderer` can replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. The extension keeps its lookup hook because Pi also calls resolvers for HTML export, resolvers run in extension load order, and a resolver receives no host to claim the row's call.
+- In Pi 1.4.0, 1.5.0, and 1.5.1, `durationMs` measures the whole `execute()` call, not only the shell or file operation, so shell and mutation durations include tool setup.
+- In Pi 1.5.1, a shell timeout status also names the shell's exit code when the shell exited but its background processes kept writing output until the timeout. The [native adapter](../src/adapters/native/README.md) styles that whole status as Pi's trailer. The observed fact stays a timeout without an exit code.
+- In Pi 1.5.1, `edit` diffs only the lines around each replacement, so `details.patch` can align runs of repeated lines differently from a whole-file diff. When its hunks differ from the observed patch, the extension saves its own patch, as [session history](recording.md#session-history) describes.
+- In Pi 1.5.1, a codemode script that cannot get a worker fails with Pi's `Script failed` header and empty `details.calls`. A source review shows that the card hides the header and keeps the error.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalised-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 
-Pi 1.5.0 adds `KeybindingHints` to renderer contexts, `messageId` and `timestamp` to `MarkdownTransformContext`, and `Component.capturesViewportInput` for focused viewport keys. None of them replaces a private hook: a Markdown transformer changes only Markdown text, not padding, the prose marker, or thinking rows. No public API replaces a private hook yet:
+Pi 1.5.1 supplies `KeybindingHints` in renderer contexts, `messageId` and `timestamp` in `MarkdownTransformContext`, Markdown transformers for custom messages, summaries, and changelogs, and `Component.capturesViewportInput` for focused viewport keys. None of them replaces a private hook: a Markdown transformer changes only Markdown text, not padding, the prose marker, or thinking rows. No public API replaces a private hook yet:
 
 | Private hook                                                                                                                   | Parity                                                      | Public API that Pi would need                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -201,5 +208,6 @@ Pi 1.5.0 adds `KeybindingHints` to renderer contexts, `messageId` and `timestamp
 
 - Real codemode coverage checks adapter selection, four successful nested executions, a nested edit, one persisted parent result, and the absence of child display metadata.
 - No automated test covers built-in MCP discovery through codemode, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, or original server and tool identities. Recheck them with the [nested-execution contracts](#nested-execution).
+- No automated test covers rows that Pi inserts on `agent_settled`, a cache-warming notice that Pi extends in place, or the shell timeout status that names the shell's exit code.
 - For terminal coverage, run the [manual checks](validation.md) for buffered output, thinking toggles, fullscreen summaries, compact-mode reload, and replay in both modes.
 - External adapter fixtures don't establish compatibility with the live adapters.
