@@ -2,7 +2,7 @@
 
 [pi-null-args](../README.md)
 
-> Last verified against Pi 1.5.0 with the package checks, the offline host test, a source review of the Pi 1.4.0 to 1.5.0 changes, and a direct `validateToolArguments` probe of the text `"null"`. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
+> Last verified against Pi 1.5.1 with the package checks, the offline host test, a source review of the Pi 1.5.0 to 1.5.1 changes, and a direct `validateToolArguments` probe of the text `"null"`. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
 
 ## Upgrade procedure
 
@@ -25,5 +25,5 @@
 ## Limitations
 
 - If Pi's argument validation starts to treat the text `"null"` in optional arguments like a real `null`, remove this extension.
-- Pi 1.5.0 validates tool arguments with `@earendil-works/pi-schema` coercion. Its first pass drops a real `null` under the same conditions as Pi 1.4.0, and also walks pattern and additional properties. Its conversion turns the text `"null"` into `null` only for a `type: "null"` schema, alone or as an `anyOf` or `oneOf` branch; the tool then receives `null`, not its default. An optional string keeps the text, and an optional enum, number, or boolean still fails validation. The extension's rule is still needed.
-- Pi 1.5.0 validates a copy of the arguments, so its coercion does not change the saved tool call. The cleaning in `message_end` is the only change that the saved session records.
+- Pi 1.5.0 and 1.5.1 validate tool arguments with `@earendil-works/pi-schema` coercion. The first pass drops a real `null` under the same conditions as Pi 1.4.0, and also walks pattern and additional properties. The conversion turns the text `"null"` into `null` only for a `type: "null"` schema, alone or as an `anyOf` or `oneOf` branch; the tool then receives `null`, not its default. Pi 1.5.1 also removes the text `"null"` for a `type: "undefined"` schema, alone or as such a branch. An optional string keeps the text, and an optional enum, number, or boolean still fails validation. The extension's rule is still needed.
+- Pi 1.5.0 and 1.5.1 validate a copy of the arguments, so the coercion does not change the saved tool call. The cleaning in `message_end` is the only change that the saved session records.

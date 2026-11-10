@@ -2,7 +2,7 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.5.0 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: manual visual checks and live-provider usage reporting.
+> Last verified against Pi 1.5.1 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.5.0 to 1.5.1 changes. Not covered: manual visual checks; live-provider usage reporting; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
 
 ## Upgrade procedure
 
@@ -25,6 +25,8 @@ Confirm these items against [src/index.ts](../src/index.ts):
 - [ ] Manual shell input is excluded from the command count.
 - [ ] [Milestones and counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously.
 - [ ] Reload removes the old `pi.events` subscriptions.
+- [ ] A run that a quit or a session replacement cancels reaches the settle handler before the [shutdown revoke](../../../libs/src/lifecycle/phases.md#shutdown-phase), so its summary is saved.
+- [ ] Pi rejects a reload while a run is active.
 
 ### Answering models
 
@@ -72,7 +74,7 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 ## Limitations
 
-In Pi 1.5.0, these limits come from missing Pi APIs, as in Pi 1.4.0. Revisit them when Pi adds one.
+In Pi 1.4.0 to 1.5.1, these limits come from missing Pi APIs. Revisit them when Pi adds one.
 
 ### Throughput
 

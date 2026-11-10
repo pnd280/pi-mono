@@ -86,7 +86,7 @@ export function nativeResultParts(
   if (shell && context.isError) {
     const status = splitTrailer(
       text,
-      /(?:^|\n\n)(Command exited with code -?\d+|Command aborted|Command timed out after [\d.e+-]+ seconds)$/
+      /(?:^|\n\n)(Command exited with code -?\d+|Command aborted|Command timed out after [\d.e+-]+ seconds(?:\. The shell exited with code -?\d+ after [\d.e+-]+ seconds, but background processes it started kept writing output until the timeout\.)?)$/
     );
     if (!status) return [part(text, "error")];
     text = status.content;

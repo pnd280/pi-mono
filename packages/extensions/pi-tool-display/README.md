@@ -116,7 +116,7 @@ Mode changes from **Ctrl+O** survive `/reload` and session switches within the p
 - The extension writes no files of its own and never writes settings. Live shell previews stay in memory only.
 - Reopening a session restores the recorded facts without rerunning tools or reading source files again.
 - Expanding a finished shell card reads a bounded preview of Pi's temporary output file. [Resource limits](docs/presentation.md#resource-limits) bound output, previews, and patches. Large, binary, or unavailable changes never block a native operation.
-- Warnings appear as Pi notifications in TUI and RPC sessions. Print and JSON sessions write them to stderr. Warnings during a TUI quit go to stderr when Pi exits, because the terminal display has already stopped.
+- Warnings appear as Pi notifications in TUI and RPC sessions. Print and JSON sessions write them to stderr. Warnings at the shutdown of a TUI quit go to stderr when Pi exits, because the terminal display has already stopped. A warning raised while a quit cancels a running agent is not shown.
 
 ## Docs
 

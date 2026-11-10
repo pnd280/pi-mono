@@ -2,7 +2,7 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.5.0 with package checks, all helper tests, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: live FFF behaviour.
+> Last verified against Pi 1.5.1 with package checks, all helper tests, a source review of the Pi 1.5.0 to 1.5.1 changes, and a randomised probe that parses native `edit` patches with `parsePatch`. Not covered: live FFF behaviour.
 
 ## Upgrade procedure
 
@@ -38,3 +38,9 @@ In Pi 1.5.0, a source diff against 1.4.0 found these changes, and this package n
 - `MODEL_THINKING_LEVELS` keeps the same levels in the same order. Pi still maps no `@earendil-works/pi-ai/providers/model-schema` entry point for extensions.
 - `grep` no longer converts a lone CR to a line break, and read-header paths use Pi's `shortenHomePath`. Neither changes the formats that these helpers parse.
 - The native `edit` tool changes only its prompt guidelines. Its result and patch format, and the truncation helpers, are unchanged.
+
+In Pi 1.5.1, a source diff against 1.5.0 found these changes, and this package needed no runtime changes:
+
+- Extension types add only the options of Markdown transformers. Tool source provenance and `MODEL_THINKING_LEVELS` are unchanged, and Pi still maps no `@earendil-works/pi-ai/providers/model-schema` entry point for extensions.
+- The native `edit` tool builds its patch from the edited regions instead of a whole-file diff. The patch format is unchanged, and `parsePatch` accepts it.
+- `grep` takes context lines from `rg` instead of reading the matched files, and roots its `glob` at the searched directory. `truncateLine` no longer splits a surrogate pair. None of these changes the formats that these helpers parse.

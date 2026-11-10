@@ -26,14 +26,14 @@ Session history stores only facts that Pi's own entries lack. The extension keep
 
 > Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 
-When collection stops before Pi saves a call's result, such as at shutdown, the extension saves the observed outcome and exit code, because replay cannot rely on that result.
+The extension saves a call's facts when Pi publishes the call's final result. Under Pi's [quit, session-change, and reload contracts](pi-compatibility.md#transcript), only a killed process leaves a call without them.
 
-Each call saves at most one `pi-tool-display.call` custom entry, and every call with an observed operation saves one. When an entry cannot be saved, because it exceeds the size limit or the session write fails, the extension warns once for each problem, and the live card keeps its facts.
+Each call saves at most one `pi-tool-display.call` custom entry, and every call with an observed operation and a final result saves one. When an entry cannot be saved, because it exceeds the size limit or the session write fails, the extension warns once for each problem, and the live card keeps its facts.
 
 The extension saves patches only when replay needs them:
 
 - `write` saves its patch only when replay cannot derive the same patch from the written content.
-- `edit` diffs come from Pi's result. The extension saves its own diff when the edit did not succeed, ended without a result, or Pi's patch is missing, invalid, or has different hunks.
+- `edit` diffs come from Pi's result. The extension saves its own diff when the edit did not succeed, or Pi's patch is missing, invalid, or has different hunks.
 
 ## Record size limits
 

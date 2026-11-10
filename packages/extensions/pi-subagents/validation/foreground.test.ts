@@ -849,7 +849,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           ({ pid }) => pid !== second.connection.process.pid
         );
 
-      // The held writer runs `sleep 600` and writes nothing until it ends.
+      // The held writer writes nothing while it runs `sleep 600` or blocks its shutdown.
       const rejected = async () => {
         const held = await readFile(task.session_file);
         await second.prompt(`history-id ${task.task_id}`);
@@ -870,10 +870,21 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         .toBe(true);
       await rejected();
 
-      // The child ignores EOF and outlives its supervisor, so it can still write.
+      // The child outlives its supervisor, so it can still write. On EOF, Pi aborts the child's
+      // run and saves its last entries, and the child then blocks its shutdown.
       first.connection.process.kill("SIGKILL");
       await first.connection.closed;
       await work;
+      await expect
+        .poll(
+          () =>
+            readFile(join(directory, "work", "shutdown-ready")).then(
+              () => true,
+              () => false
+            ),
+          { timeout: STEP_TIMEOUT_MS, interval: 25 }
+        )
+        .toBe(true);
       await rejected();
 
       for (const { pid } of await others()) {

@@ -243,6 +243,7 @@ Run these when you change the matching integration.
 | Insert `ctx.ui.notify` calls between matching tool calls at each severity.                                                         | Visible notifications split groups and runs.                                                                                                                          |
 | Repeat with a no-op notification and a thinking-toggle status message.                                                             | Neither creates a boundary.                                                                                                                                           |
 | Run user `!` and `!!` commands.                                                                                                    | Pi renders these shell cards itself, outside exploration groups and display observation.                                                                              |
+| Run a user `!` command while the agent is running.                                                                                 | Pi moves the shell card below the run's last row when the run settles. The run ends as it does without the command.                                                   |
 
 ### Finalised-message middleware
 

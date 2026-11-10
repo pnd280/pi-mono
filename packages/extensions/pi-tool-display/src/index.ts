@@ -31,8 +31,8 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   let live: typeof notify;
   joinLifecycle(pi, { id: "pi-tool-display" }).onSessionShutdown(
     () => {
-      // Stops observation and appends before any participant awaits. Warnings wait for cleanup,
-      // which knows whether the terminal has stopped.
+      // Stops observation before any participant awaits. Warnings wait for cleanup, which knows
+      // whether the terminal has stopped.
       dispose?.();
       live = notify;
       notify = undefined;

@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.5.0 on Linux with offline suites and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; live providers.
+> Last verified against Pi 1.5.1 on Linux with offline suites and a source review of the Pi 1.5.0 to 1.5.1 changes. Not covered: the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; a child's idle cache warming; live providers.
 
 ## Upgrade procedure
 
@@ -42,7 +42,9 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 - [ ] `clear_queue` followed by `abort` prevents queued input from continuing.
 - [ ] Closing stdin disposes the collectors and RPC event stream, then awaits `session_shutdown`.
 - [ ] Pi awaits `session_shutdown` for session replacement, reload, and graceful exit.
+- [ ] On stdin EOF and graceful exit, Pi aborts the active run and waits until it settles before `session_shutdown`.
 - [ ] Pi's SIGTERM handler stops its tracked detached commands.
+- [ ] RPC mode does not exit on the first SIGTERM that arrives while it shuts down.
 - [ ] After `session_shutdown`, Pi loads new extension instances for the replacement or reloaded session.
 - [ ] Pi sets up extension shortcuts after `resources_discover`, where lifecycle claims register.
 - [ ] Process depth and logical task identity survive extension reload and session replacement.
@@ -58,7 +60,9 @@ When `launch_args` gives no `--tools`, the child receives no `--tools`, so Pi re
 
 The supervisor reads the final text and statistics before stdin EOF. Because Pi loads new extension instances after `session_shutdown`, a revoked [session binding](../GLOSSARY.md#tasks-and-processes) is never opened again. Because shortcuts are set up after `resources_discover`, the panel shortcut that the startup handler claims works at once.
 
-Normal completion and graceful exit retain depth-aware escalation. Cooperative EOF remains necessary after supervisor SIGKILL.
+Normal completion and graceful exit retain depth-aware escalation. Cooperative EOF remains necessary after supervisor SIGKILL. After stdin EOF during a run, a child writes the abort's entries to its [child file](../GLOSSARY.md#history) before its shutdown handlers run, so the file can change once after supervisor SIGKILL.
+
+Pi's abort before `session_shutdown` sets how a foreground task stops when its supervisor exits during a run; see [immediate stop](shutdown.md#immediate-stop). Pi's SIGTERM handling during shutdown sets how a child that blocks its shutdown ends; see [process-group cleanup](shutdown.md#process-group-cleanup).
 
 ### RPC and results
 
@@ -195,7 +199,7 @@ The offline tests exercise background waits in `agent_end`, slash commands durin
 - [ ] Pi's session files still have the header, entry structure, unique entry IDs, and parent IDs that name earlier entries that the [child-file reader](../src/history/sessions.ts) requires.
 - [ ] Pi runs no tool call of an assistant response with `stopReason: "error"` or `"aborted"`.
 - [ ] Session projections associate each visible message with its source entry.
-- [ ] After an abort during a tool call, Pi adds an empty assistant message with `stopReason: "error"`.
+- [ ] After an abort during a tool call, Pi adds an empty assistant message with `stopReason: "aborted"`.
 - [ ] JSON `message_start`, `message_update`, and `message_end` events, with `assistantMessageEvent` content indices and tool-call deltas that `parseStreamingJson` reads, rebuild a streaming assistant message.
 - [ ] Execution events carry the `toolCallId` of a call in that streaming message.
 - [ ] The exported chat components, `ToolExecutionComponent`, and the individual built-in `create*ToolDefinition` renderers support the viewer.
@@ -208,7 +212,7 @@ A child waits in `agent_end` after a normal reply, and in `agent_before_settle` 
 
 The child-file reader parses complete nonblank JSON lines strictly in memory. It rejects invalid UTF-8, malformed JSON, invalid headers or entry structure, duplicate entry IDs, and a non-null parent ID that does not name an earlier entry. It ignores bytes after the last LF before decoding, including a partial final UTF-8 character, and never modifies the file. Pi owns the entry payloads, which the reader retains unchanged. Do not substitute Pi's permissive `parseSessionEntries` helper or `SessionManager.open`; see [limitations](#limitations).
 
-The resume warning ignores the calls of a failed or aborted response, and the viewer shows the response's error for them. Through the session projections, `show --last` returns the active conversation's text and cursor. The child file's ancestry of the selected run supplies digest paging, cursors, and cumulative usage; raw append-order entries from abandoned branches are excluded. The [last-text test](../validation/show.test.ts) confirms that Pi adds the empty error message after an abort during a tool call, because without that message the skip has no coverage.
+The resume warning ignores the calls of a failed or aborted response, and the viewer shows the response's error for them. Through the session projections, `show --last` returns the active conversation's text and cursor. The child file's ancestry of the selected run supplies digest paging, cursors, and cumulative usage; raw append-order entries from abandoned branches are excluded. The [last-text test](../validation/show.test.ts) confirms that Pi adds the empty aborted message after an abort during a tool call, because without that message the skip has no coverage.
 
 Regular mode uses `ctx.ui.custom` with `overlay: false` at three-quarters of the terminal height. Fullscreen mode uses a full-terminal overlay. Host remounts preserve the logical task panel and transcript, and closing the viewer restores the task list with its view and selection. Panel keys and expansion remain local to that presentation.
 
@@ -216,7 +220,7 @@ The [input cases](../validation/input.test.ts) exercise running input, deferred 
 
 ## Limitations
 
-- In Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call.
+- In Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call. In Pi 1.5.1, the message has `stopReason: "aborted"`.
 - In Pi 1.2.0, the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) was not rerun. A source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field. The offline suite passed.
 - In Pi 1.3.0, the ADR 0003 runtime probe was not rerun. A source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.
 - In Pi 1.3.0, a one-time probe resumed a session that recorded `subagent`. The tool stayed active, and it stayed inactive when the session resumed at `maxDepth`. The offline suite passed.
@@ -224,9 +228,11 @@ The [input cases](../validation/input.test.ts) exercise running input, deferred 
 - In Pi 1.4.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.3.0 found the session manager, RPC mode, print mode, extension runner, and extension types unchanged. `AgentSession` changed in transcript tool restoration, recovery omission, and the compaction check; agent core added request `identity`. The offline suite passed.
 - In Pi 1.4.0, a source review found that resume also turns on registered `direct` and `model-only` tools that the child file never recorded, unless `defaultActive: false`. The `session_start` registration hides them again where needed.
 - In Pi 1.5.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.4.0 found RPC mode, print mode, the extension runner, the bash tool, truncation, and the agent loop unchanged. The session manager now removes an entry from memory when its write fails, and forks write through one file handle; `appendCustomMessageEntry` and `appendUsage` are unchanged. `AgentSession` keeps the order of tools that stay active and appends newly activated ones; hidden tools still drop out of the loadout. The offline suite passed.
-- In Pi 1.5.0, `ToolExecutionComponent.updateArgs` applies new arguments at the next render instead of at once.
-- In Pi 1.5.0, `--model` accepts provider IDs that contain `/`. [Late usage](../GLOSSARY.md#results) splits the task's model at the first `/`, so the usage entry of such a provider names a wrong provider and model. Session totals still count the usage.
+- In Pi 1.5.0 and 1.5.1, `ToolExecutionComponent.updateArgs` applies new arguments at the next render instead of at once.
+- In Pi 1.5.0 and 1.5.1, `--model` accepts provider IDs that contain `/`. [Late usage](../GLOSSARY.md#results) splits the task's model at the first `/`, so the usage entry of such a provider names a wrong provider and model. Session totals still count the usage.
+- In Pi 1.5.1, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.5.0 found the session manager, the agent loop, and transcript tool restoration unchanged. The extension runner changed only for Markdown transformers, the bash tool only in the timeout status of Pi's local shell operations, which jobs replace, and truncation outside `truncateTail` and the default limits. The session runtime, RPC mode, and print mode changed in shutdown; the [launch and stop](#launch-and-stop) checklist names the abort and SIGTERM contracts. `AgentSession.reload()` now rejects a call during a run or a compaction. The offline suite passed.
+- In Pi 1.5.1, a source review found that the `cacheWarming` setting defaults to `idle`, also in a child. Pi then keeps the child's cache-warming timer after the run settles, and cancels it when it disposes the session, after `session_shutdown`. A warming request that completes between the supervisor's read of the child's statistics and that disposal adds a usage entry to the [child file](../GLOSSARY.md#history), outside the run's reported usage.
 
 ## Replacement opportunities
 
-Pi 1.5.0 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.
+Pi 1.5.1 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.
