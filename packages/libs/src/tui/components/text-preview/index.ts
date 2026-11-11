@@ -35,7 +35,7 @@ export async function layoutPreview(
     let end = newline < 0 ? -1 : offset + newline + 1;
     if (scanEnd === text.length) end = scanEnd;
     // Pi treats CRLF as one delimiter, including when it straddles a scan boundary.
-    if (end > 0 && text[end - 1] === "\r" && text[end] === "\n") end++;
+    if (text[end - 1] === "\r" && text[end] === "\n") end++;
     offset = Math.max(scanEnd, end);
     if (end < 0) continue;
 

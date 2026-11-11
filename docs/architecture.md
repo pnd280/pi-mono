@@ -34,8 +34,6 @@ Shared contracts connect features without transferring their domain policy. The 
 | [Task details and actions](../packages/extensions/pi-tool-display/src/adapters/pi-subagents/README.md) | `pi-subagents` owns process lifetime and the structured task and job results that its [`pi-subagents/details`](../packages/extensions/pi-subagents/src/details.ts) contract defines. | `pi-tool-display` validates details with that contract, renders task and job cards and background results, and returns action descriptors to the owner for ownership checks. |
 | [Task and job envelopes](../packages/utils/src/task-envelope.ts)                                       | `pi-subagents` formats model-facing result text through `@pi-mono/utils/task-envelope`.                                                                                              | Both `pi-subagents` and `pi-tool-display` use its parsers to remove framing only when the result metadata matches.                                                           |
 
-Reusable TUI components own layout and interaction; extensions supply data, domain policy, and action effects. In `packages/libs/src/tui/`, host mounting lives outside `components/`.
-
 | When you…                        | Read                                          |
 | -------------------------------- | --------------------------------------------- |
 | Use or configure a feature       | Its [package README](../README.md#extensions) |

@@ -2,9 +2,6 @@ import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 
 import { hasErrorCode } from "@pi-mono/utils/errors";
-import { z } from "zod";
-
-const sizeSchema = z.int().nonnegative();
 
 export type FileObservation =
   | { status: "ready"; text: string }
@@ -26,8 +23,6 @@ export function decodeTextFile(bytes: Uint8Array, maxBytes: number): FileObserva
 
 /** Read complete UTF-8 source or refuse. Follows symlinks, without permission repair or clipping. */
 export async function observeTextFile(path: string, maxBytes: number): Promise<FileObservation> {
-  if (!sizeSchema.safeParse(maxBytes).success)
-    throw new RangeError("Observation size must be a nonnegative safe integer.");
   let file;
 
   try {

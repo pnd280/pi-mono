@@ -7,8 +7,7 @@
 ## Upgrade procedure
 
 1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [manual checks](testing.md#manual-checks).
-2. When affected, check the other file-mutation consumer (`pi-tool-display`) and working-message composition with `pi-todo`.
-3. Work through the checklist below, then update the "Last verified" line.
+2. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist
 

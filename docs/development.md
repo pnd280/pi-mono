@@ -20,11 +20,6 @@ Packages extend the compiler options in [tsconfig.base.json](../tsconfig.base.js
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 
-| When you…                                                                                                          | Read                                               |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| Validate configuration, persisted JSON, external data, or tool parameters                                          | [Runtime validation](agents/runtime-validation.md) |
-| Change Pi behaviour or use Pi APIs, patch Pi, gate a host hook, name a custom entry or message, or notify the user | [Pi API contracts](agents/pi-apis.md)              |
-
 ## Focused validation
 
 Run checks from the repository root. Tests require Bash and Git. FIFO tests on Unix also require `mkfifo`, and Linux ACL tests require `getfacl` and `setfacl`.
@@ -35,8 +30,6 @@ Use `vpr` (`vp run`) with the package's `package.json` name:
 vpr '<package-name>#check'
 vpr '<package-name>#test'
 ```
-
-The website has no `test` task; run only its `check`.
 
 Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
 

@@ -238,8 +238,7 @@ function jobStarted(logFile: string, delivers: boolean, hold: boolean): string {
 
   return [
     `The job is running in the background. Its output goes to the log file ${logFile}`,
-    result,
-    "Read the log file to check output while it runs. Stop the job with job_abort."
+    result
   ].join("\n");
 }
 

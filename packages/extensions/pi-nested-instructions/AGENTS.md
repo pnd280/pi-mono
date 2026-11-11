@@ -1,7 +1,5 @@
 # [pi-nested-instructions](README.md) development
 
-Domain terms are in the [glossary](GLOSSARY.md).
-
 ## Must not regress
 
 - Infer [scope](GLOSSARY.md#discovery) from tool inputs alone. Never inspect results, enumerate glob matches, or run commands to infer scope.
@@ -10,11 +8,8 @@ Domain terms are in the [glossary](GLOSSARY.md).
 
 ## Constraints
 
-- Collect all markers in a batch before reading instructions.
 - Save only through public session APIs.
-- Send startup refresh notices only in the [lifecycle](../../libs/src/lifecycle/phases.md#recommended-ranks-and-registrations) startup commit at rank `100`. A direct `session_start` send would place them by load order.
 - Keep rendering in [pi-tool-display](../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
-- Document new adapter limits in the [input discovery guide](docs/input-discovery.md).
 
 ## References
 

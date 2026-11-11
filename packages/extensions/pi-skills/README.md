@@ -26,7 +26,7 @@ Use [/skill:review](</skills/review/SKILL.md>) then [/skill:review](</skills/rev
 
 The reference stays plain prompt text. Pi doesn't insert the skill's contents, and the model isn't guaranteed to read the file. A token expands only when it is separated by whitespace and matches a registered skill exactly. The [matching rules](docs/rules.md#matching) and [what gets expanded](docs/rules.md#what-gets-expanded) give the details.
 
-In the skill picker, **Enter** or **Tab** accepts a suggestion without submitting, and **Escape** closes the picker. Pi's `enableSkillCommands` setting controls completion; see [completion](docs/rules.md#completion).
+Pi's `enableSkillCommands` setting controls completion; see [completion](docs/rules.md#completion).
 
 ## Configuration
 

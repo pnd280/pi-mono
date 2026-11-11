@@ -25,7 +25,7 @@ export const toolInputSchema = z.strictObject({
     .boolean()
     .optional()
     .describe("Run independent work in the background. Its result arrives automatically."),
-  description: z.string().min(1).describe("A short (3 to 5 words) label for the task."),
+  description: z.string().min(1).describe("A short label for the task."),
   prompt: z
     .string()
     .min(1)

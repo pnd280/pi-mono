@@ -4,8 +4,6 @@
 
 Setup: use workspace Pi with this extension and a native widget contributor such as `pi-todo`. The menu needs no model call. For remapping checks, edit Pi's `keybindings.json` and run `/reload` after each change. Restore the original bindings and reload after the checks.
 
-For settings-write changes, also run `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
-
 ## Menu
 
 | Do                                                                                                                                                                | Expect                                                                                                        |

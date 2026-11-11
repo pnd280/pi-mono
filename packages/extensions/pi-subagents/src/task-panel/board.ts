@@ -32,11 +32,7 @@ export const views = [
 
 const groups = views.slice(1);
 
-const groupOf = (task: TaskRecord) =>
-  Math.max(
-    0,
-    groups.findIndex((group) => group.match(task))
-  );
+const groupOf = (task: TaskRecord) => groups.findIndex((group) => group.match(task));
 
 /**
  * One board row. `lead` holds the tree branch; `guides` prefixes the task's wrapped rows. It

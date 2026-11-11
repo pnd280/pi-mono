@@ -47,11 +47,7 @@ const callRecordSchema = z.object({
 export type CallRecord = z.infer<typeof callRecordSchema>;
 
 function bounded(value: unknown): boolean {
-  try {
-    return Buffer.byteLength(JSON.stringify(value)) <= MAX_RECORD_BYTES;
-  } catch {
-    return false;
-  }
+  return Buffer.byteLength(JSON.stringify(value)) <= MAX_RECORD_BYTES;
 }
 
 /** The whole original value counts toward the limit, including unknown fields. */

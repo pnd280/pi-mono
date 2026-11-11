@@ -146,7 +146,7 @@ export function sliceTerminalText(
       startIsSequenceBoundary = true;
     }
 
-    if (match.index < end && sequenceEnd >= end) {
+    if (sequenceEnd >= end) {
       if (sequenceEnd > end) end = match.index;
       // A following combining mark must not pull the boundary into a complete escape.
       endIsSequenceBoundary = true;
@@ -155,7 +155,7 @@ export function sliceTerminalText(
     if (options.preserveSgr && match.index < start && sequence.sgr)
       sgr = advanceSgr(sgr, sequence.sgr);
 
-    escapes.lastIndex = Math.max(sequenceEnd, match.index + 1);
+    escapes.lastIndex = sequenceEnd;
   }
 
   if (!startIsSequenceBoundary) start = graphemeBoundary(text, start, "start");

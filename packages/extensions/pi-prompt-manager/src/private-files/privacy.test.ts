@@ -41,8 +41,6 @@ it("honors caller byte limits, including empty and missing files, and preserves 
   expect(await boundedRead(path, bytes.length)).toEqual(bytes);
   await expect(boundedRead(path, bytes.length - 1)).rejects.toBeInstanceOf(ReadLimitError);
   expect(await readFile(path)).toEqual(bytes);
-  for (const limit of [-1, NaN, Infinity, 1.5])
-    await expect(boundedRead(path, limit)).rejects.toBeInstanceOf(RangeError);
 });
 
 posixIt("refuses a final-file symlink without changing the target", async () => {

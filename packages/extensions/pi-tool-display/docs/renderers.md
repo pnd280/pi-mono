@@ -96,9 +96,9 @@ Use `Listing <target>` while pending and `Listed <target>` after success, in sta
 
 ### Code and nested calls
 
-`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
+`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show the first rows within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source; [codemode cards](tools.md#codemode) give the row limit. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
 
-`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede ordinary output, including on compact read cards that hide successful text. When a card has a usable patch, nested calls and images follow the complete [diff panel](presentation.md#diff-viewer), including its failure output and notices. Compact cards show the latest 8 calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
+`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede ordinary output, including on compact read cards that hide successful text. When a card has a usable patch, nested calls and images follow the complete [diff panel](presentation.md#diff-viewer), including its failure output and notices. Compact cards show the latest calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
 
 ### Result summaries
 

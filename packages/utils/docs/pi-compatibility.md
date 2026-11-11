@@ -7,7 +7,7 @@
 ## Upgrade procedure
 
 1. Run the [focused checks](../../../docs/development.md#focused-validation) for `@pi-mono/utils`.
-2. Run the checks of the libs modules and extensions whose input or output assumptions changed. The [code navigation](../AGENTS.md#code-navigation) table lists the provenance, search-scope, skill-reference, and shared-library consumers. This package needs no standalone terminal scenario.
+2. Run the checks of the libs modules and extensions whose input or output assumptions changed. Find the consumers of a module with `rg -l '@pi-mono/utils/<module>' packages apps`. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist

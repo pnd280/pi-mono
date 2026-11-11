@@ -24,8 +24,6 @@
 
 Callers own input validation, error handling, scope limits beyond brace expansion, and filesystem checks.
 
-Consumers choose their own failure handling. Nested discovery can keep lexical hints.
-
 ## Paths
 
 [`paths`](../src/paths.ts) works lexically, without symlink resolution or filesystem checks. `containsPath` requires two absolute paths, `relativeDisplayPath` an absolute working directory, and `expandHomePath` an absolute home directory; each throws `TypeError` otherwise. These helpers do not interpret tool prefixes, file URLs, or glob syntax.

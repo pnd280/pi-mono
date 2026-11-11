@@ -6,8 +6,6 @@ The marketing site for this workspace uses [TanStack Start](https://tanstack.com
 vpr '@pi-mono/website#dev'
 ```
 
-The development server listens on port 3000.
-
 ## Usage
 
 Complete [workspace setup](../../README.md#setup), then run these commands from the repository root:

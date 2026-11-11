@@ -10,7 +10,6 @@ import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import type { ParsedPatch, PatchLine } from "@pi-mono/utils/patch";
 import fastDiff from "fast-diff";
-import { z } from "zod";
 
 /**
  * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on
@@ -385,21 +384,12 @@ function selectPreviewRows(
   return { rows: selected, excerpts };
 }
 
-const rowBudgetsSchema = z.object({
-  compactRows: z.int().min(2),
-  contextRows: z.int().nonnegative()
-});
-
 /**
  * Full-width panel with a responsive unified/split layout backed by parsed hunks; no input
  * handling or I/O. Strips above, between, and below the hunks carry caller rows, hunk positions,
  * and the compact notice. Every row is exactly `width` columns.
  */
 export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): string[] {
-  if (!rowBudgetsSchema.safeParse(options).success)
-    throw new RangeError(
-      "Diff row budgets must be safe integers: at least two changed rows, nonnegative context."
-    );
   const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
   if (options.width < 1) return [];
   const { width, theme, expanded } = options;

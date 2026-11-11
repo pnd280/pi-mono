@@ -21,7 +21,7 @@ Review code in two separate phases. The Audit phase runs the six audits below an
 
 ## Preparation
 
-Read applicable repository instructions and [workspace development guidance](../../../docs/development.md). When the scope uses Pi APIs, also read the [Pi API contracts](../../../docs/agents/pi-apis.md). Record the initial Git state, scope, and relevant baseline diagnostics. Create a checklist of the six audits and the Revise phase.
+Read applicable repository instructions and [workspace development guidance](../../../docs/development.md). When the scope uses Pi APIs, also read the [Pi API contracts](../../../docs/agents/pi-apis.md). Record the initial Git state, scope, and relevant baseline diagnostics.
 
 ## Audits
 

@@ -64,9 +64,8 @@ export class OwnedHooks {
       let owner: object | null = target;
 
       while (!descriptor && owner) {
-        const parent: unknown = Object.getPrototypeOf(owner);
         // Function targets inherit from callable prototypes such as `Function.prototype`.
-        owner = typeof parent === "object" || typeof parent === "function" ? parent : null;
+        owner = Reflect.getPrototypeOf(owner);
         if (owner) descriptor = Object.getOwnPropertyDescriptor(owner, key);
       }
     }

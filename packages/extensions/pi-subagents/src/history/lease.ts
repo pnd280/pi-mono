@@ -78,9 +78,7 @@ function releasedEntries(): Set<unknown> {
 function pids(text: string): number[] | undefined {
   const values = text.split(" ").map(Number);
 
-  return values.length > 0 && values.every((pid) => Number.isSafeInteger(pid) && pid > 0)
-    ? values
-    : undefined;
+  return values.every((pid) => Number.isSafeInteger(pid) && pid > 0) ? values : undefined;
 }
 
 /** A damaged entry excludes a writer without allowing an unbounded or blocking read. */

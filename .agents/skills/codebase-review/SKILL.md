@@ -40,7 +40,7 @@ For each ready chunk:
 
 When collaboration tools are available, delegate independent chunks with explicit targets, shared decisions, evidence requirements, and disjoint edit ownership. Keep dependent chunks ordered and reconcile shared-owner changes before consumers rely on them.
 
-Keep a resumable ledger in `.tmp/`. Start it with a **Resume** section of at most 40 lines: the current chunk, phase, and audit, the next action, shared decisions, and open blockers. Below it, keep one row per chunk. Before a pause or context reset, update the Resume section and the finished chunk's row.
+Keep a resumable ledger in `.tmp/`. Start it with a short **Resume** section: the current chunk, phase, and audit, the next action, shared decisions, and open blockers. Below it, keep one row per chunk. Before a pause or context reset, update the Resume section and the finished chunk's row.
 
 After a context reset, read the Resume section and the current chunk's row, then reload only the guidance and references for the current phase. Read the full ledger and inventory only to reconcile coverage at the end. Resume from that record and current source rather than repeating the inventory or treating a summary as fresh verification.
 

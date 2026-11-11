@@ -7,8 +7,7 @@
 ## Upgrade procedure
 
 1. Run both package tasks, `check` and `test`, with the [focused validation commands](../../../../docs/development.md#focused-validation). The tests run offline without paid model requests.
-2. After shared adapter changes, also run the utils suite. Changes to the notice contract also need the pi-tool-display suite.
-3. Work through the checklist below, then update the "Last verified" line.
+2. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist
 

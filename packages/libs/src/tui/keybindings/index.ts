@@ -20,13 +20,9 @@ function splitKey(value: string): { parts: string[]; base: string } {
 }
 
 function validKey(value: string): value is KeyId {
-  const { parts, base } = splitKey(value);
+  const { base } = splitKey(value);
 
-  return (
-    (baseKeys.has(base) || /^[a-z0-9]$/.test(base)) &&
-    parts.every((part) => modifiers.includes(part)) &&
-    new Set(parts).size === parts.length
-  );
+  return baseKeys.has(base) || /^[a-z0-9]$/.test(base);
 }
 
 function normalizeKey(value: string): KeyId | undefined {
