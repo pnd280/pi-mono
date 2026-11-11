@@ -4,7 +4,7 @@
 
 > Last verified against Pi 1.5.2 with a source review of the Pi 1.5.1 to 1.5.2 changes, which leave the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the native tools, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages unchanged, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, user `!` rows that Pi moves into the chat when a run settles, and the other manual [terminal checks](validation.md); idle cache-warming notices, which need a live provider; a shell timeout whose background processes outlive the shell; physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP services; and other platforms.
 
-A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.5.2"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
+A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports the inspected Pi version as `inspectedPiVersion`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
 For host integration, a failed gate leaves the affected feature disabled as described in the [README](../README.md#pi-version-fallbacks).
 
@@ -35,7 +35,7 @@ Work through every section below when you bump the supported Pi version, checkin
 - [ ] Compaction insertion handling uses the current binding.
 - [ ] Settle insertion handling uses the current binding for the deferred `!` shell rows that Pi moves into the chat on `agent_settled`.
 
-The reload and disposal items follow the hook-restoration rule in [AGENTS.md](../AGENTS.md#pi-host-access). Keep the ownership invariant and its reinstallation test.
+The reload and disposal items follow the hook-restoration rule in [AGENTS.md](../AGENTS.md#pi-host-access).
 
 Adapter selection treats the `resolveToolRenderers` chain as the owner's renderers. Pi uses the same chain for HTML export. Pi's MCP resolver answers every `mcp__` name, but servers register their tools after `/reload` reconstructs rows, and only generic rows can upgrade.
 
@@ -209,5 +209,4 @@ Pi 1.5.2 supplies `KeybindingHints` in renderer contexts, `messageId` and `times
 - Real codemode coverage checks adapter selection, four successful nested executions, a nested edit, one persisted parent result, and the absence of child display metadata.
 - No automated test covers built-in MCP discovery through codemode, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, or original server and tool identities. Recheck them with the [nested-execution contracts](#nested-execution).
 - No automated test covers rows that Pi inserts on `agent_settled`, a cache-warming notice that Pi extends in place, or the shell timeout status that names the shell's exit code.
-- For terminal coverage, run the [manual checks](validation.md) for buffered output, thinking toggles, fullscreen summaries, compact-mode reload, and replay in both modes.
 - External adapter fixtures don't establish compatibility with the live adapters.

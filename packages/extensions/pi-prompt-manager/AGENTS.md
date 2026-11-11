@@ -6,9 +6,7 @@ Keep one logical browser, and keep Pi's own editor: install no custom editor.
 
 | Risk         | Rule                                                                                                       |
 | ------------ | ---------------------------------------------------------------------------------------------------------- |
-| Activation   | Touch settings and storage only after a TUI session has started.                                           |
 | Exact source | Keep the exact stored and copied text separate from sanitised display text. Reject unsafe editor restores. |
-| Deletion     | Delete only when UUID, text, and timestamp all match. Never evict drafts to make room for additions.       |
 | Privacy      | Keep the [capture exclusions](docs/storage.md#capture) and [side-effect limits](README.md#side-effects).   |
 
 ## Constraints
@@ -18,7 +16,6 @@ Keep one logical browser, and keep Pi's own editor: install no custom editor.
 - Copy through the native-only [clipboard module](src/clipboard.ts), not Pi's general helper.
 - Restore selections only in the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose`, before any requested removal, and never during a responsive remount.
 - Keep recovery manual.
-- Report cleanup warnings after a commit separately from failed writes.
 
 ## References
 

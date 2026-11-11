@@ -13,10 +13,8 @@ Treat every change as greenfield: make breaking changes directly, and delete wha
 
 | When you…                                                                                                          | Read                                                       |
 | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Look for the package that owns a feature                                                                           | [Workspace architecture](docs/architecture.md)             |
 | Implement or refactor behaviour, or share it between packages                                                      | [Code organisation and reuse](docs/agents/architecture.md) |
 | Run checks, edit TypeScript or tooling, configure packages, or update dependencies                                 | [Development](docs/development.md)                         |
 | Change Pi behaviour or use Pi APIs: patch Pi, gate a host hook, name a custom entry or message, or notify the user | [Pi API contracts](docs/agents/pi-apis.md)                 |
 | Validate configuration, persisted JSON, external data, or tool parameters                                          | [Runtime validation](docs/agents/runtime-validation.md)    |
 | Write or edit docs, including `AGENTS.md`                                                                          | [Documentation conventions](docs/documentation.md)         |
-| Install the workspace or resolve prerequisites                                                                     | [Setup](README.md#setup)                                   |

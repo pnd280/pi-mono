@@ -37,8 +37,6 @@ To open the picker after `/`, the extension wraps Pi's editor and calls a privat
 - The installed Pi version isn't supported, or an extension that loads earlier provides an editor that isn't Pi's. Pi shows a warning.
 - An extension that loads later provides its own editor without wrapping this one. No warning appears.
 
-The wrapped editor starts with an empty prompt history after `/reload` or a session switch, such as `/new` or `/resume`. **Up** then recalls only the prompts sent since then.
-
 ## Expansion format
 
 Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
@@ -53,5 +51,3 @@ Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODIN
 - Placeholders may repeat. Everything else, including spaces, is literal.
 - If a leading reference could invoke a registered skill or prompt-template command, a space is added before it to keep it literal. This includes formats such as `"{command} ({path})"` and references already in the current format. Ordinary prompt-template commands still work.
 - Formats are limited to 512 Unicode code points. Invalid sections, and settings files larger than 1 MiB, are ignored.
-- A trusted project's format overrides the global one.
-- Settings load on session start and `/reload`.

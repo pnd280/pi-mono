@@ -47,14 +47,8 @@ export async function runRequestedCompaction(
   let skippedReason = "Pi did not start compaction.";
 
   if (!session.model) skippedReason = "No model selected.";
-  else {
-    try {
-      if (session.sessionManager.getBranch().at(-1)?.type === "compaction")
-        skippedReason = "Already compacted.";
-    } catch {
-      // This read only improves a skip diagnostic; Pi owns preparation and its error handling.
-    }
-  }
+  else if (session.sessionManager.getBranch().at(-1)?.type === "compaction")
+    skippedReason = "Already compacted.";
 
   const unsubscribe = session.subscribe((event) => {
     if (event.type === "compaction_end" && event.reason === "manual") outcome = fromEvent(event);

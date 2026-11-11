@@ -5,11 +5,8 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 
 import { hasErrorCode } from "@pi-mono/utils/errors";
-import { z } from "zod";
 
 import { PrivateFileError, ReadLimitError } from "./errors.ts";
-
-const readLimitSchema = z.int().nonnegative().lt(Number.MAX_SAFE_INTEGER);
 
 /**
  * Native Windows has no POSIX owner IDs. There, storage trusts the inherited ACL of the user
@@ -183,8 +180,6 @@ export async function privateOpen(path: string, flags = constants.O_RDONLY): Pro
  * exceeding maxBytes throw. Raw OS errors may expose paths to callers.
  */
 export async function boundedRead(path: string, maxBytes: number): Promise<Buffer | undefined> {
-  if (!readLimitSchema.safeParse(maxBytes).success)
-    throw new RangeError("Read limit must be a nonnegative safe integer below MAX_SAFE_INTEGER.");
   let handle: FileHandle;
 
   try {

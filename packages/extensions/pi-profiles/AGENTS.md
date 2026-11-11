@@ -4,14 +4,11 @@ Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applie
 
 ## Must not regress
 
-- Read project settings only when `ctx.isProjectTrusted()` is true. Profiles select tools and system prompt text, so an untrusted project must never supply or change them. See [where settings apply](docs/configuration.md#where-settings-apply) for the merge rules.
 - Read settings only on session start.
-- Skip a project profile whose MCP server has `auth`. Pi refuses `auth` in a project `mcp.json`, so that a repository cannot choose where a Pi login token goes, and it does not check servers that extensions register.
 - Register only the selected profile's MCP servers, after its tools are set, and save no server entry in the session.
 - Register the extension's `tool_search` on every load without reading settings. [Pi compatibility](docs/pi-compatibility.md#limitations) gives the reason.
 - Add prompts only through the [prompt part](../../libs/src/prompt-parts/README.md) at rank `200`, which appends to `systemPromptOptions.appendSystemPrompt` and keeps the text that Pi and earlier handlers put there.
 - Hold each switch, so that every part, such as pi-model-prompt's, sees the profile and its model.
-- Apply `--profile` in every mode, and `defaultProfile` only in the interactive TUI. Print, JSON, and RPC runs, such as subagents, rely on their CLI flags.
 - Refuse switches while the agent runs. Extension commands and shortcuts run during streaming.
 
 ## Startup and shutdown

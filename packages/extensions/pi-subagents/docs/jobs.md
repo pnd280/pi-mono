@@ -10,7 +10,7 @@ The design is in [ADR 0005](adr/0005-background-jobs.md) and [ADR 0007](adr/0007
 
 The model calls `job` with a `command`, a short `description`, an optional `timeout` in seconds, and an optional `hold_run` boolean. The timeout must be more than 0 and at most 2,147,483 seconds; there is no default timeout. `hold_run` is `false` by default; see [held jobs](#held-jobs). The call returns immediately with the job ID and the path of the job's log file. The command runs in the session's working directory, with the environment that Pi supplies to its `bash` tool and Pi's `shellPath` and `shellCommandPrefix` settings.
 
-- `jobs` applies at all depths: `maxDepth` does not hide the job tools. The tools are model-only, so codemode scripts cannot call them.
+- `jobs` applies at all depths: `maxDepth` does not hide the job tools.
 - A job belongs to the session that started it. A supervisor does not see the jobs of its descendants.
 - With [pi-agent-summary](../../pi-agent-summary/README.md#counters), the run summary shows `started N jobs`. Each accepted `job` call counts once, also when the command then fails to start.
 
@@ -78,7 +78,7 @@ After a successful compaction, the hidden reminder of direct task IDs also lists
 
 Each job writes its output to `pi-job-<job_id>.log` in the OS temporary directory. The file holds at most 16 MiB, including its omission marker. When another write would exceed the limit, the file keeps the newest 8 MiB of output and starts with `[Earlier output omitted: N bytes]`. `N` is the total number of output bytes removed. The file then grows again within the limit. There is no line limit on disk.
 
-The live viewer follows the same file, which refreshes about once a second. It shows up to the last 2,000 lines or 50 KiB and includes the disk omission marker at the start of that window. Press **Home** to see it. A separate `[Earlier output omitted]` line means the displayed window excludes more output that is still in the file. A refresh during compaction can show part of the rewrite; the next refresh reads the current tail.
+The [job log viewer](interface.md#job-log-viewer) follows the same file. A refresh during compaction can show part of the rewrite; the next refresh reads the current tail.
 
 - On Linux and macOS, only the owner can read and write the file. Windows ignores the file mode, so the file gets the access rules of the temporary directory.
 - Files are not automatically deleted. Many retained job logs can still fill the temporary file system; remove files that you no longer need.

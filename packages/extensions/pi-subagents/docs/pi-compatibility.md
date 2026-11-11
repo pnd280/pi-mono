@@ -6,9 +6,9 @@
 
 ## Upgrade procedure
 
-1. Run the package checks and [manual checks](validation.md).
+1. Run the [manual checks](validation.md).
 2. Compare the installed contracts through the workspace's [Pi API references](../../../../docs/agents/pi-docs.md).
-3. Recheck the checklist below, and update the verification line and the limitations. The only Pi prototype patch records [late usage](../GLOSSARY.md#results) ([ADR 0002](adr/0002-count-late-background-usage.md)); recheck its items below.
+3. Recheck the checklist below, and update the verification line and the limitations.
 
 ## Checklist
 

@@ -54,7 +54,7 @@ Personal-setting changes and validation with paid providers or real credentials 
 
 1. Use `vp update` under [dependency conventions](../../../docs/development.md#dependencies). Update the shared Pi [catalog](../../../pnpm-workspace.yaml) and [lockfile](../../../pnpm-lock.yaml); restore root `catalog:` references if the update replaces them with literals.
 2. Review release-age restrictions. In `minimumReleaseAgeExclude`, add Pi-family packages the target introduces and remove Pi-family names absent from the lockfile; preserve unrelated exclusions. Review transitive scope and verify installed, not merely declared, versions.
-3. Capture upgraded-dependency failures before adaptation, including [changed host fingerprints](references/compatibility-checks.md#host-fingerprints). Verify listed invariants under [testing conventions](../../../docs/agents/testing.md#coverage). For regression fixes, show red/green evidence with an existing test; add a case only when no retained test exposes the defect.
+3. Capture upgraded-dependency failures before adaptation, including [changed host fingerprints](references/compatibility-checks.md#host-fingerprints). Verify listed invariants under [testing conventions](../../../docs/agents/testing.md#coverage).
 4. Migrate runtime, shared consumers, helpers, providers, and launchers together. Use real offline Pi where stubs miss normalisation or authentication, such as an in-memory model runtime with a scripted provider.
 5. Preserve policy outside approved changes, including policies recorded in affected packages' `AGENTS.md` and `docs/pi-compatibility.md`: no model fallback, native-only clipboard, cancellation, and sanitisation.
 6. Update documentation and reusable compatibility checklists with target-version evidence. Keep historical external results and limitations version-qualified; local fixtures do not prove live-provider or external-adapter compatibility.
@@ -63,7 +63,7 @@ Personal-setting changes and validation with paid providers or real credentials 
 
 ### 5. Verify the result
 
-Follow [required verification](../../../docs/agents/verification.md). Start with [focused checks](../../../docs/development.md#focused-validation), fix migration failures, then run the documented workspace-wide checks and tests for the shared upgrade. Run `vp install --offline` when packages are cached; report incomplete caches. `vpr check` fails until every "Last verified" line names the installed Pi version and every [host fingerprint](references/compatibility-checks.md#host-fingerprints) matches it.
+Follow [required verification](../../../docs/agents/verification.md). Start with [focused checks](../../../docs/development.md#focused-validation), fix migration failures, then run the documented workspace-wide checks and tests for the shared upgrade. Run `vp install --offline` when packages are cached; report incomplete caches.
 
 Select behavioural checks from the affected [compatibility areas](references/compatibility-checks.md). Distinguish source, automated, terminal, and external evidence; report unavailable checks. Review the final diff, including the lockfile, for correctness and scope, and run `git diff --check`.
 

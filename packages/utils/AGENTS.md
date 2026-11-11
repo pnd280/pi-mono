@@ -6,10 +6,6 @@ Keep helpers pure. Callers supply Pi runtime state and policy, and scheduling an
 
 The [README](README.md#usage) groups the exported modules by task.
 
-| When you…                          | Read                                                                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Trace package provenance consumers | The [tool-display adapters](../extensions/pi-tool-display/docs/adapters.md)                                             |
-| Trace search-scope consumers       | [nested instructions](../extensions/pi-nested-instructions/AGENTS.md)                                                   |
-| Trace skill-reference consumers    | [pi-skills](../extensions/pi-skills/AGENTS.md) and [pi-t3-skills](../extensions/pi-t3-skills/AGENTS.md)                 |
-| Trace shared-library consumers     | [bounded stream output](../libs/src/output-buffer/README.md) and [file mutations](../libs/src/file-mutations/README.md) |
-| Upgrade Pi                         | [compatibility checklist](docs/pi-compatibility.md)                                                                     |
+| When you…  | Read                                                |
+| ---------- | --------------------------------------------------- |
+| Upgrade Pi | [compatibility checklist](docs/pi-compatibility.md) |

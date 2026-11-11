@@ -1,7 +1,7 @@
 // Check workspace Markdown: relative links and heading anchors must resolve, inline
 // `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z"
-// line must name the installed Pi version. Docs outside agent skills, prompt resources, and
-// changelogs must also follow the structural conventions checked by checkConventions(). Every run
+// line must name the installed Pi version. Docs outside agent skills and prompt resources must
+// also follow the structural conventions checked by checkConventions(). Every run
 // also checks that each "N extensions" count in the README and the hero image source matches
 // packages/extensions/.
 // Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
@@ -382,7 +382,7 @@ function checkJsonc(text: string, name: string): string[] {
 function checkConventions(text: string, name: string): string[] {
   const path = name.split(sep).join("/");
 
-  if (/^\.(?:agents|resources)\//.test(path) || path.endsWith("CHANGELOG.md")) return [];
+  if (/^\.(?:agents|resources)\//.test(path)) return [];
 
   const lines = withoutFences(text).split("\n");
   const problems = checkLabels(lines, name);

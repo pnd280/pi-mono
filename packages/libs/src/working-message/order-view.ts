@@ -74,7 +74,6 @@ export class OrderSettingsView implements Component {
   private closed = false;
 
   constructor(private readonly options: OrderSettingsOptions) {
-    if (!options.scopes.length) throw new Error("Order settings require a save scope.");
     this.controls = new KeyControls(options.keys, orderControls);
     this.drafts = options.scopes.map((scope) => {
       const source = options.scopes.find((other) => other.id === scope.inheritFrom && other.isSet);

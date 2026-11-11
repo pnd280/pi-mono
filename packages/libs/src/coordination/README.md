@@ -38,5 +38,3 @@ The join callback receives an envelope with the protocol version, the shared sta
 | Input chain                                      | [Input-chain version mismatch](../input-chain/order.md#version-mismatch)                 |
 | Prompt parts                                     | [Prompt-part version mismatch](../prompt-parts/order.md#version-mismatch)                |
 | Working message                                  | [Working-message version mismatch](../working-message/command-owner.md#version-mismatch) |
-
-Increase a coordinator's protocol version whenever the shape or behaviour of its shared state changes.

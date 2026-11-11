@@ -259,7 +259,7 @@ Edit and write cards show retained patches below their headings.
 
 ### Layout
 
-- The diff is a full-width panel below the heading, with no tree connector. The `toolPendingBg` surface covers context rows and separators. Panels wider than two columns have one column of padding on each side.
+- The diff is a full-width panel below the heading, with no tree connector. The `toolPendingBg` surface covers context rows, gaps, and separators. Panels wider than two columns have one column of padding on each side.
 - The top strip carries counts and warnings. With multiple hunks, its first row also shows the first hunk's position when both fit. Caller text takes priority.
 - A strip precedes each later hunk, with its number and, when space permits, its start line.
 - The bottom strip carries the omission hint, failure text, notices, and operation row. Nested calls and images follow the complete panel.
@@ -267,7 +267,7 @@ Edit and write cards show retained patches below their headings.
 - Writes omit one-sided counts; edits keep them.
 - Compact previews prioritise changed code and nearby context, and mark omitted excerpts and hunks.
 - Pi's expansion reveals all retained hunks with full wrapping. There are no per-hunk controls.
-- Strips and changed rows tint the surface toward the theme's diff colours. Added-row tints use `toolDiffAdded`, independently of `toolSuccessBg`. Contrast depends on the supplied colours and the terminal's colour mode. Inline changes use `selectedBg`. A changed row's background also covers its padding column.
+- Strips, added rows, and removed rows tint the surface toward `toolDiffContext`, `toolDiffAdded`, and `toolDiffRemoved`. Added-row tints are independent of `toolSuccessBg`. Contrast depends on the supplied colours and the terminal's colour mode. Inline changes use `selectedBg`. A changed row's background also covers its padding column.
 
 ### Unavailable patches
 

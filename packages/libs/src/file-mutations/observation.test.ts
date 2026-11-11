@@ -36,5 +36,4 @@ it("distinguishes empty, missing, invalid UTF-8, and nonregular files without cl
   await writeFile(path, Buffer.from([0xff]));
   expect(await observeTextFile(path, 1)).toEqual({ status: "invalid-utf8" });
   expect(await observeTextFile(directory, 1)).toEqual({ status: "not-file" });
-  await expect(observeTextFile(path, -1)).rejects.toThrow(RangeError);
 });

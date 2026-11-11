@@ -29,10 +29,9 @@ export function createSelectiveReadTool(base: ReturnType<typeof createReadToolDe
   return {
     ...base,
     parameters,
-    description: `${base.description} Supply selection to mark a source span while retaining surrounding context. A separate orientation preview is limited to five lines and 500 Unicode code points per line.`,
     promptGuidelines: [
       ...(base.promptGuidelines ?? []),
-      "For references such as file.ts:12, file.ts:12-15, or file.ts:12:4-15:9, give read.path only the filename and put the coordinates in read.selection. Choose read.offset and read.limit independently to include context. The selected preview is for orientation; use the original read content for exact edits. An ellipsis (…) in the preview marks omitted text, not file content."
+      "For references such as file.ts:12, file.ts:12-15, or file.ts:12:4-15:9, give read.path only the filename and put the coordinates in read.selection."
     ],
     async execute(id, args, signal, onUpdate, ctx): Promise<ReadResult> {
       const { selection: input, ...window } = args;

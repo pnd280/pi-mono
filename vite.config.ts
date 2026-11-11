@@ -383,7 +383,7 @@ export default defineConfig({
   },
   staged: {
     // Agent skills keep their own text. Paths stay literal; the exclude needs pathspec magic.
-    "*": String.raw`sh -c 'git --noglob-pathspecs grep --cached -n -I -F -e "$(printf "\342\200\224")" -- "$@" ":(top,exclude).agents/skills"; [ "$?" -eq 1 ]' sh`
+    "*": String.raw`sh -c 'git --noglob-pathspecs grep --cached -n -I -F -e "$(printf "\342\200\224")" -- "$@" ":(top,exclude).agents/skills"; [ "$?" -eq 1 ] || { printf "%s\n" "Replace each em dash (U+2014) above with a comma, colon, or parentheses. In TypeScript strings that must show one, write the \u2014 escape." >&2; exit 1; }' sh`
   },
   test: {
     // Hang guards only. Tests do not set their own limits: a full suite starts many Pi processes

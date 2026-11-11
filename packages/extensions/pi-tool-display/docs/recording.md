@@ -11,7 +11,6 @@ In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native
 - Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
 - Native `edit` and `write` observations share source capture and patches with `pi-agent-summary`, so files are not read twice. Maintainers can find the shared capture in [file observations](../../../libs/src/file-mutations/README.md).
 - Another process writing the same file can race with the observation.
-- Live shell previews stay in memory only.
 
 ## Session history
 
@@ -23,8 +22,6 @@ Session history stores only facts that Pi's own entries lack. The extension keep
 - a change applied although Pi reported failure;
 - an operation failure that Pi's result or call cancellation cannot preserve;
 - bounded patches.
-
-> Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 
 The extension saves a call's facts when Pi publishes the call's final result. Under Pi's [quit, session-change, and reload contracts](pi-compatibility.md#transcript), only a killed process leaves a call without them.
 

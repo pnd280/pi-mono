@@ -81,7 +81,6 @@ export class OutputBuffer {
     this.line = new RetainedLine(this.options);
   }
   append(buffer: Buffer): void {
-    if (this.finished) return;
     this.totalBytes += buffer.length;
     if (this.totalBytes > this.options.maxBytes) this.full = undefined;
     for (let offset = 0; offset < buffer.length; offset += 16 * 1024)

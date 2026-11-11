@@ -76,8 +76,6 @@ Run these checks in regular and fullscreen modes, except mouse checks, which req
 | Click an expanded tool card.                                                             | The corresponding owned task opens.                                                                                                                                                                                                        |
 | Close the view.                                                                          | Editor focus returns.                                                                                                                                                                                                                      |
 | Navigate the tree with a panel or viewer open.                                           | Old views close.                                                                                                                                                                                                                           |
-| Inspect the processes after navigation.                                                  | Owned processes exit.                                                                                                                                                                                                                      |
-| Inspect restored tasks.                                                                  | They stay stopped.                                                                                                                                                                                                                         |
 
 ## Remapped controls
 

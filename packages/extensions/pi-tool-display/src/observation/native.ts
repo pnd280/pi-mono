@@ -102,10 +102,8 @@ async function executeWithSavedReference(
   let savedPath: string | undefined;
 
   const update: NonNullable<typeof onUpdate> = (value) => {
-    ignoreFailure(() => {
-      const path = record(value.details).fullOutputPath;
-      if (typeof path === "string") savedPath = path;
-    });
+    const path = record(value.details).fullOutputPath;
+    if (typeof path === "string") savedPath = path;
     onUpdate?.(value);
   };
 

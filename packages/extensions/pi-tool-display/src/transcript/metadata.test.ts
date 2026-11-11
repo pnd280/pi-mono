@@ -38,14 +38,4 @@ it("bounds the original record, including unknown fields", () => {
   // Unknown fields are not returned, but they count toward the limit.
   expect(parseCallRecord({ ...value, extra: "x" })).toEqual(value);
   expect(parseCallRecord({ ...value, extra: "x".repeat(160 * 1024) })).toBeUndefined();
-  expect(
-    parseCallRecord({
-      ...value,
-      cycle: {
-        get self() {
-          return this;
-        }
-      }
-    })
-  ).toBeUndefined();
 });

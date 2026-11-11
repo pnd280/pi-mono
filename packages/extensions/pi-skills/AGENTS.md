@@ -12,5 +12,3 @@
 ## Validation
 
 For terminal checks, test coverage, and Pi upgrades, start at the [package docs](README.md#docs).
-
-Keep the real-editor test for **Enter** acceptance; provider-only checks cannot prove that interaction.

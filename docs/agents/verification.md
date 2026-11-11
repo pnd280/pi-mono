@@ -4,7 +4,7 @@
 
 1. List the changed files with `git status --short` and `git diff HEAD --stat`, then the affected packages and their [shared-code consumers](architecture.md#reuse-decision). The index can hold changes that someone else staged, so `git diff` alone can miss them. Done when you have the `package.json` name of every package to check.
 2. Run the checks for the kind of change. Done when every check passes, or each failure is recorded as existing before the change.
-   - When you change Markdown, check the changed files with `vp fmt --check <files>` and `node .scripts/check-docs.ts <files>`. Vite+ formatting ignores `.agents/`, so leave those files out of `vp fmt --check`. Docs-only changes need no application tests.
+   - When you change Markdown, check the changed files with `vp fmt --check <files>` and `node .scripts/check-docs.ts <files>`. Docs-only changes need no application tests.
    - For code or tooling changes, run these from the repository root for each package on the list, then follow the [testing policy](testing.md#coverage):
 
      ```sh
@@ -12,7 +12,7 @@
      vpr '<package-name>#test'
      ```
 
-     `#check` runs the format check and type-aware lint, which type-checks the package. It does not run `check-docs.ts`. Run `#test` only when the package declares a `test` task. For a package without one, do any documented manual validation and report that no tests ran.
+     `#check` runs the format check and type-aware lint, which type-checks the package. It does not run `check-docs.ts`. For a package without a `test` task, do any documented manual validation and report that no tests ran.
 
      For workspace-wide and partial commands, see [focused validation](../development.md#focused-validation).
 

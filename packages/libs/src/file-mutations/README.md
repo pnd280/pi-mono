@@ -64,7 +64,3 @@ pi.on("session_shutdown", () => mutations.dispose());
 - Use `sequence`, which is assigned just before each disk write, instead of callback order for net comparisons.
 
 Related: patch limits and statuses come from [bounded-diff](../bounded-diff/README.md); [pi-agent-summary](../../../extensions/pi-agent-summary/README.md) and [pi-tool-display](../../../extensions/pi-tool-display/README.md) consume the mutations.
-
-## Validation
-
-Run the `pi-agent-summary` and `pi-tool-display` checks and tests after changes.

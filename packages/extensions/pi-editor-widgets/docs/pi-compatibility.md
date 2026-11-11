@@ -16,7 +16,7 @@ Public APIs don't expose other extensions' registries or row placement, so this 
 
 ### Fingerprint boundary
 
-The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.5.2"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
+The [host boundary](../src/host.ts) exports `inspectedPiVersion` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
 
 Each gate unwraps recorded hook predecessors.
 
