@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.5.1 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.5.0 to 1.5.1 changes. Not covered: the randomised comparison of search scores with the installed `fuzzyMatch` and the interaction measurement, which both last ran on Pi 1.5.0; all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline or overlay browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
+> Last verified against Pi 1.5.2 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised comparison of search scores with the installed `fuzzyMatch` and the interaction measurement, which both last ran on Pi 1.5.0; all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline or overlay browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
 
 ## Upgrade procedure
 
@@ -57,11 +57,11 @@ The [editor host mapping](../src/index.ts) and the [source refusal](../src/manag
 
 [Native-only clipboard transport](../src/clipboard.ts), private storage, and capture exclusions are deliberate policies. Keep them when considering new host APIs or clipboard helpers.
 
-Like Pi 1.5.1's own clipboard commands (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
+Like Pi 1.5.2's own clipboard commands (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
 
 ### Search ranking
 
-Pi 1.5.1 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
+Pi 1.5.2 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
 
 ### Restoring
 

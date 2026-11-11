@@ -2,7 +2,7 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.5.1 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.5.0 to 1.5.1 changes. Not covered: manual visual checks; live-provider usage reporting; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
+> Last verified against Pi 1.5.2 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual visual checks; live-provider usage reporting; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
 
 ## Upgrade procedure
 
@@ -74,7 +74,7 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 ## Limitations
 
-In Pi 1.4.0 to 1.5.1, these limits come from missing Pi APIs. Revisit them when Pi adds one.
+In Pi 1.4.0 to 1.5.2, these limits come from missing Pi APIs. Revisit them when Pi adds one.
 
 ### Throughput
 

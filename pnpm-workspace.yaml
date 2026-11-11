@@ -10,9 +10,9 @@ allowBuilds:
   unrs-resolver: false
 
 catalog:
-  "@earendil-works/pi-ai": ^1.5.1
-  "@earendil-works/pi-coding-agent": ^1.5.1
-  "@earendil-works/pi-tui": ^1.5.1
+  "@earendil-works/pi-ai": ^1.5.2
+  "@earendil-works/pi-coding-agent": ^1.5.2
+  "@earendil-works/pi-tui": ^1.5.2
   "@stylistic/eslint-plugin": ^5.10.0
   "@tailwindcss/vite": ^4.3.5
   "@tanstack/devtools-vite": 0.8.6
