@@ -7,6 +7,7 @@ import {
 import {
   buildSessionProjection,
   type JsonAgentSessionEvent,
+  type SessionEntry,
   type SessionProjection
 } from "@earendil-works/pi-coding-agent";
 
@@ -35,6 +36,17 @@ export type TranscriptItem =
 type ToolItem = Extract<TranscriptItem, { kind: "tool" }>;
 
 type Execution = { output: ToolOutput | undefined; partial: boolean };
+
+/**
+ * The compactions on the viewed branch of the child file, including those of earlier runs, and
+ * whether the child is compacting now.
+ */
+export type Compactions = {
+  count: number;
+  /** The context tokens before the latest compaction. */
+  tokensBefore: number | undefined;
+  running: boolean;
+};
 
 type MessageUpdate = Extract<JsonAgentSessionEvent, { type: "message_update" }>;
 
@@ -66,6 +78,9 @@ export class Transcript {
   /** Whether a connection reports the child's events; otherwise only histories arrive. */
   private observed = false;
   private running = false;
+  private compacted: Omit<Compactions, "running"> = { count: 0, tokensBefore: undefined };
+  /** Only a connection reports a compaction while it runs. */
+  private compacting = false;
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -95,6 +110,7 @@ export class Transcript {
     this.projection = buildSessionProjection([...entries], entries.at(-1)?.id ?? null);
     this.saved.clear();
     this.latest = undefined;
+    this.compacted = compacted(entries);
     for (const entry of this.projection.entries)
       for (const message of entry.messages) if (message.role === "assistant") this.latest = message;
     const owners = new Map<string, number>();
@@ -129,6 +145,12 @@ export class Transcript {
     this.streaming = undefined;
     this.calls.clear();
     this.executions.clear();
+    this.compacted = { count: 0, tokensBefore: undefined };
+    this.compacting = false;
+  }
+
+  compactions(): Compactions {
+    return { ...this.compacted, running: this.compacting };
   }
 
   event(event: JsonAgentSessionEvent): void {
@@ -140,6 +162,10 @@ export class Transcript {
         this.running = false;
         this.streaming = undefined;
         this.calls.clear();
+        break;
+      case "compaction_start":
+      case "compaction_end":
+        this.compacting = event.type === "compaction_start";
         break;
       case "message_start":
 
@@ -188,6 +214,7 @@ export class Transcript {
   /** The source stopped: its unresolved calls are interrupted. */
   stop(): void {
     this.running = false;
+    this.compacting = false;
     this.streaming = undefined;
     this.calls.clear();
     this.changed();
@@ -333,6 +360,16 @@ export class Transcript {
   dispose(): void {
     this.listeners.clear();
   }
+}
+
+/** Count the whole branch: the model-context projection can omit older compactions. */
+function compacted(entries: readonly SessionEntry[]): Omit<Compactions, "running"> {
+  let result: Omit<Compactions, "running"> = { count: 0, tokensBefore: undefined };
+  for (const entry of entries)
+    if (entry.type === "compaction")
+      result = { count: result.count + 1, tokensBefore: entry.tokensBefore };
+
+  return result;
 }
 
 /** Derived outputs keep their identity, so the viewer updates a row only when it changes. */
