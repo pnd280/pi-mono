@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.5.1 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.5.0 to 1.5.1 changes to session management, startup, the session picker, the model registry and resolver, and thinking levels. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.5.2 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.5.1 to 1.5.2 changes to session management, startup, the session runtime, `/resume`, and `/import`. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, `/sesh persist` after its working directory is removed, and manual checks of the session picker.
 
 ## Upgrade procedure
 
@@ -98,23 +98,27 @@ These limits come from Pi behaviour. Recheck each one when Pi changes the behavi
 
 ### Startup parent
 
-In Pi 1.4.0, 1.5.0, and 1.5.1, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+In Pi 1.4.0 to 1.5.2, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
 
 ### Option order
 
-In Pi 1.4.0, 1.5.0, and 1.5.1, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
+In Pi 1.4.0 to 1.5.2, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
 
 ### Custom directories
 
-In Pi 1.4.0, 1.5.0, and 1.5.1, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
+In Pi 1.4.0 to 1.5.2, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
 
 ### Path comparison
 
-Pi 1.5.1 compares session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
+Pi 1.5.2 compares session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
 
 ### Model references
 
-Pi 1.5.1 accepts `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
+Pi 1.5.2 accepts `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
+
+### Missing working directory
+
+In Pi 1.5.2, interactive `ctx.switchSession()` asks how to open a session whose stored working directory no longer exists: continue, fork, or cancel. `/sesh persist` saves the snapshot with the current working directory, so Pi asks only if that directory was removed during the session. Cancel removes the saved file, as before. Fork switches to a copy with a new session ID and keeps the saved file, and the confirmation still names the saved file.
 
 ### Copying JSONL
 

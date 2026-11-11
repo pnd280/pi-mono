@@ -14,7 +14,7 @@ import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { record } from "../values.ts";
 
-// Pi 1.5.1 updateContent creates direct Markdown children only for prose, using
+// Pi 1.5.2 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking
 // run that it shows. It reuses those Markdown instances across updates, so
 // decoration wraps them without mutating them. Gate this private child-layout
