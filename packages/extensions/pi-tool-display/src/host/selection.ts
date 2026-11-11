@@ -1,6 +1,5 @@
 import type { ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
 
-import { piFffAdapter } from "../adapters/@ff-labs/pi-fff/index.ts";
 import { builtinCodemodeAdapter } from "../adapters/builtin/codemode/index.ts";
 import { builtinMcpAdapter } from "../adapters/builtin/mcp/index.ts";
 import { builtinToolSearchAdapter } from "../adapters/builtin/tool-search/index.ts";
@@ -19,7 +18,6 @@ import type { DisplaySettings } from "../settings.ts";
 // this display, even when that owner supplies renderer slots. Keep native ownership
 // separate: only the host can establish the factory provenance required for it.
 const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
-  piFffAdapter,
   piMcpAdapter,
   piTodoAdapter,
   piSubagentAdapter,

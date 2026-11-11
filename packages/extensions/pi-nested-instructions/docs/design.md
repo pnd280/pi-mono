@@ -14,8 +14,6 @@ Based on OpenCode v2 at [`39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49`](https://git
 
 Pi 1.5.2 is the host reference. [Pi's loading rules](loading.md#which-files-load) take precedence over OpenCode's. OpenCode's ambient watcher and startup search are not ported.
 
-FFF adapters reference [pi-fff source](https://github.com/dmtrKovalenko/fff/tree/89c19270ea2dfc20829a7429f72022571558093e/packages/pi-fff/src) at `89c19270ea2dfc20829a7429f72022571558093e`. Source schemas, rather than abbreviated README parameters, define the inputs.
-
 ## Input adapters
 
 The [input discovery guide](input-discovery.md) owns the recognised tools and the Bash syntax that stops inference.
@@ -59,4 +57,4 @@ The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract
 
 ## Shared scope extraction
 
-[Shared scope helpers](../../../utils/docs/caller-boundaries.md#search-scopes) own brace expansion, fixed glob prefixes, filename filters, and FFF expression parsing. Discovery supplies existing-query-path facts and retains lexical hints after access failures. It ignores negative terms and keeps its own direct-read policy; it does not adopt `pi-fff-guard`'s blocking, missing-path, intersection, exclusion, or Git policies.
+[Shared scope helpers](../../../utils/docs/caller-boundaries.md#search-scopes) own brace expansion and fixed glob prefixes. Discovery retains lexical hints after access failures and keeps its own direct-read policy.

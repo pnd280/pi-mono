@@ -2,13 +2,13 @@
 
 [Package](../README.md) · [Testing policy](../../../docs/agents/testing.md#coverage)
 
-This package tests pure validation and transformation. [Libs](../../libs/docs/testing.md) owns scheduling, cancellation, filesystem access, and terminal rendering; consumers own missing-target, exclusion, and discovery policy.
+This package tests pure validation and transformation. [Libs](../../libs/docs/testing.md) owns scheduling, cancellation, filesystem access, and terminal rendering; consumers own discovery policy.
 
 ## Must not regress
 
 - **Critical, unit:** Lexical path containment does not treat sibling prefixes as descendants.
 - **Critical, integration:** POSIX-shell argument quoting keeps empty strings, whitespace, Unicode, apostrophes, and shell metacharacters as literal arguments in a real Bash process, when callers supply NUL-free text.
-- **High, unit:** Package provenance requires the named package as the npm source or entry point, and FFF classification also requires recognised names, not a matching tool name alone.
+- **High, unit:** Package provenance requires the named package as the npm source or entry point, not a lookalike name or an SDK label.
 - **High, unit:** Model references split at the first slash, so model IDs keep their slashes.
 - **High, unit:** Model references without a provider or model ID are rejected.
 - **High, unit:** Output omission classification uses recorded ranges for generated notices, not literal lookalikes in source text.
@@ -23,6 +23,6 @@ This package tests pure validation and transformation. [Libs](../../libs/docs/te
 
 ## Not tested
 
-- Search-scope expansion, FFF expression parsing, and missing-newline markers are below the severity bar.
+- Search-scope expansion and missing-newline markers are below the severity bar.
 - Libs or consumers own filesystem path resolution, Git inspection, wall-clock timers, and UI interactions.
 - Zod owns its generic type machinery.

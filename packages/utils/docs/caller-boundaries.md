@@ -14,23 +14,17 @@
 
 ## Package provenance
 
-[`registeredBy`](../src/provenance.ts) checks that a package registered a tool, from its npm source or entry-point path. [`fff-tools`](../src/fff-tools.ts) uses it for the official FFF package and classifies tool names. Neither checks tool schemas or applies policy.
+[`registeredBy`](../src/provenance.ts) checks that a package registered a tool, from its npm source or entry-point path. It does not check tool schemas or apply policy.
 
 ## Search scopes
 
 [`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files.
 
-- `parseFffScopes` interprets verified FFF path fields, filename queries, and multi-search constraints. It returns positive expressions and negative query terms.
-- Each expression keeps its path-field or query origin in `source`, so nested-instruction discovery can ignore recursive filename path fields before it expands patterns.
-- Like FFF, `normalizeFffPath` gives absolute path fields `/` separators, so Windows paths classify as paths and globs. Relative values keep their separators.
-- `alternatives` expands comma-separated brace groups and throws `Error` above 64 alternatives or a fixed nesting limit. `globRoot` returns the static prefix before the first glob segment, or `undefined` when the expression has no glob or starts with one.
+`alternatives` expands comma-separated brace groups and throws `Error` above 64 alternatives or a fixed nesting limit. `globRoot` returns the static prefix before the first glob segment, or `undefined` when the expression has no glob or starts with one.
 
-Callers have these duties:
+Callers own input validation, error handling, scope limits beyond brace expansion, and filesystem checks.
 
-- Supply whether the full filename query names an existing path, so that paths that contain spaces stay intact.
-- Own input validation, existing-path detection and error handling, scope limits beyond brace expansion, filesystem checks, exclusion application, intersections, and blocking policy.
-
-Consumers choose their own failure handling. pi-fff-guard passes unexpected access failures from scope extraction to its decision layer, which allows the search with a diagnostic. Nested discovery can keep lexical hints.
+Consumers choose their own failure handling. Nested discovery can keep lexical hints.
 
 ## Paths
 

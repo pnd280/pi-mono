@@ -12,7 +12,6 @@ When a tool is not the verified tool that a card expects, it keeps its own rende
 | Pi's built-in `codemode`                                                 | [Codemode](#codemode)                       |
 | Pi's built-in MCP server tools                                           | [MCP tools](#mcp-tools)                     |
 | Pi's built-in `tool_search`, and the one from pi-profiles                | [Tool search](#tool-search)                 |
-| `@ff-labs/pi-fff`                                                        | [FFF](#fff)                                 |
 | `pi-mcp-adapter`                                                         | [MCP adapter](#mcp-adapter)                 |
 | `pi-read`                                                                | [Selective read](#selective-read)           |
 | `pi-smart-compact`                                                       | [Smart compact](#smart-compact)             |
@@ -91,24 +90,6 @@ The `tool_search` that [pi-profiles](../../pi-profiles/docs/tools.md#tool-search
 - Failure warnings name the adapter `pi-profiles:tool_search`.
 - The card does not show which loaded tools a profile deferred, because the result does not record it.
 - When a match belongs to a deferred [group](../../pi-profiles/docs/tools.md#groups), pi-profiles also loads the group's other tools. The result does not name them, so the card does not show them.
-
-## FFF
-
-FFF searches from [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff) appear as compact cards with match counts, grouped by search filter.
-
-- Adjacent calls [group](presentation.md#groups) by their exact literal `path` or multi-search `constraints`, which default to `.` when empty or omitted.
-- `src/**` and `./src/**` are different filters, and filters never merge with native directories.
-- An explicit empty pattern is valid. A call with no pattern cannot group, and it falls back to a generic card after its result arrives.
-- Find calls with a nonempty `cursor` show `page <cursor>` in place of the pattern and filter. They stay outside exploration groups, because FFF resumes a saved query whose pattern and scope are not in the result. Result counts and notices stay available.
-- Pagination, limit, query, and fallback notices stay visible in compact and expanded cards.
-
-Completed successful calls with nonnegative whole-number counts show result summaries in place of match excerpts in compact cards, inside and outside groups:
-
-- Grep and multi-grep summaries count the matches collected for the call.
-- Find summaries count all matching files, which can exceed the current page.
-- The index count is the unfiltered number of indexed files, not the number searched or the number with matches.
-
-Missing or invalid counts give a bounded output preview. Failed and partial results get no summary. Calls with arguments or result details in an unexpected shape get generic cards and do not join exploration groups.
 
 ## MCP adapter
 

@@ -18,9 +18,9 @@ Domain terms are in the [glossary](GLOSSARY.md).
 
 ## References
 
-| When you…                                   | Read                                                                                                               |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Change discovery or persistence             | [Session lifetime](docs/design.md#session-lifetime)                                                                |
-| Change shared scope extraction              | [Shared scope extraction](docs/design.md#shared-scope-extraction), then check the utils helpers and `pi-fff-guard` |
-| Validate discovery, persistence, or notices | [Package docs](README.md#docs)                                                                                     |
-| Upgrade Pi                                  | [Compatibility checklist](docs/pi-compatibility.md)                                                                |
+| When you…                                   | Read                                                                                            |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Change discovery or persistence             | [Session lifetime](docs/design.md#session-lifetime)                                             |
+| Change shared scope extraction              | [Shared scope extraction](docs/design.md#shared-scope-extraction), then check the utils helpers |
+| Validate discovery, persistence, or notices | [Package docs](README.md#docs)                                                                  |
+| Upgrade Pi                                  | [Compatibility checklist](docs/pi-compatibility.md)                                             |

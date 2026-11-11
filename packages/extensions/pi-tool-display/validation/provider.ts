@@ -142,19 +142,6 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
         read("a/alpha.txt")
       ]
     ],
-    [
-      "fff",
-      [
-        ...["a/**", "./a/**"].flatMap((scope) => [
-          { name: "ffgrep", args: { pattern: "^1 alpha", path: scope, limit: 2 } },
-          { name: "ffgrep", args: { pattern: "^2 alpha", path: scope, limit: 2 } },
-          { name: "fffind", args: { pattern: "", path: scope, limit: 2 } }
-        ]),
-        { name: "ffgrep", args: { pattern: "^1 alpha", path: "a/", limit: 2 } },
-        { name: "ls", args: { path: "a/" } },
-        read("a/alpha.txt")
-      ]
-    ],
     ["images", [read("a.ts"), read("image.png"), read("b.ts")]],
     [
       "diff",

@@ -12,13 +12,11 @@ export default function nestedInstructions(pi: ExtensionAPI) {
   });
   pi.on("tool_execution_start", (event) => {
     if (!event.parentToolCallId) return;
-    const tool = pi.getAllTools().find((candidate) => candidate.name === event.toolName);
     nestedCalls.push({
       toolCallId: event.toolCallId,
       parentToolCallId: event.parentToolCallId,
       toolName: event.toolName,
-      input: event.args,
-      ...(tool ? { sourceInfo: tool.sourceInfo } : {})
+      input: event.args
     });
   });
   pi.on("turn_end", async (event, ctx) => {
@@ -27,20 +25,15 @@ export default function nestedInstructions(pi: ExtensionAPI) {
     if (event.message.role !== "assistant") return;
 
     try {
-      const tools = pi.getAllTools();
-
       // Issued inputs count even if validation or a guard blocked execution.
       // Never inspect event.toolResults, including their success status.
       for (const call of event.message.content) {
         if (call.type !== "toolCall") continue;
-        const tool = tools.find((candidate) => candidate.name === call.name);
-
         calls.push({
           toolCallId: call.id,
           callEntryId: event.messageEntryId,
           toolName: call.name,
-          input: call.arguments,
-          ...(tool ? { sourceInfo: tool.sourceInfo } : {})
+          input: call.arguments
         });
       }
 

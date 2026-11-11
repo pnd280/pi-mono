@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.png" />
-  <img alt="Good defaults, engineered with care. 18 extensions for the Pi coding agent, shown in a sample Pi session with a subagent card, compact tool cards, a diff of the edit, and a run summary." src="docs/assets/hero-light.png" />
+  <img alt="Good defaults, engineered with care. 17 extensions for the Pi coding agent, shown in a sample Pi session with a subagent card, compact tool cards, a diff of the edit, and a run summary." src="docs/assets/hero-light.png" />
 </picture>
 
 # pi-mono
@@ -24,7 +24,6 @@ Only Linux support is guaranteed. Windows and macOS are not thoroughly tested.
 | [pi-tool-display](packages/extensions/pi-tool-display/README.md)               | Shows tool calls as compact, expandable cards with file diffs.                                        |
 | [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) | Loads `AGENTS.md` files from subdirectories when the model starts working in them.                    |
 | [pi-profiles](packages/extensions/pi-profiles/README.md)                       | Switches the model, thinking level, tools, and instructions together with one key.                    |
-| [pi-fff-guard](packages/extensions/pi-fff-guard/README.md)                     | Stops FFF searches that would silently find nothing in ignored or missing paths.                      |
 | [pi-null-args](packages/extensions/pi-null-args/README.md)                     | Drops optional tool arguments that a model sent as the text `"null"`, so Pi doesn't reject the call.  |
 | [pi-read](packages/extensions/pi-read/README.md)                               | Lets the model select and highlight an exact span of a file when reading it.                          |
 | [pi-model-prompt](packages/extensions/pi-model-prompt/README.md)               | Appends different system instructions depending on the model.                                         |

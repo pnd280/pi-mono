@@ -6,7 +6,7 @@ For example, when the model reads `packages/api/src/server.ts`, the instructions
 
 ## Usage
 
-Use the native `read`, `ls`, `grep`, `find`, and `bash` tools, or the official FFF search tools, as usual. After each tool batch, pi-nested-instructions adds newly found instructions as notices for the next model request, from the broadest directory to the narrowest. The calls that triggered them aren't interrupted.
+Use the native `read`, `ls`, `grep`, `find`, and `bash` tools as usual. After each tool batch, pi-nested-instructions adds newly found instructions as notices for the next model request, from the broadest directory to the narrowest. The calls that triggered them aren't interrupted.
 
 The model receives each notice as a user message. The message starts with a note that Pi sent it automatically, not the user, and then gives the file in a `<project_instructions path="…">` tag, as Pi does for startup instructions.
 

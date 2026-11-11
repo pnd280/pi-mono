@@ -58,7 +58,7 @@ Validate borrowed arguments and results without modifying them, and never infer 
 
 Use `path` parts, and optionally `range`, only for concrete filesystem targets. Use `value` for literal filters and `pattern` for search patterns. Literal filters receive no filesystem resolution, home expansion, trimming, or case folding, so `src/**` and `./src/**` remain distinct.
 
-Use a `filter` exploration scope for opaque expressions, even when the expression resembles a path. Give the members of a filter group only their patterns, as FFF does with its patterns or `files`. Do not repeat the group's filter or add an `in <path>` phrase to their parts. Standalone and expanded cards keep the literal filter.
+Use a `filter` exploration scope for opaque expressions, even when the expression resembles a path. Give the members of a filter group only their patterns. Do not repeat the group's filter or add an `in <path>` phrase to their parts. Standalone and expanded cards keep the literal filter.
 
 ### Invalid and partial input
 
@@ -86,7 +86,7 @@ See [exploration groups](presentation.md#groups) for headings, boundaries, and e
 
 ### Action wording
 
-Use `Listing <target>` while pending and `Listed <target>` after success, in standalone, grouped, and expanded cards, including an empty-pattern `fffind`. Never add `files in`. Separate a search pattern from its scope with a spaced em dash (U+2014), not `in`:
+Use `Listing <target>` while pending and `Listed <target>` after success, in standalone, grouped, and expanded cards. Never add `files in`. Separate a search pattern from its scope with a spaced em dash (U+2014), not `in`:
 
 ```ts
 { kind: "annotation", text: " \u2014 " }

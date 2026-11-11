@@ -6,17 +6,12 @@ pi-nested-instructions finds the directories to search from the inputs of each t
 
 ## Recognised tools
 
-Discovery infers the scope of a call from its inputs. The scope is the directories below the working directory that the input addresses, plus the exact instruction files that it tries to read. These tools provide scope:
-
-- The native `read`, `ls`, `grep`, `find`, and `bash` tools.
-- The official FFF tools `fffind`, `ffgrep`, and `fff-multi-grep`, and the FFF tools that override native tool names.
+Discovery infers the scope of a call from its inputs. The scope is the directories below the working directory that the input addresses, plus the exact instruction files that it tries to read. The native `read`, `ls`, `grep`, `find`, and `bash` tools provide scope.
 
 These inputs give no scope:
 
 - Search content patterns.
 - Exclusions.
-- Fuzzy filenames.
-- Searches that give only a cursor.
 
 In a glob pattern, only the fixed directory prefix before the first wildcard and finite brace alternatives, such as `{src,lib}`, give directories. A wildcard never counts as an exact read of an instruction file. Listing a filename is not a content read.
 

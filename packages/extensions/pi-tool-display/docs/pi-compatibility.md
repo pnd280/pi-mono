@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.5.2 with a source review of the Pi 1.5.1 to 1.5.2 changes, which leave the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the native tools, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages unchanged, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, user `!` rows that Pi moves into the chat when a run settles, and the other manual [terminal checks](validation.md); idle cache-warming notices, which need a live provider; a shell timeout whose background processes outlive the shell; physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP and FFF services; and other platforms.
+> Last verified against Pi 1.5.2 with a source review of the Pi 1.5.1 to 1.5.2 changes, which leave the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the native tools, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages unchanged, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, user `!` rows that Pi moves into the chat when a run settles, and the other manual [terminal checks](validation.md); idle cache-warming notices, which need a live provider; a shell timeout whose background processes outlive the shell; physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP services; and other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.5.2"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
@@ -152,7 +152,7 @@ See the [adapter](../src/adapters/pi-nested-instructions/README.md).
 
 ### Adapters
 
-- [ ] [Adapters](adapters.md#recognise-tool-contracts) still match their tools on provenance and schemas, including for FFF and MCP consumers.
+- [ ] [Adapters](adapters.md#recognise-tool-contracts) still match their tools on provenance and schemas, including for MCP consumers.
 - [ ] Adapters leave borrowed results unchanged.
 - [ ] Adapters still handle cancellation, saved-output references, and image ownership in Pi's results.
 - [ ] `validateToolArguments` is still a public `@earendil-works/pi-ai` export.

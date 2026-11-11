@@ -1,14 +1,8 @@
-import { execFile } from "node:child_process";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
-import {
-  createPiLaunch,
-  createValidationWorkspace,
-  STEP_TIMEOUT_MS
-} from "@pi-mono/libs/validation/pi-process";
+import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 
 const marker = ".pi-tool-display-fixture";
 
@@ -24,16 +18,6 @@ export async function createFixtureWorkspace(): Promise<string> {
     const work = join(directory, "work");
     await Promise.all(
       ["src", "a/nested", "b"].map((name) => mkdir(join(work, name), { recursive: true }))
-    );
-    // FFF needs nonignored inputs in its own repository, never the workspace's .git.
-    await promisify(execFile)(
-      "git",
-      ["-c", "init.defaultBranch=fixture", "init", "--quiet", "--template=", work],
-      {
-        cwd: work,
-        timeout: STEP_TIMEOUT_MS,
-        env: { PATH: process.env.PATH, HOME: join(directory, "home"), GIT_CONFIG_NOSYSTEM: "1" }
-      }
     );
     await Promise.all(
       [
