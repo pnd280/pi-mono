@@ -29,7 +29,7 @@ export async function fixture() {
 
         return file;
       },
-      call(toolName: string, input: JsonObject, sourceInfo?: Invocation["sourceInfo"]): Invocation {
+      call(toolName: string, input: JsonObject): Invocation {
         const toolCallId = `call-${++sequence}`;
         const callEntryId = manager.appendMessage(
           fauxAssistantMessage([
@@ -37,7 +37,7 @@ export async function fixture() {
           ])
         );
 
-        return { toolCallId, callEntryId, toolName, input, ...(sourceInfo ? { sourceInfo } : {}) };
+        return { toolCallId, callEntryId, toolName, input };
       },
       append(entries: SessionBoundaryDraft[]) {
         return entries.map((entry) => {

@@ -95,4 +95,4 @@ Use [offline display scenarios](../../../../packages/extensions/pi-tool-display/
 
 ## External and platform behaviour
 
-Check real FFF/MCP integrations, images, clipboard, and Windows/PowerShell behaviour when relevant and available. Identify unavailable integrations or platforms for the handoff.
+Check real MCP integrations, images, clipboard, and Windows/PowerShell behaviour when relevant and available. Identify unavailable integrations or platforms for the handoff.

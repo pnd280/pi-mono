@@ -14,7 +14,7 @@ Setup: complete [workspace setup](../../../../README.md#setup). The offline fixt
    vpr 'pi-tool-display#validate:terminal' regular
    ```
 
-2. Work only in the printed `Fixture directory`. It contains isolated files, settings, history, a disposable Git repository, and an offline provider. Never point the launcher at real agent or project directories.
+2. Work only in the printed `Fixture directory`. It contains isolated files, settings, history, and an offline provider. Never point the launcher at real agent or project directories.
 3. The fixture starts in summary mode, which renders compact cards in regular mode. In fullscreen, stay in summary mode for summary checks, and press **Ctrl+O** once for the compact cards the other prompts describe.
 4. Enter a prompt from the table below. Except for skipped prompts and `cancel`, wait for `Fixture finished: <prompt>` before inspecting. Some calls fail on purpose.
 5. Exit with **Ctrl+D** in an empty editor. Repeat in fullscreen with a fresh workspace:
@@ -23,23 +23,22 @@ Setup: complete [workspace setup](../../../../README.md#setup). The offline fixt
    vpr 'pi-tool-display#validate:terminal' fullscreen
    ```
 
-| Prompt          | Scenario                                                                                                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `summary`       | In fullscreen summary mode, three summary lines. Run once per fresh workspace; see [summary mode](#summary-mode).                                                                       |
-| `explore`       | Repeated reads, a missing-file diagnostic, and a listing, in source order.                                                                                                              |
-| `scopes`        | A three-call `.` group, a four-call `src` group, and a standalone read of `b.ts`, with mixed actions, repeated reads, and a failed read.                                                |
-| `native-mixed`  | One native group with one list, one search, and three reads, including repeated ranges.                                                                                                 |
-| `normalization` | One four-call native group using relative, absolute, `./`, `../`, and trailing-slash paths.                                                                                             |
-| `exceptions`    | One four-read group with a missing-file failure and a PNG image.                                                                                                                        |
-| `filenames`     | Spaces, Unicode, and a long filename. Targets wrap without truncation and keep `:15-16` ranges intact.                                                                                  |
-| `thinking`      | Four reads with thinking between calls and a visible explanation before the third read. Collapsed thinking gives two two-read groups; visible thinking gives four standalone cards.     |
-| `buffered`      | Buffered thinking and tool events, then repeated tool names. In order: `shell one`, `shell two`, a two-read group, `shell three`, `shell four`, a standalone read.                      |
-| `fff`           | Two literal-filter groups, a standalone FFF search, then a native group with a list and a read. Needs the [FFF extension and launch flags](#fff); skipped if the tools are unavailable. |
-| `diff`          | A creation and edits, including separated hunks. Run once per fresh workspace; repeating the exact-match edits fails on purpose.                                                        |
-| `output`        | Live output over the retention budget, saved-file expansion, and a separate nonzero exit.                                                                                               |
-| `cancel`        | A long-running shell call. Press **Esc** while it runs.                                                                                                                                 |
-| `images`        | A native image read between text reads.                                                                                                                                                 |
-| `public`        | A `display_fixture_read` card drawn by the standalone renderer factory.                                                                                                                 |
+| Prompt          | Scenario                                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `summary`       | In fullscreen summary mode, three summary lines. Run once per fresh workspace; see [summary mode](#summary-mode).                                                                   |
+| `explore`       | Repeated reads, a missing-file diagnostic, and a listing, in source order.                                                                                                          |
+| `scopes`        | A three-call `.` group, a four-call `src` group, and a standalone read of `b.ts`, with mixed actions, repeated reads, and a failed read.                                            |
+| `native-mixed`  | One native group with one list, one search, and three reads, including repeated ranges.                                                                                             |
+| `normalization` | One four-call native group using relative, absolute, `./`, `../`, and trailing-slash paths.                                                                                         |
+| `exceptions`    | One four-read group with a missing-file failure and a PNG image.                                                                                                                    |
+| `filenames`     | Spaces, Unicode, and a long filename. Targets wrap without truncation and keep `:15-16` ranges intact.                                                                              |
+| `thinking`      | Four reads with thinking between calls and a visible explanation before the third read. Collapsed thinking gives two two-read groups; visible thinking gives four standalone cards. |
+| `buffered`      | Buffered thinking and tool events, then repeated tool names. In order: `shell one`, `shell two`, a two-read group, `shell three`, `shell four`, a standalone read.                  |
+| `diff`          | A creation and edits, including separated hunks. Run once per fresh workspace; repeating the exact-match edits fails on purpose.                                                    |
+| `output`        | Live output over the retention budget, saved-file expansion, and a separate nonzero exit.                                                                                           |
+| `cancel`        | A long-running shell call. Press **Esc** while it runs.                                                                                                                             |
+| `images`        | A native image read between text reads.                                                                                                                                             |
+| `public`        | A `display_fixture_read` card drawn by the standalone renderer factory.                                                                                                             |
 
 ### Replay and launch options
 
@@ -181,11 +180,6 @@ Setup: fullscreen fixture, compact mode.
 | Run `filenames` at 48, 80, and 110 columns.                                     | Scope headings remain complete.                                                                                   |
 | Inspect member filenames at each width.                                         | They follow the [group-relative target rules](presentation.md#headings-and-members), with ranges intact in `dim`. |
 | Expand descendants at each width and include an outside target.                 | Targets follow the [working-directory path rules](presentation.md#target-paths).                                  |
-| Run `fff` and inspect filter headings.                                          | They read "Filtering" or "Filtered", with no counts.                                                              |
-| Inspect grouped member headings.                                                | Members omit the shared filter.                                                                                   |
-| Expand a search and compare a standalone search.                                | A spaced em dash separates the pattern and filter.                                                                |
-| Inspect an empty-pattern listing.                                               | Its heading reads `Listed <filter>`.                                                                              |
-| Compare FFF filters with native directory scopes, including matching text.      | The two scope kinds stay separate.                                                                                |
 | In `thinking`, toggle **Ctrl+T** during streaming.                              | Collapsed placeholders disappear at `thinking_end`, before later prose and tools finish.                          |
 | Inspect active indicators, the explanation, and diagnostics.                    | They remain visible under the [thinking visibility rules](presentation.md#thinking).                              |
 | Toggle **Ctrl+T** after streaming and force a redraw.                           | Ended placeholders stay hidden.                                                                                   |
@@ -264,35 +258,6 @@ Setup: a TUI session with Pi's built-in `codemode` enabled.
 | ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Run a short script, then a script that throws an error.    | Each finished card shows `Took` with Pi's time in `dim`, and no `Wall time` header.     |
 | Run `/reload`, then compare both cards with the live ones. | The replayed cards show the same times, because they come from Pi's saved `durationMs`. |
-
-### FFF
-
-The [terminal fixture](#terminal-launcher) uses nonignored files in disposable Git for `fff`. Install official `@ff-labs/pi-fff` separately; it is not a workspace dependency.
-
-1. From the repository root, launch the fixture with the extension's `src/index.ts` and its tool names enabled:
-
-   ```sh
-   vpr 'pi-tool-display#validate:terminal' fullscreen \
-     -e /absolute/path/to/@ff-labs/pi-fff/src/index.ts \
-     --fff-mode tools-only --tools read,ls,grep,ffgrep,fffind
-   ```
-
-2. Press **Ctrl+O** for compact mode, then enter `fff`. Wait for `Fixture finished: fff`. If any required tools are unavailable, the scenario reports a skip and issues no calls instead.
-3. When replaying with `--reuse`, include the same extension and flags.
-
-Enable multi-search with `env: { PI_FFF_MULTIGREP: "1" }` in `fixtureLaunch`'s `createPiLaunch` in [workspace.ts](../validation/workspace.ts). The launcher filters environment variables; a shell prefix does not work.
-
-Before and after reload, check the completed scenario:
-
-| Do                                  | Expect                                                         |
-| ----------------------------------- | -------------------------------------------------------------- |
-| Inspect the filter groups.          | `a/**` and `./a/**` form two separate groups.                  |
-| Inspect each filter group.          | It contains two searches and one empty-pattern listing.        |
-| Inspect the `a/` FFF search.        | It remains standalone.                                         |
-| Inspect the native calls.           | The list and read share a directory group.                     |
-| Inspect compact cards and groups.   | They show match counts instead of index counts or excerpts.    |
-| Compare compact and expanded cards. | Pagination, limit, query, and fallback notices remain visible. |
-| Expand a card.                      | Index counts and retained matches appear beside the summaries. |
 
 ### pi-mcp-adapter
 

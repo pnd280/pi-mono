@@ -3,15 +3,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 import { containsPath, expandHomePath, windowsDrivePath } from "@pi-mono/utils/paths";
-import {
-  alternatives,
-  globRoot,
-  hasGlob,
-  isFilenameFilter,
-  parseFffScopes
-} from "@pi-mono/utils/search-scopes";
+import { alternatives, globRoot, hasGlob } from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
 import type * as BashModule from "./bash.ts";
@@ -30,7 +23,6 @@ export type Invocation = {
   parentToolCallId?: string;
   toolName: string;
   input: unknown;
-  sourceInfo?: NonNullable<Parameters<typeof fffAdapter>[0]>["sourceInfo"];
 };
 
 type Scope = {
@@ -41,7 +33,6 @@ type Scope = {
 const inputSchema = z.object({
   path: z.string().max(65536).nullish(),
   pattern: z.string().max(65536).nullish(),
-  constraints: z.string().max(65536).nullish(),
   glob: z.string().max(65536).nullish(),
   command: z.string().max(65536).nullish()
 });
@@ -57,45 +48,13 @@ function resolveInput(value: string, base: string, expandHome = true): string {
   return path.resolve(base, expandHome ? expandHomePath(value, homedir()) : value);
 }
 
-async function fffHints(kind: FffToolKind, input: Input, cwd: string): Promise<PathHint[]> {
-  const query = input.pattern;
-  let existing = false;
-
-  if (kind === "find" && query?.includes("/")) {
-    existing = await stat(resolveInput(query, cwd)).then(
-      () => true,
-      () => false
-    );
-  }
-
-  const { expressions } = parseFffScopes(kind, input, cwd, existing);
-
-  return expressions
-    .filter(({ source, value }) => source !== "path" || !isFilenameFilter(value))
-    .map(({ value, directoryOnly }) => ({
-      value,
-      cwd,
-      kind: directoryOnly ? "directory" : "auto",
-      read: kind !== "find",
-      pattern: true
-    }));
-}
-
 async function hints(invocation: Invocation, cwd: string): Promise<PathHint[]> {
   const parsed = inputSchema.safeParse(invocation.input);
-  if (!parsed.success) return [];
-  const input = parsed.data;
-  const kind = fffAdapter(
-    invocation.sourceInfo
-      ? { name: invocation.toolName, sourceInfo: invocation.sourceInfo }
-      : undefined
-  );
-  if (kind) return fffHints(kind, input, cwd);
 
-  return nativeHints(invocation.toolName, input, cwd);
+  return parsed.success ? nativeHints(invocation.toolName, parsed.data, cwd) : [];
 }
 
-// Pi's native tool path syntax, kept separate from Bash and FFF path semantics.
+// Pi's native tool path syntax, kept separate from Bash path semantics.
 function nativePath(value: string | null | undefined): string | undefined {
   if (value == null) return undefined;
   let normalized = value.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ").replace(/^@/, "");
@@ -167,7 +126,7 @@ export async function inferScope(invocation: Invocation, cwd: string): Promise<S
       if (glob) {
         const root = globRoot(expression);
         if (!root) continue;
-        value = root.prefix;
+        value = root;
         directory = true;
       }
 

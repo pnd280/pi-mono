@@ -135,10 +135,6 @@ export const extensionGroups: ExtensionGroup[] = [
           kind: "output",
           text: 'Validation failed for tool "subagent":\n  - thinking: must be equal to one of the allowed values'
         }
-      },
-      {
-        name: "pi-fff-guard",
-        summary: "Stops FFF searches that would silently find nothing in ignored or missing paths."
       }
     ]
   },

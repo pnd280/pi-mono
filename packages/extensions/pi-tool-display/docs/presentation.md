@@ -51,7 +51,6 @@ When validated result metadata allows it, successful text can be replaced with a
 
 | When you…                     | Read                                      |
 | ----------------------------- | ----------------------------------------- |
-| Inspect FFF result totals     | [FFF cards](tools.md#fff)                 |
 | Inspect todo summaries        | [Todo cards](tools.md#todo)               |
 | Inspect MCP script summaries  | [MCP adapter cards](tools.md#mcp-adapter) |
 | Inspect any other tool's card | [Supported tool cards](tools.md)          |
@@ -87,7 +86,7 @@ An [exploration group](../GLOSSARY.md#transcript-structure) collects adjacent re
 Adapters supply scopes under the [exploration scope contract](renderers.md#exploration-scopes). Scopes match the same way live and on replay:
 
 - Native reads use the parent directory. Native searches and listings use the supplied directory, defaulting to `.`. Paths are compared lexically against the session cwd, using the [target path rules](#target-paths).
-- Literal filters, including FFF scopes, match exactly and never match a directory.
+- Literal filters match exactly and never match a directory.
 
 ### Headings and members
 
@@ -99,7 +98,7 @@ Adapters supply scopes under the [exploration scope contract](renderers.md#explo
 Headings show the action and scope; member rows carry call and operation counts. Scope-kind nouns such as `directory` are omitted.
 
 - Collapsed directory members keep their ranges, and use paths relative to the group (absolute outside it).
-- FFF members show their pattern or `files`, not the repeated filter.
+- Filter members omit the repeated filter.
 - Expanded and standalone cards follow the [target rules](#target-paths) and keep filters.
 - Known queued and executing members show `queued` or `running` in `dim`. Streaming arguments does not imply execution.
 

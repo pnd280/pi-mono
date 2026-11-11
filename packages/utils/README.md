@@ -16,7 +16,7 @@ Callers supply inputs and policy: the helpers do not read files, resolve symlink
 Choose the [exported module](package.json) for your task:
 
 - File and display text: [patches](src/patch.ts), [output notices](src/output-text.ts), [UTF-8 windows](src/utf8.ts).
-- Discovery: [package provenance](src/provenance.ts), [FFF tool classification](src/fff-tools.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
+- Discovery: [package provenance](src/provenance.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
 - Shell commands: [POSIX-shell argument quoting](src/shell.ts).
 - Prompt text: [skill references](src/skill-reference.ts) replace skill tokens with a formatted reference to the skill file, and validate the format setting.
 - Thrown values: [error codes and messages](src/errors.ts) of caught values that need not be `Error` objects.

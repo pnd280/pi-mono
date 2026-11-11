@@ -2,8 +2,6 @@ import { fauxToolCall, type JsonObject, type JsonValue } from "@earendil-works/p
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
-import { piFffAdapter } from "../adapters/@ff-labs/pi-fff/index.ts";
-import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import { genericAdapter, nativeAdapter } from "../adapters/index.ts";
 import { piMcpAdapter } from "../adapters/pi-mcp-adapter/index.ts";
 import { mcpToolInfo } from "../adapters/pi-mcp-adapter/test-fixture.ts";
@@ -198,64 +196,56 @@ function files() {
   };
 }
 
-it.each(["fff", "mcp"] as const)(
-  "enriches late %s selection from retained data without observing history or copying results",
-  (owner) => {
-    const fff = owner === "fff";
-    const adapter = fff ? piFffAdapter(fffToolInfo("ffgrep"))! : piMcpAdapter(mcpToolInfo())!;
-    const name = fff ? "ffgrep" : "mcp";
-    const args = fff ? { pattern: "needle" } : { tool: "search", server: "docs", args: {} };
-    const published = {
-      content: [{ type: "text" as const, text: "retained result" }],
-      details: fff
-        ? { totalMatched: 1, totalFiles: 1 }
-        : { mode: "call", server: "docs", tool: "search" }
-    };
-    const file = files();
-    const append = vi.fn();
-    let available = false;
-    const session = fixture({
-      tools: tools(() => (available ? adapter : genericAdapter)),
-      readSavedOutput: file.read,
-      append
-    });
+it("enriches late MCP selection from retained data without observing history or copying results", () => {
+  const adapter = piMcpAdapter(mcpToolInfo())!;
+  const name = "mcp";
+  const args = { tool: "search", server: "docs", args: {} };
+  const published = {
+    content: [{ type: "text" as const, text: "retained result" }],
+    details: { mode: "call", server: "docs", tool: "search" }
+  };
+  const file = files();
+  const append = vi.fn();
+  let available = false;
+  const session = fixture({
+    tools: tools(() => (available ? adapter : genericAdapter)),
+    readSavedOutput: file.read,
+    append
+  });
 
-    try {
-      session.message(
-        { kind: "assistant", timestamp: 1, calls: [{ index: 0, id: name, name, args }] },
-        "historical"
-      );
-      session.message(
-        { kind: "result", id: name, name, result: published, outcome: "success" },
-        "historical"
-      );
-      const call = session.coordinator.byId(name)!;
-      expect(call.adapter.id).toBe("generic");
-      expect(session.coordinator.group(call)).toBeUndefined();
-      available = true;
-      session.refreshAdapters();
-      expect(call.adapter.id).toBe(adapter.id);
-      expect(call.args).toBe(args);
-      expect(call.result).toBe(published);
-      expect(call.origin).toBe("historical");
-      expect(call.lifecycle).toBe("complete");
-      expect(call.outcome).toBe("success");
-      if (fff) expect(session.coordinator.group(call)).toBeUndefined();
-      else
-        expect(call.adapter.mcp?.(args, published)).toMatchObject({
-          server: "docs",
-          tool: "search",
-          outcome: "success"
-        });
-      session.coordinator.expand(call, true);
-      expect(file.read).not.toHaveBeenCalled();
-      expect(append).not.toHaveBeenCalled();
-      expect(session.beginObservation(name, adapter.id)).toBeUndefined();
-    } finally {
-      session.dispose();
-    }
+  try {
+    session.message(
+      { kind: "assistant", timestamp: 1, calls: [{ index: 0, id: name, name, args }] },
+      "historical"
+    );
+    session.message(
+      { kind: "result", id: name, name, result: published, outcome: "success" },
+      "historical"
+    );
+    const call = session.coordinator.byId(name)!;
+    expect(call.adapter.id).toBe("generic");
+    expect(session.coordinator.group(call)).toBeUndefined();
+    available = true;
+    session.refreshAdapters();
+    expect(call.adapter.id).toBe(adapter.id);
+    expect(call.args).toBe(args);
+    expect(call.result).toBe(published);
+    expect(call.origin).toBe("historical");
+    expect(call.lifecycle).toBe("complete");
+    expect(call.outcome).toBe("success");
+    expect(call.adapter.mcp?.(args, published)).toMatchObject({
+      server: "docs",
+      tool: "search",
+      outcome: "success"
+    });
+    session.coordinator.expand(call, true);
+    expect(file.read).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
+    expect(session.beginObservation(name, adapter.id)).toBeUndefined();
+  } finally {
+    session.dispose();
   }
-);
+});
 
 it("restores native facts and eligible saved previews after late contract selection", async () => {
   const history = SessionManager.inMemory("/tmp");

@@ -2,12 +2,12 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.5.2 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the live Linux calls to FFF 0.11.0 through an offline scripted provider, which last ran on Pi 1.5.0; manual [notice](../GLOSSARY.md#delivery) presentation; Windows paths; and live FFF calls on platforms other than Linux.
+> Last verified against Pi 1.5.2 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual [notice](../GLOSSARY.md#delivery) presentation and Windows paths.
 
 ## Upgrade procedure
 
 1. Run both package tasks, `check` and `test`, with the [focused validation commands](../../../../docs/development.md#focused-validation). The tests run offline without paid model requests.
-2. After shared adapter changes, also run the utils and `pi-fff-guard` suites. Changes to the notice contract also need the pi-tool-display suite.
+2. After shared adapter changes, also run the utils suite. Changes to the notice contract also need the pi-tool-display suite.
 3. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist
@@ -27,13 +27,10 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 - [ ] `turn_end.messageEntryId` identifies the exact source entry for each direct call.
 - [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception.
 - [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
-- [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides.
 - [ ] The selective-read and native path schemas still match the fields that the adapters read.
 - [ ] On Windows, native tools still map `/c/…`, `/mnt/c/…`, and `/cygdrive/c/…` to `C:\…`, as `nativePath()` in the [scope extraction](../src/scopes.ts) does.
 
 Discovery collects nested inputs until the same `turn_end`, without reading results. Only direct calls create [read markers](../GLOSSARY.md#discovery), because nested output may never reach the model.
-
-Compare the FFF adapters with FFF's real source schemas, not its README parameters.
 
 ### Session
 
@@ -66,7 +63,7 @@ Keep discovery and the pi-tool-display adapter on the same notice contract. Cont
 
 The extension uses only public Pi APIs, with no host patches or tool overrides. The local filename list and input adapters still need checking on upgrades, because Pi has no public API for discovering only nested files that also avoids reading instruction files the model read directly.
 
-- Discovery doesn't follow result paths, opaque scripts, FFF cursor state, or temporary context rewrites by other extensions.
+- Discovery doesn't follow result paths, opaque scripts, or temporary context rewrites by other extensions.
 - A [direct read](../GLOSSARY.md#discovery) is an attempt, not proof that the content was delivered in full.
 - In Pi 1.5.0 to 1.5.2, a saved "Do not trust" decision makes `ctx.isProjectTrusted()` false even for a folder with only `AGENTS.md`. Pi still loads context files regardless of project trust, and discovery also ignores trust, so both stay aligned.
 - In Pi 1.4.0 to 1.5.2, discovery reads inputs as issued, before Pi coerces them. A path that Pi converts to a string, such as a number, gives no scope.

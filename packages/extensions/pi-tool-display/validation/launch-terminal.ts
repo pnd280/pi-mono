@@ -3,7 +3,7 @@ import { runTerminalLauncher } from "@pi-mono/libs/validation/terminal-launcher"
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 const prompts =
-  "summary, explore, scopes, native-mixed, normalization, exceptions, filenames, thinking, buffered, fff, diff, output, cancel, images, public, mcp";
+  "summary, explore, scopes, native-mixed, normalization, exceptions, filenames, thinking, buffered, diff, output, cancel, images, public, mcp";
 
 process.exitCode = await runTerminalLauncher({
   args: process.argv.slice(2),

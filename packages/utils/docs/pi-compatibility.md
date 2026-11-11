@@ -2,18 +2,17 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.5.2 with package checks, all helper tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised probe that parses native `edit` patches with `parsePatch`, which last ran on Pi 1.5.1; live FFF behaviour.
+> Last verified against Pi 1.5.2 with package checks, all helper tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised probe that parses native `edit` patches with `parsePatch`, which last ran on Pi 1.5.1.
 
 ## Upgrade procedure
 
 1. Run the [focused checks](../../../docs/development.md#focused-validation) for `@pi-mono/utils`.
-2. Run the checks of the libs modules and extensions whose input or output assumptions changed. The [code navigation](../AGENTS.md#code-navigation) table lists the FFF, skill-reference, and shared-library consumers. This package needs no standalone terminal scenario.
+2. Run the checks of the libs modules and extensions whose input or output assumptions changed. The [code navigation](../AGENTS.md#code-navigation) table lists the provenance, search-scope, skill-reference, and shared-library consumers. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist
 
-- [ ] Pi tool metadata still supplies the source and path forms that [`fffAdapter`](../src/fff-tools.ts) recognises for the official FFF tools.
-- [ ] The FFF tools still use the path fields and query syntax that [`parseFffScopes`](../src/search-scopes.ts) interprets.
+- [ ] Pi tool metadata still supplies the source and path forms that [`registeredBy`](../src/provenance.ts) recognises.
 - [ ] Pi tool results still carry text that the [output-text](../src/output-text.ts) consumers transform with omission ranges as UTF-16 offsets.
 - [ ] Pi's native `edit` results still supply one unified patch that [`parsePatch`](../src/patch.ts) accepts.
 - [ ] Pi's byte-limited tool output still clips a head or tail edge that [`decodeUtf8Window`](../src/utf8.ts) identifies correctly.

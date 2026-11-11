@@ -327,7 +327,7 @@ export type SummaryNotice = {
  * keep the row generic through later updates.
  */
 export type ToolDisplayAdapter = {
-  /** Stable contract ID. `pi:*`, `@ff-labs/pi-fff:*`, `pi-mcp-adapter:*`, and `generic` are reserved. */
+  /** Stable contract ID. `pi:*`, `pi-mcp-adapter:*`, and `generic` are reserved. */
   id: string;
   family: ToolFamily;
   /** When true, show parameters regardless of `showParameters`. Otherwise, follow that setting. */
