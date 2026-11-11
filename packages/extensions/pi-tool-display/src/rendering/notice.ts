@@ -72,8 +72,7 @@ function headerRows(
 }
 
 export function createNoticeRenderer() {
-  // Pi rebuilds renderers on invalidation. Preserve local expansion until the
-  // global tool-output toggle changes.
+  // Pi rebuilds renderers on invalidation. Preserve local expansion until the global tool-output toggle changes.
   const states = new WeakMap<NoticeMessage, { expanded: boolean; globalExpanded: boolean }>();
 
   return function renderNotice(
@@ -97,8 +96,7 @@ export function createNoticeRenderer() {
           if (width < 1) return [];
           const innerWidth = Math.max(1, width - 4);
           const label = notice ? labels[notice.action] : "Nested instructions";
-          // The explanation describes the notice itself, so it continues the heading;
-          // only the instruction body or empty-file note is a child branch.
+          // The explanation describes the notice itself, so it continues the heading; only the instruction body or empty-file note is a child branch.
           let child: string[] = [];
 
           if (expansion.expanded) {

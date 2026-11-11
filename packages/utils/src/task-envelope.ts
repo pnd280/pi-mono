@@ -1,6 +1,5 @@
 /**
- * The model-facing text of subagent task results and background job results, written by
- * pi-subagents and read by its display adapter.
+ * The model-facing text of subagent task results and background job results, written by pi-subagents and read by its display adapter.
  */
 
 export type TaskState = "queued" | "running" | "completed" | "failed" | "cancelled";
@@ -111,8 +110,7 @@ export function formatTaskEnvelope({ id, state, summary, body }: TaskEnvelope): 
 }
 
 /**
- * Returns the unchanged body when envelope framing, identity and state match the expected values.
- * Returns `undefined` on a mismatch. Edits within a valid body or escaped summary are accepted.
+ * Returns the unchanged body when envelope framing, identity and state match the expected values. Returns `undefined` on a mismatch. Edits within a valid body or escaped summary are accepted.
  */
 export function parseTaskEnvelope(
   text: string,

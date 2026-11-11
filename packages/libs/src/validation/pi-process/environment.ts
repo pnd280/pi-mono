@@ -4,8 +4,7 @@ import { join } from "node:path";
 import { vi } from "vite-plus/test";
 
 /**
- * Any provider variable can authenticate, so in-process fixtures keep only these names, compared
- * in upper case because Windows names ignore case.
+ * Any provider variable can authenticate, so in-process fixtures keep only these names, compared in upper case because Windows names ignore case.
  */
 const inheritedEnvironment = new Set([
   "PATH",
@@ -19,8 +18,7 @@ const inheritedEnvironment = new Set([
 ]);
 
 /**
- * Stubs `process.env` for an in-process Pi fixture whose private files live in `directory`. The
- * caller restores it with `vi.unstubAllEnvs()`.
+ * Stubs `process.env` for an in-process Pi fixture whose private files live in `directory`. The caller restores it with `vi.unstubAllEnvs()`.
  */
 export function isolateEnvironment(directory: string): void {
   for (const name of Object.keys(process.env))

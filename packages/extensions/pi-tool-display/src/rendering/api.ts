@@ -7,9 +7,7 @@ export type { ToolFamily } from "../contracts.ts";
 export type { ToolDisplayRendererOptions, ToolDisplayRenderers } from "./types.ts";
 
 /**
- * Create renderer fields for a tool definition. Without an adapter, all names use
- * generic rendering. Explicit adapters assert compatibility with retained data.
- * This factory does not read CLI settings, observe execution, or load output files.
+ * Create renderer fields for a tool definition. Without an adapter, all names use generic rendering. Explicit adapters assert compatibility with retained data. This factory does not read CLI settings, observe execution, or load output files.
  */
 export function createToolDisplayRenderers(
   name: string,

@@ -39,8 +39,7 @@ function oneLine(text: string): string {
 }
 
 /**
- * The registrations of one runtime. Only live participants' registrations show. Handles can
- * mutate only their own registration.
+ * The registrations of one runtime. Only live participants' registrations show. Handles can mutate only their own registration.
  */
 export class WorkingMessageCoordinator<Participant extends object, Owner> {
   // Overrides stay in the order of their latest text, so the most recent override wins.

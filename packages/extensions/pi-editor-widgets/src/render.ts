@@ -33,8 +33,7 @@ type Item = {
 const content = (line: string) => stripTerminalSequences(line).trim().length > 0;
 
 /**
- * Whitespace can still paint through background, reverse, or underline styles. Treat any escape
- * other than resets and known non-painting SGR codes as visible output.
+ * Whitespace can still paint through background, reverse, or underline styles. Treat any escape other than resets and known non-painting SGR codes as visible output.
  */
 const painted = (line: string) =>
   content(line) ||

@@ -108,8 +108,7 @@ export class DisplaySession {
   refreshAdapters(): void {
     if (this.disposed) return;
 
-    // Registration can finish after reconstruction. Upgrade contracts and validate
-    // arguments against the new schemas without replaying calls.
+    // Registration can finish after reconstruction. Upgrade contracts and validate arguments against the new schemas without replaying calls.
     const tools = this.options.tools();
     this.coordinator.batch(() => {
       for (const call of this.coordinator.calls.values()) {
@@ -157,8 +156,7 @@ export class DisplaySession {
     if (call.lifecycle !== "executing") this.coordinator.update(call, "queued");
   }
   /**
-   * Pi's execution event. Extensions can still replace the result before Pi saves it,
-   * so the call's facts are saved with Pi's final result message.
+   * Pi's execution event. Extensions can still replace the result before Pi saves it, so the call's facts are saved with Pi's final result message.
    */
   result(id: string, result: AgentToolResult<unknown>, status: ResultStatus): void {
     const call = this.publish(id, result, status);

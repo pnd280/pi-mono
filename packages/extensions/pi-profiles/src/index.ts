@@ -37,8 +37,7 @@ const PROMPT_RANK = 200;
 /** After pi-nested-instructions (`100`), so the selection entry follows its startup messages. */
 const STARTUP_RANK = 200;
 
-// The menu and its shared TUI components load on first use, not at startup. Concurrent opens
-// share one import: under jiti a concurrent import can return a partly evaluated module.
+// The menu and its shared TUI components load on first use, not at startup. Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
 const importMenu = () => import("./menu.ts");
 let menuModule: ReturnType<typeof importMenu> | undefined;
 const loadMenu = () => (menuModule ??= importMenu());
@@ -65,16 +64,11 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   /** The outgoing selection, for a tree destination that has no selection or tool record. */
   let treeSelection: Selection | undefined;
   /**
-   * The MCP servers that the extension registered, by name. Pi loads the extension again with each
-   * session and on `/reload`, and drops the registrations of the previous load.
+   * The MCP servers that the extension registered, by name. Pi loads the extension again with each session and on `/reload`, and drops the registrations of the previous load.
    */
   const servers = new Map<string, McpServerConfig>();
 
-  // Pi skips its built-in `tool_search` when an extension registers one while loading. This copy is
-  // Pi's own tool, but it sees the deferred tools as `deferred`, so it finds and loads them too, and
-  // the tools that it turns on bring the rest of their deferred groups.
-  // It is always registered: a loading extension gets no trust decision, so the settings cannot tell
-  // whether a project profile defers tools.
+  // Pi skips its built-in `tool_search` when an extension registers one while loading. This copy is Pi's own tool, but it sees the deferred tools as `deferred`, so it finds and loads them too, and the tools that it turns on bring the rest of their deferred groups. It is always registered: a loading extension gets no trust decision, so the settings cannot tell whether a project profile defers tools.
   await createToolSearchExtension()({
     ...pi,
     getAllTools: () => searchableTools(pi.getAllTools(), rules),
@@ -136,8 +130,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   const currentSelection = (ctx: ExtensionContext) =>
     latestSelection(ctx.sessionManager.getBranch());
   /**
-   * Whether the choice, a profile or no profile, is the selection. A selection whose profile the
-   * settings no longer supply matches no choice, also not a profile of the same name.
+   * Whether the choice, a profile or no profile, is the selection. A selection whose profile the settings no longer supply matches no choice, also not a profile of the same name.
    */
   const isCurrent = (choice: Profile | undefined, selection: Selection | undefined) =>
     choice ? selectedProfile(selection, [choice]) !== undefined : selection?.name === undefined;
@@ -164,8 +157,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   /**
-   * Registers the profile's MCP servers, and unregisters the others, so that only the selected
-   * profile's servers connect. A server that Pi refuses is left out, with an error.
+   * Registers the profile's MCP servers, and unregisters the others, so that only the selected profile's servers connect. A server that Pi refuses is left out, with an error.
    */
   function selectServers(profile: Profile | undefined, ctx: ExtensionContext): void {
     const plan = planServers(servers, profile?.mcpServers);
@@ -186,9 +178,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   /**
-   * Without a profile, the model and thinking level stay, and the previous profile's tool changes
-   * and MCP servers are undone. `source` prefixes notices for switches that the user did not request.
-   * Resolves whether the profile applied.
+   * Without a profile, the model and thinking level stay, and the previous profile's tool changes and MCP servers are undone. `source` prefixes notices for switches that the user did not request. Resolves whether the profile applied.
    */
   async function switchTo(
     profile: Profile | undefined,
@@ -291,8 +281,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
 
     if (requested && (reason === "startup" || !selection)) {
-      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such
-      // as after /new, keep theirs, and use `--profile` in place of the default profile.
+      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such as after /new, keep theirs, and use `--profile` in place of the default profile.
       applied = await switchTo(requested.profile, ctx);
     } else if (!selection) {
       // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
@@ -329,9 +318,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       if (ctx.mode === "tui") labelEditor(ctx);
     }
 
-    // Commits run in the first participant's `resources_discover` handler, which Pi emits after
-    // every extension's `session_start` handler, so the tools that they register are known, and
-    // the selection entry follows pi-nested-instructions' startup messages (`100`).
+    // Commits run in the first participant's `resources_discover` handler, which Pi emits after every extension's `session_start` handler, so the tools that they register are known, and the selection entry follows pi-nested-instructions' startup messages (`100`).
     arrival.commit(STARTUP_RANK, () => startProfile(event.reason, loaded, ctx));
   });
 
@@ -352,8 +339,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     await switching;
   });
 
-  // Before any extension awaits its shutdown work, no new switch starts and the menu closes. The
-  // switch in progress still saves its selection.
+  // Before any extension awaits its shutdown work, no new switch starts and the menu closes. The switch in progress still saves its selection.
   lifecycle.onSessionShutdown(
     () => session.abort(),
     () => switching
@@ -363,8 +349,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   prompt.part(PROMPT_RANK, (ctx) => selected(currentSelection(ctx))?.prompts.join("\n\n"));
 
   /**
-   * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools`
-   * can turn on again. Sets the tools only when a `deny` tool is active.
+   * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools` can turn on again. Sets the tools only when a `deny` tool is active.
    */
   function enforceTools(): void {
     const tools = enforcedTools(pi.getActiveTools(), rules);
@@ -378,8 +363,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     enforceTools();
   });
 
-  // A later request declares the tools that are active when the previous turn ends. Pi takes them
-  // before turn_start, so a change in turn_start reaches only the request after.
+  // A later request declares the tools that are active when the previous turn ends. Pi takes them before turn_start, so a change in turn_start reaches only the request after.
   pi.on("turn_end", () => {
     enforceTools();
   });

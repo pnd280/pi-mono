@@ -38,8 +38,7 @@ type ToolItem = Extract<TranscriptItem, { kind: "tool" }>;
 type Execution = { output: ToolOutput | undefined; partial: boolean };
 
 /**
- * The compactions on the viewed branch of the child file, including those of earlier runs, and
- * whether the child is compacting now.
+ * The compactions on the viewed branch of the child file, including those of earlier runs, and whether the child is compacting now.
  */
 export type Compactions = {
   count: number;
@@ -56,9 +55,7 @@ function executionKey(timestamp: number, id: string): string {
 }
 
 /**
- * Saved entries are authoritative. Streamed assistant messages and tool executions overlay
- * them until the matching entries arrive. A transcript follows one task: a history or a
- * connection of another run ends the earlier run's overlay.
+ * Saved entries are authoritative. Streamed assistant messages and tool executions overlay them until the matching entries arrive. A transcript follows one task: a history or a connection of another run ends the earlier run's overlay.
  */
 export class Transcript {
   /** The run that the overlay belongs to. */
@@ -303,8 +300,7 @@ export class Transcript {
           started: execution !== undefined
         };
         open.set(call.id, item);
-        // A connection observes every call it runs, so earlier unresolved calls never finish.
-        // Without one, only the calls of the latest response can still run.
+        // A connection observes every call it runs, so earlier unresolved calls never finish. Without one, only the calls of the latest response can still run.
         const current = this.observed
           ? this.calls.get(call.id) === message.timestamp
           : message === this.latest;

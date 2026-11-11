@@ -32,8 +32,7 @@ export type Cancelled = {
 type Answer = Omit<Extract<ChildMessage, { kind: "control-reply" }>, "kind" | "request_id">;
 
 /**
- * One way to reach an active task. A request gives undefined when it did not reach the task:
- * nothing was sent, or the task ended first.
+ * One way to reach an active task. A request gives undefined when it did not reach the task: nothing was sent, or the task ended first.
  */
 type Target = {
   /** The run that carries the task: its own run, or the run of the direct task above it. */
@@ -75,8 +74,7 @@ function local(host: RouteHost, run: Run): Target {
 }
 
 /**
- * A descendant, reached through the child of the direct task above it. That child supervisor
- * answers through its own route; see `Tasks.control`.
+ * A descendant, reached through the child of the direct task above it. That child supervisor answers through its own route; see `Tasks.control`.
  */
 function routed(run: Run, taskId: string): Target {
   const request = (value: ControlRequest): Promise<Answer | undefined> => {
@@ -115,16 +113,13 @@ function recordDetails(bindingId: string, record: TaskRecord): Omit<ToolDetails,
 }
 
 /**
- * The live route from a supervisor to the active tasks of its subtree. A direct task is reached
- * through its own run. A descendant is reached through the run of the direct task above it, whose
- * child supervisor answers the request for its own subtree.
+ * The live route from a supervisor to the active tasks of its subtree. A direct task is reached through its own run. A descendant is reached through the run of the direct task above it, whose child supervisor answers the request for its own subtree.
  */
 export class Route {
   constructor(private readonly host: RouteHost) {}
 
   /**
-   * Send input to an active task. Undefined when the task is inactive, or when nothing was sent;
-   * the run that carried the task has then ended, so the caller can resume a direct task.
+   * Send input to an active task. Undefined when the task is inactive, or when nothing was sent; the run that carried the task has then ended, so the caller can resume a direct task.
    */
   async input(
     taskId: string,
@@ -142,8 +137,7 @@ export class Route {
     }
 
     if (!answer.details) throw new Error("Subagent input acknowledgement is missing its result");
-    // An input call's details describe that call, which returns at once. A routed child's
-    // details carry its own binding; the card opens in this one.
+    // An input call's details describe that call, which returns at once. A routed child's details carry its own binding; the card opens in this one.
     const now = Date.now();
 
     return {
@@ -158,9 +152,7 @@ export class Route {
   }
 
   /**
-   * Cancel an active task. With `drop`, a direct task's cancellation result goes to nobody; a task
-   * that finished before the abort keeps its result. A failed cleanup of the task's processes
-   * throws after the task stops.
+   * Cancel an active task. With `drop`, a direct task's cancellation result goes to nobody; a task that finished before the abort keeps its result. A failed cleanup of the task's processes throws after the task stops.
    */
   async cancel(taskId: string, reason: string, { drop }: { drop: boolean }): Promise<Cancelled> {
     const target = this.target(taskId);

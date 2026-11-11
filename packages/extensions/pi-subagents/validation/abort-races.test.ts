@@ -485,8 +485,7 @@ test("confirms descendant cancellation and propagates the owner's inactive error
         );
         const active = Promise.withResolvers<TaskRecord>();
         let stale: string | undefined;
-        // The owner sends the descendant's end before its abort confirmation. Dropping that
-        // record leaves the supervisor with a stale active descendant.
+        // The owner sends the descendant's end before its abort confirmation. Dropping that record leaves the supervisor with a stale active descendant.
         host.intercept((message) => {
           if (message.kind !== "task") return false;
 

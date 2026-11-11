@@ -58,8 +58,7 @@ type OperationRecord = Pick<
 >;
 
 /**
- * The operation that replay shows for saved facts and Pi's error flag. A live call
- * saves only the fields this cannot derive, so live and replayed operations match.
+ * The operation that replay shows for saved facts and Pi's error flag. A live call saves only the fields this cannot derive, so live and replayed operations match.
  */
 function derivedOperation(
   family: DisplayCall["adapter"]["family"],
@@ -165,17 +164,13 @@ export type SavedCallsOptions = {
   /** Reports a call entry that was not saved; the live card keeps its facts. */
   warn(message: string): void;
   /**
-   * Observed saved-output paths by call. They are never saved: the owner keeps them
-   * across transcript reconstruction, because Pi's thrown errors hold no path.
+   * Observed saved-output paths by call. They are never saved: the owner keeps them across transcript reconstruction, because Pi's thrown errors hold no path.
    */
   savedPaths?: Map<string, string> | undefined;
 };
 
 /**
- * The round trip of saved calls. A live call keeps its observed facts until Pi's
- * final result, then saves at most one call entry with what Pi's entries lack.
- * Replay combines the recorded facts with Pi's saved results. Observed saved-output
- * paths stay in memory.
+ * The round trip of saved calls. A live call keeps its observed facts until Pi's final result, then saves at most one call entry with what Pi's entries lack. Replay combines the recorded facts with Pi's saved results. Observed saved-output paths stay in memory.
  */
 export class SavedCalls {
   /** Observed facts wait for the end of the call, so each call writes at most one entry. */

@@ -4,8 +4,7 @@ import { z } from "zod";
 
 import { deliverySchema } from "../details.ts";
 
-// The bounds of a call's launch arguments, a template's launch arguments, and a template's
-// prompt files. Together they keep a run record well below `RECORD_MAX_BYTES`.
+/** The bounds of a call's launch arguments, a template's launch arguments, and a template's prompt files. Together they keep a run record well below `RECORD_MAX_BYTES`. */
 export const LAUNCH_ARGS_MAX_ITEMS = 32;
 
 export const LAUNCH_ARG_MAX_LENGTH = 2048;
@@ -82,9 +81,7 @@ const OWNED_FLAGS: ReadonlyMap<string, string> = new Map([
 ]);
 
 /**
- * Pi's flags that take the next argument whatever it is. Last in `launch_args`, one would take the
- * extension's `--mode`, and the child would wait on stdin instead of starting RPC. No other flag,
- * including those that extensions register, takes the `--mode` that follows the launch arguments.
+ * Pi's flags that take the next argument whatever it is. Last in `launch_args`, one would take the extension's `--mode`, and the child would wait on stdin instead of starting RPC. No other flag, including those that extensions register, takes the `--mode` that follows the launch arguments.
  */
 const VALUE_FLAGS: ReadonlySet<string> = new Set([
   "--api-key",
@@ -107,11 +104,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Throws when a launch argument is a flag that another parameter owns, alone or as `flag=value`,
- * or `--`, or when the last argument is a flag that needs a value. A value that equals such a flag
- * also fails. Pi reads every argument after `--` as a message, so `--` would hide the extension's
- * trust flag; a trust flag itself is harmless, because the extension's later one wins. The
- * messages name the arguments as `field`.
+ * Throws when a launch argument is a flag that another parameter owns, alone or as `flag=value`, or `--`, or when the last argument is a flag that needs a value. A value that equals such a flag also fails. Pi reads every argument after `--` as a message, so `--` would hide the extension's trust flag; a trust flag itself is harmless, because the extension's later one wins. The messages name the arguments as `field`.
  */
 export function checkLaunchArgs(args: readonly string[], field = "launch_args"): void {
   for (const arg of args) {
@@ -139,16 +132,12 @@ const PATH_FLAGS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The prefixes of extension sources that Pi's package manager installs or loads by name: built-in,
- * npm, and git sources. Pi reads other forms, such as `github:owner/repo`, as paths in the child's
- * working directory.
+ * The prefixes of extension sources that Pi's package manager installs or loads by name: built-in, npm, and git sources. Pi reads other forms, such as `github:owner/repo`, as paths in the child's working directory.
  */
 const REMOTE_SOURCE = /^(?:builtin:|npm:|git:|https?:\/\/|ssh:\/\/)/;
 
 /**
- * The arguments with each local path value of a path flag, such as `-e`, replaced by
- * `resolvePath(value)`. Pi converts a `file://` URL to an absolute path. Pi reads the token after
- * a value flag as its value, so a path flag that is another flag's value is not a flag.
+ * The arguments with each local path value of a path flag, such as `-e`, replaced by `resolvePath(value)`. Pi converts a `file://` URL to an absolute path. Pi reads the token after a value flag as its value, so a path flag that is another flag's value is not a flag.
  */
 export function resolveLaunchPaths(
   args: readonly string[],
@@ -217,8 +206,7 @@ function singleValueFlags(args: readonly string[]): string[] {
 }
 
 /**
- * Throws when a call's launch argument sets a single-value flag that the template's launch
- * arguments also set. The template's value would replace the call's value without notice.
+ * Throws when a call's launch argument sets a single-value flag that the template's launch arguments also set. The template's value would replace the call's value without notice.
  */
 export function checkTemplateArgs(
   call: readonly string[],

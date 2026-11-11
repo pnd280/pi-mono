@@ -11,8 +11,7 @@ import type * as BashModule from "./bash.ts";
 import type { PathHint } from "./bash.ts";
 import { instructionNames } from "./storage.ts";
 
-// The shell parser loads on the first Bash call instead of at startup.
-// Parallel calls share one import: under jiti a concurrent import can return a partly evaluated module.
+// The shell parser loads on the first Bash call instead of at startup. Parallel calls share one import: under jiti a concurrent import can return a partly evaluated module.
 let bashModule: Promise<typeof BashModule> | undefined;
 const loadBash = () => (bashModule ??= import("./bash.ts"));
 

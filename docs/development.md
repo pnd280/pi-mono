@@ -4,13 +4,7 @@
 
 ## Setup
 
-Complete [workspace setup](../README.md#setup), then enable Git hooks:
-
-```sh
-vp hooks enable
-```
-
-The pre-commit hook rejects em dashes (U+2014) in staged text outside `.agents/skills/`; it does not run [focused checks](#focused-validation).
+Complete [workspace setup](../README.md#setup).
 
 ## Code and tooling
 

@@ -74,9 +74,7 @@ function formatKeyLabel(key: string): string {
 }
 
 /**
- * Hint a paired up/down action from `formatKeyLabel` output; `undefined` marks a
- * direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or
- * `Shift+↑↓`.
+ * Hint a paired up/down action from `formatKeyLabel` output; `undefined` marks a direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or `Shift+↑↓`.
  */
 function navigationHints(
   up: string | undefined,
@@ -105,9 +103,7 @@ export type KeybindingCandidate<Action extends string = string> = {
 };
 
 /**
- * Pi 1.5.2 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
- * `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a
- * symbol and any shifted digit or symbol with the same other modifiers as overlapping.
+ * Pi 1.5.2 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a symbol and any shifted digit or symbol with the same other modifiers as overlapping.
  */
 function shiftOverlap(a: KeyId, b: KeyId): boolean {
   const slot = (key: KeyId) => {
@@ -123,8 +119,7 @@ function shiftOverlap(a: KeyId, b: KeyId): boolean {
   return !!first && !!second && first.shifted !== second.shifted && first.others === second.others;
 }
 
-// Pi accepts these legacy sequences for more than one key ID. Ask its matcher
-// about both IDs so protocol and platform rules stay with the host.
+// Pi accepts these legacy sequences for more than one key ID. Ask its matcher about both IDs so protocol and platform rules stay with the host.
 const legacyInputs = new Map<string, readonly string[]>([
   ["escape", ["\x1b"]],
   ["enter", ["\r", "\n"]],
@@ -183,8 +178,7 @@ export type KeyControl<Action extends string> =
   | { action: Action; key: KeyId };
 
 /**
- * Dispatch and hints of one view, resolved from its ordered controls at each call so that live
- * keybinding changes apply. An earlier control takes the keys that overlap a later one.
+ * Dispatch and hints of one view, resolved from its ordered controls at each call so that live keybinding changes apply. An earlier control takes the keys that overlap a later one.
  */
 export class KeyControls<Action extends string> {
   constructor(

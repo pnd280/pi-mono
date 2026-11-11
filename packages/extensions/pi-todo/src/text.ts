@@ -56,8 +56,7 @@ export function presentTaskDescription(text: string): string {
 }
 
 /**
- * One terminal-safe JSON line that decodes to the stored keys and values; result details keep
- * the stored value unchanged. `JSON.stringify` escapes C0 controls; escape DEL and C1 the same way.
+ * One terminal-safe JSON line that decodes to the stored keys and values; result details keep the stored value unchanged. `JSON.stringify` escapes C0 controls; escape DEL and C1 the same way.
  */
 export function presentTaskMetadata(metadata: TaskMetadata): string {
   // oxlint-disable-next-line no-control-regex

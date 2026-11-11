@@ -91,8 +91,7 @@ export function resolveLayout(
     else widgets.push(contribution);
   }
 
-  // Sorted in code unit order, so the placement follows neither the registration order of
-  // extensions nor the locale. IDs are unique here, so no two compare equal.
+  // Sorted in code unit order, so the placement follows neither the registration order of extensions nor the locale. IDs are unique here, so no two compare equal.
   for (const { id, region } of widgets.sort((a, b) => (a.id < b.id ? -1 : 1)))
     layout[region].push([id]);
 

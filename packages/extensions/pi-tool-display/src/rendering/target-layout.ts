@@ -8,9 +8,7 @@ import type { DisplayTheme } from "./types.ts";
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const MAX_TARGET_CHARACTERS = 16 * 1024;
 
-/** File targets are identifiers, not output previews. Keep their tail and range even
- * when a pathological argument exceeds the formatting budget. Never apply this to filters.
- */
+/** File targets are identifiers, not output previews. Keep their tail and range even when a pathological argument exceeds the formatting budget. Never apply this to filters. */
 function boundedTarget(text: string, maximum: number): string {
   if (text.length <= maximum) return text;
   const half = Math.floor(maximum / 2);
@@ -23,8 +21,7 @@ function boundedTarget(text: string, maximum: number): string {
 type TargetOptions = { width: number; theme: Pick<DisplayTheme, "fg">; expanded: boolean };
 
 /**
- * Returns target-only rows for a path, an optional range, and trailing annotations.
- * Callers own action labels, tree gutters and hanging indent.
+ * Returns target-only rows for a path, an optional range, and trailing annotations. Callers own action labels, tree gutters and hanging indent.
  */
 export function targetRows(
   parts: readonly InvocationPart[],
@@ -46,8 +43,7 @@ export function targetRows(
 }
 
 /**
- * Rows for a path already in display spelling. A `dim` range stays beside the basename;
- * `dim` annotations follow it, on the same row when they fit.
+ * Rows for a path already in display spelling. A `dim` range stays beside the basename; `dim` annotations follow it, on the same row when they fit.
  */
 export function pathRows(
   target: string,
@@ -86,8 +82,7 @@ export function pathRows(
       return;
     }
 
-    // A single path component can exceed a row. Prefer filename separators before
-    // grapheme wrapping, preserving spaces and every character rather than trimming.
+    // A single path component can exceed a row. Prefer filename separators before grapheme wrapping, preserving spaces and every character rather than trimming.
     for (const chunk of text.match(/[^\s_-]*[\s_-]|[^\s_-]+$/gu) ?? []) {
       const size = visibleWidth(chunk);
 
@@ -110,8 +105,7 @@ export function pathRows(
   const append = (text: string, color: "dim" | "text") => {
     for (const [index, line] of text.split("\n").entries()) {
       if (index > 0) {
-        // Paths can contain literal line breaks. Keep blank lines, but never put
-        // a newline inside a TUI row where it would bypass the caller's gutters.
+        // Paths can contain literal line breaks. Keep blank lines, but never put a newline inside a TUI row where it would bypass the caller's gutters.
         rows.push(row);
         row = "";
         used = 0;
@@ -128,8 +122,7 @@ export function pathRows(
   };
 
   for (const component of directory.match(/[^/]*\//gu) ?? []) append(component, "text");
-  // Prefer the complete basename plus range, or at least its final filename
-  // segment plus range. Only a suffix wider than the target column may split.
+  // Prefer the complete basename plus range, or at least its final filename segment plus range. Only a suffix wider than the target column may split.
   const tailStart =
     Math.max(basename.lastIndexOf("-"), basename.lastIndexOf("_"), basename.lastIndexOf(" ")) + 1;
 

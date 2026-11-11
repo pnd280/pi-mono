@@ -16,8 +16,7 @@ export function expandHomePath(value: string, home: string): string {
 }
 
 /**
- * Pi's Windows drive aliases from Git Bash, MSYS, Cygwin, and WSL: `/c/dir`, `/mnt/c/dir`, and
- * `/cygdrive/c/dir` become `C:\dir`. Other values, including UNC and backslash paths, are unchanged.
+ * Pi's Windows drive aliases from Git Bash, MSYS, Cygwin, and WSL: `/c/dir`, `/mnt/c/dir`, and `/cygdrive/c/dir` become `C:\dir`. Other values, including UNC and backslash paths, are unchanged.
  */
 export function windowsDrivePath(value: string): string {
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return value;
@@ -37,9 +36,7 @@ export function relativeDisplayPath(value: string, cwd: string): string {
   return local.split(sep).join("/");
 }
 
-/** Lexical containment, including equality. Absolute inputs avoid consulting process.cwd().
- * This does not resolve symlinks and is not a filesystem access-control check.
- */
+/** Lexical containment, including equality. Absolute inputs avoid consulting process.cwd(). This does not resolve symlinks and is not a filesystem access-control check. */
 export function containsPath(parent: string, child: string): boolean {
   if (!absolutePathSchema.safeParse(parent).success || !absolutePathSchema.safeParse(child).success)
     throw new TypeError("Path containment requires absolute paths.");

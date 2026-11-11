@@ -30,8 +30,7 @@ import {
 } from "./records.ts";
 import type { ToolInput } from "./tool-schema.ts";
 
-// Process machinery loads at the first launch, not at startup. Concurrent launches share one
-// import, because Pi's loader can return a module that is still evaluating.
+// Process machinery loads at the first launch, not at startup. Concurrent launches share one import, because Pi's loader can return a module that is still evaluating.
 let child: Promise<typeof ChildModule> | undefined;
 const loadChild = () => (child ??= import("../child/run.ts"));
 
@@ -75,8 +74,7 @@ export type CallHandlers = {
 };
 
 /**
- * One call that launches a run of a task that the caller claimed. With `request.task_id`, the run
- * resumes that inactive direct task.
+ * One call that launches a run of a task that the caller claimed. With `request.task_id`, the run resumes that inactive direct task.
  */
 export type RunCall = CallHandlers & { request: ToolInput; selection: Selection };
 
@@ -127,9 +125,7 @@ export type RunReport =
   /** The run moved to the background; `record` is the changed live record. */
   | { kind: "promoted"; record?: TaskRecord }
   /**
-   * The child and any forced stop of its process group are gone, the `end` entry exists, and the
-   * writer lease is released; the capacity slot is still held. `record` is a begun run's final
-   * record.
+   * The child and any forced stop of its process group are gone, the `end` entry exists, and the writer lease is released; the capacity slot is still held. `record` is a begun run's final record.
    */
   | { kind: "ended"; record?: TaskRecord }
   /** The capacity slot is released. */
@@ -192,8 +188,7 @@ function failure(details: ToolDetails, error: unknown, aborted: boolean): RunRet
 }
 
 /**
- * Check the child file of a claimed direct task, take its writer lease, then check the file again
- * under the lease. The first check refuses a file of another directory before the lease exists.
+ * Check the child file of a claimed direct task, take its writer lease, then check the file again under the lease. The first check refuses a file of another directory before the lease exists.
  */
 async function resume(
   host: RunHost,
@@ -217,8 +212,7 @@ async function resume(
 }
 
 /**
- * One run of a claimed task, from launch to exit. It keeps the order of the run lifecycle in ADR
- * 0003:
+ * One run of a claimed task, from launch to exit. It keeps the order of the run lifecycle in ADR 0003:
  *
  * 1. reserve a capacity slot;
  * 2. for a resume, check the child file, take the writer lease, then check the file again;
@@ -262,8 +256,7 @@ export class Run {
   private finished = false;
 
   /**
-   * Launch or resume a claimed task for one call. A foreground call returns the run's result; a
-   * background or promoted call returns when its run starts. Failures return as a result.
+   * Launch or resume a claimed task for one call. A foreground call returns the run's result; a background or promoted call returns when its run starts. Failures return as a result.
    */
   static async launch(host: RunHost, call: RunCall): Promise<RunReturn> {
     const { signal } = call;
@@ -369,8 +362,7 @@ export class Run {
       taskId: this.taskId,
       runId: this.runId,
       previousRunId: resumed?.record.run_id ?? null,
-      // A descendant needs its full EOF/TERM/KILL interval before its supervisor
-      // can be forced down. Capacity also bounds the number of possible levels.
+      // A descendant needs its full EOF/TERM/KILL interval before its supervisor can be forced down. Capacity also bounds the number of possible levels.
       shutdownGraceMs: Math.min(
         2_147_483_647,
         STOP_GRACE_MS +
@@ -421,8 +413,7 @@ export class Run {
   }
 
   /**
-   * Dismiss the run's dialogs and request a graceful stop. With `drop`, the cancellation result
-   * goes to nobody.
+   * Dismiss the run's dialogs and request a graceful stop. With `drop`, the cancellation result goes to nobody.
    */
   cancel(reason: string, { drop = false }: { drop?: boolean } = {}): Promise<RunEnd> {
     if (drop) this.drop = true;

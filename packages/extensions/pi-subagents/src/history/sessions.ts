@@ -62,8 +62,7 @@ function isMarker(entry: SessionEntry, runId?: string): boolean {
 }
 
 /**
- * A run's final leaf: the last appended entry whose nearest marker ancestor is the run's marker.
- * A manual continuation of the file's last run therefore extends that run.
+ * A run's final leaf: the last appended entry whose nearest marker ancestor is the run's marker. A manual continuation of the file's last run therefore extends that run.
  */
 function runLeaf(entries: readonly SessionEntry[], runId: string): string | undefined {
   const start = entries.findIndex((entry) => isMarker(entry, runId));
@@ -97,8 +96,7 @@ export function branchTo(entries: readonly SessionEntry[], leafId: string | null
 }
 
 /**
- * Entries that no response answered. Pi records a changed model or thinking level when the
- * next run starts, which can follow an unanswered prompt.
+ * Entries that no response answered. Pi records a changed model or thinking level when the next run starts, which can follow an unanswered prompt.
  */
 function unanswered(entry: SessionEntry): boolean {
   return (
@@ -110,10 +108,7 @@ function unanswered(entry: SessionEntry): boolean {
 }
 
 /**
- * Where a new run continues an earlier one: its final leaf, without trailing unanswered input.
- * The walk ends at the run's marker at the latest. `interrupted` reports a call without a result
- * in the last response that did not fail. Pi runs no call of a failed or aborted response, and a
- * later response continues after an earlier interruption.
+ * Where a new run continues an earlier one: its final leaf, without trailing unanswered input. The walk ends at the run's marker at the latest. `interrupted` reports a call without a result in the last response that did not fail. Pi runs no call of a failed or aborted response, and a later response continues after an earlier interruption.
  */
 export function resumePoint(
   entries: readonly SessionEntry[],
@@ -181,8 +176,7 @@ function parseSession(buffer: Buffer) {
 }
 
 /**
- * Read a child session into owned memory; undefined when the file does not exist. Its writer can
- * be appending, so a partial final line is ignored. Readers never open the file for writing.
+ * Read a child session into owned memory; undefined when the file does not exist. Its writer can be appending, so a partial final line is ignored. Readers never open the file for writing.
  */
 async function readSession(file: string): Promise<Parsed | undefined> {
   let handle;
@@ -226,10 +220,7 @@ async function readSession(file: string): Promise<Parsed | undefined> {
 }
 
 /**
- * Check that a task's file exists, still has the task's session identity, and belongs to `cwd`.
- * Pi opens a session file in the directory of its header, and the child takes the project trust of
- * the supervisor in `cwd`. As in Pi's trust manager, real paths compare, so that a symbolic link
- * to the directory matches; when either has no real path, the resolved paths compare.
+ * Check that a task's file exists, still has the task's session identity, and belongs to `cwd`. Pi opens a session file in the directory of its header, and the child takes the project trust of the supervisor in `cwd`. As in Pi's trust manager, real paths compare, so that a symbolic link to the directory matches; when either has no real path, the resolved paths compare.
  */
 export async function checkSession(
   task: Pick<TaskRecord, "task_id" | "session_file" | "session_id">,
@@ -257,11 +248,7 @@ export type RunHistory = {
 };
 
 /**
- * Read a run's history from its task's child file. The read keeps the file in memory and never
- * repairs it. An active task's history is empty while its file does not exist, because Pi writes a
- * new session file with its first response. With `descendants`, the history names the task's
- * descendants: an active run's history then ends before its marker, because the file names the run
- * before the run's live record arrives, and that run's descendants come only from live records.
+ * Read a run's history from its task's child file. The read keeps the file in memory and never repairs it. An active task's history is empty while its file does not exist, because Pi writes a new session file with its first response. With `descendants`, the history names the task's descendants: an active run's history then ends before its marker, because the file names the run before the run's live record arrives, and that run's descendants come only from live records.
  */
 export async function readRunFile(
   task: TaskRecord,

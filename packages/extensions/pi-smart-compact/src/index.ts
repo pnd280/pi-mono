@@ -72,11 +72,7 @@ function contextWindowTool(docs: string) {
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);
-  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose
-  // the active tools. The session_start registration keeps the same exposure, so without `--tools`
-  // it only replaces the description. With `--tools`, any registration activates every listed tool
-  // again; a profile still wins because lifecycle startup commits run after every session_start
-  // handler.
+  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose the active tools. The session_start registration keeps the same exposure, so without `--tools` it only replaces the description. With `--tools`, any registration activates every listed tool again; a profile still wins because lifecycle startup commits run after every session_start handler.
   pi.registerTool(contextWindowTool(""));
   let binding: ReturnType<typeof bindNativeCompaction> | undefined;
   let config: CompactConfig = {};
@@ -100,8 +96,7 @@ export default function smartCompact(pi: ExtensionAPI) {
     } catch (error) {
       unavailable =
         error instanceof Error ? error.message : "pi-smart-compact: initialization failed.";
-      // Rethrowing makes Pi render the full stack; the message alone is actionable and already
-      // names the extension.
+      // Rethrowing makes Pi render the full stack; the message alone is actionable and already names the extension.
       if (ctx.hasUI) ctx.ui.notify(unavailable, "error");
     }
 

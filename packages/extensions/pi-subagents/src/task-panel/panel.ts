@@ -281,8 +281,7 @@ class TranscriptView implements Component {
     if (scrollbar) return scrollbar;
     if (row < 0 || row >= this.bodyRows || event.x < 0 || event.x >= this.content.width) return;
 
-    // Route in the viewer's own coordinates: an overlay-sized event would miss rows
-    // below the first screen and re-measure rows at the scrollbar's extra column.
+    // Route in the viewer's own coordinates: an overlay-sized event would miss rows below the first screen and re-measure rows at the scrollbar's extra column.
     return this.viewer.handleMouse({
       ...event,
       y: row + this.content.top,
@@ -590,8 +589,7 @@ export class TaskPanel implements Component {
     const layout = `${this.selected}:${start}:${end}:${width}:${height}`;
 
     if (layout !== this.selectionLayout && start >= 0) {
-      // Keep the whole selection visible when it fits. Taller items start at
-      // their label and remain fully reachable with page keys or the mouse wheel.
+      // Keep the whole selection visible when it fits. Taller items start at their label and remain fully reachable with page keys or the mouse wheel.
       if (start < this.listScroll.scrollTop || end - start > height)
         this.listScroll.scrollTo(start);
       else if (end > this.listScroll.scrollTop + height) this.listScroll.scrollTo(end - height);

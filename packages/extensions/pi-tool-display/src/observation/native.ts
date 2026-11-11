@@ -124,8 +124,7 @@ async function executeWithSavedReference(
 }
 
 /**
- * Wraps Pi's native `bash` or `powershell` definition with call-scoped operations:
- * callbacks without IDs never share mutable current-call state.
+ * Wraps Pi's native `bash` or `powershell` definition with call-scoped operations: callbacks without IDs never share mutable current-call state.
  */
 export function observeNativeDefinition(
   original: ToolDefinition,

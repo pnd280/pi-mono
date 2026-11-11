@@ -18,11 +18,7 @@ const SAVED_OUTPUT_BYTES = 256 * 1024;
 const SAVED_OUTPUT_LINES = 4000;
 
 /**
- * A bounded head/tail preview of a saved-output file, or a notice that keeps retained output.
- * Opening never blocks on a FIFO, and reads follow symlinks; renderers sanitise the text
- * before display. Omission notices can make the preview exceed the byte and line budgets,
- * and omitted-byte counts include incomplete UTF-8 at clipped boundaries. Size and mtime
- * checks detect some concurrent writes but do not provide an atomic snapshot.
+ * A bounded head/tail preview of a saved-output file, or a notice that keeps retained output. Opening never blocks on a FIFO, and reads follow symlinks; renderers sanitise the text before display. Omission notices can make the preview exceed the byte and line budgets, and omitted-byte counts include incomplete UTF-8 at clipped boundaries. Size and mtime checks detect some concurrent writes but do not provide an atomic snapshot.
  */
 export async function readSavedOutput(path: string): Promise<SavedOutput> {
   let file;

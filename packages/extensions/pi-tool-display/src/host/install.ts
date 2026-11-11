@@ -34,9 +34,7 @@ const nextMode: Record<DisplayMode, DisplayMode> = {
   verbose: "summary"
 };
 
-/** Summaries collapse only in fullscreen, where no transcript row is already in
- * scrollback, and only when row chrome can draw summary lines.
- */
+/** Summaries collapse only in fullscreen, where no transcript row is already in scrollback, and only when row chrome can draw summary lines. */
 function summaries(host: Host, rowChrome: boolean): boolean {
   return rowChrome && host.ui?.mode === "fullscreen";
 }
@@ -242,8 +240,7 @@ export function installHostIntegration(
   try {
     hooks.replace(prototype, "getRegisteredToolDefinition", lookup);
 
-    // Pi can suppress custom entries or insert notices before streaming rows.
-    // Observe actual insertion, not registration or the last indexed call.
+    // Pi can suppress custom entries or insert notices before streaming rows. Observe actual insertion, not registration or the last indexed call.
     for (const key of [
       "maybeShowThinkingDropNotice",
       "addCacheMissNotice",
@@ -294,8 +291,7 @@ export function installHostIntegration(
     const thinkingVisibility = prototype.updateThinkingBlockVisibility;
     hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
       const binding = active ? hosts.get(this) : undefined;
-      // A global toggle visits every assistant row. Reconcile only after all
-      // boundaries reflect final visibility, never through intermediate merges.
+      // A global toggle visits every assistant row. Reconcile only after all boundaries reflect final visibility, never through intermediate merges.
       if (binding) return binding.display.coordinator.batch(() => thinkingVisibility.call(this));
 
       return thinkingVisibility.call(this);
@@ -307,19 +303,16 @@ export function installHostIntegration(
     });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
-    // Pi 1.5.2 passes (items, messageMeta, options); forward every argument so
-    // footer, editor history, and saved-message metadata reach Pi's rows.
+    // Pi 1.5.2 passes (items, messageMeta, options); forward every argument so footer, editor history, and saved-message metadata reach Pi's rows.
     hooks.replace(prototype, "renderSessionItems", function (this: Host, items, ...rest) {
-      // Pi appends replay slices around a boundary compaction summary. Retain
-      // earlier rows and their ownership until the host clears the transcript.
+      // Pi appends replay slices around a boundary compaction summary. Retain earlier rows and their ownership until the host clears the transcript.
       const binding = active ? ensure(this, this.chatContainer?.children.length === 0) : undefined;
       if (!binding) return reconstruct.call(this, items, ...rest);
       const result = binding.display.reconstruct(() => {
         for (const item of items)
           binding.display.message(binding.messages.read(item), "historical");
 
-        // Pi discovers visible assistant/notice boundaries while creating rows.
-        // Reconcile once after those insertions, before binding expansion state.
+        // Pi discovers visible assistant/notice boundaries while creating rows. Reconcile once after those insertions, before binding expansion state.
         return reconstruct.call(this, items, ...rest);
       });
 

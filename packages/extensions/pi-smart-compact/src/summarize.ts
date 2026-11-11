@@ -52,8 +52,7 @@ export async function summarizeWithOverrides(
   )
     throw new Error("The configured thinkingLevel is unsupported by the compaction model.");
 
-  // Snapshot selection before routing or generation can change session thinking.
-  // Virtual routing owns the physical request, not the persisted selected identity.
+  // Snapshot selection before routing or generation can change session thinking. Virtual routing owns the physical request, not the persisted selected identity.
   const selection = {
     model: `${selectedModel.provider}/${selectedModel.id}`,
     thinkingLevel: selectedModel.reasoning ? (inputThinkingLevel ?? session.thinkingLevel) : "off"
@@ -90,13 +89,11 @@ export async function summarizeWithOverrides(
       }
 
       if (overrides && reference !== undefined) {
-        // The registry owns request-time auth. Never carry session credentials,
-        // headers, or environment into the configured provider request.
+        // The registry owns request-time auth. Never carry session credentials, headers, or environment into the configured provider request.
         delete configured.apiKey;
         delete configured.headers;
         delete configured.env;
-        // Registry calls bypass the native session stream's request defaults.
-        // Preserve its network policy without borrowing conversation credentials.
+        // Registry calls bypass the native session stream's request defaults. Preserve its network policy without borrowing conversation credentials.
         const settings = session.settingsManager;
         const retry = settings.getProviderRetrySettings();
         const idleTimeout = settings.getHttpIdleTimeoutMs();
@@ -109,8 +106,7 @@ export async function summarizeWithOverrides(
 
         return overrides.registry.streamSimple(model, context, {
           ...configured,
-          // The session stream normally dispatches this hook after provider auth.
-          // Keep that ordering without carrying over conversation headers.
+          // The session stream normally dispatches this hook after provider auth. Keep that ordering without carrying over conversation headers.
           transformHeaders: (headers) =>
             active && session.extensionRunner.hasHandlers("before_provider_headers")
               ? session.extensionRunner.emitBeforeProviderHeaders(headers)
@@ -118,9 +114,7 @@ export async function summarizeWithOverrides(
         });
       }
 
-      // This replacement hides the session stream's mark, so Pi pre-resolves credentials that
-      // the session stream would take as an explicit API key over a stored OAuth login. Only
-      // pi-ai's streamSimple needs them; Pi's runtime stream resolves auth itself.
+      // This replacement hides the session stream's mark, so Pi pre-resolves credentials that the session stream would take as an explicit API key over a stored OAuth login. Only pi-ai's streamSimple needs them; Pi's runtime stream resolves auth itself.
       if (stream !== streamSimple) {
         delete configured.apiKey;
         delete configured.headers;

@@ -25,9 +25,7 @@ export function serializeParameters(input: unknown, indentation?: number): strin
   }
 }
 
-/** Serialize a JSON prefix without traversing omitted argument values. The depth
- * and visit budgets also bound deeply nested or entirely omitted properties.
- */
+/** Serialize a JSON prefix without traversing omitted argument values. The depth and visit budgets also bound deeply nested or entirely omitted properties. */
 function parameterPreview(input: unknown, maximum: number): { text: string; truncated: boolean } {
   if (maximum === Infinity) return { text: serializeParameters(input), truncated: false };
   let text = "";
@@ -161,9 +159,7 @@ export function parametersText(
   };
 }
 
-/** Resolve only explicitly tagged file targets. Retained rendering must not inspect
- * current files or follow symlinks, and search expressions are not filesystem paths.
- */
+/** Resolve only explicitly tagged file targets. Retained rendering must not inspect current files or follow symlinks, and search expressions are not filesystem paths. */
 export function resolveInvocationPath(value: string, cwd: string): string | undefined {
   if (!value) return undefined;
   let path = expandHomePath(value.startsWith("@") ? value.slice(1) : value, homedir());

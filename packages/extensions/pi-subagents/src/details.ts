@@ -40,10 +40,7 @@ export type ToolDetails = z.infer<typeof detailsSchema>;
 const HIDDEN = /[\x7f-\x9f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g;
 
 /**
- * Launch arguments as the items of a JSON array, such as `["--tools",` `"read"]`, with each
- * argument exact. JSON escapes C0 controls; DEL, C1 controls, line separators, and bidi controls
- * are also escaped, so terminal sanitising and bidi reordering cannot change a value. Each comma
- * stays with its item, so a row that breaks between items still ends with it.
+ * Launch arguments as the items of a JSON array, such as `["--tools",` `"read"]`, with each argument exact. JSON escapes C0 controls; DEL, C1 controls, line separators, and bidi controls are also escaped, so terminal sanitising and bidi reordering cannot change a value. Each comma stays with its item, so a row that breaks between items still ends with it.
  */
 export function launchArgItems(args: readonly string[]): string[] {
   return args.map((arg, index) => {

@@ -435,8 +435,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       expect(await selection(`selection-id ${taskId} model=scripted thinking=low`)).toBe(
         "subagents-fixture/scripted:off"
       );
-      // The supervisor's own selection is `subagents-fixture/scripted:off`. A value in the call
-      // replaces only its own field.
+      // The supervisor's own selection is `subagents-fixture/scripted:off`. A value in the call replaces only its own field.
       expect(await selection(`selection-id ${taskId} model=reasoning`)).toBe(
         "subagents-fixture/reasoning:low"
       );
@@ -480,9 +479,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         expect(await argvOrder("delegate-launch-args")).toBe(true);
         const runs = await runEntries();
 
-        // Each flag that another parameter owns, and a last flag that needs a value, fails its call
-        // before a task, record, or process exists. The exact text separates this check from a launch
-        // that Pi itself rejects or that never starts RPC.
+        // Each flag that another parameter owns, and a last flag that needs a value, fails its call before a task, record, or process exists. The exact text separates this check from a launch that Pi itself rejects or that never starts RPC.
         await host.prompt("delegate-owned-arg");
         const rejected = (await host.results()).slice(-REJECTED_LAUNCH_ARGS.length);
         expect(rejected.map((result) => [result.isError, contentText(result.content)])).toEqual(
@@ -519,9 +516,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             })
           );
 
-        // A call value replaces the template's value, and an omitted one takes it. The call's
-        // launch arguments come first, then the template's, then its prompt files as absolute paths
-        // in order. The extension's `--thinking` after `--mode` is the requested level.
+        // A call value replaces the template's value, and an omitted one takes it. The call's launch arguments come first, then the template's, then its prompt files as absolute paths in order. The extension's `--thinking` after `--mode` is the requested level.
         await host.prompt("delegate-template");
         const templateArgs = [
           "--tools",
@@ -539,8 +534,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             args: templateArgs,
             thinking: "low"
           },
-          // The scripted model has no thinking levels, so the child applies `off` to the template's
-          // requested level.
+          // The scripted model has no thinking levels, so the child applies `off` to the template's requested level.
           "[fixture] Template call model": {
             selection: "subagents-fixture/scripted:off",
             args: templateArgs,
@@ -548,8 +542,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           }
         });
 
-        // On resume, the template's values replace those of the task's latest run, which requested
-        // the default model and the marker arguments.
+        // On resume, the template's values replace those of the task's latest run, which requested the default model and the marker arguments.
         await host.prompt(`template-resume ${tasks[0]!.task_id}`);
         expect(await launches(1)).toEqual({
           "[fixture] Template resume": {
@@ -560,8 +553,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         });
         const templateRuns = await runEntries();
 
-        // An unknown or left-out template, and a call flag that the template also sets, fail before
-        // a task, record, or process exists.
+        // An unknown or left-out template, and a call flag that the template also sets, fail before a task, record, or process exists.
         await host.prompt("template-rejected");
         const failed = (await host.results()).slice(-REJECTED_TEMPLATE_CALLS.length);
         expect(failed.map((result) => [result.isError, contentText(result.content)])).toEqual(
@@ -576,10 +568,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
 
   test("resolves a global template's path launch arguments from its file, not the untrusted project, and leaves out a template with a system prompt flag", async () => {
     /**
-     * The path values of the `origin` template file. The template's directory and the project each
-     * hold a file at `path` that adds `ORIGIN_<TEMPLATE|PROJECT>_<kind>` to the child's system
-     * prompt. The comment of each row names the defect that the earlier rows cannot catch. The
-     * kinds are in sorted order.
+     * The path values of the `origin` template file. The template's directory and the project each hold a file at `path` that adds `ORIGIN_<TEMPLATE|PROJECT>_<kind>` to the child's system prompt. The comment of each row names the defect that the earlier rows cannot catch. The kinds are in sorted order.
      */
     const sources = [
       // The child receives `launchArgs` unresolved and loads `./` from the project.
@@ -590,8 +579,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       { args: ["--skill", "npm:origin"], path: "npm:origin/SKILL.md", kind: "SKILL" }
     ];
     /**
-     * The system prompt flags, each in its own inline template in `ORIGIN_TEMPLATES` order, so that
-     * a rejection that misses one flag fails its own call.
+     * The system prompt flags, each in its own inline template in `ORIGIN_TEMPLATES` order, so that a rejection that misses one flag fails its own call.
      */
     const promptFlags = ["--system-prompt", "--append-system-prompt"];
 
@@ -635,8 +623,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         expect(/^Origins: .*$/m.exec(contentText(origin!.content))?.[0]).toBe(
           `Origins: ${sources.map(({ kind }) => `ORIGIN_TEMPLATE_${kind}`).join(" ")}`
         );
-        // Settings leave out the templates with a system prompt flag, so their calls fail before a
-        // task, record, or process exists.
+        // Settings leave out the templates with a system prompt flag, so their calls fail before a task, record, or process exists.
         expect(rejected.map((result) => [result.isError, contentText(result.content)])).toEqual(
           ORIGIN_TEMPLATES.slice(1).map((name) => [
             true,
@@ -705,9 +692,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             ]);
             expect((await host.entries()).filter(isRunEntry)).toHaveLength(runs);
 
-            // Pi opens a child file in the directory of its header. A trusted fork of this session in
-            // another directory would resume the child here with its own trust, so the resume fails
-            // before a child starts.
+            // Pi opens a child file in the directory of its header. A trusted fork of this session in another directory would resume the child here with its own trust, so the resume fails before a child starts.
             const task = (await taskList(host))[0]!;
             const other = await createFixtureDirectory(directory, "other");
             const fork = await start({ fork: (await host.state()).sessionFile!, cwd: other });
@@ -870,8 +855,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         .toBe(true);
       await rejected();
 
-      // The child outlives its supervisor, so it can still write. On EOF, Pi aborts the child's
-      // run and saves its last entries, and the child then blocks its shutdown.
+      // The child outlives its supervisor, so it can still write. On EOF, Pi aborts the child's run and saves its last entries, and the child then blocks its shutdown.
       first.connection.process.kill("SIGKILL");
       await first.connection.closed;
       await work;
@@ -931,8 +915,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           answer: (request) => (request.method === "select" ? request.options[1]! : ""),
           result: "Selected second option"
         },
-        // Editor answers to the shown prefill, which is sanitised and cut. Pi's RPC client can
-        // return the shown prefill unchanged.
+        // Editor answers to the shown prefill, which is sanitised and cut. Pi's RPC client can return the shown prefill unchanged.
         {
           scenario: "delegate-editor",
           method: "editor",
@@ -946,8 +929,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           answer: editor((shown) => shown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim()),
           result: "Editor prefill kept"
         },
-        // An edit by whitespace only reaches the child exactly as submitted, because the RPC
-        // client's answer is not normalised. The child reports the SHA-256 of what it received.
+        // An edit by whitespace only reaches the child exactly as submitted, because the RPC client's answer is not normalised. The child reports the SHA-256 of what it received.
         {
           scenario: "delegate-editor",
           method: "editor",
@@ -1016,8 +998,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         await work;
         expect(await answer(LATE_DIALOG_ANSWERS.editor)).toBe("cancelled");
       },
-      // The late answer must reach the child before its stop deadline, so the deadline must be
-      // longer than a fixture step.
+      // The late answer must reach the child before its stop deadline, so the deadline must be longer than a fixture step.
       {
         settings: {
           "ext.pi-subagents": { maxDepth: LONG_GRACE_LIMIT, maxConcurrent: LONG_GRACE_LIMIT }

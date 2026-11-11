@@ -9,14 +9,12 @@ import { stopRun, taskHistory, type TaskRecord } from "./records.ts";
 const REFRESH_MS = 1_000;
 
 /**
- * How soon this process's supervisor needs a live record. A run's start, promotion, and end, and
- * each accepted descendant update, are immediate; other child events are debounced.
+ * How soon this process's supervisor needs a live record. A run's start, promotion, and end, and each accepted descendant update, are immediate; other child events are debounced.
  */
 export type Urgency = "immediate" | "debounced";
 
 /**
- * One change of the tree. `taskId` names the changed task; a file read that removed tasks names
- * none. Only a live record is published, because each supervisor reads child files itself.
+ * One change of the tree. `taskId` names the changed task; a file read that removed tasks names none. Only a live record is published, because each supervisor reads child files itself.
  */
 export type TreeChange = {
   taskId?: string;
@@ -24,9 +22,7 @@ export type TreeChange = {
 };
 
 /**
- * The tasks that the child files of `roots` name, at any depth. Each run's ancestry names its
- * child's tasks; the run reader stops an active run's ancestry at its marker. An unreadable file
- * adds no descendants.
+ * The tasks that the child files of `roots` name, at any depth. Each run's ancestry names its child's tasks; the run reader stops an active run's ancestry at its marker. An unreadable file adds no descendants.
  */
 async function fileDescendants(roots: readonly TaskRecord[]): Promise<TaskRecord[]> {
   const seen = new Set(roots.map((task) => task.task_id));
@@ -54,10 +50,7 @@ async function fileDescendants(roots: readonly TaskRecord[]): Promise<TaskRecord
 }
 
 /**
- * The task tree of one supervisor binding, as ADR 0003 defines it. The selected ancestry names the
- * direct tasks, child files name their descendants, and live records from this binding's runs and
- * from descendant updates replace what the files show. It lists the tree depth first, each task's
- * children in the order the tree learned them.
+ * The task tree of one supervisor binding, as ADR 0003 defines it. The selected ancestry names the direct tasks, child files name their descendants, and live records from this binding's runs and from descendant updates replace what the files show. It lists the tree depth first, each task's children in the order the tree learned them.
  */
 export class TaskTree {
   /** Records by task ID in the order the tree learned them. */
@@ -139,8 +132,7 @@ export class TaskTree {
   }
 
   /**
-   * Store the final record of one of this binding's runs and publish it at once. A task whose run
-   * ended has no active descendants, so the tree first stops each that is still active.
+   * Store the final record of one of this binding's runs and publish it at once. A task whose run ended has no active descendants, so the tree first stops each that is still active.
    */
   end(record: TaskRecord): void {
     for (const descendant of this.active(record.task_id))
@@ -150,9 +142,7 @@ export class TaskTree {
   }
 
   /**
-   * Store a descendant update that the child of the direct task `child` sent, and publish it at
-   * once. The tree accepts it only when its parent is `child` or one of its descendants, it names
-   * neither this supervisor nor `child` or an ancestor of `child`, and a known task keeps its parent.
+   * Store a descendant update that the child of the direct task `child` sent, and publish it at once. The tree accepts it only when its parent is `child` or one of its descendants, it names neither this supervisor nor `child` or an ancestor of `child`, and a known task keeps its parent.
    */
   accept(child: string, record: TaskRecord): boolean {
     const previous = this.records.get(record.task_id);
@@ -170,8 +160,7 @@ export class TaskTree {
   }
 
   /**
-   * Read the descendants again from child files: a process outside this binding can add them. It
-   * resolves when the tree shows this read or one that started later, because a later read wins.
+   * Read the descendants again from child files: a process outside this binding can add them. It resolves when the tree shows this read or one that started later, because a later read wins.
    */
   async refresh(): Promise<void> {
     const sequence = ++this.reads.started;
@@ -207,8 +196,7 @@ export class TaskTree {
   }
 
   /**
-   * Keep the tree fresh while it is observed: read now, then every second until the returned stop
-   * ends the last observation.
+   * Keep the tree fresh while it is observed: read now, then every second until the returned stop ends the last observation.
    */
   observe(): () => void {
     if (this.closed) return () => {};

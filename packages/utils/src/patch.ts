@@ -130,9 +130,7 @@ function validHunks(hunks: readonly Hunk[]): boolean {
 }
 
 /**
- * Parse one unified patch, optionally without file headers, within a caller-chosen
- * byte limit. Invalid or oversized patches return undefined; a limit that is not
- * a nonnegative safe integer throws RangeError.
+ * Parse one unified patch, optionally without file headers, within a caller-chosen byte limit. Invalid or oversized patches return undefined; a limit that is not a nonnegative safe integer throws RangeError.
  */
 export function parsePatch(patch: string, maxBytes: number): ParsedPatch | undefined {
   if (!byteLimitSchema.safeParse(maxBytes).success)

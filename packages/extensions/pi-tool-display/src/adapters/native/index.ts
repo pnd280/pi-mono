@@ -45,8 +45,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
   const family = nativeFamilies[name];
   if (family === "read") return nativeReadAdapter;
 
-  // Commands and searches count every call via the family fallback; files and
-  // directories count once by path.
+  // Commands and searches count every call via the family fallback; files and directories count once by path.
   const summaryItems = (args: unknown, context: SummaryItemContext): SummaryItem[] | undefined => {
     if (family === "shell" || family === "search") return undefined;
 

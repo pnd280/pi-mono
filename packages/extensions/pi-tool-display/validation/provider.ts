@@ -205,8 +205,7 @@ async function streamCalls(
   options: { buffered: boolean; signal: AbortSignal | undefined }
 ): Promise<void> {
   for (const planned of calls) {
-    // Queue shared partials without yielding to expose calls in earlier
-    // thinking/tool events, as a buffered provider response can do.
+    // Queue shared partials without yielding to expose calls in earlier thinking/tool events, as a buffered provider response can do.
     if (!options.buffered) await pause(120, options.signal);
     const contentIndex = message.content.length;
     const call = fauxToolCall(planned.name, {}, { id: randomUUID() });

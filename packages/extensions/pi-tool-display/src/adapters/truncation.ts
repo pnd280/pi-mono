@@ -1,9 +1,7 @@
 import type { DisplayNotice } from "../contracts.ts";
 
 /**
- * Compact-card notices for output that its producer truncated, with the saved file when
- * one exists. Expanded cards omit them, because the retained text carries the producer's
- * own warning and reference.
+ * Compact-card notices for output that its producer truncated, with the saved file when one exists. Expanded cards omit them, because the retained text carries the producer's own warning and reference.
  */
 export function truncationNotices(subject: string, path: string | undefined): DisplayNotice[] {
   return [

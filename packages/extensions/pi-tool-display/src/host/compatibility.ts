@@ -13,7 +13,7 @@ import type { DisplayMode } from "../contracts.ts";
 /** Last selected mode per interactive host; survives rebinding and extension reloads. */
 export const hostMode = Symbol.for("pi-tool-display.mode");
 
-// Private Pi 1.5.2 TUI contracts. Native construction belongs to libs/native-tools.
+/** Private Pi 1.5.2 TUI contracts. Native construction belongs to libs/native-tools. */
 export type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 export type Host = {
@@ -47,8 +47,7 @@ export type Host = {
 
 export const inspectedPiVersion = "1.5.2";
 
-// Host middleware can survive disposal under a later owner's wrapper. Hash the
-// recorded predecessor; an unknown endpoint needs the inspected public version.
+// Host middleware can survive disposal under a later owner's wrapper. Hash the recorded predecessor; an unknown endpoint needs the inspected public version.
 const hostHookHashes = {
   getRegisteredToolDefinition: new Set([
     "8ca62a31c871eb461056e6f1b6594d8eb52bdf0a3698283e454ae727d68e3040",
@@ -105,11 +104,7 @@ export function hostHooksCompatible<H extends Host>(
   );
 }
 
-// Pi 1.5.2: toggleToolOutputExpansion only negates toolOutputExpanded through
-// setToolsExpanded, which updates the header, loaded resources, chat rows, and pending
-// rows, then shows its status. Mode cycling depends on both bodies; recheck on Pi upgrades.
-// Hashes cover the unbundled API and the installed CLI's minified build. Keep
-// .agents/skills/pi-update/scripts/fingerprints.ts in sync with all hashed methods here.
+// Pi 1.5.2: toggleToolOutputExpansion only negates toolOutputExpanded through setToolsExpanded, which updates the header, loaded resources, and chat and pending rows, then shows its status. Mode cycling depends on both bodies; recheck on upgrades. Hashes cover the unbundled API and minified installed CLI. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with the methods hashed here.
 const modeHookHashes = {
   getStartupExpansionState: new Set([
     "b9d237d291a9faf4cac7245a6a6599463f1aeed0c50be71c9d800aed8b9d59cc",
@@ -136,10 +131,7 @@ export function modeHooksCompatible(host: Host): boolean {
   );
 }
 
-// Pi 1.5.2: ToolExecutionComponent.render first applies pending streamed arguments,
-// then a self-rendered row renders a margin row, selfRenderHeight renderer rows,
-// then image rows, and handleMouse subtracts that margin before routing to the
-// renderer slots. Row chrome rewrites both; recheck on Pi upgrades.
+// Pi 1.5.2: ToolExecutionComponent.render first applies pending streamed arguments, then a self-rendered row renders a margin row, selfRenderHeight renderer rows, then image rows, and handleMouse subtracts that margin before routing to the renderer slots. Row chrome rewrites both; recheck on Pi upgrades.
 const rowContractHashes = {
   render: new Set([
     "c0354d5eabb5e310a3b96860777415b3f364b2614cb2eafbd66955ab5e4a880d",

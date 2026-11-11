@@ -32,9 +32,7 @@ export class Spinner extends Loader {
 const MIN_DESCRIPTION_WIDTH = 16;
 
 /**
- * The top border: a chip with the kind, the bold description, and the dim kind and short ID, as
- * in `─ TASK  Fix login ───── task 8f3a2c1e ─`. At least three border columns follow the
- * description; the ID drops out first.
+ * The top border: a chip with the kind, the bold description, and the dim kind and short ID, as in `─ TASK  Fix login ───── task 8f3a2c1e ─`. At least three border columns follow the description; the ID drops out first.
  */
 function titleBorder(
   theme: Theme,
@@ -80,8 +78,7 @@ export type MetadataRow = {
 };
 
 /**
- * Label/value rows with one dim label column. Long values wrap under the value column. When the
- * column leaves no room for a wide character, each label stands above its values, as on the cards.
+ * Label/value rows with one dim label column. Long values wrap under the value column. When the column leaves no room for a wide character, each label stands above its values, as on the cards.
  */
 function metadataTable(theme: Theme, rows: readonly MetadataRow[], width: number): string[] {
   const shown = rows
@@ -107,8 +104,7 @@ function metadataTable(theme: Theme, rows: readonly MetadataRow[], width: number
 }
 
 /**
- * The spinner and elapsed time while active; then the outcome glyph and word, with the duration
- * when the run has an end, such as `✓ completed in 1m 12s`.
+ * The spinner and elapsed time while active; then the outcome glyph and word, with the duration when the run has an end, such as `✓ completed in 1m 12s`.
  */
 function statusValue(
   theme: Theme,
@@ -129,8 +125,7 @@ function statusValue(
 }
 
 /**
- * The latest context use with its share, such as `48k/200k (24.0%)`, or the spinner while the child
- * compacts; then the compaction count and the tokens before the latest compaction.
+ * The latest context use with its share, such as `48k/200k (24.0%)`, or the spinner while the child compacts; then the compaction count and the tokens before the latest compaction.
  */
 function contextValues(
   theme: Theme,
@@ -158,9 +153,7 @@ function contextValues(
 }
 
 /**
- * A task viewer's `status`, `model`, `usage`, `error`, `context`, and `args` rows. `parent` is the
- * listed task that launched a descendant. Usage and context have the format of Pi's token and
- * context widgets; `compactions` comes from the viewed transcript.
+ * A task viewer's `status`, `model`, `usage`, `error`, `context`, and `args` rows. `parent` is the listed task that launched a descendant. Usage and context have the format of Pi's token and context widgets; `compactions` comes from the viewed transcript.
  */
 export function taskRows(
   theme: Theme,
@@ -209,8 +202,7 @@ export function taskRows(
 }
 
 /**
- * A job viewer's `status`, `command`, `log`, and `error` rows. `command` holds the display lines
- * of the command. The error shows only when it adds to the exit code.
+ * A job viewer's `status`, `command`, `log`, and `error` rows. `command` holds the display lines of the command. The error shows only when it adds to the exit code.
  */
 export function jobRows(
   theme: Theme,
@@ -248,10 +240,7 @@ type ViewerParts = {
 };
 
 /**
- * Fits a viewer in `rows`. The title, the two overflow borders, one body row, and the first hint
- * row, which starts with the back action, come first. Then diagnostics, metadata rows from the top,
- * the other hint rows, and a blank row above the footer take the free rows in that order. The
- * body takes `height`, the rows that remain.
+ * Fits a viewer in `rows`. The title, the two overflow borders, one body row, and the first hint row, which starts with the back action, come first. Then diagnostics, metadata rows from the top, the other hint rows, and a blank row above the footer take the free rows in that order. The body takes `height`, the rows that remain.
  */
 function fitViewer(
   rows: number,
@@ -294,8 +283,7 @@ export type ViewerFrame = {
 };
 
 /**
- * A viewer in three quarters of the terminal's rows, or all of them in fullscreen mode: the
- * header, the body between its overflow borders, and the footer. `bodyTop` is the body's first row.
+ * A viewer in three quarters of the terminal's rows, or all of them in fullscreen mode: the header, the body between its overflow borders, and the footer. `bodyTop` is the body's first row.
  */
 export function renderViewer({
   tui,

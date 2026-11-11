@@ -437,11 +437,7 @@ function checkSummaryModelEntries(
 
 const summaryModel = "summary-compaction-fixture/nested/summary";
 
-// Each row is a distinct failure mode of credential isolation, no fallback, cancellation,
-// run abort, or ordinary continuation through the bundled CLI. Every summary attempt, including
-// retries, shares the stream override in summarizeWithOverrides (src/summarize.ts); manual.test.ts
-// covers retries. Generation and authentication failures share Pi's failed compaction_end
-// (fromEvent, src/outcome.ts). A hook-returned cancel and an Escape abort are separate rows.
+// Each row is a distinct failure mode of credential isolation, no fallback, cancellation, run abort, or ordinary continuation through the bundled CLI. Every summary attempt, including retries, shares the stream override in summarizeWithOverrides (src/summarize.ts); manual.test.ts covers retries. Generation and authentication failures share Pi's failed compaction_end (fromEvent, src/outcome.ts). A hook-returned cancel and an Escape abort are separate rows.
 const toolCases: {
   scenario: string;
   summaries: number;
@@ -591,8 +587,7 @@ it.concurrent.each(toolCases)(
   }
 );
 
-// The SDK suite covers routing flags. Manual /compact shares the tool rows' summary override
-// (summaryWrapper, src/native.ts), so this row proves the bundled CLI routes automatic credentials.
+// The SDK suite covers routing flags. Manual /compact shares the tool rows' summary override (summaryWrapper, src/native.ts), so this row proves the bundled CLI routes automatic credentials.
 it.concurrent("bundled CLI automatic compaction routes to the configured summary model", async () => {
   const directory = await createValidationWorkspace("pi-manual-compact-cli-");
 

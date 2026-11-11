@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-// These keywords need resolution or evaluation before a name can be treated as optional. Negations,
-// fixed values, and property counts can require a property that no `required` list names.
+// These keywords need resolution or evaluation before a name can be treated as optional. Negations, fixed values, and property counts can require a property that no `required` list names.
 const unsupportedKeywords = [
   "$ref",
   "if",
@@ -41,8 +40,7 @@ function requiredNames(schema: ArgumentSchema): string[] | undefined {
 }
 
 export default function nullArgs(pi: ExtensionAPI): void {
-  // Pi reads tool calls from the replaced message and validates them afterwards; tool_call runs
-  // after validation, which is too late.
+  // Pi reads tool calls from the replaced message and validates them afterwards; tool_call runs after validation, which is too late.
   pi.on("message_end", ({ message }) => {
     if (message.role !== "assistant") return;
     const hasNullText = message.content.some(

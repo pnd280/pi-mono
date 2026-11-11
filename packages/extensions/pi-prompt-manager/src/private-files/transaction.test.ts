@@ -38,8 +38,7 @@ function fixture() {
 
 it("serializes fresh reads and leaves unchanged data intact after a failed update", async () => {
   const { path, scope, transactions, options } = fixture();
-  // Separate queues, as in separate processes: only the data path's lock orders these reads, and
-  // either transaction can take it first.
+  // Separate queues, as in separate processes: only the data path's lock orders these reads, and either transaction can take it first.
   const writes = await Promise.all([
     transactions.run("data", options),
     new PrivateFileTransactions().run("data", options)

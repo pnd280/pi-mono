@@ -1,7 +1,4 @@
-// Offline model for the release check in build-release.ts, so that a Pi run with every release
-// extension can finish without credentials or network access. Its reply is "ok" only when both
-// worker threads start and answer in the installed tree. Node loads worker files itself, without
-// Pi's loader and its host packages, and Pi's print mode never starts them otherwise.
+// Offline model for the release check in build-release.ts, so that a Pi run with every release extension can finish without credentials or network access. Its reply is "ok" only when both worker threads start and answer in the installed tree. Node loads worker files itself, without Pi's loader and its host packages, and Pi's print mode never starts them otherwise.
 import { join } from "node:path";
 
 import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
@@ -47,8 +44,7 @@ async function probeWorkers(tree: string): Promise<string> {
       const { readCollectionAsync } = collectionProcessing.parse(
         await import(join(tree, "extensions/pi-prompt-manager/src/storage/processing.ts"))
       );
-      // The empty document that readCollection returns for a missing file, padded past
-      // `workerThreshold` (1 MiB) in processing.ts, so that the worker reads it.
+      // The empty document that readCollection returns for a missing file, padded past `workerThreshold` (1 MiB) in processing.ts, so that the worker reads it.
       const cwd = "/release-check";
       const document = JSON.stringify({ version: 1, cwd, entries: [] });
 

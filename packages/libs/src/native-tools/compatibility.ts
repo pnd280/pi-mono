@@ -2,8 +2,7 @@ import { AgentSession, type ToolDefinition } from "@earendil-works/pi-coding-age
 
 import { inspectedSource } from "../owned-hooks/index.ts";
 
-// Private Pi contracts, gated by both API and installed-CLI fingerprints.
-// docs/pi-compatibility.md records the last verified Pi version.
+/** Private Pi contracts, gated by both API and installed-CLI fingerprints. docs/pi-compatibility.md records the last verified Pi version. */
 export type SessionInternals = {
   _cwd: string;
   _baseToolsOverride?: unknown;

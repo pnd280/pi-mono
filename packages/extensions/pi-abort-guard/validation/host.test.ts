@@ -224,8 +224,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
       await nextPrompt;
     }
 
-    // Pi reloads only an idle session. A failed branch summary emits no terminal event, so its
-    // confirmation is still armed at the reload.
+    // Pi reloads only an idle session. A failed branch summary emits no terminal event, so its confirmation is still armed at the reload.
     const reloadSummary = current.response("failed-tree");
     const reloadTarget = current.session.sessionManager
       .getEntries()

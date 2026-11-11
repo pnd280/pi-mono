@@ -6,26 +6,21 @@ import { detailsSchema, type JobDetails, type ToolDetails } from "./details.ts";
 import { jobText, taskResult, usageDifference } from "./result.ts";
 
 /**
- * A background result message, ready for `pi.sendMessage`. This module alone builds and reads its
- * `customType`, content text, and details, including `late_usage`; pi-tool-display and
- * `@pi-mono/utils/task-envelope` read the same format.
+ * A background result message, ready for `pi.sendMessage`. This module alone builds and reads its `customType`, content text, and details, including `late_usage`; pi-tool-display and `@pi-mono/utils/task-envelope` read the same format.
  */
 export type ResultMessage = Parameters<ExtensionAPI["sendMessage"]>[0];
 
 /** What a result source reports when a background task or job finishes. */
 export type ResultEvent =
   /**
-   * A result to deliver. Only job results survive a pending session change, because jobs stop
-   * only when the change is final; see ADR 0005.
+   * A result to deliver. Only job results survive a pending session change, because jobs stop only when the change is final; see ADR 0005.
    */
   | { kind: "result"; message: ResultMessage; survivesChange: boolean }
   /** No result, but the work that holds the run changed, such as after a `subagent_abort` drop. */
   | { kind: "changed" };
 
 /**
- * The finished background results of one registry: the seam that delivery reads. Delivery keeps
- * the timing; the registry decides which results exist and whether its unfinished work holds the
- * supervisor's run.
+ * The finished background results of one registry: the seam that delivery reads. Delivery keeps the timing; the registry decides which results exist and whether its unfinished work holds the supervisor's run.
  */
 export class ResultSource {
   private listeners = new Set<(event: ResultEvent) => void>();
@@ -134,8 +129,7 @@ export function taskResultMessage({
 }
 
 /**
- * The result message of a job whose command exited. `output` is Pi's output tail with its status
- * line; when it does not already state the job's error (`stated`), an `Error:` line names it.
+ * The result message of a job whose command exited. `output` is Pi's output tail with its status line; when it does not already state the job's error (`stated`), an `Error:` line names it.
  */
 export function jobResultMessage(
   details: JobDetails & { state: "inactive" },
@@ -166,8 +160,7 @@ export function jobResultMessage(
 }
 
 /**
- * The late usage that a task's result message carries, for the ADR 0002 patch when Pi persists
- * the message, and for a run's live usage when its child reports the message.
+ * The late usage that a task's result message carries, for the ADR 0002 patch when Pi persists the message, and for a run's live usage when its child reports the message.
  */
 export function lateUsageOf(message: {
   customType: string;

@@ -9,8 +9,7 @@ import { LockTimeoutError, PrivateFileError } from "./errors.ts";
 import { checkHandle, privateOpen, sameFile } from "./privacy.ts";
 
 /**
- * Release exactly once, even when cleanup fails: release closes the descriptor.
- * A changed lock is left in place, and release failure does not undo a committed write.
+ * Release exactly once, even when cleanup fails: release closes the descriptor. A changed lock is left in place, and release failure does not undo a committed write.
  */
 export type OwnedLock = { release(): Promise<void> };
 

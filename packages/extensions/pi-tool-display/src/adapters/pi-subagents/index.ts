@@ -145,8 +145,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
 
     return state === "cancelled" ? "cancelled" : undefined;
   },
-  // The envelope's tags and summary repeat the card's facts, so show only the child's reply.
-  // Text that does not match the validated details stays intact.
+  // The envelope's tags and summary repeat the card's facts, so show only the child's reply. Text that does not match the validated details stays intact.
   textParts: envelopeText,
   summaryCategories: [category],
   summaryItems: (_args, { result }) => {

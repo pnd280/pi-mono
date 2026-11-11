@@ -53,8 +53,7 @@ const clock: AnimationClock = {
 type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
 
 /**
- * Validates a copy of Pi's raw call arguments against the currently registered tool
- * schema. Returns the raw arguments when validation fails. Never modifies them.
+ * Validates a copy of Pi's raw call arguments against the currently registered tool schema. Returns the raw arguments when validation fails. Never modifies them.
  */
 export type ValidatedArgs = (name: string, args: unknown) => unknown;
 
@@ -144,8 +143,7 @@ export class TranscriptCoordinator implements TranscriptView {
       summaries?: boolean;
       animationClock?: AnimationClock;
       /**
-       * The call's saved path, expansion, or completion changed. State consequences
-       * must not depend on whether a Pi row is attached.
+       * The call's saved path, expansion, or completion changed. State consequences must not depend on whether a Pi row is attached.
        */
       onSavedOutputChange?(call: DisplayCall): void;
       onFailure?: DisplayFailureHandler;
@@ -165,15 +163,13 @@ export class TranscriptCoordinator implements TranscriptView {
     validated = withoutRegistry
   }: CallInput): DisplayCall {
     const key = callKey(this.runtime, reference);
-    // Finalised assistant middleware can remove/reorder blocks around a streamed call.
-    // Keep its runtime row identity; only historical calls use source position alone.
+    // Finalised assistant middleware can remove/reorder blocks around a streamed call. Keep its runtime row identity; only historical calls use source position alone.
     const identity = liveIdentity(reference, name);
     const existing =
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
     if (existing) {
-      // Final middleware can also replace the tool at the same position. Pi executes
-      // the final tool, so its name and display adapter replace the streamed ones.
+      // Final middleware can also replace the tool at the same position. Pi executes the final tool, so its name and display adapter replace the streamed ones.
       const renamed = existing.name !== name;
 
       if (renamed) {
@@ -220,8 +216,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.positions.set(key, this.sequence.length);
     this.sequence.push(key);
 
-    // Append is the common path, including history reconstruction. Only the old
-    // heading and final connector can change; unrelated row caches stay valid.
+    // Append is the common path, including history reconstruction. Only the old heading and final connector can change; unrelated row caches stay valid.
     const grouping = this.interpretation(call).group;
 
     if (grouping) {
@@ -244,9 +239,7 @@ export class TranscriptCoordinator implements TranscriptView {
     if (this.validate(call, validated) || adapterChanged) this.changed(call);
   }
   /**
-   * Validate the raw arguments again and report whether the call's arguments changed.
-   * Middleware can modify Pi's argument object in place, so this compares values, not
-   * identities. Equal values keep the arguments and their cached interpretation.
+   * Validate the raw arguments again and report whether the call's arguments changed. Middleware can modify Pi's argument object in place, so this compares values, not identities. Equal values keep the arguments and their cached interpretation.
    */
   private validate(call: MutableCall, validated: ValidatedArgs): boolean {
     const args = validated(call.name, this.rawArgs.get(call));
@@ -255,9 +248,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     return true;
   }
-  /** Reconcile groups and invalidate each affected row once after synchronous updates.
-   * Intermediate group views are not ready for rendering or expansion.
-   */
+  /** Reconcile groups and invalidate each affected row once after synchronous updates. Intermediate group views are not ready for rendering or expansion. */
   batch<T>(update: () => T): T {
     this.groupingDepth++;
     this.invalidationDepth++;
@@ -290,9 +281,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const run = this.runs.get(key);
     if (run) this.refreshEnded(run);
   }
-  /** Thinking can separate visible groups without partitioning or ending a run.
-   * Each component can change or withdraw only its own boundary.
-   */
+  /** Thinking can separate visible groups without partitioning or ending a run. Each component can change or withdraw only its own boundary. */
   setBoundary(owner: object, after?: DisplayCall, kind: Boundary["kind"] = "run"): void {
     const key = after?.key;
     const previous = this.boundaries.get(owner);
@@ -438,10 +427,7 @@ export class TranscriptCoordinator implements TranscriptView {
     }
   }
   /**
-   * Apply a click on a call's row. A collapse control closes its run. A card click
-   * opens its run: a summarized run is handled; otherwise a grouped card toggles
-   * its group. Notice clicks keep the run open without toggling the anchor's group.
-   * Returns false when the host should handle the click itself.
+   * Apply a click on a call's row. A collapse control closes its run. A card click opens its run: a summarized run is handled; otherwise a grouped card toggles its group. Notice clicks keep the run open without toggling the anchor's group. Returns false when the host should handle the click itself.
    */
   activate(view: DisplayCall, target: "card" | "notice" | "collapse"): boolean {
     const call = this.mutable(view);
@@ -463,8 +449,7 @@ export class TranscriptCoordinator implements TranscriptView {
     return true;
   }
   /**
-   * Keep a run's compact cards until the next mode change. Opens a summarized run;
-   * a run the user interacted with before it ended stays open when it ends.
+   * Keep a run's compact cards until the next mode change. Opens a summarized run; a run the user interacted with before it ended stays open when it ends.
    */
   private openRun(run: MutableRun): void {
     if (run.opened || this.mode !== "summary" || !this.summaries) return;
@@ -660,8 +645,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.invalidateLeader(current, call);
   }
   /**
-   * A run ends once no member is live and nothing more can join it: a run boundary
-   * follows it, the agent ended, or it is history. Thinking is only a group boundary.
+   * A run ends once no member is live and nothing more can join it: a run boundary follows it, the agent ended, or it is history. Thinking is only a group boundary.
    */
   private refreshEnded(run: MutableRun): void {
     const last = run.members.at(-1);
@@ -842,8 +826,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const previous = this.sequence[position - 1];
     const next = this.sequence[position + 1];
 
-    // Argument streaming commonly makes the last row explorable after creation.
-    // Extend its predecessor exactly like an append, without rebuilding interiors.
+    // Argument streaming commonly makes the last row explorable after creation. Extend its predecessor exactly like an append, without rebuilding interiors.
     if (grouping && !previousGrouping && !next && !this.groupingDepth) {
       this.appendGroup(call, previous, grouping);
 
@@ -882,8 +865,7 @@ export class TranscriptCoordinator implements TranscriptView {
     }
 
     this.regroupPending = false;
-    // Moving a boundary can affect overlapping groups. Reconcile their final
-    // partition together so expansion never propagates through a temporary merge.
+    // Moving a boundary can affect overlapping groups. Reconcile their final partition together so expansion never propagates through a temporary merge.
     ranges.sort((left, right) => left[0] - right[0]);
     let current = ranges[0];
     if (!current) return;
@@ -915,8 +897,7 @@ export class TranscriptCoordinator implements TranscriptView {
       const members = group.members;
       const first = members[0];
       const old = first ? previous.get(first.key) : undefined;
-      // Keep stable group identity so boundaries and late contracts invalidate
-      // only the groups whose membership or expansion actually changed.
+      // Keep stable group identity so boundaries and late contracts invalidate only the groups whose membership or expansion actually changed.
       if (
         old &&
         old.expanded === group.expanded &&
@@ -969,8 +950,7 @@ export class TranscriptCoordinator implements TranscriptView {
           affected.add(first ?? call);
         }
 
-        // A phase change only affects heading markers. Invalidating Pi's row also
-        // rebuilds both renderer slots and discards unchanged body preparation.
+        // A phase change only affects heading markers. Invalidating Pi's row also rebuilds both renderer slots and discards unchanged body preparation.
         for (const call of affected)
           for (const row of this.rows.get(call.key) ?? []) row.requestRender();
       });

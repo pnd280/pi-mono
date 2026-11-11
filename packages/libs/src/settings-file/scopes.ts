@@ -31,9 +31,7 @@ export type ScopedSection = { scope: SettingsScope; path: string } & (
 );
 
 /**
- * Read `key` from global settings, then from project settings only when the project is trusted.
- * A missing file or key reads as `undefined`. Callers own validation, failure policy, and how the
- * project entry overrides the global one.
+ * Read `key` from global settings, then from project settings only when the project is trusted. A missing file or key reads as `undefined`. Callers own validation, failure policy, and how the project entry overrides the global one.
  */
 export function readScopedSections(
   options: SettingsScopeOptions,

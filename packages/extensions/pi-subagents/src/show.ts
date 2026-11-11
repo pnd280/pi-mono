@@ -77,8 +77,7 @@ function summary(names: readonly string[]): string {
 }
 
 /**
- * A response's calls are summarised at the entry that completes them, so later entries never
- * add an item before a cursor. Calls that never complete have no summary.
+ * A response's calls are summarised at the entry that completes them, so later entries never add an item before a cursor. Calls that never complete have no summary.
  */
 function items(entries: readonly SessionEntry[]): { id: string; item: Item }[] {
   const result: { id: string; item: Item }[] = [];

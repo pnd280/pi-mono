@@ -6,16 +6,12 @@ import { record, stringField } from "../values.ts";
 import type { AssistantCall, TranscriptMessage } from "./session.ts";
 
 export function hostToolResult(value: unknown): AgentToolResult<unknown> {
-  // Pi's execution events and persisted toolResult messages carry AgentToolResult media
-  // blocks, but its event API erases the payload type. Adapters still validate details.
+  // Pi's execution events and persisted toolResult messages carry AgentToolResult media blocks, but its event API erases the payload type. Adapters still validate details.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return value as AgentToolResult<unknown>;
 }
 
-/** Pi has no cancellation flag on execution results. An unsuccessful completion
- * after the live run is aborted is cancelled; successes and earlier failures stay
- * unchanged. Persist this observation so replay never needs to guess from prose.
- */
+/** Pi has no cancellation flag on execution results. An unsuccessful completion after the live run is aborted is cancelled; successes and earlier failures stay unchanged. Persist this observation so replay never needs to guess from prose. */
 export function executionOutcome(isError: boolean, signal?: AbortSignal): Outcome {
   if (!isError) return "success";
 
@@ -75,10 +71,7 @@ function hasAssistantBoundary(
   });
 }
 
-/** Normalise messages and discover buffered calls before Pi constructs their rows.
- * Streaming content is append-only; starts, finalisation, and replay scan the full
- * message. Ordinary updates visit only the changed block and newly visible tail.
- */
+/** Normalise messages and discover buffered calls before Pi constructs their rows. Streaming content is append-only; starts, finalisation, and replay scan the full message. Ordinary updates visit only the changed block and newly visible tail. */
 export class TranscriptMessages {
   private timestamp: number | undefined;
   private indexedContent = 0;

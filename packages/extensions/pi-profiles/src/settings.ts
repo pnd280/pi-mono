@@ -37,9 +37,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * MCP servers with Pi's name rule. Pi does not export its validator, and checks each entry when the
- * extension registers the server, so here an entry only has to be an object. A custom check keeps
- * the supplied object: a Zod record drops an own `__proto__` key.
+ * MCP servers with Pi's name rule. Pi does not export its validator, and checks each entry when the extension registers the server, so here an entry only has to be an object. A custom check keeps the supplied object: a Zod record drops an own `__proto__` key.
  */
 const mcpServersSchema = z.custom<Record<string, McpServerConfig>>((value) => {
   if (!isObject(value)) return false;
@@ -116,8 +114,7 @@ type Shortcut = z.output<typeof canonicalKeySchema>;
 
 export type ProfileConfig = {
   /**
-   * Valid global profiles in declaration order, each replaced in place by the project profile with
-   * its name, then the other project profiles. The shortcut cycles through them in this order.
+   * Valid global profiles in declaration order, each replaced in place by the project profile with its name, then the other project profiles. The shortcut cycles through them in this order.
    */
   profiles: Profile[];
   defaultProfile: Profile | undefined;
@@ -208,9 +205,7 @@ function readSection(scoped: ScopedSection): Section {
 }
 
 /**
- * Reads global settings, and project settings only in a trusted project, because profiles choose
- * tools and system prompt text. Project values take precedence. Warnings name the file's scope,
- * but never repeat supplied keys or values.
+ * Reads global settings, and project settings only in a trusted project, because profiles choose tools and system prompt text. Project values take precedence. Warnings name the file's scope, but never repeat supplied keys or values.
  */
 export function loadProfiles(options: SettingsScopeOptions): ProfileConfig {
   const [globalSettings, projectSettings] = readScopedSections(options, SETTINGS_KEY);

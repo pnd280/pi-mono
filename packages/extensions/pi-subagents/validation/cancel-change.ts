@@ -3,8 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { assertFixtureWorkspace } from "./workspace.ts";
 
 /**
- * Another extension that cancels each tree navigation and fork. It loads after pi-subagents, so
- * pi-subagents' handlers for the pre-events run before the cancel.
+ * Another extension that cancels each tree navigation and fork. It loads after pi-subagents, so pi-subagents' handlers for the pre-events run before the cancel.
  */
 export default async function cancelChange(pi: ExtensionAPI): Promise<void> {
   await assertFixtureWorkspace(process.cwd());

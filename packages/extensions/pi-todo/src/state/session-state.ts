@@ -77,8 +77,7 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
       nextId: snapshot.nextId
     };
 
-    // Sanitization can expand descriptions (tabs become spaces). Replayed state
-    // must still meet the same limits as newly emitted snapshots.
+    // Sanitization can expand descriptions (tabs become spaces). Replayed state must still meet the same limits as newly emitted snapshots.
     if (!stateFitsCurrentLimits(state)) return undefined;
 
     return isSemanticallyValidSnapshot(state) ? state : undefined;

@@ -113,10 +113,7 @@ type PreparedRow = {
   rows: Partial<Record<Slot, string[]>>;
 };
 
-/** A Pi row owns both slots, borrowed results, and all preparation/invalidation.
- * Slot renders check the transcript revision even when Pi reuses a component
- * without calling the renderer again (late adapters and observation updates).
- */
+/** A Pi row owns both slots, borrowed results, and all preparation/invalidation. Slot renders check the transcript revision even when Pi reuses a component without calling the renderer again (late adapters and observation updates). */
 class CardRow {
   private callArgs: { value: unknown } | undefined;
   private result: BorrowedToolResult | undefined;
@@ -138,8 +135,7 @@ class CardRow {
     theme: DisplayTheme,
     result?: BorrowedToolResult
   ): void {
-    // Standalone owners can pass call arguments separately from the result context.
-    // Keep that authoritative reference; result-only rows use their current context.
+    // Standalone owners can pass call arguments separately from the result context. Keep that authoritative reference; result-only rows use their current context.
     if (slot === "call") this.callArgs = { value: context.args };
     this.context = this.callArgs ? { ...context, args: this.callArgs.value } : context;
     this.theme = theme;
@@ -201,9 +197,7 @@ class CardRow {
   }
 
   /**
-   * A recorded failure changes the effective display adapter, so the retry prepares
-   * again. Pi renders the call slot first; preparing a visible result slot with it lets
-   * a result failure make the heading generic before Pi receives it.
+   * A recorded failure changes the effective display adapter, so the retry prepares again. Pi renders the call slot first; preparing a visible result slot with it lets a result failure make the heading generic before Pi receives it.
    */
   render(slot: Slot, width: number): string[] {
     return this.evaluator.render(
@@ -221,8 +215,7 @@ class CardRow {
     const { binding } = this.options;
     const current = this.preparedFor(width);
 
-    // Pi renders every row on an animation redraw. Only a live heading depends on
-    // the clock; its body and every completed card keep their prepared data.
+    // Pi renders every row on an animation redraw. Only a live heading depends on the clock; its body and every completed card keep their prepared data.
     const phase = current.animated ? (binding?.coordinator.phase ?? 0) : 0;
 
     if (current.animated && current.progressStale?.()) {

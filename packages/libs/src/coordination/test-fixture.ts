@@ -31,8 +31,7 @@ export const ranks = { a: 200, b: 100 };
 type ProviderRequest = { systemPrompt: string; userText: string };
 
 /**
- * An offline SDK session that loads `extensions` in order and binds them with a UI, so
- * coordinator warnings reach `notify`. Records what each provider request contains.
+ * An offline SDK session that loads `extensions` in order and binds them with a UI, so coordinator warnings reach `notify`. Records what each provider request contains.
  */
 export async function coordinationHost(
   extensions: InlineExtension[],

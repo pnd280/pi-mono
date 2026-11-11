@@ -2,8 +2,7 @@ import { constants } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-// Pi's native context-file order. Do not use loadProjectContextFiles here: it
-// also reads cwd/ancestors and would reread files covered by direct-read markers.
+/** Pi's native context-file order. Do not use loadProjectContextFiles here: it also reads cwd/ancestors and would reread files covered by direct-read markers. */
 export const instructionNames: readonly string[] = [
   "AGENTS.override.md",
   "AGENTS.md",

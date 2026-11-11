@@ -57,8 +57,7 @@ function parseSettings(value: unknown): { settings: Settings; warnings: string[]
 }
 
 /**
- * Keep the first of the keys that one keypress can match, with history first. Lifecycle claims
- * refuse overlapping keys, even from one extension, so they would otherwise disable both.
+ * Keep the first of the keys that one keypress can match, with history first. Lifecycle claims refuse overlapping keys, even from one extension, so they would otherwise disable both.
  */
 function resolveShortcuts(settings: Settings, warnings: string[]) {
   const bindings = resolveKeybindings([

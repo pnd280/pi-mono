@@ -127,8 +127,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     reset();
     bind(ctx);
   });
-  // Run marks time the run from the first agent_start to agent_settled, so slow handlers that run
-  // before these ones in load order do not change the duration.
+  // Run marks time the run from the first agent_start to agent_settled, so slow handlers that run before these ones in load order do not change the duration.
   lifecycle.onAgentStart((_event, ctx, at) => {
     if (revoked) return;
     run ??= {
@@ -150,8 +149,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     const message = event.message;
     if (message.role !== "assistant" || !run) return;
     run.throughput.end(message.usage.output);
-    // Assistant messages name the physical model a virtual selection routed to. Failed requests did
-    // not answer, and routing that fails or is aborted leaves the virtual model on the message.
+    // Assistant messages name the physical model a virtual selection routed to. Failed requests did not answer, and routing that fails or is aborted leaves the virtual model on the message.
     if (message.stopReason === "error" || message.api === virtualModelApi) return;
     const { provider, model: id, thinkingLevel } = message;
     if (
@@ -190,8 +188,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
       files
     });
   });
-  // The revoke runs before any participant's shutdown handler awaits, so a run that another
-  // extension starts during shutdown cannot reconnect the observers or restart the timer.
+  // The revoke runs before any participant's shutdown handler awaits, so a run that another extension starts during shutdown cannot reconnect the observers or restart the timer.
   lifecycle.onSessionShutdown(() => {
     revoked = true;
     reset();

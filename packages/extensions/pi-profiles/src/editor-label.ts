@@ -8,9 +8,7 @@ import {
 const BORDER = "─";
 
 /**
- * Draws ` label ─` at the right end of an editor's top border. The label covers only plain border
- * with one border character before it, so the border's own text, such as Pi's working status or
- * scroll indicator, stays.
+ * Draws ` label ─` at the right end of an editor's top border. The label covers only plain border with one border character before it, so the border's own text, such as Pi's working status or scroll indicator, stays.
  */
 export function labelBorder(
   border: string,

@@ -46,8 +46,7 @@ function decode(raw: Buffer): unknown {
 }
 
 /**
- * JSON.parse returns only JSON values, so a non-finite number is the only value that a write would
- * change (to null). Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
+ * JSON.parse returns only JSON values, so a non-finite number is the only value that a write would change (to null). Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
  */
 function finiteNumbers(value: unknown): boolean {
   const pending = [value];
@@ -240,8 +239,7 @@ function retainHistory(
 ): Document | undefined {
   if (document.entries[0]?.text.trim() === incoming.text.trim()) return undefined;
   const candidates = [incoming, ...document.entries].slice(0, retention);
-  // Replacing [] with a nonempty array adds two bytes, plus each indented
-  // record and its comma/newline. JSON escapes source newlines before counting.
+  // Replacing [] with a nonempty array adds two bytes, plus each indented record and its comma/newline. JSON escapes source newlines before counting.
   let bytes = Buffer.byteLength(encode({ ...document, entries: [] })) + 2;
   let count = 0;
 

@@ -1,7 +1,5 @@
 /**
- * Reads the `--flag value` pairs of a `/subagents` command into the values that `spec` gives for
- * each flag. A flag outside `spec`, a repeated flag, or a flag without a value throws `usage`. A
- * flag's parser can throw its own error, before the later pairs are read.
+ * Reads the `--flag value` pairs of a `/subagents` command into the values that `spec` gives for each flag. A flag outside `spec`, a repeated flag, or a flag without a value throws `usage`. A flag's parser can throw its own error, before the later pairs are read.
  */
 export function parseFlags<Values extends Record<string, unknown>>(
   tokens: string[],

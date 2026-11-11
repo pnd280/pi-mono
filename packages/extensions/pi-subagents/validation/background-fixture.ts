@@ -16,10 +16,7 @@ import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
 
 /**
- * A `maxDepth` and `maxConcurrent` value that gives a stopping descendant at depth 2 more than
- * `STEP_TIMEOUT_MS` of grace: each level below the smaller limit adds `STOP_GRACE_MS +
- * KILL_GRACE_MS` to its supervisor's wait. Within a step, only an immediate stop then ends a
- * subtree that blocks shutdown.
+ * A `maxDepth` and `maxConcurrent` value that gives a stopping descendant at depth 2 more than `STEP_TIMEOUT_MS` of grace: each level below the smaller limit adds `STOP_GRACE_MS + KILL_GRACE_MS` to its supervisor's wait. Within a step, only an immediate stop then ends a subtree that blocks shutdown.
  */
 export const LONG_GRACE_LIMIT = 3 + Math.ceil(STEP_TIMEOUT_MS / (STOP_GRACE_MS + KILL_GRACE_MS));
 

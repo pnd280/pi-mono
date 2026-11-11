@@ -101,9 +101,7 @@ function foreignSearch(pi: ExtensionAPI) {
 type McpMessage = Parameters<ReturnType<McpTransportFactory>["send"]>[0];
 
 /**
- * Pi's MCP extension with in-memory servers. Each server offers one tool, `ping`, so a server with
- * `direct` exposure shows in the declared tools while it is connected. `events` records each
- * connection and close, by server name.
+ * Pi's MCP extension with in-memory servers. Each server offers one tool, `ping`, so a server with `direct` exposure shows in the declared tools while it is connected. `events` records each connection and close, by server name.
  */
 function fakeMcp() {
   const events: string[] = [];
@@ -607,8 +605,7 @@ it("gives each tool to its first defer entry, defers a group only as a whole, an
   await first.session.prompt("/profile grouped");
   const file = first.session.sessionManager.getSessionFile()!;
 
-  // Another extension's `tool_search` cannot load a group together, so it stays declared, on
-  // restoration and on a switch, also when Pi's search could load each of its tools.
+  // Another extension's `tool_search` cannot load a group together, so it stays declared, on restoration and on a switch, also when Pi's search could load each of its tools.
   const foreign = await host(dirs, {
     extensions: [earlierExtension, foreignSearch],
     sessionManager: SessionManager.forkFrom(file, dirs.cwd, dirs.sessionDir)
@@ -706,8 +703,7 @@ it("restores the branch's latest selection after tree navigation, resume, and re
   expect(unselected.requests.at(-1)).toMatchObject({ tools: ["alpha", "beta"], append: "EARLIER" });
   expect(unselected.errors).toEqual([]);
 
-  // Tree navigation must not move a switch's selection onto the destination branch while the
-  // switch waits for a model_select handler.
+  // Tree navigation must not move a switch's selection onto the destination branch while the switch waits for a model_select handler.
   const releaseModel = Promise.withResolvers<void>();
   let modelSelected = false;
   const concurrent = await host(dirs, {
@@ -889,9 +885,7 @@ it.each([
     expect(fixture.errors).toEqual([]);
     if (!projectTrusted) return;
 
-    // Denied trust on resume: the saved selection of the project plan, with no request after it,
-    // must not restore its tools or prompts, also though a global profile has its name. Pi keeps
-    // the tools of the last request.
+    // Denied trust on resume: the saved selection of the project plan, with no request after it, must not restore its tools or prompts, also though a global profile has its name. Pi keeps the tools of the last request.
     await fixture.session.prompt("/profile plan");
     const resumed = await host(dirs, {
       mode: "tui",
@@ -906,8 +900,7 @@ it.each([
       ]
     });
     await resumed.session.prompt("four");
-    // Leaving the project plan's selection for the start of the session, before any selection or
-    // request, must not undo its saved removal of `beta`.
+    // Leaving the project plan's selection for the start of the session, before any selection or request, must not undo its saved removal of `beta`.
     resumed.session.setActiveToolsByName(["alpha"]);
     await resumed.session.navigateTree(fixture.session.sessionManager.getEntries()[0]!.id);
     await resumed.session.prompt("five");

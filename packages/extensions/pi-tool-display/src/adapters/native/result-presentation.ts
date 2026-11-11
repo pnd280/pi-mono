@@ -31,8 +31,7 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   const caption = nativeImageCaption(text);
   if (!caption?.tail.startsWith("\n")) return [];
   const notes = caption.tail.slice(1).split("\n");
-  // An omitted image has no attachment. Require its exact native omission envelope;
-  // a model-warning lookalike in ordinary text alone does not establish an image read.
+  // An omitted image has no attachment. Require its exact native omission envelope; a model-warning lookalike in ordinary text alone does not establish an image read.
   if (
     !hasImages &&
     (!imageOmissionNotes.has(notes[0] ?? "") ||
@@ -64,8 +63,7 @@ function splitTrailer(text: string, pattern: RegExp | undefined) {
 }
 
 /**
- * Interpret retained native envelopes; exact literal lookalikes share their styling.
- * `highlight` marks the selection in read source text.
+ * Interpret retained native envelopes; exact literal lookalikes share their styling. `highlight` marks the selection in read source text.
  */
 export function nativeResultParts(
   name: NativeToolName,
@@ -95,8 +93,7 @@ export function nativeResultParts(
     else if (["", "(no output)"].includes(text)) return [];
   } else if (context.isError) return [part(text, "error")];
 
-  // Match native trailer positions, not arbitrary lines. Retained text alone cannot
-  // prove provenance; operation outcomes come from structured observations elsewhere.
+  // Match native trailer positions, not arbitrary lines. Retained text alone cannot prove provenance; operation outcomes come from structured observations elsewhere.
   let trailerPattern: RegExp | undefined;
   if (shell)
     trailerPattern =

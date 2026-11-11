@@ -54,9 +54,7 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
       entries.flatMap((entry) =>
         entry.type === "custom" && entry.customType === type ? [entry.data] : []
       );
-    // Each observed operation is saved. Replay derives the creation patch from content, and
-    // Pi's edit patches replace the observed ones. The write's diff has a wall-clock budget in
-    // the Pi process, which suite load can exceed.
+    // Each observed operation is saved. Replay derives the creation patch from content, and Pi's edit patches replace the observed ones. The write's diff has a wall-clock budget in the Pi process, which suite load can exceed.
     const operation = {
       entry: expect.any(String) as unknown,
       toolCallId: expect.any(String) as unknown,

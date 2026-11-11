@@ -4,8 +4,7 @@ import { WidgetCoordinator } from "./coordinator.ts";
 import { findWidgetHost } from "./host.ts";
 import { widgetSettings, type Preferences } from "./settings.ts";
 
-// The menu loads on first use to keep it out of startup. Sessions share one import: under jiti
-// a concurrent import can return a partly evaluated module.
+// The menu loads on first use to keep it out of startup. Sessions share one import: under jiti a concurrent import can return a partly evaluated module.
 const importMenu = () =>
   Promise.all([import("@pi-mono/libs/tui/responsive-custom-ui"), import("./menu/widget-menu.ts")]);
 let menu: ReturnType<typeof importMenu> | undefined;

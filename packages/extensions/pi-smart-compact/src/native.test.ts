@@ -138,8 +138,7 @@ it.each([
   }
 });
 
-// All replacements share one rollback (hooks.restore in bindNativeCompaction, src/native.ts);
-// failing on the last one requires every earlier hook to be restored.
+// All replacements share one rollback (hooks.restore in bindNativeCompaction, src/native.ts); failing on the last one requires every earlier hook to be restored.
 it("rolls back if compact cannot be patched", () => {
   const method = "compact";
   const prototype = AgentSession.prototype;

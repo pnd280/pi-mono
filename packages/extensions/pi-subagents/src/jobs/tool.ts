@@ -219,8 +219,7 @@ const RESULT_ARRIVES =
   "The result arrives automatically when the command exits; do not sleep or poll.";
 
 /**
- * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs
- * that do not hold it.
+ * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs that do not hold it.
  */
 function jobDelivery(delivers: boolean): string {
   return delivers

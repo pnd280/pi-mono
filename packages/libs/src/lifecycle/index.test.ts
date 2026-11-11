@@ -87,8 +87,7 @@ it("registers no overlapping shortcut claim, warns once per conflict, and runs o
   await bind();
   expect(await pressAll()).toEqual([]);
 
-  // Each key moves to the other participant: the stale registration of `ctrl+alt+u` loads after
-  // its new claimant, and that of `ctrl+alt+y` loads before it.
+  // Each key moves to the other participant: the stale registration of `ctrl+alt+u` loads after its new claimant, and that of `ctrl+alt+y` loads before it.
   claims.a = ["ctrl+alt+u"];
   claims.b = ["ctrl+alt+y"];
   await bind();

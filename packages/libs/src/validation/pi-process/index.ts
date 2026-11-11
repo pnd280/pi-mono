@@ -14,8 +14,7 @@ export type PiLaunch = {
 };
 
 /**
- * Hang guard for one process run or one awaited fixture step. A full suite starts many Pi
- * processes at once, so a step can take several times as long as it does alone.
+ * Hang guard for one process run or one awaited fixture step. A full suite starts many Pi processes at once, so a step can take several times as long as it does alone.
  */
 export const STEP_TIMEOUT_MS = 60_000;
 

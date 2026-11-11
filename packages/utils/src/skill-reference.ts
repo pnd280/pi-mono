@@ -44,9 +44,7 @@ export function formatSkillReference(format: string, command: string, path: stri
 }
 
 /**
- * Replaces each whitespace-separated token that `resolve` maps to a registered `/skill:<name>`
- * command with its formatted reference. Complete references already in `format` stay unchanged.
- * A leading reference that Pi would run as a skill or prompt-template command gets a leading space.
+ * Replaces each whitespace-separated token that `resolve` maps to a registered `/skill:<name>` command with its formatted reference. Complete references already in `format` stay unchanged. A leading reference that Pi would run as a skill or prompt-template command gets a leading space.
  */
 export function expandSkillReferences(
   text: string,
@@ -113,8 +111,7 @@ export function expandSkillReferences(
   const leadingCommand = expanded.match(/^\/skill:[^ ]+/u)?.[0];
   const leadingTemplate = expanded.match(/^\/(\S+)/u)?.[1];
 
-  // Pi expands skills at a literal space and templates at any whitespace after input handlers run.
-  // Only guard commands introduced by a reference; keep ordinary skill and template calls working.
+  // Pi expands skills at a literal space and templates at any whitespace after input handlers run. Only guard commands introduced by a reference; keep ordinary skill and template calls working.
   return (leadingCommand !== undefined && catalog.skills.has(leadingCommand)) ||
     (leadingTemplate !== undefined && catalog.templates.has(leadingTemplate))
     ? ` ${expanded}`

@@ -29,8 +29,7 @@ async function ready(path: string): Promise<void> {
 }
 
 /**
- * Sends an update, then creates `run-release` when its result arrives. Held children and owners
- * keep running until then, so the update reaches them while they run or settle.
+ * Sends an update, then creates `run-release` when its result arrives. Held children and owners keep running until then, so the update reaches them while they run or settle.
  */
 async function sendUpdate(host: Supervisor, directory: string, message: string): Promise<void> {
   const after = host.records.length;
@@ -62,8 +61,7 @@ test.each(["follow_up", "steer", "settling", "exiting"] as const)(
         // The settling child holds its settle hook until the input arrives.
         if (mode === "settling") await host.prompt(message);
         else if (mode === "exiting") {
-          // The exiting child holds its shutdown until the supervisor's call has started. The
-          // supervisor routes the input before its next step, so the input meets the exit.
+          // The exiting child holds its shutdown until the supervisor's call has started. The supervisor routes the input before its next step, so the input meets the exit.
           const after = host.records.length;
           const work = host.prompt(message);
           await host.wait(

@@ -76,8 +76,7 @@ export class ChildConnection {
     process.stdout.on("error", (error: Error) => this.fail(error));
     process.stderr.on("error", (error: Error) => this.fail(error));
     process.once("error", (error) => this.fail(error));
-    // Output can still hold responses after the exit. Another process can hold the pipes open, so
-    // the wait for them is bounded.
+    // Output can still hold responses after the exit. Another process can hold the pipes open, so the wait for them is bounded.
     process.once("exit", (code, signal) => {
       this.exit = { code, signal };
       this.exitTimer = setTimeout(

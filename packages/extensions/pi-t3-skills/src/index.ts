@@ -12,8 +12,7 @@ import { removeT3SkillSuffix } from "./t3-suffix.ts";
 const T3_EXTENSION_ENV = "T3_PI_MCP_EXTENSION_PATH";
 
 /**
- * Runs before every transform that changes text, now pi-skills at rank 100, so T3's blocks are
- * still exact. The gap keeps ranks 91-99 free for transforms that need the prompt without them.
+ * Runs before every transform that changes text, now pi-skills at rank 100, so T3's blocks are still exact. The gap keeps ranks 91-99 free for transforms that need the prompt without them.
  */
 const SUFFIX_RANK = 90;
 
@@ -26,9 +25,7 @@ export default function t3Skills(pi: ExtensionAPI): void {
   const input = joinInputChain(pi, { id: "pi-t3-skills" });
   let format = defaultSkillReferenceFormat;
 
-  // When the chain runs after T3's hook, its exact blocks go. When any chain participant loads
-  // before T3's extension, T3's hook sees the rewritten references instead and adds blocks only for
-  // `$<name>` tokens inside a registered path or the format (docs/rules.md#skill-blocks).
+  // When the chain runs after T3's hook, its exact blocks go. When any chain participant loads before T3's extension, T3's hook sees the rewritten references instead and adds blocks only for `$<name>` tokens inside a registered path or the format (docs/rules.md#skill-blocks).
   input.transform(SUFFIX_RANK, async (event) => {
     const text = await removeT3SkillSuffix(event.text, pi.getCommands(), (path) =>
       readFile(path, "utf8")

@@ -131,8 +131,7 @@ test.for(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"]
 
       if (action === "turn abort") {
         const abort = host.request({ type: "abort" });
-        // Only an immediate stop ends the subtree within this wait. Observe exit, not only a kill
-        // request.
+        // Only an immediate stop ends the subtree within this wait. Observe exit, not only a kill request.
         await expect
           .poll(
             async () =>

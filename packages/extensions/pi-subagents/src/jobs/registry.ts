@@ -68,8 +68,7 @@ type Ended = {
 };
 
 /**
- * Pi's raw `shellPath` and `shellCommandPrefix` settings, as Pi's settings manager resolves them:
- * the path expands `~` and `file://`; the prefix is unchanged.
+ * Pi's raw `shellPath` and `shellCommandPrefix` settings, as Pi's settings manager resolves them: the path expands `~` and `file://`; the prefix is unchanged.
  */
 export function shellOptions(
   settings: { shellPath?: unknown; shellCommandPrefix?: unknown },
@@ -145,8 +144,7 @@ function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
 }
 
 /**
- * Background shell commands of one supervisor binding. Each live job owns its shell and group
- * through cleanup, as well as its abort controller, bounded log, entries, and outcome.
+ * Background shell commands of one supervisor binding. Each live job owns its shell and group through cleanup, as well as its abort controller, bounded log, entries, and outcome.
  */
 export class Jobs {
   private records: Map<string, JobRecord>;
@@ -397,8 +395,7 @@ export class Jobs {
       ended_at,
       ...(ended.error ? { error: ended.error } : {})
     };
-    // A session change gives the job no end entry and no result: it shows as cancelled. An earlier
-    // `session_tree` handler can run after the leaf moved and before this binding ends.
+    // A session change gives the job no end entry and no result: it shows as cancelled. An earlier `session_tree` handler can run after the leaf moved and before this binding ends.
     if (this.closed || !jobHistory(this.options.branch()).has(record.job_id)) return done;
     this.records.set(record.job_id, done);
     const end: JobEndEntry = {
@@ -418,8 +415,7 @@ export class Jobs {
       );
     }
 
-    // `job_abort` gave up a cancelled job's result. A job result waits during a pending session
-    // change, because a later extension can cancel the change; see ADR 0005.
+    // `job_abort` gave up a cancelled job's result. A job result waits during a pending session change, because a later extension can cancel the change; see ADR 0005.
     if (!live.drop || done.outcome !== "cancelled")
       this.results.publish({
         kind: "result",
@@ -432,8 +428,7 @@ export class Jobs {
   }
 
   /**
-   * Cancel an active job. With `drop`, its cancellation result goes to nobody; a job that exited
-   * before the abort keeps its own outcome and result.
+   * Cancel an active job. With `drop`, its cancellation result goes to nobody; a job that exited before the abort keeps its own outcome and result.
    */
   async abort(jobId: string, { drop = false }: { drop?: boolean } = {}): Promise<JobRecord> {
     const record = this.owned(jobId);

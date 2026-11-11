@@ -21,8 +21,7 @@ export default function fixtureProvider(pi: ExtensionAPI): void {
       const stalled = contentText(user?.content ?? "").includes("stall-title");
 
       if (model.id === "active") {
-        // Separate a title held for settlement from exit with title work still pending. After the
-        // title response, naming needs only microtasks to hold the title, so one macrotask suffices.
+        // Separate a title held for settlement from exit with title work still pending. After the title response, naming needs only microtasks to hold the title, so one macrotask suffices.
         if (stalled) await titleStarted.promise;
         else {
           await titleGenerated.promise;
@@ -35,8 +34,7 @@ export default function fixtureProvider(pi: ExtensionAPI): void {
       titleStarted.resolve();
 
       if (stalled) {
-        // No live timer: only host cancellation or the title deadline can release this response.
-        // Record why it was released, so the test does not have to time the whole process.
+        // No live timer: only host cancellation or the title deadline can release this response. Record why it was released, so the test does not have to time the whole process.
         await new Promise<void>((resolve) => {
           const release = () => {
             const reason: unknown = options?.signal?.reason;

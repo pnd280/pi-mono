@@ -55,9 +55,7 @@ type ResultBody = Readonly<{
 const PREVIEW_LINES = 3;
 
 /**
- * The result placements of one prepared card: its body in the result slot, its
- * rows under a group member heading, and the collapsed progress preview. Each
- * placement is built on first use, so a hidden slot does no work.
+ * The result placements of one prepared card: its body in the result slot, its rows under a group member heading, and the collapsed progress preview. Each placement is built on first use, so a hidden slot does no work.
  */
 export class PreparedResult {
   private body: ResultBody | undefined;
@@ -565,8 +563,7 @@ function trimShellTrailingRows(text: string, p: Projection): string {
   let end = text.length;
   const trailingStyles: string[] = [];
 
-  // Work backward through normalised rows before preview budgeting. Keep internal
-  // whitespace and move SGR resets off discarded blank rows onto the final row.
+  // Work backward through normalised rows before preview budgeting. Keep internal whitespace and move SGR resets off discarded blank rows onto the final row.
   while (end > 0) {
     const newline = text.lastIndexOf("\n", end - 1);
     const row = text.slice(newline + 1, end);
@@ -674,8 +671,7 @@ function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
     return [...items, ...imageItems(result.content, p)];
   const parts = textParts(result, p, p.expanded);
 
-  // Consecutive text blocks share one compact budget, so output split across
-  // blocks (such as one block per codemode `text()` call) previews as one stream.
+  // Consecutive text blocks share one compact budget, so output split across blocks (such as one block per codemode `text()` call) previews as one stream.
   let run: ResultTextPart[] = [];
   let runAfterImage = false;
 
@@ -773,9 +769,7 @@ function notices(result: BorrowedToolResult, p: Projection): string[] {
 }
 
 function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
-  // Call-level notices follow the output, but must not become children of an unrelated
-  // final media/resource. With one result item they continue its body; with several,
-  // they form a final branch. Without items they continue the root.
+  // Call-level notices follow the output, but must not become children of an unrelated final media/resource. With one result item they continue its body; with several, they form a final branch. Without items they continue the root.
   if (items.length === 1) appendDetails(items, annotations);
   else if (items.length > 1 && annotations.length) items.push({ rows: [...annotations] });
   else return { items, annotations, panel: [] };

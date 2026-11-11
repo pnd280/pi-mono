@@ -1,8 +1,4 @@
-// The `input` hook below is a verbatim copy of T3 Code's skill-chip hook, un-escaped from the
-// template string in packages/provider-pi/src/server/mcpExtensionSource.ts at
-// https://github.com/pingdotgg/t3code/blob/8b44f42b14c8e273156474a924ccf29680dd7857/packages/provider-pi/src/server/mcpExtensionSource.ts
-// (commit 8b44f42b14c8e273156474a924ccf29680dd7857). Only formatting differs.
-// T3 Code is MIT licensed: Copyright (c) 2026 T3 Tools Inc.
+// The `input` hook below is a verbatim copy of T3 Code's skill-chip hook, un-escaped from the template string in packages/provider-pi/src/server/mcpExtensionSource.ts at https://github.com/pingdotgg/t3code/blob/8b44f42b14c8e273156474a924ccf29680dd7857/packages/provider-pi/src/server/mcpExtensionSource.ts (commit 8b44f42b14c8e273156474a924ccf29680dd7857). Only formatting differs. T3 Code is MIT licensed: Copyright (c) 2026 T3 Tools Inc.
 /* oxlint-disable @stylistic/padding-line-between-statements -- keep T3's statements verbatim */
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
@@ -10,8 +6,7 @@ import * as NodePath from "node:path";
 import { stripFrontmatter, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function t3InputHook(pi: ExtensionAPI): void {
-  // Keep skill chips in the request. Pi expands only one leading /skill:
-  // command, so use its own frontmatter loader for every selected chip here.
+  // Keep skill chips in the request. Pi expands only one leading /skill: command, so use its own frontmatter loader for every selected chip here.
   // @ts-expect-error This workspace's exactOptionalPropertyTypes rejects `images: undefined`; Pi accepts it.
   pi.on("input", async (event, ctx) => {
     if (!event.text.includes("$")) return;

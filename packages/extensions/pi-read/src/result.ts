@@ -136,8 +136,7 @@ export function interpretReadResult(
   const sourceLimit = () => {
     if (parsed.data?.truncation) return parsed.data.truncation.outputLines;
     if (!relativeEnd) return requested;
-    // Pi's negative slice end is relative to the file length. Without truncation,
-    // that branch always appends a blank line and one continuation-notice line.
+    // Pi's negative slice end is relative to the file length. Without truncation, that branch always appends a blank line and one continuation-notice line.
     const count = sourceContent.reduce(
       (sum, block) => sum + (block.type === "text" ? block.text.split("\n").length : 0),
       0

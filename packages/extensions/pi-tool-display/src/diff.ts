@@ -52,9 +52,7 @@ export function sameRetainedHunks(left: string | undefined, right: string | unde
 }
 
 /**
- * The patch of a write that created its file, from the content argument as Node
- * writes it: unpaired surrogates become U+FFFD and CRLF compares as LF.
- * Unretainable content returns undefined without building an unbounded patch.
+ * The patch of a write that created its file, from the content argument as Node writes it: unpaired surrogates become U+FFFD and CRLF compares as LF. Unretainable content returns undefined without building an unbounded patch.
  */
 export function creationPatch(content: string): string | undefined {
   // CRLF normalisation can halve the source length. Bound copies before decoding.

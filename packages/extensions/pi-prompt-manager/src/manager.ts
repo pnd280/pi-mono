@@ -374,8 +374,7 @@ export class PromptManager {
   }
 
   /**
-   * Stops new writes, notifications, and views before it returns its promise. The promise settles
-   * when started mutations have committed or been cancelled, and have released their locks.
+   * Stops new writes, notifications, and views before it returns its promise. The promise settles when started mutations have committed or been cancelled, and have released their locks.
    */
   async dispose(): Promise<void> {
     const finishing = this.lifetime.dispose();

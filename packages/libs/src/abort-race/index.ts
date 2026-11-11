@@ -1,6 +1,5 @@
 /**
- * Stop waiting for `operation` when `signal` aborts, and reject with the signal's reason. The
- * operation continues; its later result or rejection is ignored.
+ * Stop waiting for `operation` when `signal` aborts, and reject with the signal's reason. The operation continues; its later result or rejection is ignored.
  */
 export async function raceWithAbortSignal<T>(
   operation: Promise<T>,

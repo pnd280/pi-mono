@@ -92,8 +92,7 @@ async function ask(
       const shown = prefill === undefined ? undefined : clean(prefill);
       const answer = await ui.editor(title, shown);
       if (answer === undefined) return cancelled;
-      // The shown prefill is sanitised and cut, so an unchanged answer returns the child's own. Pi
-      // can return the shown text normalised; any other answer, even by whitespace only, is an edit.
+      // The shown prefill is sanitised and cut, so an unchanged answer returns the child's own. Pi can return the shown text normalised; any other answer, even by whitespace only, is an edit.
       const unchanged =
         prefill !== undefined &&
         shown !== undefined &&

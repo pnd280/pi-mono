@@ -220,8 +220,7 @@ async function withSession(
   };
 
   try {
-    // Unlike Pi's default /bin/bash, the configured shell marks its commands' environment.
-    // Windows has no /bin/bash; Pi finds Git Bash there when shellPath is unset.
+    // Unlike Pi's default /bin/bash, the configured shell marks its commands' environment. Windows has no /bin/bash; Pi finds Git Bash there when shellPath is unset.
     const shellPath = join(directory, "configured-shell");
     if (process.platform !== "win32")
       await writeFile(
@@ -952,8 +951,7 @@ it("keeps real SDK base overrides generic despite their builtin source label", a
   );
 });
 
-// "original" overrides share the non-"auto" check in Collection.eligible (src/host/collection.ts);
-// the headless test's reload covers its invalid-settings check.
+// "original" overrides share the non-"auto" check in Collection.eligible (src/host/collection.ts); the headless test's reload covers its invalid-settings check.
 it("avoids native observation of live calls for a generic override", async () => {
   await withSession(
     async ({ session }) => {
@@ -1199,8 +1197,7 @@ it.each(["thinking", "tool"])(
           });
 
           for (const [contentIndex, block] of message.content.entries()) {
-            // Pi queues references to mutable partials. An earlier event can expose
-            // later tool calls before those calls' own events have been consumed.
+            // Pi queues references to mutable partials. An earlier event can expose later tool calls before those calls' own events have been consumed.
             const partial = {
               ...message,
               content:
@@ -1534,8 +1531,7 @@ it.each([
               partial: streamed
             }
           });
-          // message_end handlers can return a new argument object, modify Pi's object in place,
-          // or replace the tool, which Pi then executes in the same row.
+          // message_end handlers can return a new argument object, modify Pi's object in place, or replace the tool, which Pi then executes in the same row.
           const call = inPlace
             ? streamedCall
             : fauxToolCall(renamed ? "write" : "read", args, { id: streamedCall.id });
@@ -2012,8 +2008,7 @@ it("keeps calls reachable and disposal complete when one row's hooks fail to ins
         [AssistantMessageComponent, "updateContent"]
       ]);
 
-      // Another owner locks one instance property of the first assistant and tool rows.
-      // Pi's prototype contracts still match, so only those rows fail to bind.
+      // Another owner locks one instance property of the first assistant and tool rows. Pi's prototype contracts still match, so only those rows fail to bind.
       tui.chatContainer.addChild = (child) => {
         const key = lockedKeys.get(child.constructor);
 
@@ -2076,8 +2071,7 @@ it("keeps calls reachable and disposal complete when one row's hooks fail to ins
         expect(rendered(assistants[1]!)).toContain("• Bound prose");
         expect(rendered(assistants[2]!)).toContain("• Live prose");
 
-        // The failed row stands alone with its card, so the bound call keeps its own summary
-        // line. Both results stay reachable after a mode change and a return to summary mode.
+        // The failed row stands alone with its card, so the bound call keeps its own summary line. Both results stay reachable after a mode change and a return to summary mode.
         for (const modes of [[], ["compact", "verbose"], ["summary"]]) {
           for (const mode of modes) {
             tui.toggleToolOutputExpansion?.();

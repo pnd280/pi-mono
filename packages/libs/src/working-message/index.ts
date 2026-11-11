@@ -20,8 +20,7 @@ export type { WorkingMessageComponent, WorkingMessageHandle } from "./coordinato
 
 export type WorkingMessageRegistration = WorkingMessageComponent & {
   /**
-   * The live component with the lowest rank registers `/working-message` through its own
-   * extension.
+   * The live component with the lowest rank registers `/working-message` through its own extension.
    */
   ownerRank: number;
 };
@@ -210,9 +209,7 @@ function installCoordinator(host: Host): Shared {
   };
 
   /**
-   * The participant registers the command when it has the best component of every participant
-   * that is live or can still become live. Pi rejects bus calls from a failed factory, but not
-   * from a factory that the loader dropped, so such a factory still counts as a candidate.
+   * The participant registers the command when it has the best component of every participant that is live or can still become live. Pi rejects bus calls from a failed factory, but not from a factory that the loader dropped, so such a factory still counts as a candidate.
    */
   const ownsCommand = (participant: Participant): boolean => {
     const candidates = coordinator

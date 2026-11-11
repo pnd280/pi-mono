@@ -105,8 +105,7 @@ function contextOf(stats: SessionStats | undefined): Pick<TaskRecord, "context">
 }
 
 /**
- * The child's context use after an event, as Pi counts it: a completed response with usage sets
- * the tokens, and a compaction makes them unknown until the next such response.
+ * The child's context use after an event, as Pi counts it: a completed response with usage sets the tokens, and a compaction makes them unknown until the next such response.
  */
 function liveContext(
   context: TaskRecord["context"],
@@ -124,9 +123,7 @@ function liveContext(
 }
 
 /**
- * A task's record at the start of a run; earlier usage, context, and the cache hit rate carry
- * over. A live run is active with the child's resolved selection. A restored run is cancelled
- * until its `end` replaces the outcome.
+ * A task's record at the start of a run; earlier usage, context, and the cache hit rate carry over. A live run is active with the child's resolved selection. A restored run is cancelled until its `end` replaces the outcome.
  */
 export function startRun(
   run: RunRecord,
@@ -161,11 +158,7 @@ export function startRun(
 }
 
 /**
- * An active run's record after a child event. A completed or aborted response sets the applied
- * model and thinking level; a failed one can name a virtual model that never ran. A finished
- * message adds its usage, including late background usage, and a model request with a prompt
- * sets the cache hit rate. The context use changes as in {@link liveContext}. The run's `end`
- * replaces these live values with exact statistics.
+ * An active run's record after a child event. A completed or aborted response sets the applied model and thinking level; a failed one can name a virtual model that never ran. A finished message adds its usage, including late background usage, and a model request with a prompt sets the cache hit rate. The context use changes as in {@link liveContext}. The run's `end` replaces these live values with exact statistics.
  */
 export function applyEvent(record: TaskRecord, event: JsonAgentSessionEvent): TaskRecord {
   if (record.state !== "active") return record;
@@ -203,8 +196,7 @@ export function stopRun(record: TaskRecord): TaskRecord {
 }
 
 /**
- * The `end` record of an active run. `usage` is the run's statistics difference, absent when
- * unknown. A failed or cancelled run records the first line of its result as the error.
+ * The `end` record of an active run. `usage` is the run's statistics difference, absent when unknown. A failed or cancelled run records the first line of its result as the error.
  */
 export function endRecord(
   record: TaskRecord,
@@ -230,8 +222,7 @@ export function endRecord(
 }
 
 /**
- * A task's record after its run's `end`. `task` is the record from the run's start, so the run's
- * usage adds to the usage of earlier runs only; without it, the total keeps those runs.
+ * A task's record after its run's `end`. `task` is the record from the run's start, so the run's usage adds to the usage of earlier runs only; without it, the total keeps those runs.
  */
 export function endRun(task: TaskRecord, end: EndRecord): TaskRecord {
   const { error: _error, ...rest } = task;
@@ -252,8 +243,7 @@ export function endRun(task: TaskRecord, end: EndRecord): TaskRecord {
 }
 
 /**
- * The tasks whose runs are on one supervisor ancestry. The latest run sets each task's state;
- * a run without an `end` on the ancestry was cancelled, and its usage is unknown.
+ * The tasks whose runs are on one supervisor ancestry. The latest run sets each task's state; a run without an `end` on the ancestry was cancelled, and its usage is unknown.
  */
 export function taskHistory(
   entries: readonly SessionEntry[],

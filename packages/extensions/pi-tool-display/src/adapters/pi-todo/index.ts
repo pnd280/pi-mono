@@ -75,9 +75,7 @@ function titledVerbs(action: TaskAction): HeadingVerbs {
 }
 
 /**
- * Literal scope shared by every todo call so adjacent calls join one group.
- * The value is internal and never displayed for titled groups; keep it distinct
- * from path filters an exploration adapter could produce.
+ * Literal scope shared by every todo call so adjacent calls join one group. The value is internal and never displayed for titled groups; keep it distinct from path filters an exploration adapter could produce.
  */
 const GROUP_SCOPE = "pi-todo:todo";
 
@@ -187,8 +185,7 @@ function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[
 }
 
 /**
- * Presentation for the todo tool's own result envelope. Arguments and results are
- * borrowed and validated; the adapter never changes retained data or model content.
+ * Presentation for the todo tool's own result envelope. Arguments and results are borrowed and validated; the adapter never changes retained data or model content.
  */
 export const todoDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-todo:todo",
