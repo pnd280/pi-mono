@@ -2,7 +2,7 @@
 
 [pi-model-prompt](../README.md)
 
-> Last verified against Pi 1.5.1 with the package checks, the offline host tests, and a source review of the Pi 1.5.0 to 1.5.1 changes. Not covered: live providers, including Anthropic requests that continue a message thread, and manual terminal checks.
+> Last verified against Pi 1.5.2 with the package checks, the offline host tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: live providers, including Anthropic requests that continue a message thread, and manual terminal checks.
 
 ## Upgrade procedure
 
@@ -11,7 +11,7 @@
 
 ## Checklist
 
-The extension adds to the public `before_agent_start` prompt options of Pi 1.5.1. It leaves `APPEND_SYSTEM.md` discovery to Pi.
+The extension adds to the public `before_agent_start` prompt options of Pi 1.5.2. It leaves `APPEND_SYSTEM.md` discovery to Pi.
 
 ### Prompt files
 
@@ -35,8 +35,8 @@ If Pi reused `systemPromptOptions` across runs, the additions would build up. Th
 
 ## Limitations
 
-- Rules match the selected virtual model, not the physical model it routes to; see [virtual models](virtual-models.md). In Pi 1.4.0 to 1.5.1, `context` and `context_with_system` run after routing, but their `ctx.model` is still the selected virtual model. `context_with_system` can change system messages per request without knowing the routed model, and `before_provider_request` receives only a provider-specific payload. If Pi exposes the routed model to a provider-neutral hook, reconsider physical-model rules, keeping in mind that changing system text between requests can reduce prompt-cache reuse.
-- In Pi 1.5.0 and 1.5.1, assistant messages from some providers carry `responseModel`, the model ID reported by the provider. It arrives only with the response, so it cannot select files for that request.
-- In Pi 1.5.1, a request to Anthropic's own endpoint can continue a message thread, and then it leaves out the system prompt. Pi starts a new thread, with the complete system prompt, when the system prompt or the model differs from the previous request's. The additions therefore reach the provider only in the requests that start a thread.
+- Rules match the selected virtual model, not the physical model it routes to; see [virtual models](virtual-models.md). In Pi 1.4.0 to 1.5.2, `context` and `context_with_system` run after routing, but their `ctx.model` is still the selected virtual model. `context_with_system` can change system messages per request without knowing the routed model, and `before_provider_request` receives only a provider-specific payload. If Pi exposes the routed model to a provider-neutral hook, reconsider physical-model rules, keeping in mind that changing system text between requests can reduce prompt-cache reuse.
+- In Pi 1.5.0 to 1.5.2, assistant messages from some providers carry `responseModel`, the model ID reported by the provider. It arrives only with the response, so it cannot select files for that request.
+- In Pi 1.5.1 and 1.5.2, a request to Anthropic's own endpoint can continue a message thread, and then it leaves out the system prompt. Pi starts a new thread, with the complete system prompt, when the system prompt or the model differs from the previous request's. The additions therefore reach the provider only in the requests that start a thread.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.
 - If Pi adds native model-specific prompt files, remove this extension.
