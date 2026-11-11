@@ -178,7 +178,13 @@ class TranscriptView implements Component {
       subject: record && {
         description: record.description,
         id: record.task_id,
-        metadata: taskRows(this.theme, record, parent, this.working?.frame())
+        metadata: taskRows(
+          this.theme,
+          record,
+          parent,
+          this.source?.transcript?.compactions(),
+          this.working?.frame()
+        )
       },
       diagnostics: [
         ...(this.viewer && this.source?.unavailable ? [this.source.unavailable] : []),

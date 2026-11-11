@@ -4,8 +4,10 @@ import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 
 import { launchArgItems, type JobRecord } from "../details.ts";
+import type { Compactions } from "../history/transcript.ts";
 import type { TaskRecord } from "../tasks/records.ts";
 import { elapsed } from "../tasks/render.ts";
 import { contextLabel, status, usageParts } from "./board.ts";
@@ -127,23 +129,49 @@ function statusValue(
 }
 
 /**
- * A task viewer's `status`, `model`, `args`, `usage`, and `error` rows. `parent` is the listed task that
- * launched a descendant. Usage has the format of Pi's token and context widgets.
+ * The latest context use with its share, such as `48k/200k (24.0%)`, or the spinner while the child
+ * compacts; then the compaction count and the tokens before the latest compaction.
+ */
+function contextValues(
+  theme: Theme,
+  record: TaskRecord,
+  compactions: Compactions | undefined,
+  frame: string | undefined
+): string[] {
+  const { context } = record;
+  const share =
+    context && context.tokens !== null
+      ? ` (${((context.tokens / context.window) * 100).toFixed(1)}%)`
+      : "";
+  // As Pi's own compaction indicator: an accent spinner and muted text.
+  const use = compactions?.running
+    ? `${frame ? `${theme.fg("accent", frame)} ` : ""}${theme.fg("muted", "compacting")}`
+    : `${contextLabel(record)}${share}`;
+  // The tokens are known exactly when the branch has a compaction.
+  if (compactions?.tokensBefore === undefined) return [use];
+
+  return [
+    use,
+    theme.fg("customMessageLabel", theme.bold(`compacted ${compactions.count}×`)),
+    `${theme.fg("dim", "last from")} ${formatTokenCount(compactions.tokensBefore)}`
+  ];
+}
+
+/**
+ * A task viewer's `status`, `model`, `usage`, `error`, `context`, and `args` rows. `parent` is the
+ * listed task that launched a descendant. Usage and context have the format of Pi's token and
+ * context widgets; `compactions` comes from the viewed transcript.
  */
 export function taskRows(
   theme: Theme,
   record: TaskRecord,
   parent: TaskRecord | undefined,
+  compactions: Compactions | undefined,
   frame: string | undefined
 ): MetadataRow[] {
-  const { context } = record;
   let mode = "";
   if (record.state === "active")
     mode = record.background ? theme.fg("warning", "background") : theme.fg("muted", "foreground");
-  const share =
-    context && context.tokens !== null
-      ? ` (${((context.tokens / context.window) * 100).toFixed(1)}%)`
-      : "";
 
   return [
     {
@@ -163,13 +191,15 @@ export function taskRows(
         `${theme.fg("dim", "thinking")} ${compactDisplayText(record.thinking)}`
       ]
     },
-    {
-      label: "usage",
-      separator: " • ",
-      values: [usageParts(record, true).join(" "), `${contextLabel(record)}${share}`]
-    },
+    { label: "usage", values: [usageParts(record, true).join(" ")] },
+    // Before context, so the compaction history cannot push the error out of a short header.
     { label: "error", error: true, values: [compactDisplayText(record.error ?? "")] },
-    // Last, so long arguments cannot push usage or an error out of the header.
+    {
+      label: "context",
+      separator: " · ",
+      values: contextValues(theme, record, compactions, frame)
+    },
+    // Last, so long arguments cannot push usage, an error, or context out of the header.
     {
       label: "args",
       separator: " ",
