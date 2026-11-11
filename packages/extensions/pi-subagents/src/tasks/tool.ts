@@ -26,8 +26,7 @@ const PROGRESS_INTERVAL_MS = 1_000;
 const ABORT_REASON = "Cancelled by supervisor";
 
 /**
- * The configured templates with the values that they set; empty without templates. Launch
- * arguments and prompt files are left out, because the model does not choose them.
+ * The configured templates with the values that they set; empty without templates. Launch arguments and prompt files are left out, because the model does not choose them.
  */
 export function templateGuidance(templates: ReadonlyMap<string, Template>): string {
   if (!templates.size) return "";
@@ -49,9 +48,7 @@ export function templateGuidance(templates: ReadonlyMap<string, Template>): stri
 }
 
 /**
- * The built-in guidance states only how tasks work. The template list follows it. Configured
- * `docs` come last and hold the policy, such as when to delegate or which template to use,
- * because docs can add to the guidance but cannot replace it.
+ * The built-in guidance states only how tasks work. The template list follows it. Configured `docs` come last and hold the policy, such as when to delegate or which template to use, because docs can add to the guidance but cannot replace it.
  */
 function toolGuidance(docs: string, templates: string): string {
   return [
@@ -177,8 +174,7 @@ export function createSubagentTool(
             onChange: (next) => {
               details = next;
 
-              // The first update after queueing means the call started a task run. A running call
-              // also shows its elapsed time.
+              // The first update after queueing means the call started a task run. A running call also shows its elapsed time.
               if (next.state !== "queued" && !timer) {
                 delegated();
                 timer = setInterval(update, PROGRESS_INTERVAL_MS);

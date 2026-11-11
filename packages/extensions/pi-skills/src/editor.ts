@@ -4,10 +4,7 @@ import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 type InlineEditor = EditorComponent &
   Pick<Editor, "getLines" | "getCursor" | "isShowingAutocomplete">;
 
-// Pi's editor has no public trigger, and opens its picker for a typed slash only at the start of
-// the message. Reviewed against the Pi 1.5.2 API build and its bundled CLI. Never learn
-// fingerprints from the running host: an unknown editor must keep only Pi's own completion.
-// Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
+// Pi's editor has no public trigger, and opens its picker for a typed slash only at message start. Reviewed against Pi 1.5.2's API build and bundled CLI. Never learn fingerprints from the running host: an unknown editor must keep only Pi's own completion. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
   {
     tryTriggerAutocomplete: "945b59f464acf64fb5c0ac7e5f0181dcc90f2a1f9fb37c8e5b203d9c12b94bc3",
@@ -49,8 +46,7 @@ function isInlineEditor(editor: EditorComponent): editor is InlineEditor {
 }
 
 /**
- * Opens completion when a typed slash starts a token after the start of the message.
- * Returns false, and leaves the editor unchanged, when the editor is not a reviewed Pi editor.
+ * Opens completion when a typed slash starts a token after the start of the message. Returns false, and leaves the editor unchanged, when the editor is not a reviewed Pi editor.
  */
 export function completeInlineSlash(editor: EditorComponent): boolean {
   const trigger = findTrigger(editor);
@@ -71,8 +67,7 @@ export function completeInlineSlash(editor: EditorComponent): boolean {
 
     const lines = editor.getLines();
     const after = editor.getCursor();
-    // Compare text, not key data: terminals can encode a typed slash in more than one way. Pasting,
-    // yanking, or undoing a single slash counts too.
+    // Compare text, not key data: terminals can encode a typed slash in more than one way. Pasting, yanking, or undoing a single slash counts too.
     const typedSlash =
       after.line === before.line &&
       after.col === before.col + 1 &&

@@ -100,8 +100,7 @@ function readTextFile(path: string, setting: "compactionInstructionsFile" | "doc
 }
 
 /**
- * Only absent fields inherit; invalid settings must not silently select another model.
- * `docs` joins the selected files for the `context_window` description and is absent when unset.
+ * Only absent fields inherit; invalid settings must not silently select another model. `docs` joins the selected files for the `context_window` description and is absent when unset.
  */
 export function loadCompactConfig(
   cwd: string,

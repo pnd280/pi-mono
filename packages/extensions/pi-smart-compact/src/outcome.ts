@@ -42,8 +42,7 @@ export async function runRequestedCompaction(
   instructions?: string
 ): Promise<CompactionOutcome> {
   let outcome: CompactionOutcome | undefined;
-  // Native preparation can return early or swallow an error without emitting an
-  // event. Its boolean signals queued continuation, not success or a skip reason.
+  // Native preparation can return early or swallow an error without emitting an event. Its boolean signals queued continuation, not success or a skip reason.
   let skippedReason = "Pi did not start compaction.";
 
   if (!session.model) skippedReason = "No model selected.";

@@ -16,11 +16,7 @@ export type WriteHooks = {
 export type AtomicWriteWarning = "post-commit" | "close";
 
 /**
- * Replace a file under caller-established private parents and an owned lock.
- * Check cancellation before calling; once started, allow the write to finish.
- * Rename commits the mutation: pre-commit errors throw, post-commit failures return
- * warnings. Do not retry a committed write. The parent directory is not fsynced,
- * so process-crash atomicity does not guarantee power-loss durability.
+ * Replace a file under caller-established private parents and an owned lock. Check cancellation before calling; once started, allow the write to finish. Rename commits the mutation: pre-commit errors throw, post-commit failures return warnings. Do not retry a committed write. The parent directory is not fsynced, so process-crash atomicity does not guarantee power-loss durability.
  */
 export async function atomicReplace(
   path: string,

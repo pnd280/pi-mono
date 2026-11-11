@@ -96,8 +96,7 @@ function settingsPath(entry: string, settings: string): string {
 }
 
 /**
- * Pi reads the value of these flags from the file of that name when one exists, relative to the
- * child's working directory, the project.
+ * Pi reads the value of these flags from the file of that name when one exists, relative to the child's working directory, the project.
  */
 const PROMPT_FLAGS: ReadonlySet<string> = new Set(["--system-prompt", "--append-system-prompt"]);
 
@@ -105,10 +104,7 @@ const PROMPT_FLAGS: ReadonlySet<string> = new Set(["--system-prompt", "--append-
 type TemplateRead = { name: string; template: Template } | { name?: string; reason: string };
 
 /**
- * Relative prompt paths, and relative local paths after `-e` and Pi's other path flags in
- * `launchArgs`, resolve from the directory of `path`, the file that holds the template. The child
- * would otherwise resolve them from its working directory, the project. For the same reason,
- * `launchArgs` cannot hold Pi's system prompt flags.
+ * Relative prompt paths, and relative local paths after `-e` and Pi's other path flags in `launchArgs`, resolve from the directory of `path`, the file that holds the template. The child would otherwise resolve them from its working directory, the project. For the same reason, `launchArgs` cannot hold Pi's system prompt flags.
  */
 function readTemplate(value: unknown, path: string): TemplateRead {
   const parsed = templateSchema.safeParse(value);
@@ -239,9 +235,7 @@ function readDocs(paths: readonly string[], warnings: string[]): string {
 }
 
 /**
- * Valid trusted-project values override global values. A project `docs` list replaces the
- * global list; `docs` joins the readable files for the `subagent` description. A valid project
- * template replaces the global template of the same name.
+ * Valid trusted-project values override global values. A project `docs` list replaces the global list; `docs` joins the readable files for the `subagent` description. A valid project template replaces the global template of the same name.
  */
 export function loadConfig(
   cwd: string,

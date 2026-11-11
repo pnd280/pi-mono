@@ -297,8 +297,7 @@ it.each(cases)(
       });
       const session = runtime.session;
       const stream = session.agent.streamFunction;
-      // Pi's session stream resolves auth itself, so a summary must not pass pre-resolved
-      // credentials, which the runtime would take as an explicit API key over a stored OAuth login.
+      // Pi's session stream resolves auth itself, so a summary must not pass pre-resolved credentials, which the runtime would take as an explicit API key over a stored OAuth login.
       const preResolved: string[] = [];
       const runtimeStream = session.modelRuntime.streamSimple.bind(session.modelRuntime);
       vi.spyOn(session.modelRuntime, "streamSimple").mockImplementation(

@@ -31,8 +31,7 @@ type TraversalFrame = {
 };
 
 /**
- * Builds the source-ordered todo forest and rejects malformed relations. Callers
- * that render untrusted replacement state fail closed when this returns undefined.
+ * Builds the source-ordered todo forest and rejects malformed relations. Callers that render untrusted replacement state fail closed when this returns undefined.
  */
 export function deriveTaskHierarchy(tasks: readonly Task[]): TaskHierarchy | undefined {
   const tasksById = indexTasks(tasks);

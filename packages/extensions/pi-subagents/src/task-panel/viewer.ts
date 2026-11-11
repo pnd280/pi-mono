@@ -155,9 +155,7 @@ function builtInRenderers(cwd: string): Map<string, Renderers> {
 }
 
 /**
- * A child transcript in Pi's chat components. Calls never receive `setArgsComplete`, as in
- * Pi's own history, so renderers do not read the current files. Scrolling, keyboard focus,
- * and mounting belong to the caller.
+ * A child transcript in Pi's chat components. Calls never receive `setArgsComplete`, as in Pi's own history, so renderers do not read the current files. Scrolling, keyboard focus, and mounting belong to the caller.
  */
 export class TranscriptViewer extends Container {
   private rows = new Map<string, Row>();

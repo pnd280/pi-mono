@@ -39,9 +39,7 @@ export type RowOptions = {
 };
 
 /**
- * One host's Pi rows: row ownership, visible separators, and input routing. Each
- * transcript binding gets new row state; release drops it, and callbacks that
- * outlive their binding become inert.
+ * One host's Pi rows: row ownership, visible separators, and input routing. Each transcript binding gets new row state; release drops it, and callbacks that outlive their binding become inert.
  */
 export class TranscriptRows {
   private binding: RowBinding | undefined;
@@ -65,9 +63,7 @@ export class TranscriptRows {
   }
 
   /**
-   * A tool definition view with renderer slots. Lookup has only a tool name; Pi
-   * supplies the exact call ID when it constructs the row's renderer slots, before
-   * it inserts that row, so the slots claim their call on first use.
+   * A tool definition view with renderer slots. Lookup has only a tool name; Pi supplies the exact call ID when it constructs the row's renderer slots, before it inserts that row, so the slots claim their call on first use.
    */
   definition(
     definition: RenderDefinition,
@@ -133,11 +129,7 @@ export class TranscriptRows {
   }
 
   /**
-   * Pi's `handleEvent`. A compaction inserts its summary into the binding that is
-   * current when the event settles: success rebinds before it appends the summary,
-   * and a failure appends notices to the original binding. A settled run moves the
-   * user's deferred bash rows into the chat. A binding that outlives the event binds
-   * its new rows.
+   * Pi's `handleEvent`. A compaction inserts its summary into the binding that is current when the event settles: success rebinds before it appends the summary, and a failure appends notices to the original binding. A settled run moves the user's deferred bash rows into the chat. A binding that outlives the event binds its new rows.
    */
   async handleEvent(type: string, handle: () => Promise<void>): Promise<void> {
     const host = this.host;
@@ -197,8 +189,7 @@ class RowBinding {
   claimCall(name: string, id: string): DisplayCall | undefined {
     if (!this.options.active()) return;
 
-    // Calls are append-only until disposal. Stop at the indexed size rather than
-    // exhausting the iterator, so later live calls remain visible to this cursor.
+    // Calls are append-only until disposal. Stop at the indexed size rather than exhausting the iterator, so later live calls remain visible to this cursor.
     while (this.indexedCalls < this.coordinator.calls.size) {
       const entry = this.unindexedCalls.next();
       if (entry.done) break;
@@ -230,9 +221,7 @@ class RowBinding {
 
     return definition && this.definitions.get(definition)?.call;
   }
-  /** Pi appends rows during streaming and reconstruction. Only insertion/removal
-   * within an indexed prefix needs a new predecessor pass, never ordinary events.
-   */
+  /** Pi appends rows during streaming and reconstruction. Only insertion/removal within an indexed prefix needs a new predecessor pass, never ordinary events. */
   private indexChildren(): Component[] {
     if (!this.options.active()) return [];
     const children = this.host.chatContainer?.children;
@@ -270,9 +259,7 @@ class RowBinding {
 
     return added;
   }
-  /** Capture actual insertions, including custom entries inserted before a
-   * streaming assistant. No-op notice hooks neither copy nor scan old children.
-   */
+  /** Capture actual insertions, including custom entries inserted before a streaming assistant. No-op notice hooks neither copy nor scan old children. */
   prepareInsertion(): void {
     this.indexChildren();
   }
@@ -291,9 +278,7 @@ class RowBinding {
       this.boundaryBefore(component);
     }
   }
-  /** A notice joins the preceding owned run, never crossing a visible run boundary.
-   * Inspect actual rows: reconstruction may already have indexed later messages.
-   */
+  /** A notice joins the preceding owned run, never crossing a visible run boundary. Inspect actual rows: reconstruction may already have indexed later messages. */
   private bindNotice(row: CustomMessageComponent, summary: SummaryNotice | undefined): boolean {
     const children = this.host.chatContainer?.children ?? [];
     let owner: ToolExecutionComponent | undefined;
@@ -355,8 +340,7 @@ class RowBinding {
   }
   assistantBoundary(component: Component | undefined): void {
     if (!this.options.active()) return;
-    // Pi keeps rendered text/thinking and generated errors in a child Container.
-    // Final-message middleware can remove previously visible streaming content.
+    // Pi keeps rendered text/thinking and generated errors in a child Container. Final-message middleware can remove previously visible streaming content.
     if (!(component instanceof AssistantMessageComponent)) return;
 
     // Bind each assistant once: a failed or unknown layout keeps Pi's presentation.
@@ -447,9 +431,7 @@ class RowBinding {
     }
   }
   /**
-   * A row without hooks cannot draw run chrome or route expansion, so it releases its
-   * call and draws a standalone card. Boundaries on both sides keep the call out of
-   * groups and runs, so no other call can hide behind it. Collection keeps the call.
+   * A row without hooks cannot draw run chrome or route expansion, so it releases its call and draws a standalone card. Boundaries on both sides keep the call out of groups and runs, so no other call can hide behind it. Collection keeps the call.
    */
   private standalone(child: ToolExecutionComponent, call: DisplayCall): void {
     const definition = rowDefinition(child);

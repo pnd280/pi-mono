@@ -22,8 +22,7 @@ const recordSchema = z.record(z.string(), z.unknown());
 
 let lockfile: typeof ProperLockfile | undefined;
 
-// Every settings reader evaluates this module at startup; only writes need the lock library,
-// which also installs process exit handlers when loaded. Updates are synchronous, so require it.
+// Every settings reader evaluates this module at startup; only writes need the lock library, which also installs process exit handlers when loaded. Updates are synchronous, so require it.
 function loadLockfile(): typeof ProperLockfile {
   const load: (id: string) => typeof ProperLockfile = createRequire(import.meta.url);
 
@@ -72,9 +71,7 @@ function linkTarget(path: string): string | undefined {
 }
 
 /**
- * Pi locks the supplied name, so writers through different aliases of one file take different
- * locks. A symlink's writers therefore also lock its final target, which every alias shares.
- * Both locks are taken in canonical path order, whichever alias the writer uses.
+ * Pi locks the supplied name, so writers through different aliases of one file take different locks. A symlink's writers therefore also lock its final target, which every alias shares. Both locks are taken in canonical path order, whichever alias the writer uses.
  */
 function lockDestination(path: string, target: string | undefined): () => void {
   const { lockSync } = loadLockfile();
@@ -116,8 +113,7 @@ export function updateSettingsRecord(
     if (linkTarget(path) !== link) throw new Error("Settings link changed during the update.");
     const target = link ?? path;
     const record = readSettingsRecord(target);
-    // A void callback type also accepts async functions. Never commit a
-    // record before its mutation finishes.
+    // A void callback type also accepts async functions. Never commit a record before its mutation finishes.
     const outcome: unknown = update(record);
 
     if (
@@ -126,8 +122,7 @@ export function updateSettingsRecord(
       "then" in outcome &&
       typeof outcome.then === "function"
     ) {
-      // The rejected mutation is no longer ours to await, but its rejection
-      // must not surface as an unhandled promise after releasing the lock.
+      // The rejected mutation is no longer ours to await, but its rejection must not surface as an unhandled promise after releasing the lock.
       void Promise.resolve(outcome).catch(() => {});
       throw new TypeError("Settings mutations must be synchronous.");
     }

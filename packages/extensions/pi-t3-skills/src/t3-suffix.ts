@@ -8,8 +8,7 @@ const blockStart = '\n\n<skill name="';
 type ReadSkillBody = (path: string) => Promise<string | undefined>;
 
 /**
- * Rebuilds the text that T3 Code's `input` hook appends to `prompt`, with the same token order,
- * deduplication, native-skill exclusion, unknown-name skips, and unreadable-file skips.
+ * Rebuilds the text that T3 Code's `input` hook appends to `prompt`, with the same token order, deduplication, native-skill exclusion, unknown-name skips, and unreadable-file skips.
  */
 async function t3SkillSuffix(
   prompt: string,
@@ -43,13 +42,9 @@ async function t3SkillSuffix(
 }
 
 /**
- * Removes the skill blocks that T3 Code's `input` hook appended, only when the end of `text` is
- * exactly what that hook builds from the text before it. Otherwise returns `text` unchanged.
+ * Removes the skill blocks that T3 Code's `input` hook appended, only when the end of `text` is exactly what that hook builds from the text before it. Otherwise returns `text` unchanged.
  *
- * Each `\n\n<skill name="` position is a candidate boundary, tried from the last to the first.
- * A later position can't match, because the text before it holds every chip of the real prompt and
- * so rebuilds at least the whole real suffix. The first match is therefore the real boundary, and
- * user text that resembles a block before it stays.
+ * Each `\n\n<skill name="` position is a candidate boundary, tried from the last to the first. A later position can't match, because the text before it holds every chip of the real prompt and so rebuilds at least the whole real suffix. The first match is therefore the real boundary, and user text that resembles a block before it stays.
  */
 export async function removeT3SkillSuffix(
   text: string,

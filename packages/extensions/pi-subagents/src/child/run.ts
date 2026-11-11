@@ -150,8 +150,7 @@ export class ChildRun {
   private finished = false;
   private stopTimer: ReturnType<typeof setTimeout> | undefined;
   /**
-   * The forced stop, or after the child's exit, the stop of its remaining process group. It ends
-   * when the group is gone or its failure was reported.
+   * The forced stop, or after the child's exit, the stop of its remaining process group. It ends when the group is gone or its failure was reported.
    */
   private forced: Promise<void> | undefined;
   private listeners = new Set<(message: ChildMessage) => void>();
@@ -296,10 +295,7 @@ export class ChildRun {
   }
 
   /**
-   * Send a reserved `/subagents` subcommand and return the child's reply; undefined when the
-   * connection was closing and nothing was sent. A `handled` response is not success: Pi also
-   * reports it when the command handler throws. The child writes its reply before Pi writes the
-   * command's response, so a missing reply is reported, never retried.
+   * Send a reserved `/subagents` subcommand and return the child's reply; undefined when the connection was closing and nothing was sent. A `handled` response is not success: Pi also reports it when the command handler throws. The child writes its reply before Pi writes the command's response, so a missing reply is reported, never retried.
    */
   async ask<T>(
     name: string,
@@ -328,9 +324,7 @@ export class ChildRun {
   }
 
   /**
-   * Send a reserved `/subagents` subcommand that has no reply; false when the connection was
-   * closing and nothing was sent. It is not input: it neither invalidates collection nor arms
-   * completion, and its pending response holds stdin open.
+   * Send a reserved `/subagents` subcommand that has no reply; false when the connection was closing and nothing was sent. It is not input: it neither invalidates collection nor arms completion, and its pending response holds stdin open.
    */
   async command(name: string, payload: unknown): Promise<boolean> {
     if (this.closing || this.finished) return false;
@@ -435,8 +429,7 @@ export class ChildRun {
     });
     this.initialised = true;
 
-    // A handled command can start its own model work. Only a command with no run
-    // observed on this connection can complete without an agent_settled event.
+    // A handled command can start its own model work. Only a command with no run observed on this connection can complete without an agent_settled event.
     if (
       response.command === "prompt" &&
       response.data.disposition === "handled" &&
@@ -481,8 +474,7 @@ export class ChildRun {
   }
 
   /**
-   * A reply goes to the request that waits for it; replies that no request matches are dropped.
-   * Only the begun run of this connection exchanges other coordination messages.
+   * A reply goes to the request that waits for it; replies that no request matches are dropped. Only the begun run of this connection exchanges other coordination messages.
    */
   private message(message: ChildMessage): void {
     if (this.finished) return;
@@ -638,9 +630,7 @@ export class ChildRun {
   }
 
   /**
-   * After the stop of the child's process group, EOF normally closes the output pipes. When another
-   * process still holds them, the supervisor closes them once no data arrived over several checks,
-   * or at the bound. Without EOF, more output could follow, so the result notes it.
+   * After the stop of the child's process group, EOF normally closes the output pipes. When another process still holds them, the supervisor closes them once no data arrived over several checks, or at the bound. Without EOF, more output could follow, so the result notes it.
    */
   private async closeOutput(
     child: ChildProcessWithoutNullStreams,
@@ -718,8 +708,7 @@ export class ChildRun {
   }
 
   /**
-   * Output closed before EOF can miss the records that decide the result, so a completed run fails.
-   * The note starts the first line, before the original text, so bounded error lines keep it.
+   * Output closed before EOF can miss the records that decide the result, so a completed run fails. The note starts the first line, before the original text, so bounded error lines keep it.
    */
   private noteOutput(result: ChildResult): ChildResult {
     if (!this.outputIncomplete) return result;

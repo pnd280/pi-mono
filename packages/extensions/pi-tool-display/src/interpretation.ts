@@ -85,11 +85,7 @@ const PRESENTATION_CALLBACKS = new Set<PropertyKey>([
 ] satisfies (keyof ToolDisplayAdapter)[]);
 
 /**
- * Evaluates one call's display adapter and holds its sticky failure. After the
- * selected display adapter fails, interpretation and cards of the call use the
- * generic display adapter while the call keeps that display adapter. The
- * transcript coordinator owns one for each bound call; a standalone card row
- * owns its own.
+ * Evaluates one call's display adapter and holds its sticky failure. After the selected display adapter fails, interpretation and cards of the call use the generic display adapter while the call keeps that display adapter. The transcript coordinator owns one for each bound call; a standalone card row owns its own.
  */
 export class AdapterEvaluator {
   private failed: ToolDisplayAdapter | undefined;
@@ -109,9 +105,7 @@ export class AdapterEvaluator {
   }
 
   /**
-   * Derives metadata atomically, so a failed callback cannot leave consumers
-   * with a mix of specialized and generic facts. The derived value is already
-   * generic after a failure, so no consumer needs a change.
+   * Derives metadata atomically, so a failed callback cannot leave consumers with a mix of specialized and generic facts. The derived value is already generic after a failure, so no consumer needs a change.
    */
   interpret<Value>(derive: (adapter: ToolDisplayAdapter) => Value): Value {
     const adapter = this.adapter;
@@ -127,9 +121,7 @@ export class AdapterEvaluator {
   }
 
   /**
-   * The display adapter that cards read. Fields are read only on access, and
-   * each presentation callback runs through the same guard. The generic display
-   * adapter is not guarded: its failures are renderer failures.
+   * The display adapter that cards read. Fields are read only on access, and each presentation callback runs through the same guard. The generic display adapter is not guarded: its failures are renderer failures.
    */
   presentation(adapter: ToolDisplayAdapter): ToolDisplayAdapter {
     if (adapter === genericAdapter) return adapter;
@@ -166,11 +158,7 @@ export class AdapterEvaluator {
   }
 
   /**
-   * Runs card work. A card that fails runs once more, prepared again with the
-   * generic display adapter, so no card mixes two display adapters. Presentation
-   * callbacks record their own failure; any other error is a failure of this
-   * package's card code for the `interpreted` display adapter. A failure of the
-   * generic card propagates.
+   * Runs card work. A card that fails runs once more, prepared again with the generic display adapter, so no card mixes two display adapters. Presentation callbacks record their own failure; any other error is a failure of this package's card code for the `interpreted` display adapter. A failure of the generic card propagates.
    */
   render<Value>(interpreted: () => ToolDisplayAdapter | undefined, work: () => Value): Value {
     try {
@@ -279,8 +267,7 @@ export function interpretCard(
 }
 
 /**
- * The coordinator caches this snapshot; card bodies remain lazy. `cwd` resolves
- * identities without reading files.
+ * The coordinator caches this snapshot; card bodies remain lazy. `cwd` resolves identities without reading files.
  */
 export function interpret(
   call: DisplayCall,

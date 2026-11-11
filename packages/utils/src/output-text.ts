@@ -10,8 +10,7 @@ export type OutputOmission = {
 };
 
 /**
- * Consumers own notice wording and any surrounding style resets. Mark the notice with
- * `outputOmission`: text outside the returned ranges reads as process output.
+ * Consumers own notice wording and any surrounding style resets. Mark the notice with `outputOmission`: text outside the returned ranges reads as process output.
  */
 export type OmissionFormatter = (omission: OutputOmission) => OutputText;
 

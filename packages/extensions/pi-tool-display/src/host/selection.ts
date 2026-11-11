@@ -14,9 +14,7 @@ import { piTodoAdapter } from "../adapters/pi-todo/index.ts";
 import type { ToolDisplayAdapter, ToolDisplayAdapterResolver } from "../contracts.ts";
 import type { DisplaySettings } from "../settings.ts";
 
-// First matching contract wins. Each entry explicitly opts its verified owner into
-// this display, even when that owner supplies renderer slots. Keep native ownership
-// separate: only the host can establish the factory provenance required for it.
+// First matching contract wins. Each entry explicitly opts its verified owner into this display, even when that owner supplies renderer slots. Keep native ownership separate: only the host can establish the factory provenance required for it.
 const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   piMcpAdapter,
   piTodoAdapter,

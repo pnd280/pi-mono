@@ -24,9 +24,7 @@ export type SummaryLineOptions = {
 type Color = Parameters<DisplayTheme["fg"]>[0];
 
 /**
- * Card colours: the leading verb is an action in `accent` (bold for the line's first
- * item), the count is `text`, and remaining words are `muted`. Sentence case applies
- * unless the leading word is a tool name.
+ * Card colours: the leading verb is an action in `accent` (bold for the line's first item), the count is `text`, and remaining words are `muted`. Sentence case applies unless the leading word is a tool name.
  */
 function styledTemplate(
   template: string,
@@ -90,8 +88,7 @@ function barRow(row: string, width: number, theme: DisplayTheme): string {
 }
 
 /**
- * Pure: one summary line on a full-width bar, wrapped only between items. A marker
- * shows whether the run is open, and the call count sits at the right.
+ * Pure: one summary line on a full-width bar, wrapped only between items. A marker shows whether the run is open, and the call count sits at the right.
  */
 export function renderRunSummary(summary: RunSummary, options: SummaryLineOptions): string[] {
   const { width, theme, open, calls } = options;

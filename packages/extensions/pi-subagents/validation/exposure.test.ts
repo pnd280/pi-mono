@@ -30,8 +30,7 @@ test("keeps tools inactive that an earlier extension turned off at session start
       expect(await lastText(host)).toBe("subagent tools: false false");
       await host.prompt("report-job-tools");
       expect(await lastText(host)).toBe("job tools: false false");
-      // Controls: the four tools were active before the earlier extension turned them off, and
-      // the session_start registration with the configured docs ran.
+      // Controls: the four tools were active before the earlier extension turned them off, and the session_start registration with the configured docs ran.
       expect(
         host.records.some(notifies("denied active tools: subagent subagent_abort job job_abort"))
       ).toBe(true);

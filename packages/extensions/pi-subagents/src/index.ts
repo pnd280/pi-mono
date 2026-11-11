@@ -53,8 +53,7 @@ const FOREIGN_BASH_WARNING =
   "pi-subagents: job and job_abort are off because another extension owns bash";
 
 /**
- * The Pi adapter: it maps Pi's events, tools, and commands to the session binding. Pi gives no
- * options; an in-process host sets `invocation` when its own entry does not start Pi.
+ * The Pi adapter: it maps Pi's events, tools, and commands to the session binding. Pi gives no options; an in-process host sets `invocation` when its own entry does not start Pi.
  */
 export default function subagents(
   pi: ExtensionAPI,
@@ -120,8 +119,7 @@ export default function subagents(
     description:
       "List tasks or jobs, show <task_id> (--since, --limit, --last) or <job_id>, abort <task_id|job_id>, or background [task_id]",
     handler: async (args, ctx) => {
-      // Reserved subcommands from this child's supervisor. Pi reports them as handled even when
-      // they throw; their replies travel through the protocol status.
+      // Reserved subcommands from this child's supervisor. Pi reports them as handled even when they throw; their replies travel through the protocol status.
       const reserved = /^(begin|slot|control) (.*)$/s.exec(args.trim());
 
       if (reserved && depth > 0 && taskId) {
@@ -210,11 +208,7 @@ export default function subagents(
   let registered: string | undefined;
 
   /**
-   * Registers the four tools when their exposure, docs, templates, or delivery changed since the
-   * last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi
-   * activates a `model-only` tool when it is first registered or when its exposure changes to
-   * `model-only`. With `--tools`, every registration activates each listed tool again, which would
-   * undo the active tools that a profile chose; an unchanged registration is therefore skipped.
+   * Registers the four tools when their exposure, docs, templates, or delivery changed since the last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi activates a `model-only` tool when it is first registered or when its exposure changes to `model-only`. With `--tools`, every registration activates each listed tool again, which would undo the active tools that a profile chose; an unchanged registration is therefore skipped.
    */
   const registerTools = (
     tasks: boolean,
@@ -254,8 +248,7 @@ export default function subagents(
     });
   };
 
-  // Registered at load, so Pi activates them before any session_start handler, such as a profile,
-  // chooses the active tools.
+  // Registered at load, so Pi activates them before any session_start handler, such as a profile, chooses the active tools.
   registerTools(true, true, "", "", depth === 0);
 
   /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
@@ -316,8 +309,7 @@ export default function subagents(
     const bound = await binding.current();
     if (bound) remindTasks(pi, bound.tasks, jobsOn ? bound.jobs : undefined);
   });
-  // The revoke runs before any participant's shutdown handler awaits, so no task or job starts,
-  // writes an entry, or delivers a result after shutdown begins. Cleanup then stops them.
+  // The revoke runs before any participant's shutdown handler awaits, so no task or job starts, writes an entry, or delivers a result after shutdown begins. Cleanup then stops them.
   lifecycle.onSessionShutdown(
     () => {
       unsubscribe();

@@ -8,9 +8,7 @@ import { HOLD_CHANNEL, PENDING_RESULT_CHANNEL } from "./provider.ts";
 let report: (() => void) | undefined;
 let reportHold: (() => void) | undefined;
 
-// Delivery takes each result through this seam and holds it until Pi can take it. Pi evaluates
-// this module once for each fresh module graph, so the wrappers apply once to its sources.
-// The wrappers call the real methods with each source as their receiver.
+// Delivery takes each result through this seam and holds it until Pi can take it. Pi evaluates this module once for each fresh module graph, so the wrappers apply once to its sources. The wrappers call the real methods with each source as their receiver.
 // oxlint-disable-next-line typescript/unbound-method
 const subscribe = ResultSource.prototype.subscribe;
 // oxlint-disable-next-line typescript/unbound-method
@@ -32,8 +30,7 @@ ResultSource.prototype.holdsRun = function (this: ResultSource) {
 };
 
 /**
- * pi-subagents for fixture workspaces: it reports each pending background result, and each wait
- * that a source holds, to the provider.
+ * pi-subagents for fixture workspaces: it reports each pending background result, and each wait that a source holds, to the provider.
  */
 export default function fixtureSubagents(pi: ExtensionAPI): void {
   report = () => pi.events.emit(PENDING_RESULT_CHANNEL, undefined);

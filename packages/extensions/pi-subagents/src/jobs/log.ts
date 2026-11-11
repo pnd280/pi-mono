@@ -32,16 +32,13 @@ export function formatLogTail(
 }
 
 /**
- * The end of a job's log file, at most `maxBytes` and `maxLines`. It reads only the file's last
- * bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow
- * a link that replaced the path after `lstat`, but only the same regular file is read.
+ * The end of a job's log file, at most `maxBytes` and `maxLines`. It reads only the file's last bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow a link that replaced the path after `lstat`, but only the same regular file is read.
  */
 export async function readLogTail(
   path: string,
   { maxBytes = DEFAULT_MAX_BYTES, maxLines = DEFAULT_MAX_LINES } = {}
 ): Promise<string> {
-  // Windows has no O_NOFOLLOW or O_NONBLOCK, so the opened file must also be the regular file that
-  // lstat found. Big integers keep 64-bit NTFS file IDs exact.
+  // Windows has no O_NOFOLLOW or O_NONBLOCK, so the opened file must also be the regular file that lstat found. Big integers keep 64-bit NTFS file IDs exact.
   const entry = await lstat(path, { bigint: true });
   if (!entry.isFile()) throw new Error("Job log is not a regular file");
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);

@@ -115,9 +115,7 @@ function* contiguousScore(text: string, start: number, length: number): Steps<nu
 }
 
 /**
- * Pi also scores every contiguous occurrence and keeps the best. A later occurrence scores worse
- * than an earlier one unless only the later one starts at a word boundary, so the first
- * occurrence and the first one at a boundary are the only candidates.
+ * Pi also scores every contiguous occurrence and keeps the best. A later occurrence scores worse than an earlier one unless only the later one starts at a word boundary, so the first occurrence and the first one at a boundary are the only candidates.
  */
 function* bestOccurrence(text: string, query: string): Steps<number | undefined> {
   let first: number | undefined;

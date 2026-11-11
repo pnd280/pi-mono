@@ -48,8 +48,7 @@ function capability(tui: TUI) {
   )
     return;
 
-  // Pi can restore a visible overlay after listeners run, even when current focus
-  // names an inline component. Do not preempt that pending focus handoff.
+  // Pi can restore a visible overlay after listeners run, even when current focus names an inline component. Do not preempt that pending focus handoff.
   const restore: unknown = getRestore.call(tui);
   const pendingOverlay = hasPendingOverlay(restore, focus);
   if (pendingOverlay === undefined) return;

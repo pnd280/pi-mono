@@ -147,10 +147,7 @@ function nested(event: AgentSessionEvent): boolean {
 }
 
 /**
- * Validates a copy of the raw arguments against the current schema with Pi's validator,
- * which removes optional nulls that the schema rejects and converts values. Execution can
- * differ: Pi first applies the tool's `prepareArguments`, which display does not run
- * because it is tool code, and `tool_call` handlers can change the validated copy.
+ * Validates a copy of the raw arguments against the current schema with Pi's validator, which removes optional nulls that the schema rejects and converts values. Execution can differ: Pi first applies the tool's `prepareArguments`, which display does not run because it is tool code, and `tool_call` handlers can change the validated copy.
  */
 function validatedArgs(tool: ToolInfo, args: unknown): unknown {
   try {

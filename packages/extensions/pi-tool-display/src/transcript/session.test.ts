@@ -61,8 +61,7 @@ type LiveCall = {
 };
 
 /**
- * Pi's order: the assistant entry, the start event, observation, the end event, the
- * result message, and then its entry.
+ * Pi's order: the assistant entry, the start event, observation, the end event, the result message, and then its entry.
  */
 function runLive(session: DisplaySession, history: SessionManager, call: LiveCall): DisplayCall {
   const { id, name, args, outcome, timestamp = 1, durationMs } = call;

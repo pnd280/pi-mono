@@ -1,10 +1,7 @@
-// Fail when pnpm-lock.yaml has more than one snapshot of a Pi host package. A second
-// snapshot, such as a stale peer variant left by `vp update`, gives workspace packages
-// two instances of that package, so `instanceof` and module state no longer match Pi's.
+// Fail when pnpm-lock.yaml has more than one snapshot of a Pi host package. A second snapshot, such as a stale peer variant left by `vp update`, gives workspace packages two instances of that package, so `instanceof` and module state no longer match Pi's.
 // Usage: node .agents/skills/pi-update/scripts/host-snapshots.ts
 //
-// The workspace has no YAML parser, so this reads the `snapshots:` map of every YAML document
-// line by line, with the plain or single-quoted keys that pnpm writes.
+// The workspace has no YAML parser, so this reads the `snapshots:` map of every YAML document line by line, with the plain or single-quoted keys that pnpm writes.
 import { readFileSync } from "node:fs";
 
 const hosts = ["pi-agent-core", "pi-ai", "pi-coding-agent", "pi-tui"].map((name) => `@earendil-works/${name}`);

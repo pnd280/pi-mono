@@ -1,6 +1,4 @@
-// Build the tree of the `release` branch: one Pi package that holds every extension and that
-// `pi install git:…` can install with npm, pnpm, or Bun. Then install a copy as Pi does and start
-// the Pi CLI with every extension.
+// Build the tree of the `release` branch: one Pi package that holds every extension and that `pi install git:…` can install with npm, pnpm, or Bun. Then install a copy as Pi does and start the Pi CLI with every extension.
 // Usage: node .scripts/build-release.ts [output-directory]   (default: .tmp/release)
 import { execFileSync } from "node:child_process";
 import {
@@ -23,8 +21,7 @@ const root = resolve(import.meta.dirname, "..");
 const scratch = join(root, ".tmp");
 const output = resolve(process.argv[2] ?? join(scratch, "release"));
 
-// Only clear an existing directory inside .tmp/, so a mistyped argument cannot delete other work.
-// Resolve both paths first, so a symlink in the output path cannot lead outside .tmp/.
+// Only clear an existing directory inside .tmp/, so a mistyped argument cannot delete other work. Resolve both paths first, so a symlink in the output path cannot lead outside .tmp/.
 if (existsSync(output)) {
   const local = existsSync(scratch) ? relative(realpathSync(scratch), realpathSync(output)) : "..";
 
@@ -44,8 +41,7 @@ function packageNames(directory: string): string[] {
     .sort();
 }
 
-// Shared packages go under lib/ and extensions under extensions/. Package names stay the same, so
-// imports between packages resolve through the links that the package manager creates.
+// Shared packages go under lib/ and extensions under extensions/. Package names stay the same, so imports between packages resolve through the links that the package manager creates.
 const sources = [
   ...packageNames(join(root, "packages")).map((name) => ({
     directory: join(root, "packages", name),
@@ -121,9 +117,7 @@ try {
   rmSync(tarballs, { recursive: true, force: true });
 }
 
-// npm and Bun read `workspaces`; pnpm reads pnpm-workspace.yaml. pnpm 12 ignores the
-// `--config.auto-install-peers=false` flag that Pi passes, then installs the Pi host packages and
-// fails on their build scripts, so the workspace file turns peer installs off.
+// npm and Bun read `workspaces`; pnpm reads pnpm-workspace.yaml. pnpm 12 ignores the `--config.auto-install-peers=false` flag that Pi passes, then installs the Pi host packages and fails on their build scripts, so the workspace file turns peer installs off.
 const { version } = z.object({ version: z.string() }).parse(readObject(join(root, "package.json")));
 
 writeJson(join(output, "package.json"), {
@@ -153,8 +147,7 @@ writeFileSync(
   ].join("\n")
 );
 
-// Check a copy outside the workspace, where imports cannot fall back to the workspace's
-// node_modules. Pi supplies only some entry points of its host packages to extensions.
+// Check a copy outside the workspace, where imports cannot fall back to the workspace's node_modules. Pi supplies only some entry points of its host packages to extensions.
 const check = mkdtempSync(join(tmpdir(), "pi-mono-release-check-"));
 
 try {
@@ -168,9 +161,7 @@ try {
     stdio: "inherit"
   });
 
-  // Use the CLI because it maps host packages differently from the SDK. The CLI exits with an
-  // error when an extension fails to load. The offline model lets a good run finish, and it
-  // replies "ok" only when the worker threads start in the installed tree.
+  // Use the CLI because it maps host packages differently from the SDK. The CLI exits with an error when an extension fails to load. The offline model lets a good run finish, and it replies "ok" only when the worker threads start in the installed tree.
   const pi = join(root, "node_modules/.bin/pi");
   const provider = join(import.meta.dirname, "release-check-provider.ts");
   const reply = execFileSync(

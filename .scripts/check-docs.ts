@@ -1,9 +1,4 @@
-// Check workspace Markdown: relative links and heading anchors must resolve, inline
-// `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z"
-// line must name the installed Pi version. Docs outside agent skills and prompt resources must
-// also follow the structural conventions checked by checkConventions(). Every run
-// also checks that each "N extensions" count in the README and the hero image source matches
-// packages/extensions/.
+// Check workspace Markdown: relative links and heading anchors must resolve, inline `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z" line must name the installed Pi version. Docs outside agent skills and prompt resources must also follow the structural conventions checked by checkConventions(). Every run also checks that each "N extensions" count in the README and the hero image source matches packages/extensions/.
 // Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -38,9 +33,7 @@ function readMarkdown(file: string): string {
   return readFileSync(file, "utf8").replace(/\r\n?/g, "\n");
 }
 
-// macOS and Windows file systems ignore case, but Linux and GitHub links do not. Inside the
-// workspace, each path segment must match a directory entry exactly. Both sides use NFC because
-// HFS+ lists names in decomposed form.
+// macOS and Windows file systems ignore case, but Linux and GitHub links do not. Inside the workspace, each path segment must match a directory entry exactly. Both sides use NFC because HFS+ lists names in decomposed form.
 function exists(path: string): boolean {
   if (!existsSync(path)) return false;
   const local = relative(root, path);
@@ -57,8 +50,7 @@ function exists(path: string): boolean {
   return true;
 }
 
-// Fenced blocks, including indented ones in list items, hold examples, not headings or links.
-// Blank lines replace them, so line numbers stay valid.
+// Fenced blocks, including indented ones in list items, hold examples, not headings or links. Blank lines replace them, so line numbers stay valid.
 function withoutFences(text: string): string {
   return text.replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[`~]*[ \t]*$/gm, (block) =>
     block.replace(/[^\n]/g, "")
@@ -102,8 +94,7 @@ function anchors(file: string): Set<string> {
   return found;
 }
 
-// Docs name test seams and patched host methods as `Class.prototype.member`. The class must exist
-// in the Markdown file's package source or in the installed Pi declarations, and declare the member.
+// Docs name test seams and patched host methods as `Class.prototype.member`. The class must exist in the Markdown file's package source or in the installed Pi declarations, and declare the member.
 const prototypeName = /`([A-Za-z_$][\w$]*)\.prototype(?:\.([A-Za-z_$][\w$]*))?(?:\(\))?`/g;
 const memberName =
   /(?:^|[;\n])\s*(?:(?:public|private|protected|static|readonly|declare|abstract|override|async|accessor|get|set)\s+)*\*?([A-Za-z_$][\w$]*)\s*[?!]?\s*[(<:=;]/g;
@@ -157,8 +148,7 @@ function stringEnd(text: string, start: number): number {
   return index + 1;
 }
 
-// The member names of `class name` in `text`, read from the class body at its own nesting level,
-// without strings or comments. Undefined when the text declares no such class.
+// The member names of `class name` in `text`, read from the class body at its own nesting level, without strings or comments. Undefined when the text declares no such class.
 function classMembers(text: string, name: string): Set<string> | undefined {
   const declaration = new RegExp(String.raw`\bclass ${name}\b[^{]*\{`).exec(text);
 
@@ -225,9 +215,7 @@ function checkPrototypeNames(file: string, text: string, name: string): string[]
   return problems;
 }
 
-// The documentation conventions (docs/documentation.md) allow a bold label at the
-// start of a bullet only as the severity and layer of a "Must not regress" invariant
-// (docs/agents/testing.md#coverage), with Critical invariants before High ones in each group.
+// The documentation conventions (docs/documentation.md) allow a bold label at the start of a bullet only as the severity and layer of a "Must not regress" invariant (docs/agents/testing.md#coverage), with Critical invariants before High ones in each group.
 const bulletLabel = /^[ \t]*(?:[-*+]|\d+\.)[ \t]+\*\*([^*\n]+?)(?::\*\*|\*\*:)/;
 const severityLabel = /^(Critical|High), (?:e2e|integration|unit)$/;
 
@@ -330,8 +318,7 @@ function checkTestingGuide(lines: string[], name: string): string[] {
   return problems;
 }
 
-// A compatibility doc opens with one "Last verified" quote line before its first section
-// (docs/documentation.md#writing-for-scanning).
+// A compatibility doc opens with one "Last verified" quote line before its first section (docs/documentation.md#writing-for-scanning).
 const verifiedLine = /^> Last verified against Pi \d+\.\d+\.\d+\b.* with .+\. Not covered: .+\.$/;
 
 function checkCompatibilityDoc(lines: string[], name: string): string[] {
@@ -363,8 +350,7 @@ function checkCompatibilityDoc(lines: string[], name: string): string[] {
   return problems;
 }
 
-// docs/documentation.md#extension-readmes: a jsonc block must be valid JSON once its comments are
-// removed, because Pi reads settings.json as plain JSON. The READMEs put comments on lines of their own.
+// docs/documentation.md#extension-readmes: a jsonc block must be valid JSON once its comments are removed, because Pi reads settings.json as plain JSON. The READMEs put comments on lines of their own.
 function checkJsonc(text: string, name: string): string[] {
   return Array.from(text.matchAll(/^```jsonc\n([\s\S]*?)^```$/gm), ({ 1: body = "", index }) => {
     try {

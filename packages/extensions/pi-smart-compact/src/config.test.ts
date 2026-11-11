@@ -58,8 +58,7 @@ it("selects the first matching rule as a unit, and a bare rule keeps native sele
   expect(selectRule({}, { provider: "provider", id: "main" })).toBeUndefined();
 });
 
-// Unreadable and malformed files are covered end to end; the settings library owns their parsing.
-// Other unknown keys share configSchema strictness with { unknown: true }.
+// Unreadable and malformed files are covered end to end; the settings library owns their parsing. Other unknown keys share configSchema strictness with { unknown: true }.
 it.each([
   section(null),
   section({ rules: [{ model: "provider/id" }] }),

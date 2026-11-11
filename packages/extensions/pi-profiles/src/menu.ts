@@ -48,8 +48,7 @@ function reach({ tool, status, search, group }: ToolReport): string[] {
       "Its exposure and Pi's codemode mode decide whether the model can call it directly."
     ];
 
-  // Codemode scripts call inactive `codemode` and `deferred` tools. Such a tool is off only when
-  // the profile denies it, so that pi-profiles' tool_search leaves it out.
+  // Codemode scripts call inactive `codemode` and `deferred` tools. Such a tool is off only when the profile denies it, so that pi-profiles' tool_search leaves it out.
   const scripted = tool.exposure === "codemode" || tool.exposure === "deferred";
 
   if (status === "off") {

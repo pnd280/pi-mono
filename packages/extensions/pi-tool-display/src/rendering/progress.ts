@@ -107,8 +107,7 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
   const separator = theme.fg("dim", " · ");
   // Style the status before wrapping so continuation rows keep its colour.
   const title = `${theme.fg(colors.label, theme.bold(displayLine(progress.label)))} ${displayLine(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
-  // Wrapped title rows, metadata, and details lead into the result branch with a guide;
-  // without a body, they use a plain indent. A collapsed card shows a body only for a result preview.
+  // Wrapped title rows, metadata, and details lead into the result branch with a guide; without a body, they use a plain indent. A collapsed card shows a body only for a result preview.
   const hasBody = p.result !== undefined && (p.expanded || progress.resultPreview === true);
   const indent = hasBody ? `  ${theme.fg("dim", TUI_GLYPHS.tree.guide)} ` : "    ";
   const detailWidth = Math.max(1, p.width - 4);

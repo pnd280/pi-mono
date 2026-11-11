@@ -132,8 +132,7 @@ function summaryLines(
 }
 
 export function createSummaryRenderer() {
-  // Pi rebuilds entry components on invalidation. Keep local expansion across
-  // rebuilds, but let changes to the global tool-output toggle take precedence.
+  // Pi rebuilds entry components on invalidation. Keep local expansion across rebuilds, but let changes to the global tool-output toggle take precedence.
   const states = new WeakMap<CustomEntry, { expanded: boolean; globalExpanded: boolean }>();
 
   return function renderSummary(

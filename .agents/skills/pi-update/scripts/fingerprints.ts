@@ -1,11 +1,6 @@
-// Hash every fingerprinted private Pi method in the workspace API build and the
-// bundled CLI build, then report whether each owner file already lists the hash.
-// It also fails when a workspace source file lists a hash that no method in
-// `owners` produces, so a new or stale fingerprint cannot go unnoticed. Version-
-// aware hook owners must also pin the public version reported by both builds.
+// Hash every fingerprinted private Pi method in the workspace API build and the bundled CLI build, then report whether each owner file already lists the hash. It also fails when a workspace source file lists a hash that no method in `owners` produces, so a new or stale fingerprint cannot go unnoticed. Version-aware hook owners must also pin the public version reported by both builds.
 // Usage: node .agents/skills/pi-update/scripts/fingerprints.ts
-// Keep this file TypeScript: the bundled CLI maps Pi imports in .ts extensions to
-// its bundled classes, but loads .mjs natively, which would hash the API build twice.
+// Keep this file TypeScript: the bundled CLI maps Pi imports in .ts extensions to its bundled classes, but loads .mjs natively, which would hash the API build twice.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
@@ -100,8 +95,7 @@ function listedHashes(): Map<string, Set<string>> {
   const listed = new Map<string, Set<string>>();
 
   for (const file of files) {
-    // The index still lists unstaged deletions and moves. Missing declared owners
-    // are diagnosed separately below; there is no working-tree source to scan here.
+    // The index still lists unstaged deletions and moves. Missing declared owners are diagnosed separately below; there is no working-tree source to scan here.
     if (!existsSync(file)) continue;
     const hashes = new Set(Array.from(readFileSync(file, "utf8").matchAll(/["']([0-9a-f]{64})["']/g), ([, hash = ""]) => hash));
 
@@ -186,8 +180,7 @@ function cliFingerprints(): Fingerprints {
   }
 }
 
-// The module URL is a real path; argv[1] keeps symlinks such as macOS /tmp -> /private/tmp.
-// Without realpath the check would print nothing and pass.
+// The module URL is a real path; argv[1] keeps symlinks such as macOS /tmp -> /private/tmp. Without realpath the check would print nothing and pass.
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const builds = { api: fingerprints(), cli: cliFingerprints() };
   const listed = listedHashes();

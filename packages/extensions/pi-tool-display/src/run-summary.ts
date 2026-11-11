@@ -73,8 +73,7 @@ export type RunSummary = {
 };
 
 /**
- * Built-in, then adapter-declared categories. Other IDs count per tool name; an
- * undeclared adapter category counts under its ID.
+ * Built-in, then adapter-declared categories. Other IDs count per tool name; an undeclared adapter category counts under its ID.
  */
 function resolveCategory(
   id: string,

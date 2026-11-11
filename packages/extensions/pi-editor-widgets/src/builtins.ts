@@ -37,9 +37,7 @@ type Usage = {
 const usageCache = new WeakMap<AgentSession, Usage>();
 
 /**
- * Usage totals and context usage scan the whole session, and widgets render on every frame.
- * Entries are append-only and every append moves the leaf, so, as in Pi's native footer, the
- * results change only with the session, leaf, entry count, or the model whose limits apply.
+ * Usage totals and context usage scan the whole session, and widgets render on every frame. Entries are append-only and every append moves the leaf, so, as in Pi's native footer, the results change only with the session, leaf, entry count, or the model whose limits apply.
  */
 function usageOf(session: AgentSession): Usage {
   const manager = session.sessionManager;

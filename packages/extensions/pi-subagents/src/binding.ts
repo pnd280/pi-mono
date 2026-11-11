@@ -14,8 +14,7 @@ type TasksOptions = ConstructorParameters<typeof Tasks>[2];
 type JobsOptions = ConstructorParameters<typeof Jobs>[1];
 
 /**
- * What a binding uses of the Pi session that opens it. The adapter reads it from the context of
- * the event that opens the binding.
+ * What a binding uses of the Pi session that opens it. The adapter reads it from the context of the event that opens the binding.
  */
 export type BindingSession = {
   config: SubagentsConfig;
@@ -48,16 +47,14 @@ type Opened = {
   /** Removes the bound tasks' results from delivery. */
   release: () => void;
   /**
-   * The stop of the tasks that the latest session change stopped. It never rejects: the caller that
-   * stopped them reports a failed cleanup.
+   * The stop of the tasks that the latest session change stopped. It never rejects: the caller that stopped them reports a failed cleanup.
    */
   stopped: Promise<void>;
   widget: { dispose(): void };
 };
 
 /**
- * The leaf that Pi selects for a tree navigation to `targetId`: the parent of a user or custom
- * message, otherwise the target.
+ * The leaf that Pi selects for a tree navigation to `targetId`: the parent of a user or custom message, otherwise the target.
  */
 export function navigationLeaf(target: SessionEntry | undefined, targetId: string): string | null {
   return (target?.type === "message" && target.message.role === "user") ||
@@ -67,22 +64,15 @@ export function navigationLeaf(target: SessionEntry | undefined, targetId: strin
 }
 
 /**
- * The supervisor's session binding: its tasks, jobs, delivery, and views for one session and
- * selected ancestry. Transitions run one at a time, in the order of their calls.
+ * The supervisor's session binding: its tasks, jobs, delivery, and views for one session and selected ancestry. Transitions run one at a time, in the order of their calls.
  *
- * - `open` binds to a session at its start, and to the new ancestry when a navigation is final. An
- *   open binding stops first.
- * - `beforeChange` stops the tasks before a navigation, fork, or switch. Jobs keep running and
- *   their results wait, because a later extension can still cancel the change; see ADR 0005.
- * - `current` gives the open tasks and views. Pi emits no event when a change is cancelled, so
- *   after a change that stopped the tasks, the next interaction reopens them on the current branch.
- * - `revoke` starts the session's end synchronously: the binding opens and gives nothing, and its
- *   tasks, jobs, and delivery start, write, and deliver nothing. Pi does not use an extension
- *   instance after its shutdown, so a revoked binding stays revoked.
+ * - `open` binds to a session at its start, and to the new ancestry when a navigation is final. An open binding stops first.
+ * - `beforeChange` stops the tasks before a navigation, fork, or switch. Jobs keep running and their results wait, because a later extension can still cancel the change; see ADR 0005.
+ * - `current` gives the open tasks and views. Pi emits no event when a change is cancelled, so after a change that stopped the tasks, the next interaction reopens them on the current branch.
+ * - `revoke` starts the session's end synchronously: the binding opens and gives nothing, and its tasks, jobs, and delivery start, write, and deliver nothing. Pi does not use an extension instance after its shutdown, so a revoked binding stays revoked.
  * - `close` stops the tasks, jobs, delivery, and views when the session ends.
  *
- * A transition that stops tasks or jobs rejects after the stops end when a cleanup of their
- * processes failed, so Pi reports the failure as an error of the event's handler.
+ * A transition that stops tasks or jobs rejects after the stops end when a cleanup of their processes failed, so Pi reports the failure as an error of the event's handler.
  */
 export class SessionBinding {
   private opened: Opened | undefined;
@@ -162,8 +152,7 @@ export class SessionBinding {
   }
 
   /**
-   * Opens the tasks again after a change that stopped them. If the change is still in progress,
-   * such as during a branch summary, its final event stops them again.
+   * Opens the tasks again after a change that stopped them. If the change is still in progress, such as during a branch summary, its final event stops them again.
    */
   private async reopen(): Promise<Bound | undefined> {
     const opened = this.opened;
@@ -233,8 +222,7 @@ export class SessionBinding {
   }
 
   /**
-   * Runs that a change stops stay cancelled: the stopped tasks append no end entry. Only the
-   * returned stop of the bound tasks rejects with a failed cleanup, so it is reported once.
+   * Runs that a change stops stay cancelled: the stopped tasks append no end entry. Only the returned stop of the bound tasks rejects with a failed cleanup, so it is reported once.
    */
   private stopTasks(opened: Opened, immediate: boolean): Promise<void> {
     const { bound } = opened;

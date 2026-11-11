@@ -25,8 +25,7 @@ export default function nestedInstructions(pi: ExtensionAPI) {
     if (event.message.role !== "assistant") return;
 
     try {
-      // Issued inputs count even if validation or a guard blocked execution.
-      // Never inspect event.toolResults, including their success status.
+      // Issued inputs count even if validation or a guard blocked execution. Never inspect event.toolResults, including their success status.
       for (const call of event.message.content) {
         if (call.type !== "toolCall") continue;
         calls.push({
@@ -64,8 +63,7 @@ export default function nestedInstructions(pi: ExtensionAPI) {
     // Discovery never prevents starting or reloading a session.
     const messages = await refresh(ctx.cwd, ctx.sessionManager).catch(() => []);
     if (!messages.length) return;
-    // An idle sendMessage appends at once. At rank 100, the messages precede the startup entries
-    // of pi-profiles (rank 200) in every load order.
+    // An idle sendMessage appends at once. At rank 100, the messages precede the startup entries of pi-profiles (rank 200) in every load order.
     arrival.commit(100, () => {
       for (const message of messages) pi.sendMessage(message, { triggerTurn: false });
     });

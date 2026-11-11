@@ -10,8 +10,7 @@ const ERR_COLLAPSE_REQUIRES_FULLSCREEN =
 
 const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 
-// The browser view and its shared TUI components load on first use, not at startup.
-// Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
+// The browser view and its shared TUI components load on first use, not at startup. Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
 const importBrowserModules = () =>
   Promise.all([import("@pi-mono/libs/tui/responsive-custom-ui"), import("./ui/todos-view.ts")]);
 let browserModules: ReturnType<typeof importBrowserModules> | undefined;

@@ -17,8 +17,7 @@ function guardEditor(editor: EditorComponent, holdInterrupt: () => boolean): voi
   const guarded: EditorComponent & Partial<Pick<CustomEditor, "onEscape">> = editor;
 
   guarded.handleInput = (data) => {
-    // Pi sets onEscape after the factory returns, so read it at key time.
-    // Let the editor resolve shortcuts, paste bindings, and autocomplete before guarding an interrupt.
+    // Pi sets onEscape after the factory returns, so read it at key time. Let the editor resolve shortcuts, paste bindings, and autocomplete before guarding an interrupt.
     const onEscape = guarded.onEscape;
 
     if (onEscape)

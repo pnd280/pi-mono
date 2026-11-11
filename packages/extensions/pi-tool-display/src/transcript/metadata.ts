@@ -20,8 +20,7 @@ const callRecordSchema = z.object({
   /** The call was cancelled, for any tool; Pi's result has no cancellation flag. */
   cancelled: z.literal(true).optional(),
   /**
-   * Native observation saw an operation; the fields below refine it. Pi's duration
-   * shows only that the tool ran, not that the operation started.
+   * Native observation saw an operation; the fields below refine it. Pi's duration shows only that the tool ran, not that the operation started.
    */
   operation: z.literal(true).optional(),
   /** The observed operation failed, independently of Pi's result and call cancellation. */

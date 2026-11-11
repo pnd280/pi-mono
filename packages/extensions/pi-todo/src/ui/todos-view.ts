@@ -376,8 +376,7 @@ export class TodosView implements Component {
   }
 
   /**
-   * Children hang from the status glyph, so wrapped rows align after it and carry a stem down to
-   * the children, after the ancestors' guides and this todo's own sibling guide.
+   * Children hang from the status glyph, so wrapped rows align after it and carry a stem down to the children, after the ancestors' guides and this todo's own sibling guide.
    */
   private entryRows(index: number, width: number, marker: string): string[] {
     const { theme } = this.options;

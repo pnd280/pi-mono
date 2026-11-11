@@ -205,8 +205,7 @@ function wordPattern(word: Word): boolean {
 }
 
 /**
- * On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Map the Git Bash and MSYS2 drive
- * path `/c/dir` to `c:/dir`, and skip other POSIX-rooted paths, whose mount root is unknown.
+ * On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Map the Git Bash and MSYS2 drive path `/c/dir` to `c:/dir`, and skip other POSIX-rooted paths, whose mount root is unknown.
  */
 function nativeHint(hint: PathHint): PathHint | undefined {
   if (path.sep !== "\\" || !hint.value.startsWith("/")) return hint;

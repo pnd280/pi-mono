@@ -13,17 +13,14 @@ const characterLimitSchema = z.int().min(2);
 export function wrapRows(text: string, width: number): string[] {
   if (width < 1 || text === "") return [];
 
-  // Wrapping normally fits already. Avoid re-segmenting every styled row just
-  // to return it unchanged, including rows a compact preview will discard.
-  // Still clamp wide graphemes that cannot fit in a one-column viewport.
+  // Wrapping normally fits already. Avoid re-segmenting every styled row just to return it unchanged, including rows a compact preview will discard. Still clamp wide graphemes that cannot fit in a one-column viewport.
   return wrapTextWithAnsi(text, width).map((row) =>
     visibleWidth(row) > width ? truncateToWidth(row, width, "") : row
   );
 }
 
 /**
- * Puts styled items on rows of `width`, broken only between items, so no row ends with
- * `separator`. An item wider than `width` wraps on its own rows.
+ * Puts styled items on rows of `width`, broken only between items, so no row ends with `separator`. An item wider than `width` wraps on its own rows.
  */
 export function pack(items: readonly string[], separator: string, width: number): string[] {
   const rows: string[] = [];

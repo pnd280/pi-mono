@@ -52,8 +52,7 @@ const RUN_HELD = "run-held";
 const IDLE_RELEASE = "idle-release";
 
 /**
- * A `late-dialogs` child writes the answers that its open select and editor dialogs receive to
- * these files, `cancelled` for a cancelled dialog and `value <answer>` otherwise.
+ * A `late-dialogs` child writes the answers that its open select and editor dialogs receive to these files, `cancelled` for a cancelled dialog and `value <answer>` otherwise.
  */
 export const LATE_DIALOG_ANSWERS = { select: "late-select-answer", editor: "late-editor-answer" };
 
@@ -89,10 +88,7 @@ type Call =
   | { tool: "read"; path: string };
 
 /**
- * A Perl script that moves to its own process group and leaves a zombie child in the group of its
- * starter. The script reaps the zombie only on SIGTERM. A zombie ignores signals, and the script is
- * outside that group, so a forced stop of the group cannot remove the zombie. The script records
- * both PIDs in `zombie-pids`; the test stops it.
+ * A Perl script that moves to its own process group and leaves a zombie child in the group of its starter. The script reaps the zombie only on SIGTERM. A zombie ignores signals, and the script is outside that group, so a forced stop of the group cannot remove the zombie. The script records both PIDs in `zombie-pids`; the test stops it.
  */
 const GROUP_ZOMBIE_SCRIPT =
   "$g = getpgrp; setpgid(0, 0); $c = fork; if (!$c) { setpgid(0, $g); exit } " +
@@ -100,8 +96,7 @@ const GROUP_ZOMBIE_SCRIPT =
   "print F join(' ', $$, $c); close F; rename 'zombie-pids.tmp', 'zombie-pids'; sleep 600";
 
 /**
- * Fixed job commands; prompt text never becomes a command. They run in the supervisor's working
- * directory, where the tests create the barrier files.
+ * Fixed job commands; prompt text never becomes a command. They run in the supervisor's working directory, where the tests create the barrier files.
  */
 const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
   ["fast", { command: "printf 'Fixture job output'" }],
@@ -114,8 +109,7 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
     "waited",
     { command: "while [ ! -e run-held ]; do sleep 0.05; done; printf 'Fixture job output'" }
   ],
-  // Field 5 of the stat line is the process group. Both sleeps fork into it before the marker, so a
-  // stop of the shell alone leaves the group alive.
+  // Field 5 of the stat line is the process group. Both sleeps fork into it before the marker, so a stop of the shell alone leaves the group alive.
   ["group", { command: "sleep 600 & sleep 600 & cut -d ' ' -f 5 /proc/$$/stat > job-group; wait" }],
   // A numbered line five times a second until `job-release` exists, for the manual log viewer checks.
   [
@@ -150,8 +144,7 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
 ]);
 
 /**
- * `job-<kind>`, also with `-hold`, starts one job; `held-job-<kind>` starts one with `hold_run`;
- * `job-abort-id <job_id>` aborts one.
+ * `job-<kind>`, also with `-hold`, starts one job; `held-job-<kind>` starts one with `hold_run`; `job-abort-id <job_id>` aborts one.
  */
 function jobPlan(scenario: string): Call[] | undefined {
   const abort = /^job-abort-id (\S+)$/.exec(scenario)?.[1];
@@ -250,9 +243,7 @@ const owned = (flag: string, owner: string) =>
   `launch_args cannot contain ${flag}: use the ${owner} parameter`;
 
 /**
- * Last launch arguments that fail the call, each with its error: every flag that another parameter
- * owns, one in `flag=value` form, `--`, which would hide the extension's trust flag, and a flag
- * that needs a value.
+ * Last launch arguments that fail the call, each with its error: every flag that another parameter owns, one in `flag=value` form, `--`, which would hide the extension's trust flag, and a flag that needs a value.
  */
 export const REJECTED_LAUNCH_ARGS: readonly (readonly [string, string])[] = [
   ["--model", owned("--model", "model")],
@@ -275,8 +266,7 @@ export const REJECTED_LAUNCH_ARGS: readonly (readonly [string, string])[] = [
 ];
 
 /**
- * A launch with launch arguments, one call for each rejected argument in one turn, and a resume that
- * omits them. Each child reports its argv.
+ * A launch with launch arguments, one call for each rejected argument in one turn, and a resume that omits them. Each child reports its argv.
  */
 function launchArgsPlan(scenario: string): Call[] | undefined {
   const launchArgs = [`--${LAUNCH_FLAG}`, "marker"];
@@ -312,8 +302,7 @@ export const FIXTURE_TEMPLATE = {
 };
 
 /**
- * Global templates: `fixture`, from `TEMPLATE_FILE`, is the only valid one. The two inline ones are
- * left out, one for an unknown field and one for a prompt file that does not exist.
+ * Global templates: `fixture`, from `TEMPLATE_FILE`, is the only valid one. The two inline ones are left out, one for an unknown field and one for a prompt file that does not exist.
  */
 export const FIXTURE_TEMPLATES = [
   TEMPLATE_FILE,
@@ -328,8 +317,7 @@ export const FIXTURE_TEMPLATES = [
 const unknownTemplate = (name: string) => `Unknown template ${name}; the templates are fixture`;
 
 /**
- * Template calls that fail with `FIXTURE_TEMPLATES`, each with its error: an unknown name, the two
- * templates that are left out, and a call flag that the template also sets.
+ * Template calls that fail with `FIXTURE_TEMPLATES`, each with its error: an unknown name, the two templates that are left out, and a call flag that the template also sets.
  */
 export const REJECTED_TEMPLATE_CALLS: readonly (readonly [
   { template: string; launch_args?: string[] },
@@ -345,17 +333,12 @@ export const REJECTED_TEMPLATE_CALLS: readonly (readonly [
 ];
 
 /**
- * The global templates that `delegate-origins` calls in one turn, in order: `origin`, whose
- * `launchArgs` name extension and skill paths, and two templates whose `launchArgs` hold a system
- * prompt flag. Each child reports its origins.
+ * The global templates that `delegate-origins` calls in one turn, in order: `origin`, whose `launchArgs` name extension and skill paths, and two templates whose `launchArgs` hold a system prompt flag. Each child reports its origins.
  */
 export const ORIGIN_TEMPLATES = ["origin", "system-prompt", "append-system-prompt"] as const;
 
 /**
- * Three `fixture` template calls in one turn, which the descriptions name: with launch arguments,
- * with a call thinking level, and with a call model. Each child reports its selection and argv.
- * Also a `fixture` resume of the task that the scenario names, the rejected template calls in one
- * turn, a call of the `project` template, and the `ORIGIN_TEMPLATES` calls.
+ * Three `fixture` template calls in one turn, which the descriptions name: with launch arguments, with a call thinking level, and with a call model. Each child reports its selection and argv. Also a `fixture` resume of the task that the scenario names, the rejected template calls in one turn, a call of the `project` template, and the `ORIGIN_TEMPLATES` calls.
  */
 function templatePlan(scenario: string): Call[] | undefined {
   if (scenario === "delegate-template")
@@ -569,9 +552,7 @@ async function holdToolTurn(
 }
 
 /**
- * Keeps a child running: `finite` briefly; `finite-idle` also until `idle-release`;
- * `finite-late` and `input-hold` until `run-release`; `capacity-hold-<n>` until
- * `capacity-release-<n>`.
+ * Keeps a child running: `finite` briefly; `finite-idle` also until `idle-release`; `finite-late` and `input-hold` until `run-release`; `capacity-hold-<n>` until `capacity-release-<n>`.
  */
 async function holdChildReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
   const held = /^capacity-hold-(\d)$/.exec(scenario)?.[1];
@@ -583,8 +564,7 @@ async function holdChildReply(scenario: string, signal: AbortSignal | undefined)
 }
 
 /**
- * The promoted task ends when the test releases it after the turn abort. The read and write tasks
- * keep their activity visible for the manual checks.
+ * The promoted task ends when the test releases it after the turn abort. The read and write tasks keep their activity visible for the manual checks.
  */
 async function holdActivityReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
   if (scenario === "activity-promote") await runRelease(signal);
@@ -598,8 +578,7 @@ async function releaseLateTask(scenario: string, completions: number): Promise<v
 }
 
 /**
- * Waits until `file` exists or the run is aborted. The test creates `run-release`, except in
- * `background-pair`, whose supervisor creates it for its late task.
+ * Waits until `file` exists or the run is aborted. The test creates `run-release`, except in `background-pair`, whose supervisor creates it for its late task.
  */
 async function runRelease(signal: AbortSignal | undefined, file = "run-release"): Promise<void> {
   while (!existsSync(join(process.cwd(), file))) await setTimeout(25, undefined, { signal });
@@ -1037,16 +1016,14 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       "group-zombie"
     ].includes(prompt ?? "");
 
-    // A member of this child's process group that ignores SIGTERM and has its own standard
-    // streams, so the child's exit on SIGTERM closes the connection while the member runs.
+    // A member of this child's process group that ignores SIGTERM and has its own standard streams, so the child's exit on SIGTERM closes the connection while the member runs.
     if (prompt === "group-survivor") {
       spawn("sh", ["-c", "trap '' TERM; exec sleep 600"], { cwd: ctx.cwd, stdio: "ignore" });
       // Pi's RPC mode ignores the first SIGTERM during its shutdown. This child exits on it.
       process.removeAllListeners("SIGTERM");
     }
 
-    // Ordinary stderr output of a child supervisor before its tasks' cleanup failures: more than
-    // the kept stderr excerpt, then an unfinished line. Its shutdown writes more output after them.
+    // Ordinary stderr output of a child supervisor before its tasks' cleanup failures: more than the kept stderr excerpt, then an unfinished line. Its shutdown writes more output after them.
     if (prompt === "background-group-zombie") {
       noisyShutdown = true;
       await writeStderr(`${STDERR_NOISE}fixture progress 50%`);
@@ -1126,8 +1103,7 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   pi.on("agent_settled", async (_event, ctx) => {
     if (!settleHold) return;
     settleHold = false;
-    // Pi defers input that arrives during this hook. The hook ends only after the input arrives,
-    // so the supervisor sends it before it sees `agent_settled` and cannot collect the run first.
+    // Pi defers input that arrives during this hook. The hook ends only after the input arrives, so the supervisor sends it before it sees `agent_settled` and cannot collect the run first.
     const input = nextPromptCommand();
     await writeFile(join(ctx.cwd, "settle-ready"), ctx.sessionManager.getSessionId());
     await input;

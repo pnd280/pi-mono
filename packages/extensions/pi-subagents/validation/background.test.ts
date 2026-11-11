@@ -58,8 +58,7 @@ async function zombieInGroup(directory: string, expect: ExpectStatic): Promise<v
 }
 
 /**
- * Before the fixture's cleanup: the zombie's parent is outside the group; on SIGTERM, it reaps the
- * zombie and exits. Setup can fail before the PIDs are recorded.
+ * Before the fixture's cleanup: the zombie's parent is outside the group; on SIGTERM, it reaps the zombie and exits. Setup can fail before the PIDs are recorded.
  */
 async function stopZombie(directory: string, expect: ExpectStatic): Promise<void> {
   const pids = await zombiePids(directory);
@@ -286,8 +285,7 @@ test("reports a descendant's failed process cleanup in the cancelled result and 
 }) => {
   await fixture(async (host, directory) => {
     try {
-      // The child supervisor's grandchild leaves a zombie; the child writes other stderr around the
-      // failure that it forwards.
+      // The child supervisor's grandchild leaves a zombie; the child writes other stderr around the failure that it forwards.
       await host.reply("background-nested-zombie");
       const [task] = await taskList(host);
       await zombieInGroup(directory, expect);
@@ -319,8 +317,7 @@ test("reports a child supervisor's failed job cleanup at its exit in the task re
   await fixture(
     async (host, directory) => {
       try {
-        // The child's job leaves a zombie in the job's process group; the child exits after its
-        // final reply, which waits for `run-release`.
+        // The child's job leaves a zombie in the job's process group; the child exits after its final reply, which waits for `run-release`.
         const work = host.prompt("delegate-job-zombie");
         await zombieInGroup(directory, expect);
         await release(directory, "run-release");

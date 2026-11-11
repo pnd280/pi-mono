@@ -39,12 +39,9 @@ export async function layoutPreview(
     offset = Math.max(scanEnd, end);
     if (end < 0) continue;
 
-    // Only complete logical lines are independently wrappable. Pi's fast path
-    // preserves whitespace on lines that fit, and its wrapped rows are not
-    // resumable source fragments. A single long logical line stays atomic.
+    // Only complete logical lines are independently wrappable. Pi's fast path preserves whitespace on lines that fit, and its wrapped rows are not resumable source fragments. A single long logical line stays atomic.
     const wrapped = wrapTextWithAnsi(prefix + text.slice(start, end), wrapWidth);
-    // A nonfinal batch ends in a real newline. Its final empty logical line
-    // contains precisely Pi's active ANSI prefix for the following batch.
+    // A nonfinal batch ends in a real newline. Its final empty logical line contains precisely Pi's active ANSI prefix for the following batch.
     if (end < text.length) prefix = wrapped.pop() ?? "";
     for (const line of wrapped) lines.push(line);
     start = end;

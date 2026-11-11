@@ -76,8 +76,7 @@ export function settingsSection<Value>(
 
       try {
         updateSettingsRecord(path, (record) => {
-          // Replace only the owned field, including an invalid old value. Reject malformed
-          // sections instead of discarding unrelated data to repair them.
+          // Replace only the owned field, including an invalid old value. Reject malformed sections instead of discarding unrelated data to repair them.
           const section = record[key] === undefined ? {} : record[key];
           if (!isSettingsRecord(section)) throw new Error("Settings section must be an object.");
           record[key] = { ...section, [field]: parsed.data };

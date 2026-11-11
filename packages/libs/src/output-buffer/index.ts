@@ -39,8 +39,7 @@ class RetainedLine {
         return;
       }
 
-      // Split only oversized lines: a character may fit the full budget but neither half.
-      // Once split, never fill a head boundary gap with later, narrower characters.
+      // Split only oversized lines: a character may fit the full budget but neither half. Once split, never fill a head boundary gap with later, narrower characters.
       this.spilled = true;
       this.head = utf8Prefix(complete, Math.ceil(this.options.lineBytes / 2));
       this.tail = utf8Suffix(

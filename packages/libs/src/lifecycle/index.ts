@@ -28,8 +28,7 @@ export type LifecycleParticipant = {
   /** Registers a `session_start` handler that takes part in the startup barrier. */
   onSessionStart(handler: StartupHandler): () => void;
   /**
-   * Registers a `session_shutdown` handler. The first participant's handler calls every
-   * participant's `revoke` synchronously; each participant then runs its own `cleanup`.
+   * Registers a `session_shutdown` handler. The first participant's handler calls every participant's `revoke` synchronously; each participant then runs its own `cleanup`.
    */
   onSessionShutdown(
     revoke: () => void,
@@ -113,8 +112,7 @@ export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): Lifecy
 }
 
 /**
- * Pi snapshots the handlers when an emission starts, so unsubscribing does not stop the current
- * dispatch from calling a handler. Each handler checks `active` and does nothing after disposal.
+ * Pi snapshots the handlers when an emission starts, so unsubscribing does not stop the current dispatch from calling a handler. Each handler checks `active` and does nothing after disposal.
  */
 function registration(
   subscribe: (active: () => boolean) => () => void,

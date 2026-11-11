@@ -9,8 +9,7 @@ import { hasErrorCode } from "@pi-mono/utils/errors";
 import { PrivateFileError, ReadLimitError } from "./errors.ts";
 
 /**
- * Native Windows has no POSIX owner IDs. There, storage trusts the inherited ACL of the user
- * profile and skips owner and mode checks; see the [ADR](../../docs/adr/0001-windows-private-storage.md).
+ * Native Windows has no POSIX owner IDs. There, storage trusts the inherited ACL of the user profile and skips owner and mode checks; see the [ADR](../../docs/adr/0001-windows-private-storage.md).
  */
 export async function checkHandle(handle: FileHandle, directory = false): Promise<void> {
   const uid = process.getuid?.();
@@ -18,16 +17,14 @@ export async function checkHandle(handle: FileHandle, directory = false): Promis
 
   if (uid !== undefined && stat.uid !== uid)
     throw new PrivateFileError("Storage ownership is not private to the current user.");
-  // An open descriptor may be unlinked by lock release or atomic replacement.
-  // It is still private; only multiple links expose another path to the same file.
+  // An open descriptor may be unlinked by lock release or atomic replacement. It is still private; only multiple links expose another path to the same file.
   if (directory ? !stat.isDirectory() : !stat.isFile() || stat.nlink > 1)
     throw new PrivateFileError(
       "Storage must use owned directories and regular, non-hard-linked files."
     );
   if (uid === undefined) return;
   await handle.chmod(directory ? 0o700 : 0o600);
-  // POSIX chmod removes effective group/named-user ACL access via the ACL mask.
-  // macOS extended ACLs are independent of mode bits and must be removed explicitly.
+  // POSIX chmod removes effective group/named-user ACL access via the ACL mask. macOS extended ACLs are independent of mode bits and must be removed explicitly.
   if (process.platform === "darwin") await removeMacAcl(handle);
   const checked = await handle.stat();
 
@@ -60,10 +57,7 @@ function removeMacAcl(handle: FileHandle): Promise<void> {
 const outsideProfile = "On Windows, private storage must be inside the user profile.";
 
 /**
- * Path text cannot prove containment on Windows: `relative` ignores case even in case-sensitive
- * NTFS folders, and libuv's lstat follows a mounted folder to another volume. So, from a real
- * path, each directory must stay on the profile's volume until one is the profile itself. lstat
- * keeps a junction that replaces a directory during the walk from matching the profile.
+ * Path text cannot prove containment on Windows: `relative` ignores case even in case-sensitive NTFS folders, and libuv's lstat follows a mounted folder to another volume. So, from a real path, each directory must stay on the profile's volume until one is the profile itself. lstat keeps a junction that replaces a directory during the walk from matching the profile.
  */
 async function withinProfile(real: string, profile: BigIntStats): Promise<boolean> {
   for (let current = real; ; current = dirname(current)) {
@@ -76,9 +70,7 @@ async function withinProfile(real: string, profile: BigIntStats): Promise<boolea
 }
 
 /**
- * The opened directory must be on the profile's volume and strictly below the profile. Its real
- * path is the final path of the directory, so a mounted folder resolves to its own volume. The
- * real path must still name the opened directory, so a replacement after the open is refused.
+ * The opened directory must be on the profile's volume and strictly below the profile. Its real path is the final path of the directory, so a mounted folder resolves to its own volume. The real path must still name the opened directory, so a replacement after the open is refused.
  */
 async function checkProfileDirectory(
   handle: FileHandle,
@@ -102,8 +94,7 @@ async function checkProfileDirectory(
 }
 
 /**
- * Native Windows has no O_NOFOLLOW, so open follows a final-path link or junction. The opened
- * file must be the entry that lstat found; big integers keep 64-bit NTFS file IDs exact.
+ * Native Windows has no O_NOFOLLOW, so open follows a final-path link or junction. The opened file must be the entry that lstat found; big integers keep 64-bit NTFS file IDs exact.
  */
 async function checkEntry(handle: FileHandle, entry: BigIntStats): Promise<void> {
   const opened = await handle.stat({ bigint: true });
@@ -113,10 +104,7 @@ async function checkEntry(handle: FileHandle, entry: BigIntStats): Promise<void>
 }
 
 /**
- * Create or validate one owned directory, refusing a final-path symlink and
- * repairing permissions to 0700 with restricted ACL access. Its parent must
- * already exist and be trusted. Without POSIX owner IDs, the directory must be
- * below the user profile on its volume, and its permissions stay unchanged.
+ * Create or validate one owned directory, refusing a final-path symlink and repairing permissions to 0700 with restricted ACL access. Its parent must already exist and be trusted. Without POSIX owner IDs, the directory must be below the user profile on its volume, and its permissions stay unchanged.
  */
 export async function privateDirectory(path: string): Promise<void> {
   const profile =
@@ -150,9 +138,7 @@ export async function privateDirectory(path: string): Promise<void> {
 }
 
 /**
- * Open an existing regular file under trusted parents and repair its permissions.
- * O_NOFOLLOW protects the final path only. The caller owns the returned handle
- * and must close it in finally, including after a read or validation failure.
+ * Open an existing regular file under trusted parents and repair its permissions. O_NOFOLLOW protects the final path only. The caller owns the returned handle and must close it in finally, including after a read or validation failure.
  */
 export async function privateOpen(path: string, flags = constants.O_RDONLY): Promise<FileHandle> {
   // Preflight avoids even opening devices; descriptor checks below remain authoritative.
@@ -175,9 +161,7 @@ export async function privateOpen(path: string, flags = constants.O_RDONLY): Pro
 }
 
 /**
- * Read bounded bytes under caller-established trusted parents. Reads can repair
- * permissions and ACLs. A missing path returns undefined; unsafe files and data
- * exceeding maxBytes throw. Raw OS errors may expose paths to callers.
+ * Read bounded bytes under caller-established trusted parents. Reads can repair permissions and ACLs. A missing path returns undefined; unsafe files and data exceeding maxBytes throw. Raw OS errors may expose paths to callers.
  */
 export async function boundedRead(path: string, maxBytes: number): Promise<Buffer | undefined> {
   let handle: FileHandle;

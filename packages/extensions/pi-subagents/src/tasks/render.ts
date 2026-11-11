@@ -94,8 +94,7 @@ export function shortId(id: string, expanded: boolean): string {
 }
 
 /**
- * A dim label in a column of `labelWidth`, beside its wrapped value. Labels stack above their
- * values when the column would leave no room for a wide character.
+ * A dim label in a column of `labelWidth`, beside its wrapped value. Labels stack above their values when the column would leave no room for a wide character.
  */
 export function field(
   theme: Theme,

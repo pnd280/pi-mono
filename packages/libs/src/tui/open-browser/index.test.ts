@@ -222,8 +222,7 @@ it("expires an inspection before its overlay mounts without popping an unrelated
       timeout: STEP_TIMEOUT_MS
     });
     abort.abort();
-    // The real host restores its editor snapshot before the delayed overlay returns.
-    // A surviving handle must still be able to focus its own overlay.
+    // The real host restores its editor snapshot before the delayed overlay returns. A surviving handle must still be able to focus its own overlay.
     other.focus();
     expect(other.isFocused()).toBe(true);
     mount.resolve();

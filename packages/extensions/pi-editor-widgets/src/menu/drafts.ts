@@ -231,8 +231,7 @@ export class WidgetDrafts {
       const anchor = view.rowAnchor;
 
       if (anchor && anchor.length > 0) {
-        // Native placement changes can alter row contents. Prefer the nearest greatest overlap;
-        // inherited saves instead use exact row and duplicate-occurrence matching below.
+        // Native placement changes can alter row contents. Prefer the nearest greatest overlap; inherited saves instead use exact row and duplicate-occurrence matching below.
         let row = -1;
         let best = 0;
 

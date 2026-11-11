@@ -258,8 +258,7 @@ function scopeHeading(
     return rows;
   }
 
-  // Keep the failure badge with the action, moving the full scope below when
-  // necessary instead of turning the badge into a separate metadata row.
+  // Keep the failure badge with the action, moving the full scope below when necessary instead of turning the badge into a separate metadata row.
   const scope =
     targetRows(parts, {
       width: bodyWidth(p.width),
@@ -349,8 +348,7 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
     }
   }
 
-  // A call remains in its own Pi row: native images and mouse targets must not be
-  // displaced behind later summaries. Even repeated reads retain their identity.
+  // A call remains in its own Pi row: native images and mouse targets must not be displaced behind later summaries. Even repeated reads retain their identity.
   const relativeTo = group.scope.kind === "directory" ? group.scope.value : p.context.cwd;
   const title = groupMemberTitle(p);
   const indent = visibleWidth(title) + 1;

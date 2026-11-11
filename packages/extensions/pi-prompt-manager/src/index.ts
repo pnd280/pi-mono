@@ -10,8 +10,7 @@ import { errorMessage, type Repository } from "./model.ts";
 import { loadSettings } from "./settings.ts";
 import { FileRepository } from "./storage/repository.ts";
 
-// The browser and its shared TUI components load on first use, not at session start.
-// Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
+// The browser and its shared TUI components load on first use, not at session start. Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
 let browserModule: Promise<typeof BrowserModule> | undefined;
 const loadBrowser = () => (browserModule ??= import("./browser.ts"));
 

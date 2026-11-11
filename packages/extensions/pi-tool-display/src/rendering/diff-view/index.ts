@@ -12,8 +12,7 @@ import type { ParsedPatch, PatchLine } from "@pi-mono/utils/patch";
 import fastDiff from "fast-diff";
 
 /**
- * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on
- * each width change, so this limits the synchronous fast-diff time of each render.
+ * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on each width change, so this limits the synchronous fast-diff time of each render.
  */
 const INLINE_DIFF_WORK_LIMIT = 250_000;
 const INLINE_DIFF_LINE_LIMIT = 1000;
@@ -74,8 +73,7 @@ export type DiffViewOptions = {
   theme: DiffViewTheme;
   highlight: (text: string) => string;
   /**
-   * Styled top-strip rows. With multiple hunks, the first row also shows the first hunk's
-   * position when it fits beside the caller's text.
+   * Styled top-strip rows. With multiple hunks, the first row also shows the first hunk's position when it fits beside the caller's text.
    */
   header?: readonly string[];
   /** Styled rows for the bottom strip, after the compact notice. */
@@ -112,9 +110,7 @@ function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
 }
 
 /**
- * Character changes between a removed and an added line. A trailing newline on only one side
- * is not compared, and a blank side gets no spans. Cursor 0 reports a pure edit at the line
- * start as one span; cleanup merges fragments into readable spans.
+ * Character changes between a removed and an added line. A trailing newline on only one side is not compared, and a blank side gets no spans. Cursor 0 reports a pure edit at the line start as one span; cleanup merges fragments into readable spans.
  */
 function lineChanges(
   before: string,
@@ -145,9 +141,7 @@ function lineChanges(
 }
 
 /**
- * Estimated fast-diff work for one pair, not a strict bound. The search covers the middles
- * that differ after the shared UTF-16 ends are removed. The cleanup passes cover the full
- * lines and can move an edit through repeated text.
+ * Estimated fast-diff work for one pair, not a strict bound. The search covers the middles that differ after the shared UTF-16 ends are removed. The cleanup passes cover the full lines and can move an edit through repeated text.
  */
 function comparisonWork(before: string, after: string): number {
   const shorter = Math.min(before.length, after.length);
@@ -203,8 +197,7 @@ function emphasizeChanges(
     start = column;
   };
 
-  // Fast-diff uses UTF-16 offsets. Expand emphasis to whole graphemes before
-  // slicing ANSI text by terminal columns, preserving emoji and combining marks.
+  // Fast-diff uses UTF-16 offsets. Expand emphasis to whole graphemes before slicing ANSI text by terminal columns, preserving emoji and combining marks.
   for (const { segment, index } of graphemes.segment(source)) {
     const selected = changed.some(
       (range) => range.startIndex < index + segment.length && range.endIndex >= index
@@ -231,8 +224,7 @@ function token(line: PatchLine): "toolDiffAdded" | "toolDiffRemoved" | "toolDiff
 }
 
 /**
- * Panel colours derived from the theme's tool surface and diff foregrounds. Contrast depends
- * on those supplied colours and the terminal's colour mode.
+ * Panel colours derived from the theme's tool surface and diff foregrounds. Contrast depends on those supplied colours and the terminal's colour mode.
  */
 function panelPalette(theme: DiffViewOptions["theme"]): Palette {
   const { colors } = theme;
@@ -280,8 +272,7 @@ function shadeRow(
   theme: DiffViewOptions["theme"],
   palette: Palette
 ): Cell {
-  // Wrapping retains ANSI state. End each cell's syntax/bold styles before its
-  // padding and separator, and restore the row background after inline resets.
+  // Wrapping retains ANSI state. End each cell's syntax/bold styles before its padding and separator, and restore the row background after inline resets.
   const padded = padRow(row, width);
   const background = changeBackground(line, palette);
 
@@ -357,8 +348,7 @@ function selectPreviewRows(
   const changed = rows.filter(isChangedRow);
 
   for (const row of changed.length ? changed : rows.slice(0, 1)) {
-    // Count only changed display rows; context and structural rows are additional.
-    // Preserve complete wrapped pairs whenever they fit. Excerpt only as needed.
+    // Count only changed display rows; context and structural rows are additional. Preserve complete wrapped pairs whenever they fit. Excerpt only as needed.
     const excerpt = height(row, false) > remaining;
     const size = height(row, excerpt);
     if (size > remaining) break;
@@ -385,9 +375,7 @@ function selectPreviewRows(
 }
 
 /**
- * Full-width panel with a responsive unified/split layout backed by parsed hunks; no input
- * handling or I/O. Strips above, between, and below the hunks carry caller rows, hunk positions,
- * and the compact notice. Every row is exactly `width` columns.
+ * Full-width panel with a responsive unified/split layout backed by parsed hunks; no input handling or I/O. Strips above, between, and below the hunks carry caller rows, hunk positions, and the compact notice. Every row is exactly `width` columns.
  */
 export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): string[] {
   const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
@@ -531,16 +519,14 @@ export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): 
   const lineHeight = (line: PatchLine | undefined, cellWidth: number, excerpt: boolean) => {
     if (!line) return 0;
     const contentWidth = Math.max(1, cellWidth - digits - 2);
-    // Missing-newline markers are structural rows, not source changes. Charging
-    // them here could prevent even the first replacement from being selected.
+    // Missing-newline markers are structural rows, not source changes. Charging them here could prevent even the first replacement from being selected.
     if (excerpt) return 1;
     const cached = heights.get(line);
     let height = cached?.width === contentWidth ? cached.height : undefined;
 
     if (height === undefined) {
       const source = sourceText(line);
-      // Only a fit decision is needed. Do not fully wrap a huge line just to
-      // discover it exceeds the compact budget; expanded rendering stays exact.
+      // Only a fit decision is needed. Do not fully wrap a huge line just to discover it exceeds the compact budget; expanded rendering stays exact.
       height =
         visibleWidth(source) > contentWidth * (options.compactRows + 4)
           ? options.compactRows + 5
@@ -636,8 +622,7 @@ export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): 
     );
   }
 
-  // Choose source changes before applying a displayed-row budget. Wrapped context
-  // must never evict the first replacement, and both sides remain selected together.
+  // Choose source changes before applying a displayed-row budget. Wrapped context must never evict the first replacement, and both sides remain selected together.
   const first = hunks[0];
   if (!first) return panel([]);
 

@@ -10,9 +10,7 @@ export function registerAutoTitle(
   lifecycle: LifecycleParticipant
 ): (args: string) => Promise<void> {
   let title: SessionTitle | undefined;
-  // ctx.signal belongs to the low-level agent loop. Pi can still abort the run after that loop ends,
-  // for example while agent_before_settle handlers wait, and reports it only in agent_settled. So an
-  // automatic title is saved only after its run settles without an abort.
+  // ctx.signal belongs to the low-level agent loop. Pi can still abort the run after that loop ends, for example while agent_before_settle handlers wait, and reports it only in agent_settled. So an automatic title is saved only after its run settles without an abort.
   let run: { controller: AbortController; settled: PromiseWithResolvers<void> } | undefined;
 
   pi.on("session_start", (_event, ctx) => {
@@ -45,13 +43,9 @@ export function registerAutoTitle(
     run = undefined;
   });
   pi.on("session_info_changed", () => title?.nameChanged());
-  // Only a completed navigation cancels: a later session_before_tree handler can still cancel it.
-  // A title that arrives during navigation is saved like one that arrives just before it: Pi
-  // restores the leaf from its own IDs, and the session name is session-wide.
+  // Only a completed navigation cancels: a later session_before_tree handler can still cancel it. A title that arrives during navigation is saved like one that arrives just before it: Pi restores the leaf from its own IDs, and the session name is session-wide.
   pi.on("session_tree", () => title?.cancel());
-  // A revoke runs before any participant's shutdown handler awaits. Every workspace extension whose
-  // shutdown handler awaits is a participant, so no title is saved after shutdown begins unless an
-  // extension from outside the workspace awaits first.
+  // A revoke runs before any participant's shutdown handler awaits. Every workspace extension whose shutdown handler awaits is a participant, so no title is saved after shutdown begins unless an extension from outside the workspace awaits first.
   lifecycle.onSessionShutdown(() => title?.dispose());
 
   return async (args) => {

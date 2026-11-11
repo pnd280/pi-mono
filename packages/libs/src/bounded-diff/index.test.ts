@@ -36,8 +36,7 @@ it("survives worker heap exhaustion, bounds queued source, and serves later requ
   const exhausted = change(before, before.replace("before\n", "after\n"), {
     maxSourceBytes: 8 * 1024 * 1024
   });
-  // Each large request retains 32 MiB of queued source; the second exceeds the shared budget.
-  // A 1 ms deadline keeps the admitted one from doing real work.
+  // Each large request retains 32 MiB of queued source; the second exceeds the shared budget. A 1 ms deadline keeps the admitted one from doing real work.
   const large = "a".repeat(8 * 1024 * 1024);
   const largeLimits = { maxSourceBytes: large.length, timeoutMs: 1 };
   const admitted = change(large, large, largeLimits);

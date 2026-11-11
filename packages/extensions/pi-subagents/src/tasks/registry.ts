@@ -62,8 +62,7 @@ export class Tasks {
   private listeners = new Set<(event: TaskEvent) => void>();
   private closed = false;
   /**
-   * The background results of direct tasks. An active direct background task holds the run (ADR
-   * 0001); a stopped binding keeps its last records, so it holds nothing.
+   * The background results of direct tasks. An active direct background task holds the run (ADR 0001); a stopped binding keeps its last records, so it holds nothing.
    */
   readonly results = new ResultSource(
     () =>
@@ -162,9 +161,7 @@ export class Tasks {
   }
 
   /**
-   * Run one call: input to an active task, or a launch or resume that waits for capacity. A
-   * foreground call returns the run's result; a background or promoted call returns when its run
-   * starts. Errors before the task is claimed throw; later failures return as a result.
+   * Run one call: input to an active task, or a launch or resume that waits for capacity. A foreground call returns the run's result; a background or promoted call returns when its run starts. Errors before the task is claimed throw; later failures return as a result.
    */
   async submit(call: ToolInput, handlers: CallHandlers): Promise<Submission> {
     if (handlers.signal?.aborted) throw new Error("Cancelled by turn abort");
@@ -188,9 +185,7 @@ export class Tasks {
   }
 
   /**
-   * The requested model, thinking level, and launch arguments. A resume reuses each omitted value
-   * from the task's latest run; a new task uses the supervisor's current selection and no
-   * arguments.
+   * The requested model, thinking level, and launch arguments. A resume reuses each omitted value from the task's latest run; a new task uses the supervisor's current selection and no arguments.
    */
   private selection(request: ToolInput): Selection {
     const launch = this.options.launch();
@@ -220,9 +215,7 @@ export class Tasks {
   }
 
   /**
-   * The receiving half of the route: answer input, abort, or promotion from this process's
-   * supervisor for a task of this subtree through this process's own route. Input that reaches no
-   * run resumes a direct task in the background.
+   * The receiving half of the route: answer input, abort, or promotion from this process's supervisor for a task of this subtree through this process's own route. Input that reaches no run resumes a direct task in the background.
    */
   async control(value: Control, onUIRequest: DialogHandler): Promise<void> {
     let reply: ChildMessage;
@@ -289,8 +282,7 @@ export class Tasks {
         break;
       case "began":
         this.live.set(taskId, run);
-        // The record must reach every ancestor before this child can request capacity: the run
-        // prompts its child only after this report returns.
+        // The record must reach every ancestor before this child can request capacity: the run prompts its child only after this report returns.
         this.tree.update(report.record, "immediate");
         // Readers observe the run before its prompt is sent.
         this.emit({ kind: "run", record: report.record, run: run.child });
@@ -319,9 +311,7 @@ export class Tasks {
       case "completed": {
         const { completion } = report;
         if (this.closed) break;
-        // A call that ended with its run returned the result itself, and a dropped result goes
-        // to nobody. Either can change whether the run is held. The supervisor stops tasks at a
-        // session change.
+        // A call that ended with its run returned the result itself, and a dropped result goes to nobody. Either can change whether the run is held. The supervisor stops tasks at a session change.
         this.results.publish(
           completion.callReturned && !completion.dropped
             ? { kind: "result", message: taskResultMessage(completion), survivesChange: false }
@@ -344,9 +334,7 @@ export class Tasks {
   }
 
   /**
-   * Cancel an active task of this subtree. With `drop`, a direct task's cancellation result goes
-   * to nobody; a task that finished before the abort keeps its result. A failed cleanup of the
-   * task's processes throws after the task stops.
+   * Cancel an active task of this subtree. With `drop`, a direct task's cancellation result goes to nobody; a task that finished before the abort keeps its result. A failed cleanup of the task's processes throws after the task stops.
    */
   abort(
     taskId: string,
@@ -374,8 +362,7 @@ export class Tasks {
   }
 
   /**
-   * Stops every run and settles after each run ended. The binding is invalid, so no result reports
-   * a failed cleanup of a run's processes; the stop rejects with them after all runs ended.
+   * Stops every run and settles after each run ended. The binding is invalid, so no result reports a failed cleanup of a run's processes; the stop rejects with them after all runs ended.
    */
   async shutdown(immediate = false): Promise<void> {
     this.invalidate();
@@ -398,8 +385,7 @@ export class Tasks {
     const failed = failures.flat();
     if (!failed.length) return;
 
-    // Pi catches session_shutdown errors. The supervisor of this child supervisor reads the
-    // failures from its stderr.
+    // Pi catches session_shutdown errors. The supervisor of this child supervisor reads the failures from its stderr.
     if (this.options.depth > 0) await forwardStopFailures(failed);
     throw new Error(`Task cleanup failed: ${failed.join("; ")}`);
   }

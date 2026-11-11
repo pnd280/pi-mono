@@ -22,8 +22,7 @@ function nativeHelpers(
     throw new NativeClipboardError("Native clipboard supports Linux, macOS, and WSL only.");
 
   if (env.WSL_DISTRO_NAME || /microsoft/i.test(osRelease)) {
-    // clip.exe can perform code-page conversion. PowerShell decodes stdin explicitly
-    // and uses the native clipboard API without adding a newline.
+    // clip.exe can perform code-page conversion. PowerShell decodes stdin explicitly and uses the native clipboard API without adding a newline.
     return [
       {
         command: "powershell.exe",
@@ -60,10 +59,7 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
   signal.throwIfAborted();
 
   return new Promise((resolve, reject) => {
-    // A clipboard owner such as wl-copy can stay as a daemon. In its own process group, it
-    // keeps running when Ctrl+Z suspends Pi's group, so a paste elsewhere does not wait for it.
-    // As in Pi, start from / : clipboard helpers ignore the directory, WSL cannot start
-    // powershell.exe from a path longer than MAX_PATH, and a daemon does not keep Pi's directory.
+    // A clipboard owner such as wl-copy can stay as a daemon. In its own process group, it keeps running when Ctrl+Z suspends Pi's group, so a paste elsewhere does not wait for it. As in Pi, start from / : clipboard helpers ignore the directory, WSL cannot start powershell.exe from a path longer than MAX_PATH, and a daemon does not keep Pi's directory.
     const child = spawn(helper.command, helper.args, {
       stdio: ["pipe", "ignore", "ignore"],
       cwd: "/",
@@ -99,10 +95,7 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
 }
 
 /**
- * Replace the native clipboard with exact UTF-8 text, without an OSC 52 fallback.
- * The timeout is in milliseconds and covers all helper attempts (default: 5,000);
- * expiry throws NativeClipboardError. Cancellation can throw the signal's reason;
- * only NativeClipboardError messages are safe for user-facing diagnostics.
+ * Replace the native clipboard with exact UTF-8 text, without an OSC 52 fallback. The timeout is in milliseconds and covers all helper attempts (default: 5,000); expiry throws NativeClipboardError. Cancellation can throw the signal's reason; only NativeClipboardError messages are safe for user-facing diagnostics.
  */
 export async function copyNative(
   text: string,

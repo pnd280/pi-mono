@@ -146,8 +146,7 @@ export class RunChanges implements MutationSink {
     cwd: string,
     private readonly maxRetainedBytes = RETAINED_BYTES
   ) {
-    // Mutation paths are canonical. Canonicalise cwd the same way, so a symlinked cwd (macOS
-    // /var -> /private/var) or a Windows 8.3 short name still displays files relative to it.
+    // Mutation paths are canonical. Canonicalise cwd the same way, so a symlinked cwd (macOS /var -> /private/var) or a Windows 8.3 short name still displays files relative to it.
     try {
       this.cwd = realpathSync.native(cwd);
     } catch {

@@ -107,8 +107,7 @@ export function observeMutationDefinition(
       const performWrite = async (path: string, content: string) => {
         if (original.name === "write") before = await observeTextFile(path, maxBytes);
         const identity = await canonicalPath(path).catch(() => path);
-        // Node replaces unpaired surrogates when writing UTF-8. Observe those bytes,
-        // not a JS string that cannot be read back; a native patch may describe the latter.
+        // Node replaces unpaired surrogates when writing UTF-8. Observe those bytes, not a JS string that cannot be read back; a native patch may describe the latter.
         const after: FileObservation =
           Buffer.byteLength(content) <= maxBytes
             ? { status: "ready", text: Buffer.from(content, "utf8").toString("utf8") }

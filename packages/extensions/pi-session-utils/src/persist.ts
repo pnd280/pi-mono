@@ -34,8 +34,7 @@ export function saveActiveBranch(
     if (entry.type === "label") branchLabels.set(entry.targetId, entry.label || undefined);
   }
 
-  // Pi names and labels are session-wide, so their latest metadata can be outside the selected
-  // branch. Append snapshots only where needed, without changing the copied entries or source.
+  // Pi names and labels are session-wide, so their latest metadata can be outside the selected branch. Append snapshots only where needed, without changing the copied entries or source.
   const snapshots: Snapshot[] = [];
   const name = source.getSessionName();
   if (name !== branchName) snapshots.push({ type: "session_info", name: name ?? "" });

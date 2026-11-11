@@ -74,11 +74,9 @@ export function installParentSessionStartup(pi: Pick<ExtensionAPI, "on" | "getFl
     hooks.restore();
   };
 
-  // CLI/SDK context reconstruction runs after resource loading, before session binding and JSON
-  // output. A session_start error is swallowed by Pi, so validate here to fail startup instead.
+  // CLI/SDK context reconstruction runs after resource loading, before session binding and JSON output. A session_start error is swallowed by Pi, so validate here to fail startup instead.
   hooks.replace(SessionManager.prototype, "buildSessionContext", function (this: SessionManager) {
-    // CLI flag values become available only after all extension factories have finished.
-    // Ignore scratch managers reconstructed by another factory before that boundary.
+    // CLI flag values become available only after all extension factories have finished. Ignore scratch managers reconstructed by another factory before that boundary.
     if (active && pi.getFlag("parent-session") !== undefined) {
       dispose();
       applyStartupParent(this, args);

@@ -9,10 +9,7 @@ function assertByteLimit(bytes: number): void {
     throw new RangeError("UTF-8 byte limits must be nonnegative safe integers.");
 }
 
-/** Decode a standalone byte window, counting bytes dropped at its incomplete edge.
- * Complete BOMs and literal replacement characters are retained. Invalid UTF-8
- * otherwise follows Node's replacement decoding, not strict validation.
- */
+/** Decode a standalone byte window, counting bytes dropped at its incomplete edge. Complete BOMs and literal replacement characters are retained. Invalid UTF-8 otherwise follows Node's replacement decoding, not strict validation. */
 export function decodeUtf8Window(
   buffer: Buffer,
   boundary?: "head" | "tail"
@@ -22,8 +19,7 @@ export function decodeUtf8Window(
     const text = decoder.write(buffer);
     let end = buffer.length;
 
-    // Only end() output identifies a buffered, incomplete suffix. Invalid interior
-    // bytes may expand into replacement characters, so re-encoding text cannot count it.
+    // Only end() output identifies a buffered, incomplete suffix. Invalid interior bytes may expand into replacement characters, so re-encoding text cannot count it.
     if (decoder.end()) {
       while (end > 0 && (buffer.readUInt8(end - 1) & 0xc0) === 0x80) end--;
       end = Math.max(0, end - 1);

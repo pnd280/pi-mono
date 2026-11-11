@@ -52,9 +52,7 @@ export class LifecycleCoordinator {
   >();
   private readonly marks = new WeakMap<object, number>();
   private barrier: Barrier = newBarrier();
-  // Handlers of the claims that the latest barrier accepted, by canonical key. Pi cannot remove a
-  // shortcut and runs the last-loaded registration of a key, which can be stale, so every
-  // participant's registrations of a key forward here.
+  /** Handlers of the claims that the latest barrier accepted, by canonical key. Pi cannot remove a shortcut and runs the last-loaded registration of a key, which can be stale, so every participant's registrations of a key forward here. */
   private readonly shortcuts = new Map<string, ShortcutOptions["handler"]>();
 
   constructor(private readonly host: Host) {
@@ -103,9 +101,7 @@ export class LifecycleCoordinator {
   }
 
   /**
-   * Call from the `resources_discover` handler of each participant with a startup handler. Pi
-   * emits it after every `session_start` handler. The first call resolves every claim and runs
-   * every commit.
+   * Call from the `resources_discover` handler of each participant with a startup handler. Pi emits it after every `session_start` handler. The first call resolves every claim and runs every commit.
    */
   async close(participant: Participant, events: EventBus, ctx: ExtensionContext): Promise<void> {
     const notify = uiNotify(ctx);
@@ -124,10 +120,7 @@ export class LifecycleCoordinator {
   }
 
   /**
-   * Call synchronously at the start of a participant's `session_shutdown` handler. The first
-   * call of an emission runs every active revoke. A revoke outside that pass, such as one of a
-   * participant with a duplicate ID, runs in its own handler unless the pass removed it. Returns
-   * this revoke's failure.
+   * Call synchronously at the start of a participant's `session_shutdown` handler. The first call of an emission runs every active revoke. A revoke outside that pass, such as one of a participant with a duplicate ID, runs in its own handler unless the pass removed it. Returns this revoke's failure.
    */
   revoke(
     own: Entry<() => void>,

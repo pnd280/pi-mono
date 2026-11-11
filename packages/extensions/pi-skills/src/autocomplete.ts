@@ -94,8 +94,7 @@ export function createSkillAutocompleteProvider(
 
     if (query?.startsWith("/")) return suggestSkills(query, options);
 
-    // After the whitespace that ends a token, Pi would replace skill suggestions with files for an
-    // empty prefix. Escape doesn't reset this state, so keep Pi's other results, such as a quoted @ path.
+    // After the whitespace that ends a token, Pi would replace skill suggestions with files for an empty prefix. Escape doesn't reset this state, so keep Pi's other results, such as a quoted @ path.
     if (query === undefined && showingSkills) {
       const native = await current.getSuggestions(lines, cursorLine, cursorCol, options);
 

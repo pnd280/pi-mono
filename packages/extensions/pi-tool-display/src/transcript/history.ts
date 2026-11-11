@@ -67,8 +67,7 @@ export class DisplayHistory {
       id = entry.parentId;
     }
 
-    // Usually only the newly appended entries are visited. A divergent ancestry
-    // must drop stale associations even before the host reconstructs.
+    // Usually only the newly appended entries are visited. A divergent ancestry must drop stale associations even before the host reconstructs.
     if (id !== this.indexedLeaf) {
       this.messageEntries.clear();
       this.records.clear();

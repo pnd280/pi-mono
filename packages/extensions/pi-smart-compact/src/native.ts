@@ -228,9 +228,7 @@ export function bindNativeCompaction(
 
       // Native compaction already records success and supplies the model's summary.
       if (registration.active && outcome.status !== "completed") {
-        // Public sendMessage defers while streaming, missing this next response.
-        // The tool batch is already persisted here, so native append is safe and
-        // reports the outcome without queueing or requesting another turn.
+        // Public sendMessage defers while streaming, missing this next response. The tool batch is already persisted here, so native append is safe and reports the outcome without queueing or requesting another turn.
         this._appendCustomMessage({
           role: "custom",
           customType: compactionResultType,

@@ -16,10 +16,7 @@ export type ShortcutClaim = {
 type Valid = { entry: Entry<ShortcutClaim>; key: KeyId };
 
 /**
- * Registers each uncontested claim through its claimant and stores its handler in `accepted`.
- * The registration runs the handler that `accepted` holds for its key at the keypress. Claims
- * whose keys overlap, directly or through another claim, form one conflict, and no claimant in
- * it registers its key.
+ * Registers each uncontested claim through its claimant and stores its handler in `accepted`. The registration runs the handler that `accepted` holds for its key at the keypress. Claims whose keys overlap, directly or through another claim, form one conflict, and no claimant in it registers its key.
  */
 export function resolveShortcutClaims(
   claims: readonly Entry<ShortcutClaim>[],

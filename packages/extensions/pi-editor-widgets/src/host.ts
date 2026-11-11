@@ -45,8 +45,7 @@ type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"]
 
 export const inspectedPiVersion = "1.5.2";
 
-// Inspected Pi 1.5.2 API and bundled CLI sources, respectively. Keep the owner in
-// .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
+// Inspected Pi 1.5.2 API and bundled CLI sources, respectively. Keep the owner in .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const hostHashes = {
   switchTuiMode: new Set([
     "71c592580432ca0373dfd085c2a6649e2a3898e1017a43151dbce8d9e895d3eb",
@@ -156,8 +155,7 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
 
       original.call(this, id, text);
     });
-    // Intercept before the native status registry or requestRender is touched. An unknown
-    // host can at worst clear this unique, never-registered key; no existing content is removed.
+    // Intercept before the native status registry or requestRender is touched. An unknown host can at worst clear this unique, never-registered key; no existing content is removed.
     ui.setStatus(key, undefined);
   } finally {
     active = false;

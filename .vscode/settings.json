@@ -5,8 +5,7 @@
     "**/.hg": true,
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
-    "**/node_modules": true,
-    ".vite-hooks": true
+    "**/node_modules": true
   },
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "js/ts.experimental.useTsgo": true,

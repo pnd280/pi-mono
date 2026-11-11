@@ -89,13 +89,11 @@ export type DisplayCall = {
   readonly cancellation?: CancellationFact;
   readonly change?: ChangeFact;
   /**
-   * Pi's monotonic measurement of the tool's `execute()` call, from the final result.
-   * Absent when the tool did not run, or for results that Pi saved without one.
+   * Pi's monotonic measurement of the tool's `execute()` call, from the final result. Absent when the tool did not run, or for results that Pi saved without one.
    */
   readonly durationMs?: number;
   /**
-   * From Pi's result details, or observed during a live shell call. Pi's failed shell
-   * results have no details, so an observed path stays in memory and replay lacks it.
+   * From Pi's result details, or observed during a live shell call. Pi's failed shell results have no details, so an observed path stays in memory and replay lacks it.
    */
   readonly savedPath?: string;
   readonly savedOutput?: SavedOutput;
@@ -107,19 +105,14 @@ export type DisplayCall = {
 export type InvocationPart =
   | {
       /**
-       * Use `path` for concrete file targets, which render relative to Pi's cwd when
-       * inside it (or relative to the directory scope in collapsed groups). Use
-       * `value` for literal filters and `pattern` for search patterns.
-       * A `range` following a concrete `path` stays together when wrapping the target.
+       * Use `path` for concrete file targets, which render relative to Pi's cwd when inside it (or relative to the directory scope in collapsed groups). Use `value` for literal filters and `pattern` for search patterns. A `range` following a concrete `path` stays together when wrapping the target.
        */
       kind: "value" | "path" | "range" | "pattern" | "annotation";
       text: string;
     }
   | {
       /**
-       * Borrowed arguments that the display serializes as `(…)` within the heading
-       * budget, and only when shown. With `showParameters: false`, these parts are
-       * hidden unless the adapter sets `alwaysShowParameters: true`.
+       * Borrowed arguments that the display serializes as `(…)` within the heading budget, and only when shown. With `showParameters: false`, these parts are hidden unless the adapter sets `alwaysShowParameters: true`.
        */
       kind: "parameters";
       value: unknown;
@@ -150,9 +143,7 @@ export type DisplayGroup = {
 /** Transcript-wide presentation: summary lines, compact cards, or expanded cards. */
 export type DisplayMode = "summary" | "compact" | "verbose";
 
-/** Maximal sequence of owned calls without a run boundary between them.
- * Owned notice rows accompany calls and can contribute their own summary items.
- */
+/** Maximal sequence of owned calls without a run boundary between them. Owned notice rows accompany calls and can contribute their own summary items. */
 export type DisplayRun = {
   readonly members: readonly DisplayCall[];
   /** Opened runs render their compact cards in summary mode until the mode changes. */
@@ -160,8 +151,7 @@ export type DisplayRun = {
 };
 
 /**
- * Row role in a collapsed summary run, which has ended. The leader renders the summary
- * line; every other member renders no rows.
+ * Row role in a collapsed summary run, which has ended. The leader renders the summary line; every other member renders no rows.
  */
 export type SummaryRole = { readonly kind: "leader" | "hidden" };
 
@@ -234,9 +224,7 @@ export type HeadingVerbs = {
 export type DisplayAction = { event: string; data: Readonly<Record<string, string>> };
 
 /**
- * A task's reported state. `active` covers queued and running work, `cancelled` a
- * stopped task, and `returned` calls that returned while their task continues. The
- * renderer appends elapsed time when the progress has `startedAt`.
+ * A task's reported state. `active` covers queued and running work, `cancelled` a stopped task, and `returned` calls that returned while their task continues. The renderer appends elapsed time when the progress has `startedAt`.
  */
 export type DisplayProgressStatus = {
   glyph?: string;
@@ -256,8 +244,7 @@ export type DisplayProgress = {
   endedAt?: number;
   secondary: string;
   /**
-   * Expanded fields; omit default values. A field with `items` breaks rows only between them,
-   * and its untrusted items keep their spaces.
+   * Expanded fields; omit default values. A field with `items` breaks rows only between them, and its untrusted items keep their spaces.
    */
   fields: readonly (
     | { label: string; value: string }
@@ -292,8 +279,7 @@ export type SummaryItem = {
   /** Built-in category ID or one declared in `summaryCategories`. */
   category: string;
   /**
-   * Dedupe key within the category, such as a resolved file or directory path; the
-   * latest outcome counts. Omission counts every call.
+   * Dedupe key within the category, such as a resolved file or directory path; the latest outcome counts. Omission counts every call.
    */
   identity?: string;
 };
@@ -301,8 +287,7 @@ export type SummaryItem = {
 export type SummaryCategory = {
   id: string;
   /**
-   * `{n}` is replaced by the count: "read {n} file" / "read {n} files". A leading word
-   * before the first placeholder is the verb and renders as an action.
+   * `{n}` is replaced by the count: "read {n} file" / "read {n} files". A leading word before the first placeholder is the verb and renders as an action.
    */
   count: { one: string; other: string };
 };
@@ -315,16 +300,7 @@ export type SummaryNotice = {
 };
 
 /**
- * Callbacks receive borrowed arguments and results; never mutate or persist them.
- * In the automatic CLI integration, arguments are a copy of Pi's raw arguments validated
- * against the currently registered tool schema. They exclude changes by the tool's
- * `prepareArguments` and `tool_call` handlers, so they can differ from the executed
- * arguments. They are Pi's raw arguments when this validation fails or the tool is not
- * registered. Standalone cards, and rows without a transcript call, receive Pi's raw
- * arguments.
- * Standalone cards skip CLI-only supports, exploration, and run-summary callbacks.
- * A used callback that throws causes atomic generic fallback; presentation failures
- * keep the row generic through later updates.
+ * Callbacks receive borrowed arguments and results; never mutate or persist them. In the automatic CLI integration, arguments are a copy of Pi's raw arguments validated against the currently registered tool schema. They exclude changes by the tool's `prepareArguments` and `tool_call` handlers, so they can differ from the executed arguments. They are Pi's raw arguments when this validation fails or the tool is not registered. Standalone cards, and rows without a transcript call, receive Pi's raw arguments. Standalone cards skip CLI-only supports, exploration, and run-summary callbacks. A used callback that throws causes atomic generic fallback; presentation failures keep the row generic through later updates.
  */
 export type ToolDisplayAdapter = {
   /** Stable contract ID. `pi:*`, `pi-mcp-adapter:*`, and `generic` are reserved. */
@@ -333,56 +309,35 @@ export type ToolDisplayAdapter = {
   /** When true, show parameters regardless of `showParameters`. Otherwise, follow that setting. */
   alwaysShowParameters?: boolean;
   /**
-   * Validate retained data in the automatic CLI integration after a result exists,
-   * including partial updates. Validated `args` contain no optional nulls that the
-   * schema rejects; a call whose validation fails keeps its raw arguments.
-   * False uses generic rendering and excludes the call
-   * from exploration groups; a later supported result restores its presentation.
-   * Omission accepts all results. The selected contract and retained data stay
-   * unchanged. Standalone factories use their explicit adapter without this check.
+   * Validate retained data in the automatic CLI integration after a result exists, including partial updates. Validated `args` contain no optional nulls that the schema rejects; a call whose validation fails keeps its raw arguments. False uses generic rendering and excludes the call from exploration groups; a later supported result restores its presentation. Omission accepts all results. The selected contract and retained data stay unchanged. Standalone factories use their explicit adapter without this check.
    */
   supports?(args: unknown, result: BorrowedToolResult): boolean;
   /**
-   * Override the base action, pending, and successful completion verbs. Omission
-   * uses the family's verbs. Terminal problems qualify the action ("Write failed").
+   * Override the base action, pending, and successful completion verbs. Omission uses the family's verbs. Terminal problems qualify the action ("Write failed").
    */
   headingVerbs?(args: unknown): HeadingVerbs | undefined;
   /**
-   * Supply a header when arguments differ from the family's native shape.
-   * Arguments remain unmodified by path display formatting. The optional retained
-   * result can supply a resolved tool identity.
+   * Supply a header when arguments differ from the family's native shape. Arguments remain unmodified by path display formatting. The optional retained result can supply a resolved tool identity.
    */
   invocation?(args: unknown, result?: BorrowedToolResult): InvocationPart[];
   /**
-   * Show a source argument, such as a script, as highlighted code below the heading.
-   * Compact cards preview its first rows. Handle partial arguments.
+   * Show a source argument, such as a script, as highlighted code below the heading. Compact cards preview its first rows. Handle partial arguments.
    */
   code?(args: unknown): DisplayCode | undefined;
   /**
-   * List nested calls from validated result metadata, including partial results.
-   * They precede ordinary output but follow a complete diff panel, including its
-   * failure output and notices. Compact cards show the latest calls.
+   * List nested calls from validated result metadata, including partial results. They precede ordinary output but follow a complete diff panel, including its failure output and notices. Compact cards show the latest calls.
    */
   nestedCalls?(result: BorrowedToolResult): readonly NestedCall[] | undefined;
   /**
-   * Supply ordered group items for the automatic CLI integration. Handle partial
-   * arguments before a result exists; undefined, empty items, or missing/mixed scopes
-   * exclude the call. Scope runs compare normalized directories or exact literal filters.
-   * Result updates can remove or restore membership without changing source order.
-   * Standalone renderers never invoke this callback.
+   * Supply ordered group items for the automatic CLI integration. Handle partial arguments before a result exists; undefined, empty items, or missing/mixed scopes exclude the call. Scope runs compare normalized directories or exact literal filters. Result updates can remove or restore membership without changing source order. Standalone renderers never invoke this callback.
    */
   exploration?(args: unknown, result?: BorrowedToolResult): ExplorationItem[] | undefined;
   /**
-   * Label collapsed groups that use a literal filter scope with a custom heading,
-   * such as "Todos". Exploration groups leave it undefined and name their scope.
-   * Calls group only when both their normalized scope and custom title match.
+   * Label collapsed groups that use a literal filter scope with a custom heading, such as "Todos". Exploration groups leave it undefined and name their scope. Calls group only when both their normalized scope and custom title match.
    */
   groupTitle?: string;
   /**
-   * Summarize completed results from validated metadata or observed operation facts.
-   * Compact successful cards replace text with this summary unless preserveOutput
-   * is true. Diagnostics and images stay visible; expansion restores retained text.
-   * Missing summaries use the ordinary output preview, including inside groups.
+   * Summarize completed results from validated metadata or observed operation facts. Compact successful cards replace text with this summary unless preserveOutput is true. Diagnostics and images stay visible; expansion restores retained text. Missing summaries use the ordinary output preview, including inside groups.
    */
   summary?(
     result: BorrowedToolResult,
@@ -395,31 +350,22 @@ export type ToolDisplayAdapter = {
       expanded: boolean;
     }
   ): ResultSummary | undefined;
-  /** Report a structured result outcome; never infer it from ordinary output text.
-   * Cancellation takes precedence over failure, and neither can be downgraded by
-   * success or unavailable metadata. Omission uses Pi's outcome and MCP facts.
-   */
+  /** Report a structured result outcome; never infer it from ordinary output text. Cancellation takes precedence over failure, and neither can be downgraded by success or unavailable metadata. Omission uses Pi's outcome and MCP facts. */
   outcome?(result: BorrowedToolResult): Outcome | undefined;
   /** Declare details.fullOutputPath meaningful to the CLI; standalone renderers never load it. */
   savedOutput?: boolean;
   /** Interpret successful details.patch as a unified patch, within the retained patch byte limit. */
   patch?: boolean;
   /**
-   * Keep diagnostics and references visible in compact and expanded cards, including
-   * groups. Severity controls styling, not visibility. Use summary for result totals.
-   * `info` uses dim styling, `unavailable` uses muted styling.
+   * Keep diagnostics and references visible in compact and expanded cards, including groups. Severity controls styling, not visibility. Use summary for result totals. `info` uses dim styling, `unavailable` uses muted styling.
    */
   notices?(result: BorrowedToolResult, expanded: boolean): DisplayNotice[];
   /**
-   * Interpret a known text envelope using explicit result context, not guessed
-   * facts from ordinary output. Preserve content except recognized routine metadata.
-   * An empty array hides this block without an empty-output placeholder.
-   * Presentation never changes the retained result.
+   * Interpret a known text envelope using explicit result context, not guessed facts from ordinary output. Preserve content except recognized routine metadata. An empty array hides this block without an empty-output placeholder. Presentation never changes the retained result.
    */
   textParts?(text: string, args: unknown, context: ResultTextContext): ResultTextPart[];
   /**
-   * Identify a known caption's MIME type. In complete successful results, a matching
-   * adjacent image omits its redundant fallback label; the caption and image stay intact.
+   * Identify a known caption's MIME type. In complete successful results, a matching adjacent image omits its redundant fallback label; the caption and image stay intact.
    */
   imageCaptionMimeType?(text: string): string | undefined;
   /** Supply typed MCP facts, or undefined when unavailable; never infer lost protocol types. */
@@ -430,9 +376,7 @@ export type ToolDisplayAdapter = {
   progress?(args: unknown, result?: BorrowedToolResult): DisplayProgress | undefined;
   action?(args: unknown, result?: BorrowedToolResult): DisplayAction | undefined;
   /**
-   * Internal: summary-mode items for this call. Handle partial arguments; undefined
-   * uses the family's category and counts the call once. An empty list omits the call
-   * from summary lines. Standalone renderers never invoke this callback.
+   * Internal: summary-mode items for this call. Handle partial arguments; undefined uses the family's category and counts the call once. An empty list omits the call from summary lines. Standalone renderers never invoke this callback.
    */
   summaryItems?(args: unknown, context: SummaryItemContext): readonly SummaryItem[] | undefined;
   /** Internal: categories this adapter introduces; built-in IDs cannot be redefined. */

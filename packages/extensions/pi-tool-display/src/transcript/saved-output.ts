@@ -12,10 +12,7 @@ const loadReader = () => (reader ??= import("../observation/saved-output.ts"));
 const readSavedOutput = async (path: string) => (await loadReader()).readSavedOutput(path);
 
 /**
- * The saved output of transcript calls. A complete, expanded call with a saved
- * path shows a bounded preview of that file. One session LRU cache shares previews
- * and in-flight reads between calls; an evicted preview leaves its calls, which
- * then show retained output. Renderers never initiate reads.
+ * The saved output of transcript calls. A complete, expanded call with a saved path shows a bounded preview of that file. One session LRU cache shares previews and in-flight reads between calls; an evicted preview leaves its calls, which then show retained output. Renderers never initiate reads.
  */
 export class SavedOutputs {
   private cache = new Map<string, SavedOutput>();

@@ -146,8 +146,7 @@ export class Supervisor {
   }
 
   /**
-   * Pi answers a handled command after its handler returns, so the notification arrives first.
-   * pi-subagents sends none from a session binding that is no longer current.
+   * Pi answers a handled command after its handler returns, so the notification arrives first. pi-subagents sends none from a session binding that is no longer current.
    */
   async command(command: string): Promise<Extract<RpcExtensionUIRequest, { method: "notify" }>> {
     const after = this.records.length;

@@ -8,10 +8,7 @@ const PATCHED = Symbol.for("pi-subagents.late-usage-patch");
 type Append = SessionManager["appendCustomMessageEntry"];
 
 /**
- * Adds a hidden usage entry after Pi persists a background result with late usage.
- * Pi's extension API has no usage writer; see docs/adr/0002-count-late-background-usage.md.
- * The patch is process-wide; the symbol guard prevents double counting after reload.
- * Returns a warning when Pi no longer has the patched methods.
+ * Adds a hidden usage entry after Pi persists a background result with late usage. Pi's extension API has no usage writer; see docs/adr/0002-count-late-background-usage.md. The patch is process-wide; the symbol guard prevents double counting after reload. Returns a warning when Pi no longer has the patched methods.
  */
 export function installLateUsagePatch(): string | undefined {
   const proto = SessionManager.prototype as SessionManager & { [PATCHED]?: true };
