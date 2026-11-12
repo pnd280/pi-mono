@@ -1,6 +1,6 @@
 import type { TaskDetails, TaskMutationParams } from "./model.ts";
 
-// Model-facing list text is bounded; result details still carry the full snapshot.
+/** Model-facing list text is bounded; result details still carry the full snapshot. */
 export const MAX_LIST_LINES = 200;
 
 export const MAX_LIST_CHARACTERS = 32_768;
@@ -34,7 +34,7 @@ export const MAX_METADATA_BYTES = 16 * 1_024;
 
 export const MAX_SNAPSHOT_BYTES = 512 * 1_024;
 
-// Result parameters and errors must still fit when the stored todo state is full.
+/** Result parameters and errors must still fit when the stored todo state is full. */
 export const MAX_DETAILS_OVERHEAD_BYTES = 64 * 1_024;
 
 type SizeFrame =

@@ -387,10 +387,6 @@ export default defineConfig({
         typescript: {
           project: `${import.meta.dirname}/tsconfig.base.json`
         }
-      },
-      slop: {
-        cwd: import.meta.dirname,
-        inspection: { mode: "recent-changes", tracebackCommits: 5 }
       }
     }
   },

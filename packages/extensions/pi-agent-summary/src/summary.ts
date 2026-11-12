@@ -32,7 +32,7 @@ type HostLevels = ThinkingLevel extends (typeof MODEL_THINKING_LEVELS)[number]
 // Rejects both missing and unknown host thinking levels at compile time.
 const thinkingLevels = MODEL_THINKING_LEVELS satisfies HostLevels;
 
-// Ignore unknown fields, but never render invalid statistics from session JSON.
+/** Ignore unknown fields, but never render invalid statistics from session JSON. */
 export const summarySchema = z.object({
   durationMs: countSchema,
   finishedAt: countSchema.max(8_640_000_000_000_000),

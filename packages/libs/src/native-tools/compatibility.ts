@@ -19,8 +19,8 @@ export function unchangedDefinition(definition: ToolDefinition, fields: ToolDefi
   );
 }
 
-// Construction fingerprints establish this private boundary before any replacement.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+/** Construction fingerprints establish this private boundary before any replacement. */
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
 export const nativeSession = (session: AgentSession) => session as unknown as SessionInternals;
 
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
@@ -44,6 +44,6 @@ export function inspectedConstruction(prototype: SessionInternals): boolean {
 }
 
 export function nativePrototype(): SessionInternals {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
   return AgentSession.prototype as unknown as SessionInternals;
 }

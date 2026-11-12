@@ -2,14 +2,14 @@ const repositoryPath = "github.com/pnd280/pi-mono";
 
 export const repositoryUrl = `https://${repositoryPath}`;
 
-// The Pi package source of the generated release branch, as in the workspace README's install section.
+/** The Pi package source of the generated release branch, as in the workspace README's install section. */
 export const releaseSource = `git:${repositoryPath}@release`;
 
 export type Extension = {
   name: string;
-  // Follows the workspace README's extension table.
+  /** Follows the workspace README's extension table. */
   summary: string;
-  // A prompt, command, or output line, copied from the extension's README.
+  /** A prompt, command, or output line, copied from the extension's README. */
   sample?: { kind: "input" | "output"; text: string };
 };
 

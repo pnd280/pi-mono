@@ -68,7 +68,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
    */
   const servers = new Map<string, McpServerConfig>();
 
-  // Pi skips its built-in `tool_search` when an extension registers one while loading. This copy is Pi's own tool, but it sees the deferred tools as `deferred`, so it finds and loads them too, and the tools that it turns on bring the rest of their deferred groups. It is always registered: a loading extension gets no trust decision, so the settings cannot tell whether a project profile defers tools.
+  // Registering a `tool_search` while loading makes Pi skip its built-in one. This copy of Pi's tool sees the profile's deferred tools as `deferred`, so it loads them with their whole groups. Always register it: loading extensions get no trust decision, so settings cannot show whether a project profile defers tools.
   await createToolSearchExtension()({
     ...pi,
     getAllTools: () => searchableTools(pi.getAllTools(), rules),

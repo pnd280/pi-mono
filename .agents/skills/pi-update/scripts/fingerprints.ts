@@ -122,7 +122,7 @@ function fingerprints(): Fingerprints {
   return { version: pi.VERSION, hashes };
 }
 
-// Loaded by the bundled CLI as an extension: print that build's hashes.
+/** Loaded by the bundled CLI as an extension: print that build's hashes. */
 export default function (): void {
   process.stderr.write(`FINGERPRINTS ${JSON.stringify(fingerprints())}\n`);
 }

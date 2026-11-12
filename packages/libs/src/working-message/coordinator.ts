@@ -42,7 +42,7 @@ function oneLine(text: string): string {
  * The registrations of one runtime. Only live participants' registrations show. Handles can mutate only their own registration.
  */
 export class WorkingMessageCoordinator<Participant extends object, Owner> {
-  // Overrides stay in the order of their latest text, so the most recent override wins.
+  /** Overrides stay in the order of their latest text, so the most recent override wins. */
   private readonly items = new Set<Item<Participant, Owner>>();
   private readonly writers = new Map<Participant, Writer | undefined>();
   private readonly written = new Map<Participant | undefined, string | undefined>();

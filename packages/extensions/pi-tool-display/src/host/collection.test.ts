@@ -21,9 +21,10 @@ it("keeps Pi's arguments unchanged when it validates a copy of them", async () =
     exposure: "direct",
     sourceInfo: createSyntheticSourceInfo("probe", { source: "local" })
   };
+  const registry = { getAllTools: () => [tool] } satisfies Pick<AgentSession, "getAllTools">;
   // Argument validation reads only the tool registry.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const session = { getAllTools: () => [tool] } as unknown as AgentSession;
+  const session = registry as AgentSession;
   // Validation removes the optional null and converts the string.
   const supplied = { path: "a.ts", label: null, limit: "2" };
   const before = structuredClone(supplied);

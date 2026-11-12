@@ -7,7 +7,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 
-// Pi does not export its virtual-model predicate from the public entry point.
+/** Pi does not export its virtual-model predicate from the public entry point. */
 export const virtualModelApi = "pi-virtual";
 
 export type ContextSnapshot = { messages: AgentSession["agent"]["state"]["messages"] };
@@ -40,7 +40,7 @@ export type NativeSession = Pick<
   _autoCompactionAbortController: AbortController | undefined;
   _compactionAbortController: AbortController | undefined;
   _runDefaultCompaction: DefaultCompaction;
-  // The inspected runtime forwards manual unchanged, despite its narrower declaration.
+  /** The inspected runtime forwards manual unchanged, despite its narrower declaration. */
   _runAutoCompaction(
     reason: SessionBeforeCompactEvent["reason"],
     willRetry: boolean

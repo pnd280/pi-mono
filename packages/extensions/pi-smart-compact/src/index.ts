@@ -72,7 +72,7 @@ function contextWindowTool(docs: string) {
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);
-  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose the active tools. The session_start registration keeps the same exposure, so without `--tools` it only replaces the description. With `--tools`, any registration activates every listed tool again; a profile still wins because lifecycle startup commits run after every session_start handler.
+  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose the active tools. Without `--tools`, the session_start registration only replaces the description. With `--tools`, any registration reactivates every listed tool; a profile still wins because lifecycle startup commits run after every session_start handler.
   pi.registerTool(contextWindowTool(""));
   let binding: ReturnType<typeof bindNativeCompaction> | undefined;
   let config: CompactConfig = {};

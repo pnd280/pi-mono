@@ -152,12 +152,12 @@ export async function hostFixture(
     } satisfies Terminal;
     // Construction only consumes these runtime callbacks. Registries, renderer and UI proxy are real.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const mode = new InteractiveMode(runtime as unknown as AgentSessionRuntime, {
+    const mode = new InteractiveMode(runtime as AgentSessionRuntime, {
       terminal,
       tuiMode
     });
     // Test the installed private boundary, not a reproduction of its registration implementation.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
     const host = mode as unknown as FixtureHost;
     resources.host = host;
     // Use Pi's actual fixed input dock in fullscreen without startup downloads or signal handlers.

@@ -45,7 +45,7 @@ export class LifecycleCoordinator {
   private readonly opened = new Emissions();
   private readonly closed = new Emissions();
   private readonly revokers = new Registry<() => void>();
-  // Pi builds a new event for each `session_shutdown`, `agent_start`, and `agent_settled`.
+  /** Pi builds a new event for each `session_shutdown`, `agent_start`, and `agent_settled`. */
   private readonly phases = new WeakMap<
     object,
     Map<Entry<() => void>, { error: unknown } | undefined>
