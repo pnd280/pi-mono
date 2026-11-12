@@ -5,19 +5,16 @@ import {
   type FauxResponseFactory
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
-import { RunChanges } from "./changes.ts";
 import { counterChannel } from "./counters.ts";
 import agentSummary from "./index.ts";
 import { milestoneChannel } from "./milestones.ts";
 import { summaryEntryType } from "./summary.ts";
 
-it("saves one summary per settled run, also when quit cancels it, and none for a run that a reload discards", async () => {
-  useStepPatchDeadline();
+it("saves one summary per settled run, also when quit cancels it, and none for a run that starts during shutdown", async () => {
   // Only the live timer's interval is fake, so the timer count shows whether it still ticks.
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
   let helper: ExtensionAPI | undefined;
@@ -41,7 +38,6 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
   const { session } = fixture;
   const releases: (() => void)[] = [];
   const settlements: Promise<unknown>[] = [];
-  const finish = vi.spyOn(RunChanges.prototype, "finish");
   let disposed = false;
 
   const summaries = () =>
@@ -91,7 +87,6 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
       durationMs: expect.any(Number) as unknown
     },
     bashCalls: 0,
-    files: [],
     ...fields
   });
 
@@ -127,42 +122,22 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
     expect(summaries()).toEqual([
       summary({
         milestones: ["Published v1.2.0"],
-        counters: [{ id: "tasks", verb: "delegated", singular: "task", plural: "tasks", count: 1 }],
-        files: [{ path: "first.txt", status: "available", added: 1, removed: 0 }]
+        counters: [{ id: "tasks", verb: "delegated", singular: "task", plural: "tasks", count: 1 }]
       })
     ]);
 
-    // The next run starts without the settled run's statistics.
+    // The next run starts without the settled run's milestones and counters.
     faux.setResponses([fauxAssistantMessage("Second response")]);
     await start("Second run");
     expect(summaries()).toHaveLength(2);
     expect(summaries()[1]).toEqual(summary({}));
-
-    // Reload while the net comparison is pending; the comparison finishes during shutdown.
-    const pending = Promise.withResolvers<Awaited<ReturnType<RunChanges["finish"]>>>();
-    finish.mockReturnValueOnce(pending.promise);
-    faux.setResponses([
-      fauxAssistantMessage(fauxToolCall("write", { path: "third.txt", content: "third\n" })),
-      fauxAssistantMessage("Third response")
-    ]);
-    const thirdPrompt = start("Third run");
-    await vi.waitFor(() => expect(finish).toHaveBeenCalledTimes(3), { timeout: STEP_TIMEOUT_MS });
-
-    duringShutdown = async () => {
-      pending.resolve([{ path: "third.txt", status: "available", added: 1, removed: 0 }]);
-      await settled(3);
-    };
-
-    await session.reload();
-    await thirdPrompt;
-    expect(summaries()).toHaveLength(2);
 
     // Another extension starts a run during shutdown, before the reloaded session starts.
     faux.setResponses([fauxAssistantMessage("Late response")]);
 
     duringShutdown = async () => {
       helper?.sendUserMessage("Late run");
-      await settled(4);
+      await settled(3);
     };
 
     await session.reload();
@@ -173,9 +148,9 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
     expect(vi.getTimerCount()).toBe(0);
     expect(summaries()).toHaveLength(2);
 
-    // After the reset, a run saves only its own statistics.
-    faux.setResponses([fauxAssistantMessage("Fourth response")]);
-    await start("Fourth run");
+    // After the reload, a run saves its own summary.
+    faux.setResponses([fauxAssistantMessage("Third response")]);
+    await start("Third run");
     expect(summaries()).toHaveLength(3);
     expect(summaries()[2]).toEqual(summary({}));
 
@@ -193,16 +168,13 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
     expect(session.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "aborted" });
     expect(vi.getTimerCount()).toBe(0);
     expect(summaries()).toHaveLength(4);
-    expect(summaries()[3]).toEqual(
-      summary({ files: [{ path: "last.txt", status: "available", added: 1, removed: 0 }] })
-    );
+    expect(summaries()[3]).toEqual(summary({}));
   } finally {
     try {
       if (!disposed) await fixture.dispose();
     } finally {
       for (const release of releases) release();
       await Promise.all(settlements);
-      finish.mockRestore();
       vi.useRealTimers();
     }
   }

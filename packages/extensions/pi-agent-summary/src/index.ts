@@ -6,11 +6,9 @@ import type {
   MessageUpdateEvent,
   ToolExecutionStartEvent
 } from "@earendil-works/pi-coding-agent";
-import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { joinLifecycle, type LifecycleAPI } from "@pi-mono/libs/lifecycle";
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
-import { RunChanges } from "./changes.ts";
 import { counterChannel, counterSchema, maxCounters } from "./counters.ts";
 import { maxMilestones, milestoneChannel, milestoneSchema } from "./milestones.ts";
 import { createSummaryRenderer } from "./render.ts";
@@ -18,8 +16,7 @@ import { summaryEntryType, type RunSummary } from "./summary.ts";
 import { RunThroughput } from "./throughput.ts";
 import { AgentTimer } from "./timer.ts";
 
-export type SummaryContext = WorkingMessageContext &
-  Pick<ExtensionContext, "isIdle" | "sessionManager">;
+export type SummaryContext = WorkingMessageContext & Pick<ExtensionContext, "isIdle">;
 
 export type SummaryEvents = {
   session_start: unknown;
@@ -61,7 +58,6 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
   });
   let run:
     | {
-        changes: RunChanges;
         bashCalls: Set<string>;
         models: NonNullable<RunSummary["models"]>;
         milestones: string[];
@@ -74,35 +70,10 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     // The rate shares the timer's interval, so it refreshes and clears with the timer.
     rate.setText(text === undefined ? undefined : run?.throughput.text());
   });
-  let manager: SummaryContext["sessionManager"] | undefined;
-  // Set by the shutdown revoke: until a new session starts, no run starts and no observer connects.
+  // Set by the shutdown revoke: until a new session starts, no run starts.
   let revoked = false;
-  let generation = 0;
-  const connect = () =>
-    observeFileMutations({
-      eligible: (session) => session.sessionManager === manager,
-      begin: () => {
-        const changes = run?.changes;
-        if (!changes) return;
-
-        return {
-          maxSourceBytes: changes.maxSourceBytes,
-          completed: (mutation) => {
-            if (run?.changes === changes) return changes.completed(mutation);
-          }
-        };
-      }
-    });
-  let mutations: ReturnType<typeof connect> | undefined = connect();
-
-  const bind = (ctx: SummaryContext) => {
-    manager = ctx.sessionManager;
-    mutations ??= connect();
-    mutations.bind(manager);
-  };
 
   const reset = () => {
-    generation++;
     run = undefined;
     timer.reset();
   };
@@ -122,23 +93,20 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     if (counter) counter.count++;
     else if (run.counters.length < maxCounters) run.counters.push({ ...parsed.data, count: 1 });
   });
-  pi.on("session_start", (_event, ctx) => {
+  pi.on("session_start", () => {
     revoked = false;
     reset();
-    bind(ctx);
   });
   // Run marks time the run from the first agent_start to agent_settled, so slow handlers that run before these ones in load order do not change the duration.
   lifecycle.onAgentStart((_event, ctx, at) => {
     if (revoked) return;
     run ??= {
-      changes: new RunChanges(ctx.cwd),
       bashCalls: new Set(),
       throughput: new RunThroughput(),
       models: [],
       milestones: [],
       counters: []
     };
-    if (manager !== ctx.sessionManager) bind(ctx);
     timer.start(at, ctx.mode === "tui");
   });
   pi.on("message_start", (event) => {
@@ -163,7 +131,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
   pi.on("tool_execution_start", (event) => {
     if (event.toolName === "bash") run?.bashCalls.add(event.toolCallId);
   });
-  lifecycle.onAgentSettled(async (_event, ctx, at) => {
+  lifecycle.onAgentSettled((_event, ctx, at) => {
     // A preceding extension handler may already have started another run.
     if (!ctx.isIdle() || !run) return;
     // The wall-clock time of the settle mark.
@@ -173,10 +141,6 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     const duration = timer.finish(at);
     if (!duration) return;
     const throughput = finished.throughput.finish();
-    const startedGeneration = generation;
-    const files = await finished.changes.finish();
-    // A session switch or reload can occur while the net comparison runs off-thread.
-    if (generation !== startedGeneration) return;
     pi.appendEntry<RunSummary>(summaryEntryType, {
       ...duration,
       finishedAt,
@@ -184,16 +148,12 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
       ...(throughput && { throughput }),
       ...(finished.milestones.length > 0 && { milestones: finished.milestones }),
       ...(finished.counters.length > 0 && { counters: finished.counters }),
-      bashCalls: finished.bashCalls.size,
-      files
+      bashCalls: finished.bashCalls.size
     });
   });
-  // The revoke runs before any participant's shutdown handler awaits, so a run that another extension starts during shutdown cannot reconnect the observers or restart the timer.
+  // The revoke runs before any participant's shutdown handler awaits, so a run that another extension starts during shutdown cannot restart the timer.
   lifecycle.onSessionShutdown(() => {
     revoked = true;
     reset();
-    manager = undefined;
-    mutations?.dispose();
-    mutations = undefined;
   });
 }

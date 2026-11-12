@@ -2,7 +2,7 @@
   "name": "pi-agent-summary",
   "version": "0.1.0",
   "private": true,
-  "description": "Live agent elapsed time with context-free tool and file change summaries",
+  "description": "Live agent elapsed time and run summaries that stay out of model context",
   "keywords": [
     "pi-package"
   ],

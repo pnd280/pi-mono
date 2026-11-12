@@ -36,11 +36,10 @@ export const extensionGroups: ExtensionGroup[] = [
       },
       {
         name: "pi-agent-summary",
-        summary:
-          "Adds a one-line summary after each run: time, models, commands, and changed files.",
+        summary: "Adds a one-line summary after each run: time, models, and commands.",
         sample: {
           kind: "output",
-          text: "• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 -11"
+          text: "• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands"
         }
       },
       {

@@ -31,7 +31,7 @@ Only Linux support is guaranteed. Windows and macOS are not thoroughly tested.
 | [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md)           | Keeps searchable prompt history and saved drafts per directory.                                       |
 | [pi-session-utils](packages/extensions/pi-session-utils/README.md)             | Saves unsaved sessions, starts empty child sessions, and names sessions automatically.                |
 | [pi-abort-guard](packages/extensions/pi-abort-guard/README.md)                 | Stops a running agent only on a second **Escape**, so one stray press doesn't end the turn.           |
-| [pi-agent-summary](packages/extensions/pi-agent-summary/README.md)             | Adds a one-line summary after each run: time, models, commands, and changed files.                    |
+| [pi-agent-summary](packages/extensions/pi-agent-summary/README.md)             | Adds a one-line summary after each run: time, models, and commands.                                   |
 | [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md)           | Moves widgets and statuses above the editor, below it, or into the footer.                            |
 | [pi-prompt-cloak](packages/extensions/pi-prompt-cloak/README.md)               | Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers.              |
 

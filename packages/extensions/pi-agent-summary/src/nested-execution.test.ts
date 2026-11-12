@@ -1,6 +1,5 @@
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import { createCodemodeExtension } from "@earendil-works/pi-coding-agent";
-import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { zeroUsage } from "@pi-mono/libs/validation/provider";
 import { Type } from "typebox";
@@ -10,7 +9,6 @@ import agentSummary from "./index.ts";
 import { summaryEntryType, summarySchema } from "./summary.ts";
 
 it("counts nested execution once and excludes child usage while recording the routed physical model", async () => {
-  useStepPatchDeadline();
   const fixture = await hostFixture([
     agentSummary,
     createCodemodeExtension({ mode: "on" }),
@@ -51,7 +49,7 @@ it("counts nested execution once and excludes child usage while recording the ro
     const responses = [
       fauxAssistantMessage([
         fauxToolCall("codemode", {
-          code: 'await tools.write({path:"created.txt",content:"created\\n"}); await tools.bash({command:"false"}).catch(() => {}); await tools.usage({}); text("done");'
+          code: 'await tools.bash({command:"false"}).catch(() => {}); await tools.usage({}); text("done");'
         })
       ]),
       fauxAssistantMessage("done")
@@ -80,8 +78,7 @@ it("counts nested execution once and excludes child usage while recording the ro
       finishedAt: expect.any(Number) as unknown,
       bashCalls: 1,
       models: [{ provider: "summary-nested", id: "physical", thinkingLevel: "off" }],
-      throughput: { outputTokens: assistantTokens, durationMs: expect.any(Number) as unknown },
-      files: [{ path: "created.txt", status: "available", added: 1, removed: 0 }]
+      throughput: { outputTokens: assistantTokens, durationMs: expect.any(Number) as unknown }
     });
     expect(messages.find((message) => message.role === "toolResult")?.usage?.output).toBe(9000);
     expect(JSON.stringify(session.sessionManager.buildSessionContext().messages)).not.toContain(
