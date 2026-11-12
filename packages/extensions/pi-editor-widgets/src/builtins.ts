@@ -11,6 +11,10 @@ import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { containsPath } from "@pi-mono/utils/paths";
 
+import type { GitStats, LineCounts } from "./git-changes.ts";
+
+export const gitChangesId = "builtin:git-changes";
+
 function formatCwd(cwd: string, home = process.env.HOME || process.env.USERPROFILE): string {
   if (!home) return compactDisplayText(cwd);
   const root = resolve(home);
@@ -140,11 +144,43 @@ function context(session: AgentSession, theme: Theme, display: UsageDisplay): st
   return theme.fg("dim", `${used}/${total}${share}${auto}`);
 }
 
+/** Brackets set the staged counts apart only next to unstaged counts; `U` marks the untracked file count. */
+function gitChanges(stats: GitStats | undefined, theme: Theme): string {
+  if (!stats) return "";
+
+  const lines = ({ added, removed }: LineCounts) => {
+    const parts: string[] = [];
+    // A change without line counts, such as a binary file or a mode change, still shows.
+    if (added || !removed) parts.push(theme.fg("toolDiffAdded", `+${added}`));
+    if (removed || !added) parts.push(theme.fg("toolDiffRemoved", `-${removed}`));
+
+    return parts.join(" ");
+  };
+
+  const parts: string[] = [];
+  if (stats.unstaged.files) parts.push(lines(stats.unstaged));
+
+  if (stats.staged.files) {
+    const staged = lines(stats.staged);
+    parts.push(
+      stats.unstaged.files ? theme.fg("dim", "[") + staged + theme.fg("dim", "]") : staged
+    );
+  }
+
+  if (stats.untracked) parts.push(theme.fg("dim", `U ${stats.untracked}`));
+
+  return parts.join("  ");
+}
+
 export function builtinText(
   session: AgentSession,
   footer: ReadonlyFooterDataProvider,
   theme: Theme,
-  { contextDisplay, tokensDisplay }: { contextDisplay: UsageDisplay; tokensDisplay: UsageDisplay }
+  {
+    contextDisplay,
+    tokensDisplay,
+    git
+  }: { contextDisplay: UsageDisplay; tokensDisplay: UsageDisplay; git: GitStats | undefined }
 ): Map<string, string> {
   const model = session.model;
   let modelText = "no-model";
@@ -158,6 +194,7 @@ export function builtinText(
   return new Map([
     ["builtin:cwd", theme.fg("dim", formatCwd(session.sessionManager.getCwd()))],
     ["builtin:git-branch", theme.fg("dim", compactDisplayText(footer.getGitBranch() ?? ""))],
+    [gitChangesId, gitChanges(git, theme)],
     [
       "builtin:session-title",
       theme.fg("dim", compactDisplayText(session.sessionManager.getSessionName() ?? ""))

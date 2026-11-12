@@ -22,7 +22,7 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layo
     agentDir: fixture.agentDir,
     projectTrusted: true
   });
-  const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn());
+  const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn(), vi.fn());
   const close = vi.fn();
   const requestRender = vi.fn();
   const preferences = settings.load();
@@ -71,7 +71,7 @@ it("retains a draft after a failed save and applies it once a retry succeeds", a
     rmdirSync(`${settings.paths.global}.lock`);
     menu.handleInput(save);
     expect(plain(menu.render(200))).not.toMatch(/global(\*| \(not set\))/);
-    expect(settings.load().global?.hidden).toEqual(["widget:one"]);
+    expect(settings.load().global?.hidden).toEqual(["builtin:git-changes", "widget:one"]);
     expect(settings.load().global?.aboveEditor.flat()).not.toContain("widget:one");
     expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
   } finally {
@@ -121,7 +121,8 @@ it("previews drafts live in the actual regions and restores the saved layout on 
     menu.handleInput(down);
     menu.handleInput(enter); // Footer -> rows
     menu.handleInput("a"); // New row -> contents
-    menu.handleInput("a"); // Picker: separator, flex, then the hidden widget
+    menu.handleInput("a"); // Picker: separator, flex, git changes (hidden by default), then the hidden widget
+    menu.handleInput(down);
     menu.handleInput(down);
     menu.handleInput(down);
     menu.handleInput(enter);
@@ -177,7 +178,7 @@ it.each(["global", "inherited project"])(
       menu.handleInput(remove);
       menu.handleInput(save);
       const saved = settings.load()[scope === "global" ? "global" : "project"];
-      expect(saved?.hidden).toEqual(["status:middle"]);
+      expect(saved?.hidden).toEqual(["builtin:git-changes", "status:middle"]);
       expect(saved?.footer[2]).toContain("status:first");
       expect(saved?.footer[2]).toContain("status:last");
     } finally {
@@ -232,7 +233,7 @@ it("keeps a nested row anchored when a preceding native row moves away", async (
     fixture.ui.setWidget("first", ["MOVED"], { placement: "belowEditor" });
     menu.handleInput(remove);
     menu.handleInput(save);
-    expect(settings.load().global?.hidden).toEqual(["widget:second"]);
+    expect(settings.load().global?.hidden).toEqual(["builtin:git-changes", "widget:second"]);
     expect(settings.load().global?.aboveEditor).toEqual([[], ["widget:third"]]);
   } finally {
     coordinator.dispose();

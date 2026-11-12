@@ -1,4 +1,4 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import {
   Container,
   MouseRegion,
@@ -10,7 +10,8 @@ import {
 } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import { builtinText } from "./builtins.ts";
+import { builtinText, gitChangesId } from "./builtins.ts";
+import { GitChanges } from "./git-changes.ts";
 import { widgetRendererCompatible, type WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
 import { clip, renderRows, type Rendered } from "./render.ts";
@@ -41,6 +42,8 @@ export class WidgetCoordinator {
   private saved: Layout | undefined;
   private draft: Layout | undefined;
   private readonly verbose = { context: false, tokens: false };
+  private readonly git: GitChanges;
+  private entryCount: number | undefined;
   private active = true;
   private readonly nativeFooter: WidgetHost["setExtensionFooter"];
   private unsubscribe: (() => void) | undefined;
@@ -48,12 +51,18 @@ export class WidgetCoordinator {
   constructor(
     private readonly host: WidgetHost,
     private readonly theme: () => Theme,
-    private readonly warn: (message: string) => void
+    private readonly warn: (message: string) => void,
+    exec: ExtensionAPI["exec"]
   ) {
     if (host.customFooter)
       throw new Error(
         "pi-editor-widgets: footer conflict. Disable the other footer extension and /reload; native widgets and statuses remain supported."
       );
+    this.git = new GitChanges(
+      exec,
+      () => host.session.sessionManager.getCwd(),
+      () => host.ui.requestRender()
+    );
     this.nativeFooter = host.setExtensionFooter;
     const aboveEditor = new Container();
     aboveEditor.addChild(new Spacer(aboveEditorSpacing));
@@ -94,7 +103,10 @@ export class WidgetCoordinator {
         this.nativeFooter.call(host, factory);
       });
       this.nativeFooter.call(host, () => this.components.footer);
-      this.unsubscribe = host.footerDataProvider.onBranchChange(() => host.ui.requestRender());
+      this.unsubscribe = host.footerDataProvider.onBranchChange(() => {
+        this.git.refresh();
+        host.ui.requestRender();
+      });
       this.mount();
     } catch (error) {
       this.dispose();
@@ -116,6 +128,11 @@ export class WidgetCoordinator {
     if (JSON.stringify(layout) === JSON.stringify(this.draft)) return;
     this.draft = layout === undefined ? undefined : structuredClone(layout);
     this.host.ui.requestRender();
+  }
+
+  /** A tool call can change files long before its result reaches the session. */
+  refreshGitChanges(): void {
+    this.git.refresh();
   }
 
   /** Unclipped region height including spacing, without measuring the editor it is sized against. */
@@ -149,6 +166,14 @@ export class WidgetCoordinator {
       }
     }
 
+    // Pi has no event for the end of a `!` command, but every finished command, tool result, and response adds a session entry.
+    const entryCount = this.host.session.sessionManager.getEntryCount();
+
+    if (entryCount !== this.entryCount) {
+      this.entryCount = entryCount;
+      this.git.refresh();
+    }
+
     const fullscreen = this.host.renderer.mode === "fullscreen";
     const contextDisplay = this.verbose.context ? "verbose" : "compact";
     const tokensDisplay = this.verbose.tokens ? "verbose" : "compact";
@@ -159,7 +184,8 @@ export class WidgetCoordinator {
       this.theme(),
       {
         contextDisplay: fullscreen ? contextDisplay : "regular",
-        tokensDisplay: fullscreen ? tokensDisplay : "regular"
+        tokensDisplay: fullscreen ? tokensDisplay : "regular",
+        git: this.git.current
       }
     ))
       this.setText(id, value);
@@ -294,6 +320,7 @@ export class WidgetCoordinator {
     if (this.measured?.width === width) return this.measured;
     this.sync();
     const layout = resolveLayout(this.draft ?? this.saved, [...this.registry.values()]);
+    this.git.setPlaced(regions.some((region) => layout[region].flat().includes(gitChangesId)));
     const sources = new Map(
       [...this.registry].flatMap(([id, source]) =>
         source.available ? [[id, source.component] as const] : []
@@ -371,6 +398,7 @@ export class WidgetCoordinator {
   dispose(): void {
     if (!this.active) return;
     this.active = false;
+    this.git.dispose();
     this.unsubscribe?.();
     this.hooks.restore();
     this.rendererHooks.restore();

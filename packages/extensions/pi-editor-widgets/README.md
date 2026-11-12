@@ -39,6 +39,10 @@ Widgets and statuses can share a row, or appear in several regions at once. A ro
 
 Regular mode always shows full token details and context percentages. In fullscreen mode, the token display and the context display each keep their own compact or detailed choice, and all copies of one display switch together. Each choice resets on session start or `/reload`, and is never saved.
 
+### Git changes
+
+The optional "Git changes" item shows the lines added and removed by unstaged and by staged changes, and the number of untracked files. To show it, and for what it counts and when it updates, read [git changes](docs/settings.md#git-changes).
+
 ## Configuration
 
 Most users edit layouts with `/widgets`. To edit a layout as JSON, put the `ext.pi-editor-widgets` section in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), in `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust), or in both. A project layout replaces the whole global layout; the two are never merged. A project without a layout inherits the saved global layout. The extension reads layouts again on session start, on `/reload`, and when you open `/widgets`.
@@ -57,14 +61,14 @@ This example shows every field. Remove the comments before you copy it, because 
       // Rows below the editor, with the same entries and limits. Default: no rows.
       "belowEditor": [["widget:git-status"]],
       // Footer rows, with the same entries and limits. A row has each ID once and at most one "flex".
-      // Built-in names: cwd, git-branch, session-title, tokens, context, and model.
+      // Built-in names: cwd, git-branch, git-changes, session-title, tokens, context, and model.
       // Default: cwd, git-branch, and session-title, then tokens and context with model right-aligned.
       "footer": [
         ["builtin:cwd", "separator", "builtin:git-branch"],
         ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]
       ],
-      // IDs to show nowhere. Up to 10,000 unique IDs that are not placed in a row. Default: none.
-      "hidden": ["builtin:session-title"]
+      // IDs to show nowhere. Up to 10,000 unique IDs that are not placed in a row. Default: builtin:git-changes.
+      "hidden": ["builtin:session-title", "builtin:git-changes"]
     }
   }
 }
@@ -77,6 +81,7 @@ Each ID is at most 4,096 Unicode code points, and the whole settings file is lim
 - This extension takes over the whole footer. If another extension also replaces the footer, a warning names the footer conflict, and this extension stops arranging widgets and statuses. Disable the other extension and run `/reload`. Native widgets and statuses keep working.
 - Moving, copying, or hiding a widget never creates or disposes it. Copies share one instance, including its side effects.
 - Only **Ctrl+S** writes layout settings. Unrelated fields and settings symlinks are preserved. If a settings file or section is unreadable or malformed, repair it before saving.
+- The optional [git changes item](docs/settings.md#git-changes) runs read-only `git` commands and watches the repository's Git directory. The guide states when this starts and stops.
 - Mouse input reaches widgets only in fullscreen mode. A drag that continues after the widget is redrawn follows the position where it was last drawn.
 
 ## Docs
@@ -85,6 +90,7 @@ Each ID is at most 4,096 Unicode code points, and the whole settings file is lim
 | ----------------------------------------------------------------------- | --------------------------------------------------- |
 | Edit layouts as JSON, or need scope rules, row entries, and every limit | [Widget settings and layouts](docs/settings.md)     |
 | Want to know how empty widgets, image widgets, and alignment render     | [How rows render](docs/settings.md#how-rows-render) |
+| Want to know what the git changes item counts and when it updates       | [Git changes](docs/settings.md#git-changes)         |
 | Change menu or layout behaviour                                         | [Terminal validation](docs/validation.md)           |
 | Decide where a test belongs                                             | [Test coverage](docs/testing.md)                    |
 | Upgrade Pi                                                              | [Compatibility checklist](docs/pi-compatibility.md) |

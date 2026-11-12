@@ -23,6 +23,7 @@ This package tests its layout settings key and schema, layout menu state, and ed
 ## Not tested
 
 - Token-widget formatting, general row wrapping and padding, image rendering, region clipping, menu hints, and save-feedback timing are below the severity bar. The [manual checks](#manual-checks) cover them and mouse behaviour beyond the focus and settings-write scenarios.
+- The [git changes](settings.md#git-changes) item has no automated tests: its counts and markers are below the severity bar, and no listed invariant covers when Git runs and stops. The [manual checks](validation.md#git-changes) cover both.
 - The libs [settings-file](../../../libs/src/settings-file/README.md) tests own project trust, preservation of unrelated settings, and refusal to overwrite malformed, oversized, or locked settings files.
 - The interactive session picker and physical-terminal behaviour are not tested because the host fixture does not drive them.
 
