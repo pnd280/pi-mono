@@ -84,6 +84,25 @@ Setup: run `/reload`, a new session, a resumed session, and a renderer switch, a
 | Load a separate custom-footer extension, in both orders.             | A footer-conflict warning appears.                                                          |
 | Disable the other footer extension and reload.                       | This extension's footer layout shows again.                                                 |
 
+## Git changes
+
+Setup: use a disposable Git repository with an unstaged edit to one tracked file, a staged edit to another tracked file, and an untracked file. Start Pi with the default layout. Trace the processes that Pi starts, for example with `strace -f -e trace=execve`, to see the `git` commands of the item.
+
+| Do                                                                                                                                                          | Expect                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Inspect the footer and the trace before changing the layout.                                                                                                | The footer has no git changes item, and the trace has no `git rev-parse`, `git diff`, or `git ls-files` command.    |
+| Open `/widgets`, add "Git changes" to a footer row, save, and close the menu.                                                                               | It shows the unstaged lines, the staged lines in brackets, and the untracked count after `U`.                       |
+| Run `git add` on the unstaged file in another terminal.                                                                                                     | After a moment and without input in Pi, the unstaged counts go, and the staged counts rise and lose their brackets. |
+| Run `!git reset -q` in Pi.                                                                                                                                  | The item updates when the command finishes.                                                                         |
+| Let the agent edit a file.                                                                                                                                  | The item updates when the tool call finishes.                                                                       |
+| During an agent response, run `!git add` on an edited file.                                                                                                 | The item updates by the time the agent finishes.                                                                    |
+| Edit a file in another editor, then run `!true` in Pi.                                                                                                      | The item updates after the `!` command, not before it.                                                              |
+| Start Pi in a subdirectory of the repository.                                                                                                               | The counts are the same as at the repository root.                                                                  |
+| Commit or discard every change.                                                                                                                             | The item takes no space in the footer.                                                                              |
+| Make a new unstaged edit, then run `/reload` and start a new session with the item placed.                                                                  | After each action, the item shows the new edit's line counts.                                                       |
+| Start Pi outside a repository with the item placed.                                                                                                         | The item shows nothing, and no warning appears.                                                                     |
+| Return to the repository with the item placed. Remove every copy in `/widgets`, save, and close the menu. Then edit and stage a file from another terminal. | The trace shows no new `git rev-parse`, `git diff`, or `git ls-files` command.                                      |
+
 ## Context widget
 
 Setup: start Pi in fullscreen with a session that has known context usage and automatic compaction enabled. Each click toggles between compact and verbose display; fullscreen starts compact.

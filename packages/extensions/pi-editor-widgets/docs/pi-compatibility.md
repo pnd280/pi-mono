@@ -83,6 +83,15 @@ Shutdown releases adapters but doesn't dispose borrowed widgets. A new start loa
 - [ ] Pi's native UI reset still disposes extension widgets on shutdown, new sessions, and reload.
 - [ ] Pi's native UI reset still disposes every stacked extension dialog, including an open inline `/widgets` menu, and the menu promise settles. Pi 1.4.0 added this dialog stack.
 
+### Git changes
+
+[`GitChanges`](../src/git-changes.ts) keeps to the [limits on when Git runs](settings.md#git-changes), runs `git` through `pi.exec()`, and learns that a `!` command finished from the session entry count, because Pi has no event for it.
+
+- [ ] Aborting the signal passed to `pi.exec()` still terminates the command and sets `killed`, including when `code` is 0.
+- [ ] A finished `!` command still appends a `bashExecution` entry, at once when Pi is idle or when the agent finishes if it is streaming, so `sessionManager.getEntryCount()` changes.
+- [ ] `tool_execution_end` still fires once for each finished tool call.
+- [ ] `agent_settled` still fires when a run ends.
+
 ### Metrics
 
 Never render an unknown context window as zero. The label shows the selected model, and, under a virtual selection, the routed model as `→ id:level`. The [built-in footer fields](../src/builtins.ts) copy the sources of Pi's native footer.

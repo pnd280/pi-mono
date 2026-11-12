@@ -27,7 +27,7 @@ it("keeps typing in the editor after a native click toggles a wrapped usage widg
     cost: 1.25
   });
   session.settingsManager.applyOverrides({ compaction: { enabled: true, reserveTokens: 50000 } });
-  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn(), vi.fn());
   const start = vi.spyOn(host.renderer.terminal, "start");
 
   try {
@@ -87,7 +87,7 @@ it("moves/hides intact native instances without taking over replacement, removal
   ui.setWidget("native", factory);
   ui.setStatus("native", "STATUS");
   const component = host.extensionWidgetsAbove.get("native");
-  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn(), vi.fn());
 
   try {
     const layout = defaultLayout();
@@ -147,11 +147,13 @@ it("diagnoses both footer ownership orders and leaves later owners untouched on 
 
   try {
     ui.setFooter(() => competitor);
-    expect(() => new WidgetCoordinator(host, () => ui.theme, vi.fn())).toThrow("footer conflict");
+    expect(() => new WidgetCoordinator(host, () => ui.theme, vi.fn(), vi.fn())).toThrow(
+      "footer conflict"
+    );
     expect(competitor.dispose).not.toHaveBeenCalled();
     ui.setFooter(undefined);
     const warn = vi.fn();
-    const coordinator = new WidgetCoordinator(host, () => ui.theme, warn);
+    const coordinator = new WidgetCoordinator(host, () => ui.theme, warn, vi.fn());
     ui.setFooter(() => competitor);
     coordinator.dispose();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("footer conflict"));
@@ -164,7 +166,7 @@ it("diagnoses both footer ownership orders and leaves later owners untouched on 
 
 it("leaves later hooks installed while retained coordinator callbacks return to native behavior", async () => {
   const fixture = await hostFixture();
-  const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn());
+  const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn(), vi.fn());
   const retained = fixture.host.renderWidgets.bind(fixture.host);
   const laterOwner = vi.fn(() => retained());
   fixture.host.renderWidgets = laterOwner;
