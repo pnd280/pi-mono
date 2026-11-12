@@ -9,7 +9,6 @@ pi-tool-display saves a few facts about tool calls in Pi's session history, so t
 In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, outcomes, and file contents from before each write. Display failures never change a tool's outcome.
 
 - Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
-- Native `edit` and `write` observations share source capture and patches with `pi-agent-summary`, so files are not read twice. Maintainers can find the shared capture in [file observations](../../../libs/src/file-mutations/README.md).
 - Another process writing the same file can race with the observation.
 
 ## Session history

@@ -2,15 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  createAgentSession,
-  createEventBus,
-  DefaultResourceLoader,
-  ModelRuntime,
-  SessionManager,
-  SettingsManager,
-  type AgentSession
-} from "@earendil-works/pi-coding-agent";
+import { createEventBus } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, vi } from "vite-plus/test";
 
 import entry from "../index.ts";
@@ -35,8 +27,6 @@ afterEach(async () => {
 export function fixture(mode: SummaryContext["mode"] = "tui") {
   const directory = mkdtempSync(join(tmpdir(), "pi-agent-summary-"));
   vi.stubEnv("PI_CODING_AGENT_DIR", directory);
-  vi.stubEnv("PI_OFFLINE", "1");
-  const session = SessionManager.inMemory(directory);
   const handlers: {
     [E in keyof SummaryEvents]: ((
       event: SummaryEvents[E],
@@ -56,7 +46,6 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
   const ctx: SummaryContext = {
     cwd: directory,
     mode,
-    sessionManager: session,
     isIdle: () => true,
     isProjectTrusted: () => false,
     ui: { setWorkingMessage, notify: vi.fn() }
@@ -65,9 +54,7 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     events: createEventBus(),
     registerCommand: vi.fn(),
     registerEntryRenderer: vi.fn(),
-    appendEntry: vi.fn((customType: string, data: unknown) =>
-      session.appendCustomEntry(customType, data)
-    ),
+    appendEntry: vi.fn(),
     on: (name, handler) => {
       handlers[name].push(handler);
     }
@@ -80,71 +67,16 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     for (const handler of handlers[name]) await handler(event, ctx);
   };
 
-  let nativeSession: Promise<AgentSession> | undefined;
   cleanup.push(async () => {
     try {
       await emit("session_shutdown", {});
     } finally {
-      try {
-        const agentSession = await nativeSession?.catch(() => undefined);
-        agentSession?.dispose();
-      } finally {
-        rmSync(directory, { recursive: true, force: true });
-      }
+      rmSync(directory, { recursive: true, force: true });
     }
   });
-  // Observation must be installed before the first native session is constructed. The lifecycle coordinator registers only the fixture's events through `on`, and the extension claims no shortcut.
+  // The lifecycle coordinator registers only the fixture's events through `on`, and the extension claims no shortcut.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   entry(api as Parameters<typeof entry>[0]);
-  const native = () =>
-    (nativeSession ??= (async () => {
-      const settingsManager = SettingsManager.inMemory();
-      const resourceLoader = new DefaultResourceLoader({
-        cwd: directory,
-        agentDir: directory,
-        settingsManager,
-        noExtensions: true,
-        noSkills: true,
-        noPromptTemplates: true,
-        noThemes: true,
-        noContextFiles: true
-      });
-      await resourceLoader.reload();
-      const modelRuntime = await ModelRuntime.create({
-        authPath: join(directory, "auth.json"),
-        modelsPath: null,
-        modelsStorePath: join(directory, "models-store.json"),
-        refreshOnCreate: false,
-        allowModelNetwork: false
-      });
-      const { session: agentSession } = await createAgentSession({
-        cwd: directory,
-        agentDir: directory,
-        settingsManager,
-        resourceLoader,
-        modelRuntime,
-        sessionManager: session
-      });
 
-      return agentSession;
-    })());
-  let nextId = 0;
-
-  const tool = async (toolName: string, input: Record<string, unknown>) => {
-    const toolCallId = String(nextId++);
-    await emit("tool_execution_start", {
-      type: "tool_execution_start",
-      toolName,
-      toolCallId,
-      args: input
-    });
-
-    const agentSession = await native();
-    const tool = agentSession.agent.state.tools.find((tool) => tool.name === toolName);
-    if (!tool) throw new Error(`Missing tool ${toolName}`);
-
-    return tool.execute(toolCallId, input);
-  };
-
-  return { api, ctx, session, setWorkingMessage, emit, tool };
+  return { api, ctx, setWorkingMessage, emit };
 }

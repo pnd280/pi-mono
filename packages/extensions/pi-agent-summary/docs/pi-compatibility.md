@@ -11,7 +11,7 @@
 
 ## Checklist
 
-Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file observations against the installed Pi version.
+Recheck [run](../GLOSSARY.md) lifecycle boundaries and attribution against the installed Pi version.
 
 ### Lifecycle
 
@@ -51,16 +51,6 @@ Confirm these items against [src/throughput.ts](../src/throughput.ts):
 - [ ] Throughput combines output tokens and streaming time across continuations.
 - [ ] Summaries save throughput outside the TUI.
 
-### File statistics
-
-Confirm these items against [src/changes.ts](../src/changes.ts):
-
-- [ ] Only verified native operations contribute file statistics.
-- [ ] Concurrent operations use the first and last contents in write order.
-- [ ] Symlink aliases count as one file.
-- [ ] Statistics reflect net changes, with reverted changes omitted.
-- [ ] Unavailable statistics remain distinct from zero changes.
-
 ### Persistence and rendering
 
 Confirm persistence and rendering in [src/index.ts](../src/index.ts):
@@ -69,16 +59,8 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 - [ ] Resuming a session restores its summaries.
 - [ ] The tool-output shortcut expands and collapses all summaries.
 - [ ] In fullscreen mode, a mouse click expands and collapses one summary.
-- [ ] Saved summaries hold metadata without file contents or patches, also outside the TUI.
+- [ ] Outside the TUI, `appendEntry` still saves summaries.
 
 ## Limitations
 
-In Pi 1.4.0 to 1.5.2, these limits come from missing Pi APIs. Revisit them when Pi adds one.
-
-### Throughput
-
-The client measures saved [output throughput](summary-fields.md#output-throughput), so it depends on when the provider's stream starts and on reported usage. Keep live estimates out of saved summaries. If Pi adds a public timing or throughput API, use it.
-
-### File coverage
-
-[Observation skips bash changes, overrides, and custom tools](summary-fields.md#file-changes). Revisit public mutation or run-summary APIs that report trustworthy outcomes and ordering, while keeping bounded retention and saving outside model context. Changes to shared observation belong in libs.
+Pi 1.4.0 to 1.5.2 has no public timing or throughput API. The client measures saved [output throughput](summary-fields.md#output-throughput), so it depends on when the provider's stream starts and on reported usage. Keep live estimates out of saved summaries. If Pi adds a public timing or throughput API, use it.

@@ -48,12 +48,7 @@ export function SessionPanel() {
             <span className="text-dim">2.1s</span>
           </div>
           <div className="text-dim">• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s</div>
-          <div>
-            <span className="text-dim">
-              {"    ran 1 command · delegated 1 task · edited 1 file · "}
-            </span>
-            <span className="text-add">+1</span> <span className="text-del">-1</span>
-          </div>
+          <div className="text-dim">{"    ran 1 command · delegated 1 task"}</div>
         </div>
       </div>
     </figure>

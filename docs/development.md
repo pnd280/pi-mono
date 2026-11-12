@@ -105,6 +105,6 @@ The build includes every package under `packages/` and `packages/extensions/`, s
 
 Must not regress ([testing policy](agents/testing.md#coverage)):
 
-- **High, e2e:** In an installed copy of the release tree, the bounded-diff and pi-prompt-manager collection workers start and return a result. Otherwise, pi-agent-summary and pi-tool-display show diffs only from native edit patches: `write` calls and edits without a valid patch show none, and pi-agent-summary has no statistics for a file that one run changes more than once. pi-prompt-manager can't read or write collections of 1 MiB or more.
+- **High, e2e:** In an installed copy of the release tree, the bounded-diff and pi-prompt-manager collection workers start and return a result. Otherwise, pi-tool-display shows diffs only from native edit patches: `write` calls and edits without a valid patch show none. pi-prompt-manager can't read or write collections of 1 MiB or more.
 
 To inspect the tree, run `node .scripts/build-release.ts`. It writes `.tmp/release` and needs network access for npm.

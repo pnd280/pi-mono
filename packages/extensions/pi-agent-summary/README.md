@@ -1,18 +1,18 @@
 # pi-agent-summary
 
-Long agent runs scroll past what changed, so pi-agent-summary shows a live timer and output rate while the agent works and saves a summary after each run. The summary lists the models, the output rate, the duration, the commands, the edited files, and the milestones and counters that other extensions add.
+It's hard to tell how long an agent run took and which models answered, so pi-agent-summary shows a live timer and output rate while the agent works and saves a summary after each run. The summary lists the models, the output rate, the duration, the commands, and the milestones and counters that other extensions add.
 
 When the agent finishes, the transcript shows a summary such as:
 
 ```text
-• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 -11
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands
 ```
 
 ## Controls
 
 | Control            | Effect                                                                                                                                                                                             |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Click a summary    | In fullscreen mode only, expand or collapse that summary to show its local finish time and per-file changes.                                                                                       |
+| Click a summary    | In fullscreen mode only, expand or collapse that summary to show its local finish time.                                                                                                            |
 | **Ctrl+O**         | Pi's tool-output shortcut (the default key) also expands or collapses all summaries, in regular and fullscreen modes.                                                                              |
 | `/working-message` | Reorder the live timer and rate among the other working-message contributions. Interactive TUI mode only. This extension or another extension that uses the working message registers the command. |
 
@@ -26,22 +26,21 @@ A _run_ is everything from your prompt until the agent settles, including retrie
 - With [pi-tool-display](../pi-tool-display/README.md), the summary marker lines up with other message markers.
 - RPC, JSON, and print modes save summaries without the live timer and rate.
 - Quitting Pi or switching sessions during a run cancels the run, and the cancelled run gets a summary.
-- A run gets no summary when Pi is killed before the run settles, or when you quit, reload, or switch sessions just after it settles, while its file changes are still being compared.
+- A run gets no summary when Pi is killed before the run settles.
 
 pi-agent-summary has no settings or environment variables. It shows the live timer and rate in the working message as `pi-agent-summary.elapsed` and `pi-agent-summary.throughput`, alongside other contributions such as `pi-todo` activity.
 
 ### What the summary shows
 
-| Segment          | Meaning                                                                                                         |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| Model prefix     | Each model that answered, with the thinking level Pi requested, in order of first use.                          |
-| `tok/s`          | Approximate output rate, including reasoning, over the time the assistant spent streaming.                      |
-| Duration         | The length of the run.                                                                                          |
-| `ran N commands` | Each `bash` call the agent made, counted once. Commands you run yourself with `!` or `!!` are excluded.         |
-| Counters         | Segments that other extensions add, such as `delegated 3 tasks`. See [counters](#counters).                     |
-| `edited N files` | Files changed through Pi's native `edit` and `write` tools, with net added and removed lines such as `+42 -11`. |
+| Segment          | Meaning                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Model prefix     | Each model that answered, with the thinking level Pi requested, in order of first use.                  |
+| `tok/s`          | Approximate output rate, including reasoning, over the time the assistant spent streaming.              |
+| Duration         | The length of the run.                                                                                  |
+| `ran N commands` | Each `bash` call the agent made, counted once. Commands you run yourself with `!` or `!!` are excluded. |
+| Counters         | Segments that other extensions add, such as `delegated 3 tasks`. See [counters](#counters).             |
 
-Changes made through `bash` or custom tools aren't counted. Statistics for a file can be unavailable, for example for binary files or when another writer changed the file between native edits. Unavailable statistics are not the same as zero changes; expand the summary to see why. While the agent works, the working message shows a live rate such as `160/s`. For how each value is measured and when it is left out, read [summary fields](docs/summary-fields.md).
+While the agent works, the working message shows a live rate such as `160/s`. For how each value is measured and when it is left out, read [summary fields](docs/summary-fields.md).
 
 ### Milestones
 
@@ -55,21 +54,20 @@ Other extensions can declare a _milestone_, such as a published release or an op
 
 ### Counters
 
-Other extensions can add to a _counter_, such as delegated tasks, during the active run. Each counter shows as a segment of the summary line, after the command count and before the file changes:
+Other extensions can add to a _counter_, such as delegated tasks, during the active run. Each counter shows as a segment of the summary line, after the command count:
 
 ```text
-• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · delegated 3 tasks · edited 3 files · +42 -11
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · delegated 3 tasks
 ```
 
 [pi-subagents](../pi-subagents/README.md#usage) counts delegated tasks this way. It also counts [started jobs](../pi-subagents/docs/jobs.md#start-a-job) with the `pi-subagents.jobs` counter, shown as `started N jobs`.
 
 ## Side effects
 
-- Appends one `pi-agent-summary.summary` entry per run, hidden from the model. It stores timing, answering models and throughput when known, milestones, counters, the command count, and file statistics or why they're unavailable. Entries don't start turns.
-- May read a file before a native write, to compare contents. When pi-tool-display is also loaded, the file is read only once. Contents and patches stay in memory.
+- Appends one `pi-agent-summary.summary` entry per run, hidden from the model. It stores timing, answering models and throughput when known, milestones, counters, and the command count. Entries don't start turns.
 - Never scans directories, writes extra files, runs Git, or makes network requests.
 - When a run finishes or Pi shuts down, it clears only its own timer and rate from the working message.
-- Saving an order in `/working-message` writes it to Pi's global or trusted-project settings.
+- Reads the working-message order from Pi's global and trusted-project settings, and writes it there only when you save an order in `/working-message`.
 
 ## Docs
 

@@ -76,7 +76,7 @@ async function canonicalPath(path: string, hops = 0): Promise<string> {
   }
 }
 
-export function observedSource(observation: FileObservation): string | undefined {
+function observedSource(observation: FileObservation): string | undefined {
   if (observation.status === "ready") return observation.text;
   if (observation.status === "missing") return "";
 

@@ -1,6 +1,6 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
-import { renderTree, renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
+import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
@@ -19,14 +19,6 @@ const finishTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour12: true
 });
 
-function lineCounts(added: number, removed: number, theme: SummaryTheme): string {
-  const parts: string[] = [];
-  if (added) parts.push(theme.fg("toolDiffAdded", `+${added}`));
-  if (removed) parts.push(theme.fg("toolDiffRemoved", `-${removed}`));
-
-  return parts.join(" ");
-}
-
 function countSegment(
   { verb, singular, plural, count }: Omit<NonNullable<RunSummary["counters"]>[number], "id">,
   theme: SummaryTheme
@@ -39,13 +31,7 @@ function countSegment(
   ].join(" ");
 }
 
-function summaryLines(
-  summary: RunSummary,
-  expanded: boolean,
-  theme: SummaryTheme
-): [string, ...string[]] {
-  const separator = theme.fg("dim", " · ");
-  const available = summary.files.filter((file) => file.status === "available");
+function summaryLine(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const parts: string[] = [];
   let throughput: string | undefined;
 
@@ -94,41 +80,8 @@ function summaryLines(
         theme
       )
     );
-  if (available.length)
-    parts.push(
-      countSegment(
-        { verb: "edited", singular: "file", plural: "files", count: available.length },
-        theme
-      )
-    );
-  const counts = lineCounts(
-    available.reduce((total, file) => total + file.added, 0),
-    available.reduce((total, file) => total + file.removed, 0),
-    theme
-  );
-  if (counts) parts.push(counts);
-  const unavailable = summary.files.length - available.length;
-  if (unavailable)
-    parts.push(
-      theme.fg(
-        "muted",
-        `statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
-      )
-    );
-  const lines: [string, ...string[]] = [parts.join(separator)];
 
-  if (expanded) {
-    for (const file of summary.files) {
-      const path = theme.fg("dim", compactDisplayText(file.path));
-      const detail =
-        file.status === "available"
-          ? lineCounts(file.added, file.removed, theme)
-          : theme.fg("dim", compactDisplayText(file.reason));
-      lines.push(`${path}${detail ? separator + detail : ""}`);
-    }
-  }
-
-  return lines;
+  return parts.join(theme.fg("dim", " · "));
 }
 
 export function createSummaryRenderer() {
@@ -156,7 +109,7 @@ export function createSummaryRenderer() {
           if (width < 1) return [];
           if (cache?.width === width && cache.expanded === expansion.expanded) return cache.lines;
 
-          const [heading, ...files] = summaryLines(parsed.data, expansion.expanded, theme);
+          const heading = summaryLine(parsed.data, expansion.expanded, theme);
           const marker = expansion.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
           const style = (text: string) => theme.fg("dim", text);
           // The first row fits beside the marker; the rest wrap in the tree body.
@@ -181,18 +134,7 @@ export function createSummaryRenderer() {
               )
             ),
             truncateToWidth(`${theme.fg("dim", marker)} ${first}`, width, ""),
-            ...renderTreeContinuation(wrapped, {
-              width,
-              indent: 2,
-              style,
-              hasChildren: files.length > 0
-            }),
-            ...renderTree(
-              files.map((file) => ({
-                rows: new Text(file, 0, 0).render(Math.max(1, width - 4))
-              })),
-              { width, indent: 2, style }
-            )
+            ...renderTreeContinuation(wrapped, { width, indent: 2, style })
           ];
           cache = { width, expanded: expansion.expanded, lines };
 

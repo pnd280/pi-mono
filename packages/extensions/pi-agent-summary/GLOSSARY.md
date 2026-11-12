@@ -18,4 +18,4 @@ _Avoid_: important work, highlight, achievement, note
 
 **Counter**:
 A named count that another extension adds to during the active run, shown as one segment of the summary line.
-_Avoid_: statistic (file statistics), metric, stat
+_Avoid_: statistic, metric, stat

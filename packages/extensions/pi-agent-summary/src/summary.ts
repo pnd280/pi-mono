@@ -8,19 +8,6 @@ import { maxMilestones, milestoneSchema } from "./milestones.ts";
 export const summaryEntryType = "pi-agent-summary.summary";
 
 const countSchema = z.int().nonnegative();
-const fileChangeSchema = z.discriminatedUnion("status", [
-  z.object({
-    path: z.string().min(1),
-    status: z.literal("available"),
-    added: countSchema,
-    removed: countSchema
-  }),
-  z.object({
-    path: z.string().min(1),
-    status: z.literal("unavailable"),
-    reason: z.string().min(1)
-  })
-]);
 
 type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
 
@@ -62,10 +49,7 @@ export const summarySchema = z.object({
     .array(counterSchema.extend({ count: countSchema.positive() }))
     .min(1)
     .max(maxCounters)
-    .optional(),
-  files: z.array(fileChangeSchema)
+    .optional()
 });
-
-export type FileChange = z.infer<typeof fileChangeSchema>;
 
 export type RunSummary = z.infer<typeof summarySchema>;
