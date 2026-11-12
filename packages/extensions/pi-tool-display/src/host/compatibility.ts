@@ -157,6 +157,6 @@ export const hostHook = Symbol.for("pi-tool-display.hostIntegration");
 
 export function interactivePrototype(): Host & { [hostHook]?: () => void } {
   // Pi 1.5.2 private methods are checked before installing any wrapper.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
   return InteractiveMode.prototype as unknown as Host & { [hostHook]?: () => void };
 }

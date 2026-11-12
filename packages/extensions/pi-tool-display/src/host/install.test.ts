@@ -59,7 +59,7 @@ function installHostIntegration(): (() => void) | undefined {
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 // Pi 1.5.2's lookup is private; exercise its actual implementation without starting a terminal.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: AgentSession }, name: string) => RenderDefinition;
 };
@@ -100,7 +100,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
   // Exercise Pi 1.5.2's private reconstruction/event paths without terminal startup.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
   const boundary = mode as unknown as Host & {
     ui: TUI;
     isInitialized: boolean;
@@ -810,7 +810,6 @@ it.each(["observation", "session-entry"] as const)(
         const append = manager.appendCustomEntry.bind(manager);
         const writes = vi.spyOn(manager, "appendCustomEntry");
         const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
-        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
         const results: Extract<AgentSessionEvent, { type: "tool_execution_end" }>[] = [];
         const unsubscribe = session.subscribe((event) => {
           if (event.type === "tool_execution_end") results.push(event);
@@ -830,9 +829,7 @@ it.each(["observation", "session-entry"] as const)(
 
           await session.bindExtensions({
             mode: "tui",
-            // This scenario uses notifications, not dialogs or a terminal.
-            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-            uiContext: uiContext as unknown as ExtensionContext["ui"]
+            uiContext: { ...session.extensionRunner.createContext().ui, notify }
           });
           const faux = await fauxModel(session, "display-failure");
           faux.setResponses([
@@ -1955,12 +1952,9 @@ it.each(["missing", "non-writable"])(
     try {
       await withSession(async ({ session, assertNoRegistration }) => {
         const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
-        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
         await session.bindExtensions({
           mode: "tui",
-          // This binding only reports the unavailable lookup; no dialogs or editor are used.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          uiContext: uiContext as unknown as ExtensionContext["ui"]
+          uiContext: { ...session.extensionRunner.createContext().ui, notify }
         });
         expect(notify).toHaveBeenCalledWith(
           expect.stringContaining("keeping original rendering"),
@@ -1993,12 +1987,9 @@ it("keeps calls reachable and disposal complete when one row's hooks fail to ins
   await withSession(
     async ({ session }) => {
       const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
-      const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
       await session.bindExtensions({
         mode: "tui",
-        // This binding only reports warnings; no dialogs or editor are used.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        uiContext: uiContext as unknown as ExtensionContext["ui"]
+        uiContext: { ...session.extensionRunner.createContext().ui, notify }
       });
       const tui = interactiveHost(session);
       const addChild = tui.chatContainer.addChild.bind(tui.chatContainer);
@@ -2248,12 +2239,9 @@ it("keeps summary rendering and toggles verbose when Pi's expansion methods diff
     await withSession(
       async ({ session }) => {
         const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
-        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
         await session.bindExtensions({
           mode: "tui",
-          // This binding only reports warnings; no dialogs or editor are used.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          uiContext: uiContext as unknown as ExtensionContext["ui"]
+          uiContext: { ...session.extensionRunner.createContext().ui, notify }
         });
         const tui = interactiveHost(session);
 
@@ -2300,12 +2288,9 @@ it("keeps Pi's row chrome and disables summaries when Pi's row contract differs"
     await withSession(
       async ({ session }) => {
         const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
-        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
         await session.bindExtensions({
           mode: "tui",
-          // This binding only reports warnings; no dialogs or editor are used.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          uiContext: uiContext as unknown as ExtensionContext["ui"]
+          uiContext: { ...session.extensionRunner.createContext().ui, notify }
         });
         const tui = interactiveHost(session);
 

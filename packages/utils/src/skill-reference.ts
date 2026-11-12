@@ -3,7 +3,7 @@ import { z } from "zod";
 /** An `expansionFormat` setting: at most 512 Unicode code points, with a `{path}` placeholder. */
 export const skillReferenceFormatSchema = z.string().max(512).includes("{path}");
 
-// Angle brackets keep paths with spaces or parentheses inside the Markdown link destination.
+/** Angle brackets keep paths with spaces or parentheses inside the Markdown link destination. */
 export const defaultSkillReferenceFormat = "[{command}](<{path}>)";
 
 /** The fields of Pi's `SlashCommandInfo` that skill references use. */

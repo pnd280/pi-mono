@@ -220,9 +220,9 @@ const bulletLabel = /^[ \t]*(?:[-*+]|\d+\.)[ \t]+\*\*([^*\n]+?)(?::\*\*|\*\*:)/;
 const severityLabel = /^(Critical|High), (?:e2e|integration|unit)$/;
 
 type RegressScope = {
-  // Heading level of the open "Must not regress" section, or 0.
+  /** Heading level of the open "Must not regress" section, or 0. */
   level: number;
-  // The list after a "Must not regress (...):" paragraph, before and after its first bullet.
+  /** The list after a "Must not regress (...):" paragraph, before and after its first bullet. */
   intro: "pending" | "open" | undefined;
   seenHigh: boolean;
 };

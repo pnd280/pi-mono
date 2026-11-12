@@ -25,8 +25,6 @@ const contextParametersSchema = z.object({
 });
 // The first NumberFormat loads locale data (~2 ms), so build it at the first summary, not at startup.
 let numberFormat: Intl.NumberFormat | undefined;
-const formatNumber = (value: number) =>
-  (numberFormat ??= new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 })).format(value);
 
 export const smartCompactDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-smart-compact:compact",
@@ -87,12 +85,15 @@ export const contextWindowDisplayAdapter: ToolDisplayAdapter = {
     if (outcome !== "success" || !contextArgsSchema.safeParse(args).success) return undefined;
     const usage = contextUsageSchema.safeParse(result.details).data;
     if (!usage) return undefined;
-    const capacity = formatNumber(usage.contextWindow);
+    const formatter = (numberFormat ??= new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 2
+    }));
+    const capacity = formatter.format(usage.contextWindow);
     const tokens =
       usage.tokens === null
         ? `Usage unknown · ${capacity}-token window`
-        : `${formatNumber(usage.tokens)} / ${capacity} tokens`;
-    const percent = usage.percent === null ? "" : ` · ${formatNumber(usage.percent)}% used`;
+        : `${formatter.format(usage.tokens)} / ${capacity} tokens`;
+    const percent = usage.percent === null ? "" : ` · ${formatter.format(usage.percent)}% used`;
 
     return { text: tokens + percent };
   }

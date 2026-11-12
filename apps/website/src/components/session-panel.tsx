@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// A sample Pi session, ported from the README hero (docs/assets/hero.html). Keep the two in step.
+/** A sample Pi session, ported from the README hero (docs/assets/hero.html). Keep the two in step. */
 export function SessionPanel() {
   return (
     <figure className="min-w-0 border border-panel-line bg-panel shadow-[0_14px_34px_var(--panel-shadow)]">

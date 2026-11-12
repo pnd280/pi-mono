@@ -1,4 +1,4 @@
-// The Pi logo from https://pi.dev/logo-auto.svg, cropped to its artwork like the README hero.
+/** The Pi logo from https://pi.dev/logo-auto.svg, cropped to its artwork like the README hero. */
 export function PiLogo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="165.29 165.29 469.43 469.43" aria-hidden="true">

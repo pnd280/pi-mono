@@ -40,7 +40,7 @@ export function renderingTui(mode: TUI["mode"] = "fullscreen"): TUI {
   };
 
   // These row tests only request renders and update progress and program status; they never start a terminal.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
   return tui as unknown as TUI;
 }
 
