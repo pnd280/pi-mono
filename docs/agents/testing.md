@@ -6,8 +6,7 @@ Every test is a maintenance cost. Write the minimum: each automated test protect
 
 ## Coverage
 
-Each package's `docs/testing.md` lists its invariants under "Must not regress". That list is the complete scope of the package's unit, integration, and e2e tests.
-Root fingerprint tooling uses the [Pi-update invariant list](../../.agents/skills/pi-update/references/testing.md#must-not-regress), and the release build uses the [release branch list](../development.md#release-branch).
+Each package's `docs/testing.md` lists its invariants under "Must not regress". That list is the complete scope of the package's unit, integration, and e2e tests. Root fingerprint tooling uses the [Pi-update invariant list](../../.agents/skills/pi-update/references/testing.md#must-not-regress), and the release build uses the [release branch list](../development.md#release-branch).
 
 When you change code:
 
@@ -116,7 +115,7 @@ Create mutable filesystem fixtures with `mkdtemp` or `mkdtempSync` under `tmpdir
 
 Colocate unit and integration `*.test.ts` files with their behaviour. Extensions can keep e2e tests and their host fixtures in `validation/`. Import explicitly from `vite-plus/test` and use `vp test run` with missing-test failures visible.
 
-The root `vite.config.ts` sets one hang guard for each test; tests rely on it and set no limit of their own. Vitest does not search parent directories for it, so each package `test` script passes it with `--config`. It also limits the run to 4 workers and 2 concurrent tests per file, because each e2e test starts several Pi processes. Even so, the full suite runs many processes at once, and a test can take several times as long as it does alone. Guard process runs and fixture waits with [`STEP_TIMEOUT_MS`](../../packages/libs/src/validation/pi-process/README.md). Assert a time limit only when the limit is the behaviour under test.
+The root [vite.config.ts](../../vite.config.ts) sets one hang guard for each test; tests rely on it and set no limit of their own. Vitest does not search parent directories for it, so each package `test` script passes it with `--config`. It also limits the number of workers and of concurrent tests per file, because each e2e test starts several Pi processes. Even so, the full suite runs many processes at once, and a test can take several times as long as it does alone. Guard process runs and fixture waits with [`STEP_TIMEOUT_MS`](../../packages/libs/src/validation/pi-process/README.md). Assert a time limit only when the limit is the behaviour under test.
 
 Use the whole package suite when the change spans its behaviour. For a single file, pass its path to the [package script](../development.md#focused-validation):
 

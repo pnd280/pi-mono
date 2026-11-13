@@ -4,11 +4,8 @@ import {
   visibleWidth,
   wrapTextWithAnsi
 } from "@earendil-works/pi-tui";
-import { z } from "zod";
 
 import { compactDisplayText, sliceTerminalText } from "../terminal-text/index.ts";
-
-const characterLimitSchema = z.int().min(2);
 
 export function wrapRows(text: string, width: number): string[] {
   if (width < 1 || text === "") return [];
@@ -102,8 +99,6 @@ export type TextBudgetOptions = {
 /** Bound formatting, not retained output. Excerpts keep whole graphemes and escapes. */
 export function compactText(text: string, options: TextBudgetOptions): string[] {
   const { maxRows, width, maxCharacters, notice } = options;
-  if (!characterLimitSchema.safeParse(maxCharacters).success)
-    throw new RangeError("Text formatting limit must be a safe integer of at least two.");
   if (maxRows < 1 || width < 1) return [];
   if (text.length <= maxCharacters) return compactRows(wrapRows(text, width), options);
   const omission = truncateToWidth(notice(undefined), width, "…");

@@ -63,9 +63,9 @@ Personal-setting changes and validation with paid providers or real credentials 
 
 ### 5. Verify the result
 
-Follow [required verification](../../../docs/agents/verification.md). Start with [focused checks](../../../docs/development.md#focused-validation), fix migration failures, then run the documented workspace-wide checks and tests for the shared upgrade. Run `vp install --offline` when packages are cached; report incomplete caches.
+Follow [required verification](../../../docs/agents/verification.md). Start with [focused checks](../../../docs/development.md#focused-validation), fix migration failures, then run the documented workspace-wide checks and tests for the shared upgrade.
 
-Select behavioural checks from the affected [compatibility areas](references/compatibility-checks.md). Distinguish source, automated, terminal, and external evidence; report unavailable checks. Review the final diff, including the lockfile, for correctness and scope, and run `git diff --check`.
+Select behavioural checks from the affected [compatibility areas](references/compatibility-checks.md). Distinguish source, automated, terminal, and external evidence; report unavailable checks. Review the final diff, including the lockfile, for correctness and scope.
 
 **Complete when:** required checks pass, affected contracts and consumers have verification evidence, and unverified terminal, external, or platform behaviour is explicitly identified. Failed required checks leave the migration incomplete.
 

@@ -51,7 +51,7 @@ function themedText(content: () => string): Component {
   let text: Text | undefined;
 
   return {
-    render: (width) => (width > 0 ? (text ??= new Text(content(), 0, 0)).render(width) : []),
+    render: (width) => (text ??= new Text(content(), 0, 0)).render(width),
     invalidate() {
       text = undefined;
     }

@@ -8,7 +8,7 @@ import { withinRecordLimit } from "../tasks/records.ts";
 
 export const jobInputSchema = z.strictObject({
   command: z.string().min(1).describe("The shell command to run in the background."),
-  description: z.string().min(1).describe("A short (3 to 5 words) label for the job."),
+  description: z.string().min(1).describe("A short label for the job."),
   // Pi's shell timer limit. A refinement keeps the projected schema like `bash`'s.
   timeout: z
     .number()

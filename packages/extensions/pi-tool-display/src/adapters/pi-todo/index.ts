@@ -43,7 +43,7 @@ const taskSchema = z.object({
 const detailsSchema = z.object({
   error: z.string().optional(),
   tasks: z.array(taskSchema).optional(),
-  nextId: z.int().positive().optional().catch(undefined)
+  nextId: z.int().positive().optional()
 });
 
 const parametersSchema = z.object({

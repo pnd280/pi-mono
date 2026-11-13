@@ -87,7 +87,7 @@ export function branchTo(entries: readonly SessionEntry[], leafId: string | null
 
   for (let id = leafId; id !== null;) {
     const entry = byId.get(id);
-    if (!entry || branch.length >= byId.size) throw new Error(UNAVAILABLE);
+    if (!entry) throw new Error(UNAVAILABLE);
     branch.push(entry);
     id = entry.parentId;
   }

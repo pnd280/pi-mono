@@ -299,9 +299,7 @@ function prepareTodoPresentation(tasks: readonly Task[]) {
   return {
     activity,
     render(theme: TodoWidgetTheme, width: number, options: TodoWidgetRenderOptions = {}): string[] {
-      if (!Number.isFinite(width) || width <= 0) return [""];
-      const safeWidth = Math.max(1, Math.floor(width));
-      const truncate = (line: string) => truncateToWidth(line, safeWidth);
+      const truncate = (line: string) => truncateToWidth(line, width);
       const lines = [
         truncate(
           theme.fg(

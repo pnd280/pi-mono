@@ -160,7 +160,7 @@ export class Route {
     const answer = await this.answer(target.cancel(reason, drop));
     if (!answer) throw new Error("Task is inactive");
     const { record } = answer;
-    if (record?.task_id !== taskId || record.state !== "inactive" || record.outcome !== "cancelled")
+    if (record?.state !== "inactive" || record.outcome !== "cancelled")
       throw new Error("Invalid subagent abort acknowledgement");
     const details: ToolDetails = {
       ...(answer.details ?? recordDetails(this.host.bindingId, record)),
@@ -178,8 +178,7 @@ export class Route {
     if (this.host.owned(taskId).background) throw new Error("Task is already in the background");
     const answer = await this.answer(target.promote());
     if (!answer) throw new Error("Task is inactive");
-    if (answer.record?.task_id !== taskId)
-      throw new Error("Invalid subagent background acknowledgement");
+    if (!answer.record) throw new Error("Invalid subagent background acknowledgement");
 
     return answer.record;
   }

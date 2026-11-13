@@ -123,7 +123,7 @@ export class TranscriptRows {
     if (record(message).role !== "assistant") return this.insert(run, message);
     const binding = this.binding;
     const result = run();
-    binding?.assistantBoundary(this.host.chatContainer?.children.at(-1));
+    binding?.assistantBoundary(this.host.chatContainer.children.at(-1));
 
     return result;
   }
@@ -133,7 +133,7 @@ export class TranscriptRows {
    */
   async handleEvent(type: string, handle: () => Promise<void>): Promise<void> {
     const host = this.host;
-    const binding = host.ui && host.chatContainer ? this.binding : undefined;
+    const binding = this.binding;
     // message_end updates the component and clears the host's streaming reference.
     const streaming = host.streamingComponent;
     const inserts = type === "compaction_end" || type === "agent_settled";
@@ -224,8 +224,7 @@ class RowBinding {
   /** Pi appends rows during streaming and reconstruction. Only insertion/removal within an indexed prefix needs a new predecessor pass, never ordinary events. */
   private indexChildren(): Component[] {
     if (!this.options.active()) return [];
-    const children = this.host.chatContainer?.children;
-    if (!children) return [];
+    const children = this.host.chatContainer.children;
     const previous = this.components;
 
     if (
@@ -280,7 +279,7 @@ class RowBinding {
   }
   /** A notice joins the preceding owned run, never crossing a visible run boundary. Inspect actual rows: reconstruction may already have indexed later messages. */
   private bindNotice(row: CustomMessageComponent, summary: SummaryNotice | undefined): boolean {
-    const children = this.host.chatContainer?.children ?? [];
+    const children = this.host.chatContainer.children;
     let owner: ToolExecutionComponent | undefined;
 
     for (let index = children.indexOf(row) - 1; index >= 0; index--) {
@@ -317,9 +316,9 @@ class RowBinding {
       this.coordinator.attach(anchor, {
         invalidate: () => {
           row.invalidate();
-          this.host.ui?.requestRender();
+          this.host.ui.requestRender();
         },
-        requestRender: () => this.host.ui?.requestRender(),
+        requestRender: () => this.host.ui.requestRender(),
         // Pi owns notice expansion; expanding a tool group must not toggle notices.
         setExpanded: () => {}
       })
@@ -407,9 +406,9 @@ class RowBinding {
         coordinator.attach(call, {
           invalidate: () => {
             child.invalidate();
-            this.host.ui?.requestRender();
+            this.host.ui.requestRender();
           },
-          requestRender: () => this.host.ui?.requestRender(),
+          requestRender: () => this.host.ui.requestRender(),
           setExpanded: (expanded) => previous.call(child, expanded)
         })
       );

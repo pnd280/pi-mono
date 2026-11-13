@@ -1,16 +1,12 @@
 import { getLanguageFromPath, highlightCode } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
-import { z } from "zod";
 
 import { displayText, sliceTerminalText } from "../../terminal-text/index.ts";
 
-const limitsSchema = z.object({
-  maxBytes: z.int().nonnegative(),
-  maxLines: z.int().nonnegative(),
-  maxLineBytes: z.int().nonnegative()
-});
-
-export type CodeHighlightOptions = z.infer<typeof limitsSchema> & {
+export type CodeHighlightOptions = {
+  maxBytes: number;
+  maxLines: number;
+  maxLineBytes: number;
   path?: string;
   language?: string;
 };
@@ -21,8 +17,6 @@ export type CodeSelectionRange = { line: number; start: number; end: number };
 /** Accept display-safe source; return it unchanged when language or budget prevents highlighting. */
 export function highlightCodeBounded(text: string, options: CodeHighlightOptions): string {
   const { maxBytes, maxLines, maxLineBytes } = options;
-  if (!limitsSchema.safeParse(options).success)
-    throw new RangeError("Highlight limits must be nonnegative safe integers.");
   const language = options.language ?? getLanguageFromPath(options.path ?? "");
   if (!language || Buffer.byteLength(text) > maxBytes) return text;
   const lines = text.split("\n");

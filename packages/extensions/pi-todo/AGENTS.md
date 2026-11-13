@@ -6,7 +6,6 @@
 
 ## Validation
 
-| When you…                                         | Read                                                |
-| ------------------------------------------------- | --------------------------------------------------- |
-| Change the widget, browser, or working-message UI | [interactive checks](docs/validation.md)            |
-| Upgrade Pi                                        | [compatibility checklist](docs/pi-compatibility.md) |
+| When you…                                         | Read                                     |
+| ------------------------------------------------- | ---------------------------------------- |
+| Change the widget, browser, or working-message UI | [interactive checks](docs/validation.md) |

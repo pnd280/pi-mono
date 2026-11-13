@@ -18,7 +18,7 @@ export function createSelectiveReadTool(base: ReturnType<typeof createReadToolDe
       selection: Type.Optional(
         toToolSchema(
           selectionInputSchema.describe(
-            "Source span for highlighting and a bounded orientation preview. Coordinates must be positive safe integers. Does not change the read window; use offset and limit for context."
+            "Source span for highlighting and a bounded orientation preview. Does not change the read window; use offset and limit for context."
           )
         )
       )

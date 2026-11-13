@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-const byteLimitSchema = z.int().nonnegative();
 const hunkRangeSchema = z
   .object({
     start: z.int().nonnegative(),
@@ -130,11 +129,9 @@ function validHunks(hunks: readonly Hunk[]): boolean {
 }
 
 /**
- * Parse one unified patch, optionally without file headers, within a caller-chosen byte limit. Invalid or oversized patches return undefined; a limit that is not a nonnegative safe integer throws RangeError.
+ * Parse one unified patch, optionally without file headers, within a caller-chosen byte limit. Invalid or oversized patches return undefined.
  */
 export function parsePatch(patch: string, maxBytes: number): ParsedPatch | undefined {
-  if (!byteLimitSchema.safeParse(maxBytes).success)
-    throw new RangeError("Patch byte limit must be a nonnegative safe integer.");
   if (Buffer.byteLength(patch) > maxBytes) return undefined;
   const normalized = patch.replaceAll("\r\n", "\n").replace(/\n+$/, "");
   const lines = normalized.split("\n");

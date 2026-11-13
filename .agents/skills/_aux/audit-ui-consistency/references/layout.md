@@ -15,4 +15,4 @@ Compare equivalent sizes and content. Different features may need different row 
 
 ## Evidence
 
-Pair ordinary and constrained renders using long content. Start applicable TUI checks at 80×24 and 40×10; include documented thresholds and dimensions that trigger the candidate. Record viewport, mode, and content. Verify host clipping and placement in a terminal.
+Pair ordinary and constrained renders using long content, at the documented thresholds and minimum sizes and at the dimensions that trigger the candidate. Record viewport, mode, and content. Verify host clipping and placement in a terminal.

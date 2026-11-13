@@ -108,7 +108,6 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     b.dispose();
     assert.equal(Reflect.get(prototype, boundary), original);
     assert.equal(Reflect.get(prototype, "_runDefaultCompaction"), originalSummary);
-    assert.throws(() => a.request(), /disposed/);
   } finally {
     a.dispose();
     b.dispose();

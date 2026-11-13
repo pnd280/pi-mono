@@ -35,7 +35,6 @@ Selection previews must preserve native file access, results, and rendering fall
 [Shared result interpretation](result.md):
 
 - [ ] The read window and the code-point selection stay independent.
-- [ ] The preview stays within five lines and 500 code points per line.
 - [ ] Truncation and continuation notices are excluded from the source.
 - [ ] Preview provenance, invalidity reporting, and borrowed source recovery still satisfy the shared contract.
 - [ ] Aggregate and per-block source coordinates preserve native block joins and diagnostic separation.

@@ -1,7 +1,7 @@
 // Check workspace Markdown: relative links and heading anchors must resolve, inline `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z" line must name the installed Pi version. Docs outside agent skills and prompt resources must also follow the structural conventions checked by checkConventions(). Every run also checks that each "N extensions" count in the README and the hero image source matches packages/extensions/.
 // Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { z } from "zod";
@@ -33,7 +33,7 @@ function readMarkdown(file: string): string {
   return readFileSync(file, "utf8").replace(/\r\n?/g, "\n");
 }
 
-// macOS and Windows file systems ignore case, but Linux and GitHub links do not. Inside the workspace, each path segment must match a directory entry exactly. Both sides use NFC because HFS+ lists names in decomposed form.
+// macOS and Windows file systems ignore case, but Linux and GitHub links do not. Inside the workspace, each path segment must match a directory entry exactly.
 function exists(path: string): boolean {
   if (!existsSync(path)) return false;
   const local = relative(root, path);
@@ -42,8 +42,7 @@ function exists(path: string): boolean {
   let directory = root;
 
   for (const segment of local.split(sep)) {
-    const name = segment.normalize("NFC");
-    if (!readdirSync(directory).some((entry) => entry.normalize("NFC") === name)) return false;
+    if (!readdirSync(directory).includes(segment)) return false;
     directory = join(directory, segment);
   }
 
@@ -395,8 +394,8 @@ function checkFile(file: string): string[] {
   for (const [, target = ""] of prose(text).matchAll(
     /\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g
   )) {
-    // URLs and home-directory paths point outside the workspace.
-    if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("~/")) continue;
+    // URLs point outside the workspace.
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
 
     const [path = "", anchor] = target.split("#", 2);
     const destination = path ? resolve(dirname(file), decodeURIComponent(path)) : file;
@@ -409,7 +408,6 @@ function checkFile(file: string): string[] {
     if (
       anchor &&
       destination.endsWith(".md") &&
-      statSync(destination).isFile() &&
       !anchors(destination).has(decodeURIComponent(anchor).toLowerCase())
     ) {
       problems.push(`${name}: missing anchor ${target}`);

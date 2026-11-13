@@ -131,7 +131,6 @@ export function metadataLimitError<Metadata>(metadata: Metadata): string | undef
  * Budgeted JSON-size preflight for session and mutation ingress. It walks only until the byte limit is exceeded and does not build a serialized copy of the complete value.
  */
 export function serializedValueFitsLimit<Value>(value: Value, maximumBytes: number): boolean {
-  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0) return false;
   const context: SerializationSizeContext = {
     maximumBytes,
     bytes: 0,

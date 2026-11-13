@@ -23,7 +23,7 @@ Use one H1, sentence-case headings, consecutive heading levels, numbered procedu
 - Use British spelling in prose. Preserve spelling in API names, settings, commands, and literal output.
 - Replace stock assurances with observable behaviour. Omit sentences that only announce what a section will explain.
 
-Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and values (`summary`), and quotes for on-screen labels ("Explored"). Do not bold versions or mode names. Use headings or lookup tables instead of repeated bold labels at the start of bullets. The one exception is the severity and layer label, such as `**Critical, e2e:**`, that starts each invariant in a "Must not regress" list of the [testing policy](agents/testing.md#coverage).
+Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and values (`summary`), and quotes for on-screen labels ("Explored"). Do not bold versions or mode names. Use headings or lookup tables instead of bold labels at the start of bullets. The one exception is the severity and layer label, such as `**Critical, e2e:**`, that starts each invariant in a "Must not regress" list of the [testing policy](agents/testing.md#coverage).
 
 ## Package READMEs
 

@@ -14,4 +14,4 @@ The [adapter contract](contract.md) lists the result details behind each card.
 
 ## Validation
 
-The [colocated test](index.test.ts) checks that standalone rendering leaves script arguments unchanged. The [install suite](../../../host/install.test.ts) loads `builtin:codemode` in a real session and checks delegated execution. Check the script time by hand with the [codemode terminal check](../../../../docs/validation.md#codemode).
+The [colocated test](index.test.ts) checks that standalone rendering leaves script arguments unchanged. Check the script time by hand with the [codemode terminal check](../../../../docs/validation.md#codemode).

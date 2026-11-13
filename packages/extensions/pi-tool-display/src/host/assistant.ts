@@ -103,13 +103,7 @@ function markProse(component: AssistantMessageComponent): void {
   const state = record(component);
   const container = state.contentContainer;
   const padding = state.outputPad;
-  if (
-    !(container instanceof Container) ||
-    typeof padding !== "number" ||
-    !Number.isSafeInteger(padding) ||
-    padding < 0
-  )
-    return;
+  if (!(container instanceof Container) || typeof padding !== "number") return;
 
   container.children = container.children.map((child): Component => {
     // Thinking Markdown is nested in a MouseRegion; diagnostics are Text.

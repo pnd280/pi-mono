@@ -2,31 +2,10 @@
 
 Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applies the decisions of [src/selection.ts](src/selection.ts), and keeps the lifecycle, the holds, the notices, and the settings reads. The selection module needs no Pi host. It decides what a switch, a restoration, and the `deny` enforcement do to the tools and the MCP servers, what the extension's `tool_search` sees, and the state of each tool in the menu. The `/profile` menu lives in [src/menu.ts](src/menu.ts), which loads on first use; the adapter gives it a snapshot of the profiles and tools. The menu only shows state: the change that it shows for a profile comes from the plan of the switch, and it switches through the same path as `/profile <name>`, after it closes, so it cannot change tools in a different way.
 
-## Must not regress
-
-- Read settings only on session start.
-- Register only the selected profile's MCP servers, after its tools are set, and save no server entry in the session.
-- Register the extension's `tool_search` on every load without reading settings. [Pi compatibility](docs/pi-compatibility.md#limitations) gives the reason.
-- Add prompts only through the [prompt part](../../libs/src/prompt-parts/README.md) at rank `200`, which appends to `systemPromptOptions.appendSystemPrompt` and keeps the text that Pi and earlier handlers put there.
-- Hold each switch, so that every part, such as pi-model-prompt's, sees the profile and its model.
-- Refuse switches while the agent runs. Extension commands and shortcuts run during streaming.
-
 ## Startup and shutdown
 
-- Apply the startup selection, `--profile`, and the default profile only in the [lifecycle](../../libs/src/lifecycle/README.md) startup commit at rank `200`, so the selection entry follows pi-nested-instructions' startup messages in every load order.
-- Keep settings reads, warnings, the shortcut claim, and the editor label in the startup handler.
 - Claim the shortcut through the lifecycle, not `pi.registerShortcut()`.
-- Keep the shutdown revoke synchronous: it only refuses new switches and closes the menu. Its cleanup waits for the switch in progress.
 - Old sessions keep their selection entries. The extension skips entries that fail the schema, so a schema change loses those selections without an error.
-
-## Switching
-
-- Let a request, tree navigation, session replacement, or the end of a session wait for a switch in progress. The switch awaits the model change.
-- Refuse a second switch while a switch is in progress.
-- Save the selection before tree navigation moves to another branch or a same-file resume reads the session.
-- Undo only the previous profile's own additions and removals, so that tool changes made after a switch stay.
-- Keep the `deny` tools off for the whole selection, also when another extension, `tool_search`, or `--tools` turns them on. Apply `allow` only at the switch, so later tool changes can turn on other tools.
-- Turn the `deny` tools off in `before_agent_start` after the switch, and in `turn_end`. [Pi compatibility](docs/pi-compatibility.md#switching) says when Pi takes the tools of a run's later requests.
 
 ## References
 
@@ -36,4 +15,3 @@ Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applie
 | The extension's `tool_search`                   | [Tool search](docs/internals.md#tool-search)         |
 | Resume, `/fork`, `/tree`, or `/reload` handling | [Restoration](docs/internals.md#restoration)         |
 | The editor label                                | [Editor](docs/internals.md#editor)                   |
-| The Pi version                                  | [Compatibility checklist](docs/pi-compatibility.md)  |
