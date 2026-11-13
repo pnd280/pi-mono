@@ -97,10 +97,18 @@ function lockDestination(path: string, target: string | undefined): () => void {
   };
 }
 
-/** Pi-compatible lock around a bounded read/merge/atomic rename. Mutators may reject the write. */
-export function updateSettingsRecord(
+type SettingsFieldReplacement = {
+  /** Top-level key of the section object. A missing section is created. */
+  key: string;
+  /** The one section field that the update sets, including over an invalid old value. */
+  field: string;
+  value: unknown;
+};
+
+/** Pi-compatible lock around a bounded read, one field replacement, and an atomic rename. */
+export function replaceSettingsField(
   path: string,
-  update: (record: Record<string, unknown>) => void
+  { key, field, value }: SettingsFieldReplacement
 ): void {
   let temporary: string | undefined;
   let release: (() => void) | undefined;
@@ -113,20 +121,10 @@ export function updateSettingsRecord(
     if (linkTarget(path) !== link) throw new Error("Settings link changed during the update.");
     const target = link ?? path;
     const record = readSettingsRecord(target);
-    // A void callback type also accepts async functions. Never commit a record before its mutation finishes.
-    const outcome: unknown = update(record);
-
-    if (
-      outcome !== null &&
-      (typeof outcome === "object" || typeof outcome === "function") &&
-      "then" in outcome &&
-      typeof outcome.then === "function"
-    ) {
-      // The rejected mutation is no longer ours to await, but its rejection must not surface as an unhandled promise after releasing the lock.
-      void Promise.resolve(outcome).catch(() => {});
-      throw new TypeError("Settings mutations must be synchronous.");
-    }
-
+    // Reject malformed sections instead of discarding unrelated data to repair them.
+    const section = record[key] === undefined ? {} : record[key];
+    if (!isSettingsRecord(section)) throw new Error("Settings section must be an object.");
+    record[key] = { ...section, [field]: value };
     const content = `${JSON.stringify(record, null, 2)}\n`;
     if (Buffer.byteLength(content) > MAX_SETTINGS_FILE_BYTES)
       throw new Error("Settings exceed 1 MiB.");

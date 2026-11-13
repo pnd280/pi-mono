@@ -4,11 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { containsPath, expandHomePath, windowsDrivePath } from "@pi-mono/utils/paths";
-import { alternatives, globRoot, hasGlob } from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
 import type * as BashModule from "./bash.ts";
 import type { PathHint } from "./bash.ts";
+import { alternatives, globRoot, hasGlob } from "./scope-globs.ts";
 import { instructionNames } from "./storage.ts";
 
 // The shell parser loads on the first Bash call instead of at startup. Parallel calls share one import: under jiti a concurrent import can return a partly evaluated module.

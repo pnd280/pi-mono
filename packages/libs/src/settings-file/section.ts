@@ -8,7 +8,7 @@ import {
   type SettingsScope,
   type SettingsScopeOptions
 } from "./scopes.ts";
-import { isSettingsRecord, updateSettingsRecord } from "./transaction.ts";
+import { isSettingsRecord, replaceSettingsField } from "./transaction.ts";
 
 export type SettingsSectionOptions<Value> = SettingsScopeOptions & {
   /** Top-level settings key holding the section object, such as `ext.<package>`. */
@@ -75,12 +75,7 @@ export function settingsSection<Value>(
       const path = paths[scope];
 
       try {
-        updateSettingsRecord(path, (record) => {
-          // Replace only the owned field, including an invalid old value. Reject malformed sections instead of discarding unrelated data to repair them.
-          const section = record[key] === undefined ? {} : record[key];
-          if (!isSettingsRecord(section)) throw new Error("Settings section must be an object.");
-          record[key] = { ...section, [field]: parsed.data };
-        });
+        replaceSettingsField(path, { key, field, value: parsed.data });
       } catch {
         throw new Error(`Check access, JSON, size and locks.\nFile: ${compactDisplayText(path)}`);
       }

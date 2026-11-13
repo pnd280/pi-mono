@@ -4,8 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./provenance": "./src/provenance.ts",
-    "./search-scopes": "./src/search-scopes.ts",
     "./paths": "./src/paths.ts",
     "./model-reference": "./src/model-reference.ts",
     "./thinking-levels": "./src/thinking-levels.ts",

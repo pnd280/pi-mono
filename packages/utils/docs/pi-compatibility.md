@@ -12,7 +12,6 @@
 
 ## Checklist
 
-- [ ] Pi tool metadata still supplies the source and path forms that [`registeredBy`](../src/provenance.ts) recognises.
 - [ ] Pi tool results still carry text that the [output-text](../src/output-text.ts) consumers transform with omission ranges as UTF-16 offsets.
 - [ ] Pi's native `edit` results still supply one unified patch that [`parsePatch`](../src/patch.ts) accepts.
 - [ ] Pi's byte-limited tool output still clips a head or tail edge that [`decodeUtf8Window`](../src/utf8.ts) identifies correctly.

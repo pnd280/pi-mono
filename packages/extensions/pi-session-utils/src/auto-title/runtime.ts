@@ -4,8 +4,8 @@ import type {
   ExtensionUIContext,
   SessionEntry
 } from "@earendil-works/pi-coding-agent";
-import { raceWithAbortSignal } from "@pi-mono/libs/abort-race";
 
+import { raceWithAbortSignal } from "./abort-race.ts";
 import { TitleError } from "./generate.ts";
 import { conversationSource, firstRequestSource, requestSource } from "./source.ts";
 

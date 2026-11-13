@@ -75,7 +75,7 @@ function ending(details: Inactive): string {
     .join(" · ");
 }
 
-function openAction(result: BorrowedToolResult | undefined) {
+function openAction(_args: unknown, result?: BorrowedToolResult) {
   const details = jobDetailsSchema.safeParse(result?.details).data;
 
   return details
@@ -111,7 +111,7 @@ const jobDisplayAdapter: ToolDisplayAdapter = {
     { kind: "value", text: argsSchema.safeParse(args).data?.description ?? "Job" }
   ],
   textParts: envelopeText,
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = argsSchema.partial().safeParse(value).data;
     const details = jobDetailsSchema.safeParse(result?.details).data;
@@ -152,7 +152,7 @@ const jobAbortDisplayAdapter: ToolDisplayAdapter = {
     { kind: "value", text: abortArgsSchema.safeParse(args).data?.job_id ?? "Job" }
   ],
   textParts: envelopeText,
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = abortArgsSchema.partial().safeParse(value).data;
     const details = inactiveJobDetailsSchema.safeParse(result?.details).data;
@@ -200,7 +200,7 @@ export const jobResultDisplayAdapter: ToolDisplayAdapter = {
     return outcome === "cancelled" ? "cancelled" : undefined;
   },
   textParts: envelopeText,
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (_args, result) => {
     const details = inactiveJobDetailsSchema.safeParse(result?.details).data;
     if (!details) return;

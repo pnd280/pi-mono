@@ -1,8 +1,8 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
-import type { MutationPatch } from "@pi-mono/libs/file-mutations";
 import type { CodeSelectionRange } from "@pi-mono/libs/tui/components/code-highlight";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
+import type { MutationPatch } from "./file-mutations/index.ts";
 import type { AdapterEvaluator, CallInterpretation } from "./interpretation.ts";
 
 export type ToolFamily = "read" | "search" | "list" | "shell" | "edit" | "write" | "invocation";

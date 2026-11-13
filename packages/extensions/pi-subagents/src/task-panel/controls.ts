@@ -1,8 +1,6 @@
 import type { KeyId } from "@earendil-works/pi-tui";
 import { KeyControls, type KeybindingSource, type KeyControl } from "@pi-mono/libs/tui/keybindings";
 
-export type PanelKeys = KeybindingSource;
-
 type PanelKind = "panel" | "task" | "job";
 
 export type PanelAction =
@@ -34,7 +32,7 @@ const configured = [
 export class PanelControls {
   private readonly controls: KeyControls<PanelAction>;
 
-  constructor(keys: PanelKeys, kind: PanelKind) {
+  constructor(keys: KeybindingSource, kind: PanelKind) {
     const fixed: [PanelAction, KeyId][] =
       kind === "panel"
         ? [

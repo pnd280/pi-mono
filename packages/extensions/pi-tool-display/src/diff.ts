@@ -1,8 +1,8 @@
 import { PATCH_QUEUE_BYTES } from "@pi-mono/libs/bounded-diff";
-import type { FileMutation } from "@pi-mono/libs/file-mutations";
 import { parsePatch } from "@pi-mono/utils/patch";
 
 import type { ChangeFact, ChangeUnavailableReason } from "./contracts.ts";
+import type { FileMutation } from "./file-mutations/index.ts";
 
 export const OBSERVATION_BYTES = 8 * 1024 * 1024;
 

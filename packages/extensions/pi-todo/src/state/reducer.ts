@@ -76,13 +76,6 @@ export function cloneTask(task: TaskCloneSource): Task {
   return cloned;
 }
 
-export function cloneState(state: TodoState): TodoState {
-  return {
-    tasks: state.tasks.map(cloneTask),
-    nextId: state.nextId
-  };
-}
-
 function isTransitionValid(from: TaskStatus, to: TaskStatus): boolean {
   if (from === to) return true;
 
@@ -426,7 +419,7 @@ function sanitizeTaskMutationParams(params: TaskMutationParams): TaskMutationPar
 }
 
 /** Applies parsed params whose metadata already passed the bounded preflight. */
-export function applyTaskMutation(
+function applyTaskMutation(
   state: TodoState,
   action: TaskAction,
   rawParams: TaskMutationParams

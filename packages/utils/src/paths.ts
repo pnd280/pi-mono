@@ -1,9 +1,5 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import { z } from "zod";
-
-export const absolutePathSchema = z.string().refine(isAbsolute, "Expected an absolute path");
-
 /** Expand only a leading standalone tilde or home separator; never consult the environment. */
 export function expandHomePath(value: string, home: string): string {
   if (value === "~") return home;

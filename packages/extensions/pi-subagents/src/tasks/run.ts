@@ -378,9 +378,10 @@ export class Run {
 
         return this.starting;
       },
-      onEvent: (event) => this.event(event),
       onUIRequest: (request) => this.dialog(request)
     });
+    // Registered before any record arrives, so the run sees each event right after the child's own state and before later readers.
+    this.child.events((event) => this.event(event));
     this.child.listen((message) => host.report(this, { kind: "message", message }));
     this.ended = this.child.done.then((result) => this.end(result));
     host.report(this, { kind: "spawned" });

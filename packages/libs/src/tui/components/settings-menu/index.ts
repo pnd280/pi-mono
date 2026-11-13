@@ -14,7 +14,7 @@ export type SettingsMenuItem = {
   gapBefore?: boolean;
 };
 
-export type SettingsMenuScope = {
+type SettingsMenuScope = {
   id: string;
   label: string;
   destination: string;

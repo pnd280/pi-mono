@@ -1,6 +1,6 @@
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-export type HintFooterOptions = {
+type HintFooterOptions = {
   width: number;
   maxRows: number;
   hints: readonly string[];

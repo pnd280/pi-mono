@@ -1,7 +1,6 @@
 import path from "node:path";
 
 import { expandHomePath } from "@pi-mono/utils/paths";
-import { hasGlob } from "@pi-mono/utils/search-scopes";
 import {
   parse,
   type AndOr,
@@ -12,6 +11,8 @@ import {
   type Word,
   type WordPart
 } from "unbash";
+
+import { hasGlob } from "./scope-globs.ts";
 
 export type PathHint = {
   value: string;

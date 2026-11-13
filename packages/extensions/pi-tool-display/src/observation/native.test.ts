@@ -10,13 +10,13 @@ import {
   defineTool,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import { observeMutationDefinition } from "@pi-mono/libs/file-mutations";
 import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { expect, it, vi } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
 import { OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
+import { observeMutationDefinition } from "../file-mutations/index.ts";
 import { record } from "../values.ts";
 import { displayMutationSink, observeNativeDefinition, type ObservationSink } from "./native.ts";
 

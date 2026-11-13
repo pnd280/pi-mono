@@ -30,7 +30,7 @@ import type { ToolInput } from "./tool-schema.ts";
 import { TaskTree } from "./tree.ts";
 
 export type TaskEvent =
-  | { kind: "changed"; taskId?: string }
+  | { kind: "changed" }
   /** A direct task's run began; its child is not yet prompted. */
   | { kind: "run"; record: TaskRecord; run: RunConnection };
 
@@ -96,8 +96,8 @@ export class Tasks {
     this.bindingId = options.sessionId;
     this.parent = options.depth === 0 ? null : (options.taskId ?? null);
     // Each change reaches observers, and a live record also this process's supervisor.
-    this.tree = new TaskTree(entries, this.parent, ({ taskId, publish }) => {
-      this.changed(taskId);
+    this.tree = new TaskTree(entries, this.parent, ({ publish }) => {
+      this.changed();
       if (publish) this.relay.publish(publish.record, publish.urgency);
     });
     this.relay = new Relay(
@@ -151,8 +151,8 @@ export class Tasks {
     }
   }
 
-  private changed(taskId?: string): void {
-    this.emit({ kind: "changed", ...(taskId ? { taskId } : {}) });
+  private changed(): void {
+    this.emit({ kind: "changed" });
   }
 
   /** The latest top-level tool of an active direct task; empty for other tasks. */
@@ -289,14 +289,14 @@ export class Tasks {
         if (report.interrupted) this.warn(INTERRUPTED_WARNING);
         break;
       case "changed":
-        this.changed(run.details.task_id);
+        this.changed();
         break;
       case "event":
         this.tree.update(report.record, "debounced");
         break;
       case "promoted":
         if (report.record) this.tree.update(report.record, "immediate");
-        else this.changed(run.details.task_id);
+        else this.changed();
         break;
       case "ended":
         if (report.record) {

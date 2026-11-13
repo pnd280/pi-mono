@@ -72,7 +72,7 @@ const lateUsageSchema = z.object({
 });
 
 /** The details of a task's background result message. */
-export const resultDetailsSchema = detailsSchema.extend({
+const resultDetailsSchema = detailsSchema.extend({
   /** Background usage after the call returned, counted once when the result is persisted. */
   late_usage: lateUsageSchema.optional()
 });

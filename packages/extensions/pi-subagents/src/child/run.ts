@@ -109,7 +109,6 @@ type ChildOptions = ChildSelection & {
   onStart?: (start: ChildStart) => void | Promise<void>;
   /** The child's latest top-level tool, cleared when its agent starts and when the run exits. */
   onActivity?: (activity: string) => void;
-  onEvent?: (event: JsonAgentSessionEvent) => void;
   onUIRequest?: (request: RpcExtensionUIRequest) => void;
 };
 
@@ -470,7 +469,6 @@ export class ChildRun {
     }
 
     this.observeEvent(record);
-    this.options.onEvent?.(record);
   }
 
   /**

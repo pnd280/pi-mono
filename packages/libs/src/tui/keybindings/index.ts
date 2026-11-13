@@ -96,7 +96,7 @@ function arrowPair(up: string, down: string): string | undefined {
   return down === `${modifiers}Down` ? `${modifiers}↑↓` : undefined;
 }
 
-export type KeybindingCandidate<Action extends string = string> = {
+type KeybindingCandidate<Action extends string = string> = {
   action: Action;
   keys: readonly string[];
   exclude?: (key: KeyId) => boolean;

@@ -13,7 +13,6 @@ import {
   type Outcome,
   type SavedOutput
 } from "../contracts.ts";
-import { loadDisplaySettings } from "../settings.ts";
 import { assistantMessage } from "../test-fixture.ts";
 import { TranscriptMessages } from "./messages.ts";
 import { CALL_TYPE } from "./metadata.ts";
@@ -29,7 +28,6 @@ function fixture(options: Partial<ConstructorParameters<typeof DisplaySession>[0
     runtime: "session",
     cwd: "/tmp",
     history: { getBranch: () => [], getLeafId: () => null, getEntry: () => undefined },
-    settings: loadDisplaySettings([]),
     tools: tools(nativeAdapter),
     expanded: () => false,
     warn() {},

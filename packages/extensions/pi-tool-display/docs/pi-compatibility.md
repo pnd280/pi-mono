@@ -90,7 +90,7 @@ Verify [native observation](../GLOSSARY.md#interpretation) against [native tools
 - [ ] Native observation preserves tool definitions, including exposure and output schemas.
 - [ ] Native observation preserves structured results.
 - [ ] Native observation preserves active tools.
-- [ ] Native observation preserves mutation ordering.
+- [ ] Pi's mutation queue keeps its ordering around the shared [file mutation](../src/file-mutations/README.md) source capture, so native observation preserves mutation ordering.
 - [ ] Other subscribers still receive their events.
 - [ ] A nonzero Bash exit resolves an error result with its exit code.
 - [ ] Cancellation and timeout stay distinct.
@@ -153,6 +153,7 @@ See the [adapter](../src/adapters/pi-nested-instructions/README.md).
 ### Adapters
 
 - [ ] [Adapters](adapters.md#recognise-tool-contracts) still match their tools on provenance and schemas, including for MCP consumers.
+- [ ] Pi tool metadata still supplies the source and path forms that [`registeredBy`](../src/adapters/provenance.ts) recognises.
 - [ ] Adapters leave borrowed results unchanged.
 - [ ] Adapters still handle cancellation, saved-output references, and image ownership in Pi's results.
 - [ ] `validateToolArguments` is still a public `@earendil-works/pi-ai` export.

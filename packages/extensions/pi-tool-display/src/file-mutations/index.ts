@@ -8,19 +8,19 @@ import {
   createWriteToolDefinition,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import { parsePatch } from "@pi-mono/utils/patch";
-import { z } from "zod";
-
 import {
   createBoundedPatch,
   patchLimitsSchema,
   type BoundedPatchResult,
   type PatchLimits
-} from "../bounded-diff/index.ts";
-import { observeNativeTools } from "../native-tools/index.ts";
-import { decodeTextFile, observeTextFile, type FileObservation } from "./observation.ts";
+} from "@pi-mono/libs/bounded-diff";
+import { observeNativeTools } from "@pi-mono/libs/native-tools";
+import { parsePatch } from "@pi-mono/utils/patch";
+import { z } from "zod";
 
-export type { FileObservation } from "./observation.ts";
+import { decodeTextFile, observeTextFile, type FileObservation } from "./source.ts";
+
+export type { FileObservation } from "./source.ts";
 
 export type MutationPatch = BoundedPatchResult | { status: "source-unavailable" };
 

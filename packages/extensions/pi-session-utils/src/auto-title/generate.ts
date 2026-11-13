@@ -5,10 +5,10 @@ import {
   type Context
 } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { raceWithAbortSignal } from "@pi-mono/libs/abort-race";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { splitModelReference } from "@pi-mono/utils/model-reference";
 
+import { raceWithAbortSignal } from "./abort-race.ts";
 import type { TitleConfig } from "./config.ts";
 
 const timeoutMs = 15_000;

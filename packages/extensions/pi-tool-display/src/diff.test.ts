@@ -1,9 +1,9 @@
 import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
-import type { FileMutation, MutationPatch } from "@pi-mono/libs/file-mutations";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { creationPatch, mutationChange, parseRetainedPatch, sameRetainedHunks } from "./diff.ts";
+import type { FileMutation, MutationPatch } from "./file-mutations/index.ts";
 
 function mutation(result: MutationPatch, created = false): FileMutation {
   return {

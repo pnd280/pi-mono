@@ -32,17 +32,6 @@ export async function forwardDialog(
     id: request.id,
     cancelled: true
   };
-
-  return ask(request, description, ui, signal, cancelled);
-}
-
-async function ask(
-  request: RpcExtensionUIRequest,
-  description: string,
-  ui: Pick<ExtensionUIContext, "select" | "confirm" | "input" | "editor">,
-  signal: AbortSignal,
-  cancelled: RpcExtensionUIResponse
-): Promise<RpcExtensionUIResponse | undefined> {
   if (signal.aborted) return cancelled;
   const clean = (text: string) => displayText(boundedText(text));
   const title = "title" in request ? clean(`[subagent: ${description}] ${request.title}`) : "";

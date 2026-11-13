@@ -2,15 +2,20 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 import type { CustomMessageEntryDraft } from "@earendil-works/pi-coding-agent";
-import { absolutePathSchema, relativeDisplayPath } from "@pi-mono/utils/paths";
+import { relativeDisplayPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 export const noticeType = "pi-nested-instructions.notice";
 
+export const absolutePathSchema = z
+  .string()
+  .refine(path.isAbsolute, "Expected an absolute path")
+  .max(65536);
+
 export const noticeSchema = z.strictObject({
   version: z.literal(3),
-  directory: absolutePathSchema.max(65536),
-  path: absolutePathSchema.max(65536).nullable(),
+  directory: absolutePathSchema,
+  path: absolutePathSchema.nullable(),
   /** The cwd-relative path used in the model-facing text when the notice was created. */
   displayPath: z.string().max(65536),
   action: z.enum(["loaded", "updated", "removed"]),

@@ -17,7 +17,6 @@ import { TimedConfirmation } from "@pi-mono/libs/timed-confirmation";
 
 const pending = new TimedConfirmation<string>({
   durationMs: 1500,
-  now: Date.now,
   expired: () => hint.setText()
 });
 
@@ -27,7 +26,7 @@ else hint.setText("Press again to stop");
 
 ## Caller responsibilities
 
-- Supply `durationMs`, a `now` clock, and an `expired` callback. Durations outside 0 through 2,147,483,647 milliseconds throw `RangeError`.
+- Supply `durationMs` and an `expired` callback. Durations outside 0 through 2,147,483,647 milliseconds throw `RangeError`.
 - Own the confirmed action and its messages.
 - Cancel on selection, collection, or mount changes.
 - Call `dispose()` on closure.

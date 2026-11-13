@@ -27,7 +27,7 @@ import { bindRowChrome } from "./row-layout.ts";
 
 type RowHost = Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded" | "streamingComponent">;
 
-export type RowOptions = {
+type RowOptions = {
   styleAssistant: boolean;
   /** Pi's row contract is recognized; otherwise rows keep Pi's own chrome. */
   chrome: boolean;

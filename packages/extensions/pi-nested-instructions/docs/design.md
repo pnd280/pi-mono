@@ -57,4 +57,4 @@ The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract
 
 ## Shared scope extraction
 
-[Shared scope helpers](../../../utils/docs/caller-boundaries.md#search-scopes) own brace expansion and fixed glob prefixes. Discovery retains lexical hints after access failures and keeps its own direct-read policy.
+The [scope glob helpers](../src/scope-globs.ts), shared by scope inference and the Bash parser, expand brace alternatives and derive fixed glob prefixes without enumerating files. `alternatives` expands only comma-separated brace groups and throws above 64 alternatives or a fixed nesting limit; discovery catches the error and infers no scope for that tool call. `globRoot` returns the fixed prefix before the first glob segment, or `undefined` when the expression has no glob or starts with one. For a pattern expression that still contains a glob, inference skips it when no fixed prefix exists. Discovery retains lexical hints after access failures and keeps its own direct-read policy.
