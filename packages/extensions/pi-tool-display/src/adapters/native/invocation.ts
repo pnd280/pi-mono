@@ -24,7 +24,13 @@ export function pathSummaryItem(
   path: string,
   cwd: string
 ): SummaryItem & { identity: string } {
-  return { category, identity: `path\0${resolveInvocationPath(path, cwd) ?? path}` };
+  const resolved = resolveInvocationPath(path, cwd);
+
+  return {
+    category,
+    identity: `path\0${resolved ?? path}`,
+    ...(resolved === undefined ? {} : { path: resolved })
+  };
 }
 
 export function nativeInvocationParts(

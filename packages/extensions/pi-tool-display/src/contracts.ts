@@ -282,6 +282,10 @@ export type SummaryItem = {
    * Dedupe key within the category, such as a resolved file or directory path; the latest outcome counts. Omission counts every call.
    */
   identity?: string;
+  /**
+   * The lexically resolved file that a `create` or `edit` item changed. A closed summary line lists these files.
+   */
+  path?: string;
 };
 
 export type SummaryCategory = {

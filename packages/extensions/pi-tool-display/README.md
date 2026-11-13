@@ -1,9 +1,12 @@
 # pi-tool-display
 
-Long agent runs bury tool results. pi-tool-display replaces Pi's default tool-call output with compact cards, and lets you choose the starting display mode, whether cards show optional parameters, and which renderer each tool uses. A finished run collapses to one line:
+Long agent runs bury tool results. pi-tool-display replaces Pi's default tool-call output with compact cards, and lets you choose the starting display mode, whether cards show optional parameters, and which renderer each tool uses. A finished run collapses to one line, above the files that it changed:
 
 ```text
-▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   12 calls
+▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   14 calls
+  ├ M src/run-summary.ts             +18 -4
+  ├ M src/rendering/summary-line.ts  +44 -11  3 edits
+  └ A docs/changed-files.md          +64
 ```
 
 Click the line to see the cards again. Cards use the active theme and syntax highlighter, show live shell previews, and show [file diffs](docs/presentation.md#diff-viewer) for edits and writes.

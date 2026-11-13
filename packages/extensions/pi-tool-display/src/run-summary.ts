@@ -1,4 +1,5 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { relativeDisplayPath } from "@pi-mono/utils/paths";
 
 import type {
   ChangeFact,
@@ -9,7 +10,9 @@ import type {
   SummaryNotice,
   ToolFamily
 } from "./contracts.ts";
+import { changedLines } from "./diff.ts";
 import type { CallInterpretation } from "./interpretation.ts";
+import { record } from "./values.ts";
 
 /** Category IDs with this prefix count calls per tool name. */
 const TOOL_PREFIX = "other:";
@@ -67,9 +70,25 @@ export type SummarySegment = {
   readonly toolNamed: boolean;
 };
 
+/** A file that `create` or `edit` items of the run name. */
+export type ChangedFile = {
+  /** Relative to Pi's cwd when inside it, else absolute. */
+  readonly path: string;
+  /** A call of the run created the file. */
+  readonly created: boolean;
+  /** Of the latest call on the file. */
+  readonly outcome: Outcome;
+  /** Successful calls on the file. */
+  readonly changes: number;
+  /** Summed over the successful calls on the file that have a readable patch; undefined when there is none. */
+  readonly lines: { readonly added: number; readonly removed: number } | undefined;
+};
+
 export type RunSummary = {
   /** Categories in the order of their first call or notice. */
   readonly segments: readonly SummarySegment[];
+  /** In the order of each file's first call. */
+  readonly changes: readonly ChangedFile[];
 };
 
 /**
@@ -103,9 +122,53 @@ function counts(states: readonly Outcome[]): SummaryCounts {
   };
 }
 
-/** Pure: derive a run's summary from calls and their following notices without touching files. */
+/** The files that the calls' `create` and `edit` items name, without reading them. */
+function changedFiles(
+  members: readonly DisplayCall[],
+  cwd: string,
+  interpretation: (call: DisplayCall) => CallInterpretation
+): ChangedFile[] {
+  // Keyed by resolved path, so a file that is created and then edited is one entry.
+  const files = new Map<string, ChangedFile>();
+
+  for (const call of members) {
+    const { adapter, outcome, summaryItems } = interpretation(call);
+    const changed = summaryItems.flatMap(({ category, path }) =>
+      path !== undefined && (category === "create" || category === "edit")
+        ? [{ path, created: category === "create" }]
+        : []
+    );
+    const succeeded = outcome === "success";
+    const lines = succeeded
+      ? changedLines(adapter.patch ? record(call.result?.details).patch : undefined, call.change)
+      : undefined;
+
+    for (const { path, created } of changed) {
+      const previous = files.get(path);
+      const total = previous?.lines;
+
+      files.set(path, {
+        path: relativeDisplayPath(path, cwd),
+        created: created || previous?.created === true,
+        outcome,
+        changes: (previous?.changes ?? 0) + (succeeded ? 1 : 0),
+        lines:
+          lines && total
+            ? { added: total.added + lines.added, removed: total.removed + lines.removed }
+            : (lines ?? total)
+      });
+    }
+  }
+
+  return [...files.values()];
+}
+
+/**
+ * Pure: derive a run's summary from calls and their following notices without touching files. `cwd` only shortens the paths of changed files.
+ */
 export function buildRunSummary(
   members: readonly DisplayCall[],
+  cwd: string,
   interpretation: (call: DisplayCall) => CallInterpretation,
   notices: (call: DisplayCall) => readonly SummaryNotice[] = () => []
 ): RunSummary {
@@ -148,6 +211,7 @@ export function buildRunSummary(
       ...resolveCategory(id, declared),
       count: entries.size,
       counts: counts([...entries.values()])
-    }))
+    })),
+    changes: changedFiles(members, cwd, interpretation)
   };
 }
