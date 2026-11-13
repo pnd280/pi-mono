@@ -8,9 +8,9 @@ import {
   type ExtensionAPI,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { observeNativeTools } from "@pi-mono/libs/native-tools";
 
+import { observeFileMutations } from "../file-mutations/index.ts";
 import type { DisplayFailure } from "../interpretation.ts";
 import { displayMutationSink, observeNativeDefinition } from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
@@ -54,7 +54,6 @@ export class DisplayCollector {
       runtime: randomUUID(),
       cwd: this.session.sessionManager.getCwd(),
       history: this.session.sessionManager,
-      settings: this.settings,
       tools: () => this.owner.tools(this.session, this.settings),
       onFailure: (failure) => this.owner.failure(failure),
       expanded: () => this.expanded(),
@@ -201,12 +200,10 @@ export class DisplayCollectors {
   }
 
   private eligible(session: AgentSession, name: string): boolean {
-    const display = this.collectors.get(session)?.display;
+    const settings = this.collectors.get(session)?.settings;
 
     return (
-      this.active &&
-      !!display?.settings.valid &&
-      (display.settings.rendererOverrides[name] ?? "auto") === "auto"
+      this.active && !!settings?.valid && (settings.rendererOverrides[name] ?? "auto") === "auto"
     );
   }
 

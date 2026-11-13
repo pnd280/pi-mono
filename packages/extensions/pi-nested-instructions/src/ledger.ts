@@ -1,10 +1,9 @@
 import path from "node:path";
 
 import type { ExtensionContext, SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
-import { absolutePathSchema } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
-import { decodeNotice, digest, noticeSchema, noticeType } from "./notices.ts";
+import { absolutePathSchema, decodeNotice, digest, noticeSchema, noticeType } from "./notices.ts";
 import type { Invocation } from "./scopes.ts";
 
 export const readType = "pi-nested-instructions.read";
@@ -13,7 +12,7 @@ const stampSchema = z.string().max(256).nullable();
 
 const readSchema = z.strictObject({
   version: z.literal(1),
-  path: absolutePathSchema.max(65536),
+  path: absolutePathSchema,
   toolCallId: z.string().max(1024),
   callEntryId: z.string().max(1024),
   callDigest: z.string().length(64),

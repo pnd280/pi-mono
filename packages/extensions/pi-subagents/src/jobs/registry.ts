@@ -33,8 +33,6 @@ import {
   type JobInput
 } from "./records.ts";
 
-type JobEvent = { kind: "changed"; jobId: string };
-
 /** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
 const JOB_LOG_PREFIX = "pi-job-";
 
@@ -161,7 +159,7 @@ export class Jobs {
   };
   /** Log streams that have not closed, including streams that never started a job. */
   private streams = new Set<Promise<void>>();
-  private listeners = new Set<(event: JobEvent) => void>();
+  private listeners = new Set<() => void>();
   private closed = false;
   /** The results of exited jobs. A live job started with `hold_run` holds the run; see ADR 0008. */
   readonly results = new ResultSource(
@@ -207,7 +205,7 @@ export class Jobs {
     return { ...record, binding_id: this.bindingId };
   }
 
-  subscribe(listener: (event: JobEvent) => void): () => void {
+  subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
 
     return () => {
@@ -215,12 +213,12 @@ export class Jobs {
     };
   }
 
-  private emit(event: JobEvent): void {
+  private emit(): void {
     if (this.closed) return;
 
     for (const listener of this.listeners) {
       try {
-        listener(event);
+        listener();
       } catch {
         /* Observers cannot change process lifetime. */
       }
@@ -279,7 +277,7 @@ export class Jobs {
       // Pi keeps the entry in memory, where it shows the job as cancelled; no command starts.
       this.records.set(job_id, stoppedJob(entry));
       log.end();
-      this.emit({ kind: "changed", jobId: job_id });
+      this.emit();
       throw new Error(`Job entry could not be saved: ${errorMessage(error)}`);
     }
 
@@ -287,7 +285,7 @@ export class Jobs {
     this.options.started?.();
     // One object: `abort` marks the same job that `run` reads.
     this.live.set(job_id, Object.assign(live, { done: this.run(record, live, input, ctx) }));
-    this.emit({ kind: "changed", jobId: job_id });
+    this.emit();
 
     return this.details(record);
   }
@@ -422,7 +420,7 @@ export class Jobs {
         message: jobResultMessage(this.details(done), text, ended.stated === true),
         survivesChange: true
       });
-    this.emit({ kind: "changed", jobId: done.job_id });
+    this.emit();
 
     return done;
   }

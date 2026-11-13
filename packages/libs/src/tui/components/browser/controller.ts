@@ -11,7 +11,6 @@ import type {
 type BrowserPorts = {
   changed(this: void): void;
   close(this: void): void;
-  now(this: void): number;
   onError(this: void, error: unknown): void;
 };
 
@@ -63,7 +62,6 @@ export class BrowserController<Item> {
   private createConfirmation() {
     return new TimedConfirmation<Item>({
       durationMs: this.section.remove?.durationMs ?? 1500,
-      now: this.ports.now,
       expired: this.ports.changed
     });
   }

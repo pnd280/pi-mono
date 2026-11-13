@@ -1,7 +1,6 @@
 import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
-import { registeredBy } from "@pi-mono/utils/provenance";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { OPEN_EVENT } from "pi-subagents/constants";
 import {
@@ -18,6 +17,7 @@ import type {
   SummaryCategory,
   ToolDisplayAdapter
 } from "../../contracts.ts";
+import { registeredBy } from "../provenance.ts";
 import { jobAdapter, messageResult, times } from "./jobs.ts";
 
 const argsSchema = z.object({
@@ -111,7 +111,7 @@ function fields(
   ];
 }
 
-function openAction(result: BorrowedToolResult | undefined) {
+function openAction(_args: unknown, result?: BorrowedToolResult) {
   const details = detailsSchema.safeParse(result?.details).data;
 
   return details?.task_id && details.binding_id
@@ -153,7 +153,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
 
     return [{ category: category.id, ...(id ? { identity: id } : {}) }];
   },
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = partialArgsSchema.safeParse(value).data;
     const details = detailsSchema.safeParse(result?.details).data;
@@ -202,7 +202,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
 
     return [{ category: abortCategory.id, ...(id ? { identity: id } : {}) }];
   },
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = abortArgsSchema.partial().safeParse(value).data;
     const details = detailsSchema.safeParse(result?.details).data;

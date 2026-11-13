@@ -4,6 +4,7 @@ import { Type } from "typebox";
 import { expect, it } from "vite-plus/test";
 
 import { TodoController } from "./state/controller.ts";
+import { parseTodoStateSnapshot } from "./state/session-state.ts";
 import { createTodoTool } from "./tool.ts";
 
 it("keeps todo model-issued and replayable while rejecting nested mutations", async () => {
@@ -49,7 +50,10 @@ it("keeps todo model-issued and replayable while rejecting nested mutations", as
     expect(inspected).toBe(true);
     const restored = new TodoController();
     restored.reconstructFromBranch(session.sessionManager.getBranch());
-    expect(restored.getState()).toEqual(controller.getState());
+    expect(parseTodoStateSnapshot(restored.apply({ action: "list" }).details)).toEqual({
+      tasks: controller.getTodos(),
+      nextId: 2
+    });
     expect(restored.getTodos()).toMatchObject([{ subject: "Retained" }]);
   } finally {
     await fixture.dispose();

@@ -14,10 +14,9 @@ const REFRESH_MS = 1_000;
 export type Urgency = "immediate" | "debounced";
 
 /**
- * One change of the tree. `taskId` names the changed task; a file read that removed tasks names none. Only a live record is published, because each supervisor reads child files itself.
+ * One change of the tree. Only a live record is published, because each supervisor reads child files itself.
  */
 export type TreeChange = {
-  taskId?: string;
   publish?: { record: TaskRecord; urgency: Urgency };
 };
 
@@ -128,7 +127,7 @@ export class TaskTree {
     // An unchanged record keeps the listed order.
     if (this.records.get(record.task_id) !== record) this.order = undefined;
     this.records.set(record.task_id, record);
-    this.onChange({ taskId: record.task_id, publish: { record, urgency } });
+    this.onChange({ publish: { record, urgency } });
   }
 
   /**
@@ -179,7 +178,7 @@ export class TaskTree {
       removed = true;
     }
 
-    const updated: string[] = [];
+    let updated = 0;
 
     for (const record of descendants) {
       const previous = this.records.get(record.task_id);
@@ -187,12 +186,12 @@ export class TaskTree {
         continue;
       this.records.set(record.task_id, record);
       this.read.add(record.task_id);
-      updated.push(record.task_id);
+      updated++;
     }
 
-    if (removed || updated.length) this.order = undefined;
+    if (removed || updated) this.order = undefined;
     if (removed) this.onChange({});
-    for (const taskId of updated) this.onChange({ taskId });
+    for (let i = 0; i < updated; i++) this.onChange({});
   }
 
   /**

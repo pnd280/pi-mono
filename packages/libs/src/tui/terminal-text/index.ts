@@ -77,7 +77,7 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
   return { end: index, sgr };
 }
 
-export type TerminalTextSlice = {
+type TerminalTextSlice = {
   text: string;
   leadingSgr: string;
 };

@@ -14,12 +14,12 @@ type TreeStyleOptions = {
   style?: (text: string) => string;
 };
 
-export type TreeOptions = TreeStyleOptions & {
+type TreeOptions = TreeStyleOptions & {
   /** Join fragments rendered by separate components without moving their content. */
   followingSibling?: boolean;
 };
 
-export type TreeContinuationOptions = TreeStyleOptions & {
+type TreeContinuationOptions = TreeStyleOptions & {
   hasChildren?: boolean;
 };
 

@@ -256,7 +256,7 @@ function pendingCalls(
   return completed > 0 ? [] : plan;
 }
 
-export function createDisplayFixtureStream(cwd: string): ProviderStreams["stream"] {
+function createDisplayFixtureStream(cwd: string): ProviderStreams["stream"] {
   const plans = scenarios(cwd);
 
   return (model, context, { signal } = {}) =>

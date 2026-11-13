@@ -9,6 +9,7 @@ import {
   type TuiMouseEvent
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
+import type { KeybindingSource } from "@pi-mono/libs/tui/keybindings";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { RunReader, TaskView } from "../history/reader.ts";
@@ -16,7 +17,7 @@ import type { Jobs } from "../jobs/registry.ts";
 import type { Tasks } from "../tasks/registry.ts";
 import { createRenderers } from "../tasks/render.ts";
 import { boardEntries, entryId, renderBoard, views, type BoardEntry } from "./board.ts";
-import { PanelControls, type PanelAction, type PanelKeys } from "./controls.ts";
+import { PanelControls, type PanelAction } from "./controls.ts";
 import { JobLogView } from "./job-viewer.ts";
 import { renderViewer, Spinner, taskRows, type ViewerBody } from "./viewer-frame.ts";
 import { TranscriptViewer } from "./viewer.ts";
@@ -48,7 +49,7 @@ class TranscriptView implements Component {
     private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
-    keys: PanelKeys,
+    keys: KeybindingSource,
     private close: () => void
   ) {
     this.controls = new PanelControls(keys, "task");
@@ -357,7 +358,7 @@ export class TaskPanel implements Component {
     private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
-    private keys: PanelKeys,
+    private keys: KeybindingSource,
     private close: () => void
   ) {
     this.controls = new PanelControls(keys, "panel");

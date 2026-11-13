@@ -206,7 +206,7 @@ export function installHostIntegration(
 
     try {
       const binding = hosts.get(this);
-      const configuration = binding?.display.settings ?? displaySettings(this.session);
+      const configuration = binding?.collector.settings ?? displaySettings(this.session);
       const selected = binding
         ? binding.display.selectAdapter(name)
         : collection.tools(this.session, configuration).adapter(name);
@@ -260,7 +260,7 @@ export function installHostIntegration(
       hooks.replace(prototype, "toggleToolOutputExpansion", function (this: Host) {
         const binding = active ? hosts.get(this) : undefined;
         // Invalid settings keep original rendering, where summary and compact are identical.
-        if (!binding?.display.settings.valid) return originalToggle.call(this);
+        if (!binding?.collector.settings.valid) return originalToggle.call(this);
         transition(
           this,
           binding,
@@ -269,12 +269,12 @@ export function installHostIntegration(
       });
       hooks.replace(prototype, "setToolsExpanded", function (this: Host, expanded: boolean) {
         const binding = active ? hosts.get(this) : undefined;
-        if (!binding?.display.settings.valid) return originalSetExpanded.call(this, expanded);
+        if (!binding?.collector.settings.valid) return originalSetExpanded.call(this, expanded);
         const mode = binding.display.coordinator.mode;
         if (expanded) transition(this, binding, "verbose");
         // Collapsing applies only to verbose; summary and compact are both collapsed.
         else if (mode === "verbose")
-          transition(this, binding, binding.display.settings.collapsedMode);
+          transition(this, binding, binding.collector.settings.collapsedMode);
       });
     }
 

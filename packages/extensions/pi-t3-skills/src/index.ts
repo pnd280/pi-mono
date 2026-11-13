@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises";
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import { joinInputChain } from "@pi-mono/libs/input-chain";
-import { defaultSkillReferenceFormat } from "@pi-mono/utils/skill-reference";
+import {
+  defaultSkillReferenceFormat,
+  expandSkillReferences,
+  skillReferenceCatalog
+} from "@pi-mono/utils/skill-reference";
 
-import { rewriteSkillChips } from "./chips.ts";
 import { loadExpansionFormat } from "./config.ts";
 import { removeT3SkillSuffix } from "./t3-suffix.ts";
 
@@ -18,6 +21,18 @@ const SUFFIX_RANK = 90;
 
 /** Runs after pi-skills (rank 100), so pi-skills never expands the references in this output. */
 const CHIP_RANK = 110;
+
+/**
+ * T3 Code's server reads a skill chip as a whole whitespace-separated `$<name>` token. The shared expansion keeps only tokens whose `/skill:<name>` command is registered.
+ */
+function chipCommand(token: string): string | undefined {
+  return token.startsWith("$") ? `/skill:${token.slice(1)}` : undefined;
+}
+
+/** Replaces each registered `$<name>` chip with its formatted skill reference. */
+function rewriteSkillChips(text: string, commands: SlashCommandInfo[], format: string): string {
+  return expandSkillReferences(text, skillReferenceCatalog(commands), format, chipCommand);
+}
 
 export default function t3Skills(pi: ExtensionAPI): void {
   if (!process.env[T3_EXTENSION_ENV]) return;

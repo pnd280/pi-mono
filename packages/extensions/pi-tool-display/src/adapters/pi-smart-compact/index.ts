@@ -1,5 +1,4 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { registeredBy } from "@pi-mono/utils/provenance";
 import {
   compactAcknowledgement,
   compactDetailsSchema,
@@ -9,6 +8,7 @@ import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
+import { registeredBy } from "../provenance.ts";
 
 const compactArgsSchema = z.strictObject({ instructions: z.string().nullish() });
 const compactParametersSchema = z.object({

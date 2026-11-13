@@ -8,7 +8,7 @@ import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
-import { resultDetailsSchema } from "../src/background-result.ts";
+import { lateUsageOf } from "../src/background-result.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
 import { detailsSchema, jobDetailsSchema } from "../src/details.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
@@ -432,10 +432,13 @@ test("promotes foreground work, retains it across turn abort, and counts late us
       (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
     );
     if (completion?.type !== "custom_message") throw new Error("No completion");
-    const details = resultDetailsSchema.parse(completion.details);
+    const details = detailsSchema.parse(completion.details);
     // The card keeps the full run usage; only the part after the return is counted again.
     expect(details.usage.input).toBe(20);
-    expect(details.late_usage?.usage).toMatchObject({ totalTokens: 15, cost: { total: 0.001 } });
+    expect(lateUsageOf(completion)?.usage).toMatchObject({
+      totalTokens: 15,
+      cost: { total: 0.001 }
+    });
     const late = entries.filter((entry) => entry.type === "usage");
     expect(late).toHaveLength(1);
     expect(late[0]).toMatchObject({

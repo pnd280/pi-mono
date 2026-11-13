@@ -6,13 +6,14 @@ import {
   type TUI,
   type TuiMouseEvent
 } from "@earendil-works/pi-tui";
+import type { KeybindingSource } from "@pi-mono/libs/tui/keybindings";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { errorMessage } from "@pi-mono/utils/errors";
 
 import { readLogTail } from "../jobs/log.ts";
 import type { Jobs } from "../jobs/registry.ts";
-import { PanelControls, type PanelKeys } from "./controls.ts";
+import { PanelControls } from "./controls.ts";
 import { jobRows, renderViewer, Spinner, type ViewerBody } from "./viewer-frame.ts";
 
 /** A live log follows its file at this interval. */
@@ -46,7 +47,7 @@ export class JobLogView implements Component {
     readonly jobId: string,
     private tui: TUI,
     private theme: Theme,
-    keys: PanelKeys,
+    keys: KeybindingSource,
     private close: () => void
   ) {
     this.controls = new PanelControls(keys, "job");

@@ -8,8 +8,8 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 
 - **Critical, integration:** Validation launches inherit no user credentials or settings.
 - **Critical, integration:** Validation launches enforce private storage and offline environment values even when caller additions disagree.
-- **Critical, integration:** When a settings mutator throws or is asynchronous, the settings file stays unchanged and the lock is released for a later update.
-- **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
+- **Critical, integration:** When a settings update rejects a section that is not an object, the settings file stays unchanged and the lock is released for a later update.
+- **Critical, integration:** Settings updates preserve every JSON key other than the replaced field, including `__proto__` and `constructor`.
 - **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself, and exclude a concurrent settings update through another alias of the same file.
 - **Critical, integration:** On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
 - **Critical, integration:** Settings updates refuse malformed input or serialised output above 1 MiB before replacing the file.
@@ -32,15 +32,12 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **High, e2e:** In every load order, prompt parts are appended after the existing `appendSystemPrompt` text in ascending rank, once per run, and only after every pending hold has settled.
 - **High, e2e:** Shortcut claims that overlap, including different spellings of one key, register for no claimant and give one warning per conflict. Other claims register. After a later bind, a key that its claimant dropped or that now overlaps runs no handler.
 - **High, integration:** A configured FIFO cannot block `readSettingsFile` or session startup.
-- **High, integration:** Mutation observations preserve native write outcomes and queue order.
-- **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.
-- **High, integration:** Mutation observations add no post-write reads.
 - **High, integration:** Bounded patch requests refuse oversized inputs and results.
 - **High, integration:** Bounded patch requests recover after worker failure without blocking later requests or retaining unbounded queued source.
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
 - **High, unit:** Native hook disposal leaves later replacements by other owners intact.
 - **High, unit:** When one owner replaced a property several times, disposal restores the original property.
-- **High, integration:** Disposing a native-tool or file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
+- **High, e2e:** Disposing a native-tool subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, integration:** File renames retry only on Windows and only for `EPERM`, `EACCES`, and `EBUSY`, stop after 10 attempts, and keep the previous target when they fail.
 
 ## Not tested

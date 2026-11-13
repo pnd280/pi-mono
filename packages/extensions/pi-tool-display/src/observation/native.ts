@@ -6,13 +6,13 @@ import {
   type BashOperations,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import type { MutationSink } from "@pi-mono/libs/file-mutations";
 import type { NativeSettings } from "@pi-mono/libs/native-tools";
 import { OutputBuffer, type OutputBufferOptions } from "@pi-mono/libs/output-buffer";
 import { joinOutputText, outputOmission, type OutputText } from "@pi-mono/utils/output-text";
 
 import type { DisplayFact, OperationFact, Outcome } from "../contracts.ts";
 import { mutationChange, OBSERVATION_BYTES } from "../diff.ts";
+import type { MutationSink } from "../file-mutations/index.ts";
 import { record } from "../values.ts";
 
 export type ObservationSink = {

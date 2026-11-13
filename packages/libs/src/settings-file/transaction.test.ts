@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 import { afterEach, expect, it } from "vite-plus/test";
 
-import { readSettingsRecord, updateSettingsRecord } from "./transaction.ts";
+import { readSettingsRecord, replaceSettingsField } from "./transaction.ts";
 
 const directories: string[] = [];
 afterEach(() => {
@@ -29,67 +29,49 @@ const fixture = () => {
   return { directory, path: join(directory, "settings.json") };
 };
 
-it.each(["throwing", "asynchronous"] as const)(
-  "leaves files untouched when the mutator is %s and releases the lock for a later update",
-  async (kind) => {
-    const { directory, path } = fixture();
-    const original = '{"theme":"dark","future":{"kept":1}}\n';
-    writeFileSync(path, original);
-    let finish!: () => void;
-    const pending = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
-
-    try {
-      expect(() =>
-        kind === "throwing"
-          ? updateSettingsRecord(path, (record) => {
-              record.theme = "light";
-              throw new Error("rejected");
-            })
-          : updateSettingsRecord(path, async (record) => {
-              await pending;
-              record.theme = "light";
-            })
-      ).toThrow(kind === "throwing" ? "rejected" : "synchronous");
-      expect(readFileSync(path, "utf8")).toBe(original);
-      expect(readdirSync(directory)).toEqual(["settings.json"]);
-      updateSettingsRecord(path, (record) => {
-        record.theme = "safe";
-      });
-      expect(readSettingsRecord(path)).toEqual({ theme: "safe", future: { kept: 1 } });
-      expect(readdirSync(directory)).toEqual(["settings.json"]);
-    } finally {
-      finish();
-      await pending;
-    }
-  }
-);
+it("leaves the file untouched when the section is not an object and releases the lock for a later update", () => {
+  const { directory, path } = fixture();
+  const original = '{"theme":"dark","ext.test":["kept"]}\n';
+  writeFileSync(path, original);
+  expect(() =>
+    replaceSettingsField(path, { key: "ext.test", field: "order", value: ["a"] })
+  ).toThrow("object");
+  expect(readFileSync(path, "utf8")).toBe(original);
+  expect(readdirSync(directory)).toEqual(["settings.json"]);
+  replaceSettingsField(path, { key: "ext.other", field: "order", value: ["a"] });
+  expect(readSettingsRecord(path)).toEqual({
+    theme: "dark",
+    "ext.test": ["kept"],
+    "ext.other": { order: ["a"] }
+  });
+  expect(readdirSync(directory)).toEqual(["settings.json"]);
+});
 
 it("preserves unrelated JSON keys, including names inherited by ordinary objects", () => {
   const { path } = fixture();
-  writeFileSync(path, '{"__proto__":{"kept":true},"constructor":"kept","theme":"dark"}');
-  updateSettingsRecord(path, (record) => {
-    record.theme = "light";
-  });
+  writeFileSync(
+    path,
+    '{"__proto__":{"kept":true},"constructor":"kept","ext.test":{"constructor":"kept","order":1}}'
+  );
+  replaceSettingsField(path, { key: "ext.test", field: "order", value: ["b"] });
   expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(
-    JSON.parse('{"__proto__":{"kept":true},"constructor":"kept","theme":"light"}')
+    JSON.parse(
+      '{"__proto__":{"kept":true},"constructor":"kept","ext.test":{"constructor":"kept","order":["b"]}}'
+    )
   );
 });
 
 it.each([
   ["malformed input", "{broken"],
   ["invalid UTF-8 input", Buffer.from('{"unused":"\xff"}', "latin1")],
-  // Oversized input would also fail this output limit (updateSettingsRecord), so one row covers both. The input and the compact output with the change fit; only the formatted output does not.
+  // Oversized input would also fail this output limit (replaceSettingsField), so one row covers both. The input and the compact output with the change fit; only the formatted output does not.
   ["output above 1 MiB after formatting", JSON.stringify({ unused: "x".repeat(1024 * 1024 - 64) })]
 ])("refuses %s without replacing the file", (_case, content) => {
   const { directory, path } = fixture();
   writeFileSync(path, content);
   const before = readFileSync(path);
   expect(() =>
-    updateSettingsRecord(path, (record) => {
-      record.added = { order: ["a"] };
-    })
+    replaceSettingsField(path, { key: "added", field: "order", value: ["a"] })
   ).toThrow();
   // Buffer.equals: a deep toEqual over 1 MiB takes seconds and times out under load.
   expect(readFileSync(path).equals(before)).toBe(true);
@@ -101,26 +83,24 @@ it("follows an existing settings symlink, excludes writers through other aliases
   const target = join(directory, "target.json");
   writeFileSync(target, '{"theme":"dark"}');
   symlinkSync(target, path);
-  updateSettingsRecord(path, (record) => {
-    record.theme = "light";
-  });
+  replaceSettingsField(path, { key: "ext.test", field: "order", value: ["a"] });
   expect(lstatSync(path).isSymbolicLink()).toBe(true);
-  expect(readSettingsRecord(target)).toEqual({ theme: "light" });
-  // A writer through the target alias must not commit between this update's read and rename.
-  updateSettingsRecord(path, (record) => {
-    expect(() =>
-      updateSettingsRecord(target, (other) => {
-        other.savedByOtherWriter = true;
-      })
-    ).toThrow();
-    record.savedByFirstWriter = true;
-  });
-  expect(readSettingsRecord(target)).toEqual({ theme: "light", savedByFirstWriter: true });
+  expect(readSettingsRecord(target)).toEqual({ theme: "dark", "ext.test": { order: ["a"] } });
+  // A writer through the target alias must not commit between this update's read and rename. Serialisation runs in that window, so toJSON attempts the competing update there.
+  const value = {
+    toJSON: () => {
+      expect(() =>
+        replaceSettingsField(target, { key: "ext.other", field: "order", value: ["x"] })
+      ).toThrow();
+
+      return ["b"];
+    }
+  };
+  replaceSettingsField(path, { key: "ext.test", field: "order", value });
+  expect(readSettingsRecord(target)).toEqual({ theme: "dark", "ext.test": { order: ["b"] } });
   rmSync(target);
   expect(() =>
-    updateSettingsRecord(path, (record) => {
-      record.theme = "dark";
-    })
+    replaceSettingsField(path, { key: "ext.test", field: "order", value: ["c"] })
   ).toThrow();
   expect(lstatSync(path).isSymbolicLink()).toBe(true);
 });
@@ -130,18 +110,14 @@ it.runIf(process.platform !== "win32")(
   () => {
     const { path } = fixture();
     expect(readSettingsRecord(path)).toEqual({});
-    updateSettingsRecord(path, (record) => {
-      record.first = true;
-    });
+    replaceSettingsField(path, { key: "ext.test", field: "first", value: true });
     expect(statSync(path).mode & 0o777).toBe(0o600);
     rmSync(path);
     writeFileSync(path, "{}");
     // Existing permissions can include bits masked out by the writer's umask.
     chmodSync(path, 0o666);
     const mode = statSync(path).mode & 0o777;
-    updateSettingsRecord(path, (record) => {
-      record.second = true;
-    });
+    replaceSettingsField(path, { key: "ext.test", field: "second", value: true });
     expect(statSync(path).mode & 0o777).toBe(mode);
   }
 );

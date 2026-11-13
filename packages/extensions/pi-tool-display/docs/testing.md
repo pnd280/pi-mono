@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Glossary](../GLOSSARY.md)
 
-This package tests settings trust, delegated execution through its private Pi host access, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
+This package tests settings trust, delegated execution through its private Pi host access, file mutation capture, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
 
 ## Must not regress
 
@@ -13,6 +13,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, unit:** Renderer overrides match exact tool names, including prototype-like names, before automatic adapter selection.
 - **High, e2e:** Under automatic selection, tools without a verified adapter keep a supplied renderer slot, from their definition or a `registerToolRenderer` resolver, and receive generic cards only when neither slot exists.
 - **High, e2e:** Under automatic selection, unregistered tools always receive generic cards, so late registration can upgrade them.
+- **High, unit:** Package provenance requires the named package as the npm source or entry point, not a lookalike name or an SDK label.
 
 ### Execution
 
@@ -26,7 +27,9 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, e2e:** Startup and the session remain usable when private host hooks are incompatible or non-writable.
 - **High, e2e:** Failed hook installation leaves no partial hooks, including on one row whose later hook fails after its first hook was installed.
 - **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results. When message-end middleware renames a call, its card, observation, and saved facts follow the final tool.
-- **High, integration:** File mutation observation uses the shared capture rather than rereading targets for display.
+- **High, integration:** Mutation observations preserve native write outcomes and queue order.
+- **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.
+- **High, integration:** Mutation observations add no post-write reads, and display uses their shared capture rather than rereading targets.
 
 ### Saved facts
 
@@ -45,6 +48,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **High, e2e:** Reload and removal restore only hooks and definitions still owned by this extension, and keep wrappers installed later.
 - **High, integration:** Retained observation callbacks cannot update calls or persist facts after their display session is disposed.
+- **High, e2e:** Disposing a file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, e2e:** Disposal leaves other mutation subscribers and later wrappers active.
 - **High, e2e:** Disposed collectors cannot update or persist into replacement sessions.
 - **High, e2e:** Pending host-event continuations cannot reattach assistant decoration after disposal or take row ownership from a replacement transcript binding.

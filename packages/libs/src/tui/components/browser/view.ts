@@ -52,7 +52,6 @@ export class Browser<Item> implements Component, Focusable {
     this.controller = new BrowserController(options, {
       changed: () => environment.tui.requestRender(),
       close: environment.close,
-      now: Date.now,
       onError: environment.onError
     });
     this.textPreview = new ScrollableTextPreview({

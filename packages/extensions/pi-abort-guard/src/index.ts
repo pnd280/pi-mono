@@ -43,7 +43,6 @@ export default function abortGuard(pi: ExtensionAPI): void {
     const clearHint = () => hint.setText();
     const pending = new TimedConfirmation<typeof interrupt>({
       durationMs: confirmationMs,
-      now: Date.now,
       expired: clearHint
     });
     confirmation = pending;

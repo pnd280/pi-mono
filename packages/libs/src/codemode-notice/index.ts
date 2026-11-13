@@ -1,7 +1,7 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 
 /** The sentence that a wrapped tool's description ends with while `codemode` is declared. */
-export const codemodeNotice = "Call this tool directly. It is not available inside codemode.";
+const codemodeNotice = "Call this tool directly. It is not available inside codemode.";
 
 /**
  * Returns `definition` with a `prepareLoadout` hook that adds {@link codemodeNotice} to its model-facing description while a tool named `codemode` is declared to the model.

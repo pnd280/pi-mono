@@ -11,7 +11,6 @@ import type {
 } from "../contracts.ts";
 import type { DisplayFailureHandler } from "../interpretation.ts";
 import type { ObservationSink } from "../observation/native.ts";
-import type { DisplaySettings } from "../settings.ts";
 import { TranscriptCoordinator, type ResultStatus, type ValidatedArgs } from "./coordinator.ts";
 import { DisplayHistory, type HistorySource } from "./history.ts";
 import { SavedCalls, type SavedCallsOptions } from "./saved-calls.ts";
@@ -48,7 +47,6 @@ type DisplaySessionOptions = {
   runtime: string;
   cwd: string;
   history: HistorySource;
-  settings: DisplaySettings;
   tools(): ToolSnapshot;
   expanded(): boolean;
   /** Initial transcript mode; the host owns later transitions. */
@@ -78,7 +76,6 @@ function retainedAdapter(
 /** Session orchestration without a Pi runtime or terminal. All call writes go through the coordinator. */
 export class DisplaySession {
   readonly coordinator: TranscriptCoordinator;
-  readonly settings: DisplaySettings;
   private history: DisplayHistory;
   private saved: SavedCalls;
   private output: SavedOutputs;
@@ -88,7 +85,6 @@ export class DisplaySession {
   private disposed = false;
   private snapshot: ToolSnapshot | undefined;
   constructor(private options: DisplaySessionOptions) {
-    this.settings = options.settings;
     this.coordinator = new TranscriptCoordinator(options.runtime, {
       cwd: options.cwd,
       ...(options.mode ? { mode: options.mode } : {}),

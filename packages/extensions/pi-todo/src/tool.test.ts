@@ -9,14 +9,15 @@ it("rejects out-of-range parent IDs without mutating state after schema projecti
   const controller = new TodoController();
   const tool = createTodoTool(controller);
   await tool.execute("create", { action: "create", subject: "Root" });
-  const before = controller.getState();
+  const before = controller.getTodos();
 
   for (const parentId of [0, Number.MAX_SAFE_INTEGER + 1]) {
     for (const action of ["create", "update"] as const) {
       const result = await tool.execute("invalid", { action, id: 1, subject: "Changed", parentId });
       expect(result.details.error).toContain("parentId: invalid todo id");
-      expect(result.details.tasks).toEqual(before.tasks);
-      expect(controller.getState()).toEqual(before);
+      expect(result.details.tasks).toEqual(before);
+      expect(result.details.nextId).toBe(2);
+      expect(controller.getTodos()).toEqual(before);
     }
   }
 });
@@ -35,11 +36,12 @@ it("keeps every tool action replayable and private state independent of emitted 
     { action: "delete", id: 1 },
     { action: "clear" }
   ];
+  const nextIds = [2, 3, 3, 3, 3, 3, 3, 3, 1];
 
   for (const [index, args] of calls.entries()) {
     const result = await tool.execute(String(index), args);
-    const state = controller.getState();
-    expect(parseTodoStateSnapshot(result.details)).toEqual(state);
+    const tasks = controller.getTodos();
+    expect(parseTodoStateSnapshot(result.details)).toEqual({ tasks, nextId: nextIds[index] });
     if (index === 5) expect(result.details.error).toContain("non-deleted descendant");
     else expect(result.details.error).toBeUndefined();
 
@@ -51,17 +53,17 @@ it("keeps every tool action replayable and private state independent of emitted 
 
     result.details.params.blockedBy?.push(99);
     if (result.details.params.metadata) result.details.params.metadata.items = ["Changed params"];
-    expect(controller.getState()).toEqual(state);
+    expect(controller.getTodos()).toEqual(tasks);
   }
 
-  expect(controller.getState()).toEqual({ tasks: [], nextId: 1 });
+  expect(controller.getTodos()).toEqual([]);
 });
 
 it("preflights oversized, deep, cyclic and non-JSON metadata into replayable failures", async () => {
   const controller = new TodoController();
   const tool = createTodoTool(controller);
   await tool.execute("seed", { action: "create", subject: "Preserved" });
-  const before = controller.getState();
+  const before = controller.getTodos();
   let deep: Record<string, unknown> = {};
   for (let depth = 0; depth < MAX_METADATA_DEPTH; depth += 1) deep = { nested: deep };
   const cyclic: Record<string, unknown> = {};
@@ -79,8 +81,8 @@ it("preflights oversized, deep, cyclic and non-JSON metadata into replayable fai
     const result = await tool.execute("rejected", { action: "update", id: 1, metadata });
     expect(result.details.error).toContain(error);
     expect(result.details.params.metadata).toBeUndefined();
-    expect(parseTodoStateSnapshot(result.details)).toEqual(before);
-    expect(controller.getState()).toEqual(before);
+    expect(parseTodoStateSnapshot(result.details)).toEqual({ tasks: before, nextId: 2 });
+    expect(controller.getTodos()).toEqual(before);
   }
 });
 
@@ -93,7 +95,7 @@ it("rejects updates whose merged metadata exceeds the limit without changing sta
     subject: "Preserved",
     metadata: { first: value }
   });
-  const before = controller.getState();
+  const before = controller.getTodos();
   const revision = controller.getRevision();
 
   const result = await tool.execute("merge", {
@@ -103,7 +105,7 @@ it("rejects updates whose merged metadata exceeds the limit without changing sta
   });
 
   expect(result.details.error).toBe(`metadata exceeds ${MAX_METADATA_BYTES} serialized bytes`);
-  expect(parseTodoStateSnapshot(result.details)).toEqual(before);
-  expect(controller.getState()).toEqual(before);
+  expect(parseTodoStateSnapshot(result.details)).toEqual({ tasks: before, nextId: 2 });
+  expect(controller.getTodos()).toEqual(before);
   expect(controller.getRevision()).toBe(revision);
 });

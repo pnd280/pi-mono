@@ -1,12 +1,7 @@
 import { setImmediate } from "node:timers/promises";
 
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
-import {
-  truncateToWidth,
-  visibleWidth,
-  wrapTextWithAnsi,
-  type Component
-} from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 const SCAN_SIZE = 4096;
 
@@ -51,7 +46,7 @@ export async function layoutPreview(
 }
 
 /** A controlled viewport: consumers supply display-safe text and interpret navigation keys. */
-export class ScrollableTextPreview implements Component {
+export class ScrollableTextPreview {
   private text = "";
   private height = 1;
   private offset = 0;
@@ -111,10 +106,6 @@ export class ScrollableTextPreview implements Component {
       layout.lines = lines;
       this.options.changed();
     });
-  }
-
-  invalidate(): void {
-    // Layout contains no theme colors. Width and text changes invalidate it separately.
   }
 
   dispose(): void {

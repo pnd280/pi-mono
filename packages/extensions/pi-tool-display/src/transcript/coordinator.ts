@@ -31,13 +31,13 @@ import {
 } from "../interpretation.ts";
 import { buildRunSummary, type RunSummary } from "../run-summary.ts";
 
-export type RowHandle = {
+type RowHandle = {
   invalidate(): void;
   requestRender(): void;
   setExpanded(expanded: boolean): void;
 };
 
-export type AnimationClock = {
+type AnimationClock = {
   start(tick: () => void): () => void;
 };
 
@@ -58,7 +58,7 @@ type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
 export type ValidatedArgs = (name: string, args: unknown) => unknown;
 
 /** A call to add, with Pi's raw arguments. Not expanded and not validated by default. */
-export type CallInput = Pick<DisplayCall, "reference" | "name" | "args" | "adapter" | "origin"> &
+type CallInput = Pick<DisplayCall, "reference" | "name" | "args" | "adapter" | "origin"> &
   Partial<Pick<DisplayCall, "expanded">> & { validated?: ValidatedArgs };
 
 /** A partial result keeps the call live and ignores the outcome and duration. */

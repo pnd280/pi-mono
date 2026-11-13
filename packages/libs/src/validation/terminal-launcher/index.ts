@@ -18,17 +18,14 @@ export type TerminalLauncherOptions = {
   createWorkspace(): Promise<string>;
   launch(directory: string): Promise<PiLaunch>;
   describe(directory: string): readonly string[];
-  log?(this: void, message: string): void;
-  error?(this: void, message: string): void;
 };
 
 /** Run a consumer-validated fixture in the current terminal and return its exit code. */
 export async function runTerminalLauncher(options: TerminalLauncherOptions): Promise<number> {
   const [mode, ...args] = options.args;
-  const log = options.log ?? console.log;
 
   if (mode === "--help") {
-    log(options.help);
+    console.log(options.help);
 
     return 0;
   }
@@ -36,7 +33,7 @@ export async function runTerminalLauncher(options: TerminalLauncherOptions): Pro
   const parsedMode = modeSchema.safeParse(mode);
 
   if (!parsedMode.success) {
-    (options.error ?? console.error)("Choose regular or fullscreen; use --help for usage.");
+    console.error("Choose regular or fullscreen; use --help for usage.");
 
     return 1;
   }
@@ -50,7 +47,7 @@ export async function runTerminalLauncher(options: TerminalLauncherOptions): Pro
   } else directory = await options.createWorkspace();
   // Consumers validate the marker before any process starts, including reused directories.
   const launch = await options.launch(directory);
-  for (const message of options.describe(directory)) log(message);
+  for (const message of options.describe(directory)) console.log(message);
   const child = spawn(launch.command, [...launch.args, "--tui-mode", parsedMode.data, ...args], {
     ...launch.options,
     stdio: "inherit"

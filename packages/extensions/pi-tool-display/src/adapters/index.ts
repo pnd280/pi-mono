@@ -25,6 +25,5 @@ export type {
   ResultSummary,
   ResultTextContext,
   ResultTextPart,
-  ToolDisplayAdapter,
-  ToolDisplayAdapterResolver
+  ToolDisplayAdapter
 } from "../contracts.ts";

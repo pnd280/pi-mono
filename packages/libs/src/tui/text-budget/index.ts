@@ -57,7 +57,7 @@ export function wrapHangingRows(text: string, firstWidth: number, restWidth: num
   return [first, ...(remainder ? wrapRows(remainder, restWidth) : [""])];
 }
 
-export type RowBudgetOptions = {
+type RowBudgetOptions = {
   width: number;
   maxRows: number;
   notice: (omittedRows: number) => string;
@@ -87,7 +87,7 @@ export function displayLine(text: string, maxCharacters = 2048): string {
   return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");
 }
 
-export type TextBudgetOptions = {
+type TextBudgetOptions = {
   width: number;
   maxRows: number;
   /** Maximum UTF-16 code units formatted, divided between the head and tail. */

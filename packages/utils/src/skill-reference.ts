@@ -37,7 +37,7 @@ export function skillReferenceCatalog(
 }
 
 /** Replaces every `{command}` and `{path}` placeholder; all other text stays literal. */
-export function formatSkillReference(format: string, command: string, path: string): string {
+function formatSkillReference(format: string, command: string, path: string): string {
   return format.replace(/\{(command|path)\}/gu, (_placeholder, key: string) =>
     key === "command" ? command : path
   );

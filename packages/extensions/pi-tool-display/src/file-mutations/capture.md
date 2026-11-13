@@ -6,7 +6,7 @@ Read this when you interpret mutation sources, outcomes, and patches. The pre-re
 
 ## Source capture
 
-- `before` and `after` are [`FileObservation`](observation.ts) values: complete UTF-8 source or a refusal.
+- `before` and `after` are [`FileObservation`](source.ts) values: complete UTF-8 source or a refusal.
 - A `ready` observation holds the whole file and preserves BOMs.
 - Invalid UTF-8, nonregular, oversized, changed, missing, and unreadable files return a status without text.
 - Source reads follow symlinks without permission repair.
@@ -20,7 +20,7 @@ A successful disk write keeps its success outcome even if Pi cancellation or mid
 
 ## Patches
 
-- `patch(limits)` accepts `PatchLimits` from [bounded-diff](../bounded-diff/README.md) and throws `RangeError` for invalid limits.
+- `patch(limits)` accepts `PatchLimits` from [`@pi-mono/libs/bounded-diff`](../../../../libs/src/bounded-diff/README.md) and throws `RangeError` for invalid limits.
 - A valid native edit patch can be reused without applying the source or generation limits, but it must fit the requested patch limit.
 - Without a native patch, `patch()` returns `source-unavailable` when either observation is neither `ready` nor `missing`.
 

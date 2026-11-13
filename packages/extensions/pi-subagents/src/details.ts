@@ -82,9 +82,7 @@ const activeJobSchema = jobEntrySchema.extend({
 });
 
 /** A job as derived from its entries and live state. It is never persisted. */
-const jobRecordSchema = z.discriminatedUnion("state", [activeJobSchema, inactiveJobSchema]);
-
-export type JobRecord = z.infer<typeof jobRecordSchema>;
+export type JobRecord = z.infer<typeof activeJobSchema> | z.infer<typeof inactiveJobSchema>;
 
 /** The details of `job_abort` results and job result messages. */
 export const inactiveJobDetailsSchema = inactiveJobSchema.extend({ binding_id: jobId });

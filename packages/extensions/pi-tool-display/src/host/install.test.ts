@@ -25,12 +25,12 @@ import {
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
-import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
+import { observeFileMutations } from "../file-mutations/index.ts";
 import toolDisplay from "../index.ts";
 import { assistantMessage, messageToolCall, renderingTui } from "../test-fixture.ts";
 import { CALL_TYPE } from "../transcript/metadata.ts";

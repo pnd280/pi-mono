@@ -15,7 +15,7 @@ type Create<ComponentType> = (
   close: () => void
 ) => ComponentType;
 
-export type ResponsiveCustomUIOptions = {
+type ResponsiveCustomUIOptions = {
   ui: Pick<ExtensionContext["ui"], "custom">;
   signal: AbortSignal;
   useOverlay(tui: HostArguments[0]): boolean;

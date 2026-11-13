@@ -11,11 +11,17 @@ import {
 import {
   TASK_DETAILS_VERSION,
   type Task,
+  type TaskAction,
   type TaskMutationParams,
   type TodoState
 } from "./model.ts";
-import { applyTaskMutation as mutate, emptyTodoState } from "./reducer.ts";
+import { applyTaskInput, emptyTodoState } from "./reducer.ts";
 import { parseTodoStateSnapshot } from "./session-state.ts";
+
+/** Without separate raw metadata, any `params.metadata` skips the preflight, so field-limit and snapshot branches stay reachable. */
+function mutate(state: TodoState, action: TaskAction, params: TaskMutationParams) {
+  return applyTaskInput(state, action, params, undefined);
+}
 
 describe("todo reducer", () => {
   it("retains the complete snapshot when list content is bounded", () => {

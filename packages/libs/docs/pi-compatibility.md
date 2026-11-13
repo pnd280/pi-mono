@@ -23,13 +23,12 @@ After an upgrade, these [tool schema](../src/tool-schema/README.md) results hold
 - [ ] Pi validates tool arguments against the projected parameters.
 - [ ] Supported providers accept the documented profile.
 
-### Native tools and mutations
+### Native tools
 
-[Native tools](../src/native-tools/README.md) and [mutations](../src/file-mutations/README.md) depend on these Pi host contracts:
+[Native tools](../src/native-tools/README.md) depend on these Pi host contracts:
 
 - [ ] Pi constructs native tools through the API and the installed CLI with the `_buildRuntime` and `_refreshToolRegistry` methods that match the fingerprints in [`compatibility.ts`](../src/native-tools/compatibility.ts).
 - [ ] Wrapped native tools keep their provenance, middleware, exposure, output schemas, and structured results.
-- [ ] Pi's mutation queue keeps its ordering around the shared source capture.
 - [ ] Borrowed definitions and results reach observers unchanged.
 - [ ] Teardown restores only replacements that the library still owns.
 - [ ] A nonzero bash exit resolves to an error result, and aborts and timeouts still reject.
