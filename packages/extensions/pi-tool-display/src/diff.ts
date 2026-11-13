@@ -25,6 +25,23 @@ export function parseRetainedPatch(patch: string) {
   return parsePatch(patch, PATCH_BYTES);
 }
 
+/**
+ * Lines that a successful call added and removed: from the patch its result published, else from the observed change.
+ */
+export function changedLines(
+  published: unknown,
+  change: ChangeFact | undefined
+): { added: number; removed: number } | undefined {
+  const observed = change && change.change !== "unavailable" ? change.patch : undefined;
+
+  for (const patch of [published, observed]) {
+    const parsed = typeof patch === "string" ? parseRetainedPatch(patch) : undefined;
+    if (parsed) return { added: parsed.added, removed: parsed.removed };
+  }
+
+  return undefined;
+}
+
 /** Compare the parsed hunks of two patches. Line endings, file headers, and a leading BOM are ignored. */
 export function sameRetainedHunks(left: string | undefined, right: string | undefined): boolean {
   if (left === undefined || right === undefined) return false;

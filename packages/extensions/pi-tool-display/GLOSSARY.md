@@ -43,7 +43,7 @@ A maximal sequence of this extension's calls between visible non-thinking bounda
 _Avoid_: turn, batch, group
 
 **Summary line**:
-The single line that replaces an ended run in summary mode. See [summary mode](docs/presentation.md#summary-mode).
+The line that replaces an ended run in summary mode, with the run's changed files in rows below it. See [summary mode](docs/presentation.md#summary-mode).
 _Avoid_: collapsed run, summary card
 
 **Row chrome**:

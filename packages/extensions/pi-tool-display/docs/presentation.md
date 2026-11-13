@@ -129,10 +129,13 @@ Notices, images, and failure diagnostics stay beneath their call. Notices follow
 
 ## Summary mode
 
-In [summary mode](../README.md#usage), each ended run becomes one line, placed in its first call's Pi row. `compact` and `verbose` modes keep groups and cards unchanged.
+In [summary mode](../README.md#usage), each ended run becomes one line, placed in its first call's Pi row. The [files that the run changed](#changed-files) show below the line. `compact` and `verbose` modes keep groups and cards unchanged.
 
 ```text
-▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   12 calls
+▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   14 calls
+  ├ M src/run-summary.ts             +18 -4
+  ├ M src/rendering/summary-line.ts  +44 -11  3 edits
+  └ A docs/changed-files.md          +64
 ```
 
 ### What a run is
@@ -199,6 +202,33 @@ Each category counts identities separately and keeps their latest outcomes.
 - The run's call count, such as `11 calls`, sits at the right of the last row in `dim`. When it does not fit after the last item, it gets a row of its own.
 - A leading verb uses `accent` (bold for the first item), counts use `text`, other words use `muted`, and separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`.
 - Calls with images, and failed or cancelled calls, add to the counts; their images and diagnostic text stay hidden. Error text appears only in opened runs.
+
+### Changed files
+
+A closed summary line lists the files that the run created or edited, one row for each file, so that you can see what changed without opening the run. An opened run shows only its line, because its cards name the files.
+
+#### Which files show
+
+- A file gets a row when a call counts it as [created or edited](#identity) by its path. Files that a shell command, a script, or another tool changed get no row.
+- Each file shows once, by lexically resolved path, in the order of its first change in the run. A file that is created and then edited is one row.
+- At most eight rows show. A run that changed more files shows seven of them, and a last row counts the rest, such as `… 4 more changed files`.
+
+#### What a row shows
+
+- The marker is `A` in `success` for a file that the run created, and `M` in `warning` for any other file.
+- The path follows the [target path rules](#target-paths), with the directory in `muted` and the file name in bold `text`.
+- Line counts follow the path: `+n` in `toolDiffAdded`, then `-n` in `toolDiffRemoved` when lines were removed. They are the sum over the run's successful calls on the file, so repeated edits of the same lines count each time.
+- A file has no line counts when none of its successful calls has a readable patch, as for a write with no recorded change or an [unavailable patch](#unavailable-patches).
+- A file whose latest call failed shows `✗` and `failed` in `error`, and a cancelled one shows `⊘` and `cancelled`. An unknown historical outcome shows the marker and `unavailable` in `muted`. Line counts from earlier successful calls stay.
+- A file with more than one successful call shows their number in `dim`, such as `3 edits`.
+
+#### Row layout
+
+- Rows sit below the bar on the transcript background, joined by tree guides in `dim`.
+- The text after the paths starts in one column.
+- A path that is too wide loses leading directories behind `…/`. A file name that is still too wide is cut at its end.
+- On a narrow terminal, paths keep at least half of the row, and the text after them is cut first.
+- A click on a row opens the run, as a click on the line does.
 
 ### Opening and closing a run
 

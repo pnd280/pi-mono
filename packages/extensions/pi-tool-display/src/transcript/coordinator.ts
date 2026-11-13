@@ -389,6 +389,7 @@ export class TranscriptCoordinator implements TranscriptView {
     if (run?.summary) return run.summary;
     const summary = buildRunSummary(
       run?.members ?? [call],
+      this.cwd,
       (member) => this.interpretation(member),
       (member) => this.notices.get(member.key) ?? []
     );
