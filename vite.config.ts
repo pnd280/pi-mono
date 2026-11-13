@@ -330,14 +330,6 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error"
     },
     settings: {
-      "boundaries/additional-dependency-nodes": [
-        {
-          kind: "type",
-          name: "type-import-equals",
-          selector:
-            "TSImportEqualsDeclaration[importKind=type] > TSExternalModuleReference > Literal"
-        }
-      ],
       "boundaries/elements": [
         { pattern: "packages/extensions/*", type: "extension" },
         { pattern: "packages/utils", type: "utils" },

@@ -50,35 +50,27 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-smart-compact": {
-    // Optional. The summary model and thinking level for compact, chosen by conversation model.
-    // The first rule that matches decides. Without a matching rule, compaction uses native selection.
+    // Optional. The summary model and thinking level for compact, chosen by conversation model. The first rule that matches decides. Without a matching rule, compaction uses native selection.
     "rules": [
       // A rule with only "match" keeps native selection for its models and stops later rules.
       { "match": "^local/" },
       {
-        // Required. A JavaScript regular expression, tested against the conversation model as provider/id.
-        // Unanchored and case-sensitive. "" matches every model.
+        // Required. A JavaScript regular expression, tested against the conversation model as provider/id. Unanchored and case-sensitive. "" matches every model.
         "match": "^anthropic/",
         // Optional. A provider/model-id that Pi knows. Default: the conversation model.
         "model": "anthropic/claude-haiku-4-5",
-        // Optional. off, minimal, low, medium, high, xhigh, or max. Default: Pi's native thinking behaviour.
-        // A level that the model does not support is rejected, not adjusted.
+        // Optional. off, minimal, low, medium, high, xhigh, or max. Default: Pi's native thinking behaviour. A level that the model does not support is rejected, not adjusted.
         "thinkingLevel": "off"
       },
       { "match": "", "model": "provider/model-id" }
     ],
-    // Optional. Also use the matching rule for /compact, including manual compaction through RPC and the SDK.
-    // Default: false.
+    // Optional. Also use the matching rule for /compact, including manual compaction through RPC and the SDK. Default: false.
     "applyToManual": true,
-    // Optional. Also use the matching rule for automatic compaction at the threshold or on overflow.
-    // Default: false.
+    // Optional. Also use the matching rule for automatic compaction at the threshold or on overflow. Default: false.
     "applyToAuto": true,
-    // Optional. A UTF-8 file, up to 1 MiB, of extra focus for every compaction route,
-    // whatever rules, applyToManual, and applyToAuto say. A relative path resolves from the settings file's directory.
-    // Default: no extra focus.
+    // Optional. A UTF-8 file, up to 1 MiB, of extra focus for every compaction route, whatever rules, applyToManual, and applyToAuto say. A relative path resolves from the settings file's directory. Default: no extra focus.
     "compactionInstructionsFile": "compaction-instructions.txt",
-    // Optional. UTF-8 files, up to 1 MiB each, whose text follows the context_window description.
-    // Default: no docs.
+    // Optional. UTF-8 files, up to 1 MiB each, whose text follows the context_window description. Default: no docs.
     "docs": ["context-window.md"]
   }
 }

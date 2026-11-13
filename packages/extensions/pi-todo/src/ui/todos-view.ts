@@ -50,7 +50,6 @@ type ListLayout = {
 type TodoAction = "cancel" | "confirm" | "up" | "down" | "pageUp" | "pageDown";
 
 type ViewLayout = {
-  rows: number;
   title: boolean;
   borders: boolean;
   summary: boolean;
@@ -68,11 +67,6 @@ const configuredActions = [
   ["pageUp", "tui.select.pageUp"],
   ["pageDown", "tui.select.pageDown"]
 ] as const satisfies readonly [TodoAction, string][];
-
-/** Host row counts are coerced directly; the value is host-provided, not untrusted input. */
-function normalizeRows(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 24;
-}
 
 /** Index of the entry whose row range contains `row`, or the nearest earlier entry. */
 function firstEntryAtOrBefore(rowStart: readonly number[], row: number): number {
@@ -127,7 +121,7 @@ export class TodosView implements Component {
   }
 
   private layout(width: number, bodyLength: number): ViewLayout {
-    const rows = normalizeRows(this.options.tui.terminal.rows);
+    const rows = this.options.tui.terminal.rows;
     // Leave room for Pi's footer in inline views.
     const reserve = Math.min(4, Math.floor(rows / 4), Math.max(0, rows - 8));
     const budget = rows - reserve;
@@ -160,15 +154,12 @@ export class TodosView implements Component {
       capacity = nextCapacity;
     }
 
-    return { rows, title, borders, summary, capacity, footer };
+    return { title, borders, summary, capacity, footer };
   }
 
   render(width: number): string[] {
-    if (!Number.isFinite(width) || width <= 0) return [""];
-    width = Math.max(1, Math.floor(width));
     const bodyLength = this.measureBodyLength(width);
     const layout = this.layout(width, bodyLength);
-    if (!layout.rows) return [];
     const { theme } = this.options;
     const selected = this.entries[this.selected]?.task;
     this.viewportCapacity = layout.capacity;

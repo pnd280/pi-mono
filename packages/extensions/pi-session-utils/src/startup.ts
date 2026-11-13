@@ -50,10 +50,7 @@ function applyStartupParent(manager: SessionManager, args: Args): void {
 
   const sessionDir =
     manager.getSessionDir() || args.sessionDir || process.env.PI_CODING_AGENT_SESSION_DIR;
-  const parent = resolveParentSession(reference.data, manager.getCwd(), sessionDir);
-  // Pi currently returns its live header. Do not silently succeed if a future host returns a copy.
-  if (manager.getHeader() !== header) throw new Error("Pi no longer exposes a live session header");
-  header.parentSession = parent;
+  header.parentSession = resolveParentSession(reference.data, manager.getCwd(), sessionDir);
 }
 
 export function installParentSessionStartup(pi: Pick<ExtensionAPI, "on" | "getFlag">): void {

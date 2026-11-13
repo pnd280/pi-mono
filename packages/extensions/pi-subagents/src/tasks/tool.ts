@@ -32,7 +32,7 @@ export function templateGuidance(templates: ReadonlyMap<string, Template>): stri
   if (!templates.size) return "";
 
   return [
-    "Templates (set `template` to use one, also with task_id; a call value overrides model, thinking, and background; template launch arguments and prompt files are always added):",
+    "Templates (set `template` to use one, also with task_id; a call's background overrides the template's):",
     ...[...templates].map(([name, template]) => {
       const values = [
         template.model === undefined ? "" : `model: ${template.model}`,
@@ -222,7 +222,7 @@ export function createAbortTool(
             text: formatTaskEnvelope({
               id: task_id,
               state: "cancelled",
-              body: "The task is aborted. Resume its session with this task_id if needed."
+              body: "The task is aborted."
             })
           }
         ],

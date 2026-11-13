@@ -79,8 +79,6 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
           finishPresentation = finish;
           view ??= options.create(tui, theme, keys, close);
           const currentView = view;
-          if (currentView.ownsFullscreenInput && !options.onInputRoutingUnavailable)
-            throw new Error("Fullscreen input ownership requires onInputRoutingUnavailable.");
 
           const checkLayout = () => {
             presentation.nextOverlay = options.useOverlay(tui);

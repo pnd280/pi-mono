@@ -42,8 +42,7 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-todo": {
-    // Optional. true or false. Whether the widget starts collapsed in fullscreen mode. Default: false.
-    // Regular mode ignores it.
+    // Optional. true or false. Whether the widget starts collapsed in fullscreen mode. Default: false. Regular mode ignores it.
     "collapseWidgetByDefault": false
   }
 }

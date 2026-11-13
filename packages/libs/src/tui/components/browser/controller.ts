@@ -45,10 +45,8 @@ export class BrowserController<Item> {
     readonly options: BrowserOptions<Item>,
     private readonly ports: BrowserPorts
   ) {
-    for (const section of options.sections) {
-      if (this.views.has(section.id)) throw new Error("Browser section IDs must be unique.");
+    for (const section of options.sections)
       this.views.set(section.id, { query: section.initialQuery ?? "", selected: undefined });
-    }
 
     this.section = this.findSection(options.initialSection);
     this.searchTask = new LatestTask({ changed: ports.changed });

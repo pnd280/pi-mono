@@ -43,4 +43,3 @@
 | Change tests, fixtures, or invariants                     | [Test coverage](docs/testing.md) and [test fixtures](validation/README.md). |
 | Change terminal behaviour                                 | [Manual checks](docs/validation.md)                                         |
 | Change RPC requests, child-file reads, or session changes | [Installed Pi API references](../../../docs/agents/pi-docs.md)              |
-| Upgrade Pi                                                | [Compatibility checklist](docs/pi-compatibility.md)                         |

@@ -17,7 +17,7 @@ Because a child loads its own extensions, a model that an extension registers is
 
 ## Result instructions
 
-The supervisor receives only the child's final reply. Each child's system prompt therefore tells the child this, and asks for a final reply that gives the outcome first, then evidence as file paths with line numbers or as commands and their results, and then what the child did not verify or finish. The [child prompt](../src/child/prompt.ts) holds the exact text.
+The supervisor receives only the child's final reply. Each child's system prompt therefore tells the child this, and asks for a final reply that is complete on its own. The [child prompt](../src/child/prompt.ts) holds the exact text.
 
 - The instructions follow the text from Pi and `--append-system-prompt`, and the [pi-model-prompt](../../pi-model-prompt/README.md) and [pi-profiles](../../pi-profiles/README.md) prompts.
 - The top-level supervisor's system prompt does not get them.

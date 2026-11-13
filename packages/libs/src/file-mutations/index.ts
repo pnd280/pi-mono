@@ -89,8 +89,6 @@ export function observeMutationDefinition(
   cwd: string,
   begin: (id: string) => readonly MutationSink[]
 ): ToolDefinition {
-  if (original.name !== "edit" && original.name !== "write") return original;
-
   return {
     ...original,
     async execute(id, args, signal, onUpdate, context) {

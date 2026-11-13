@@ -7,8 +7,8 @@ import { dirname, join, resolve, sep } from "node:path";
 import { z } from "zod";
 
 const root = resolve(import.meta.dirname, "..");
-const manifestSchema = z.object({ name: z.string().min(1) });
-const collectionSchema = z.array(z.object({ file: z.string().min(1) }));
+const manifestSchema = z.object({ name: z.string() });
+const collectionSchema = z.array(z.object({ file: z.string() }));
 
 type Owner = { name: string; directory: string; tests: number; files: Set<string> };
 

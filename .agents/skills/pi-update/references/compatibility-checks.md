@@ -16,7 +16,7 @@ Check registry streaming, normalisation, resolved options, authentication, heade
 
 - Check hooks and return types, fail-closed `user_bash`, prompt-mutating `before_agent_start`, reload, cleanup, interruption, and reconstruction. Confirm changed events are used before migrating their consumers.
 - Review private TUI construction, layout, notice insertion, native rows, and patch ownership and restoration. Check both API and executable contracts where used; passing API tests do not prove executable private hooks.
-- Verify contracts before changing fingerprints; retain valid fingerprints. See [host fingerprints](#host-fingerprints).
+- Before you change a fingerprint, follow [host fingerprints](#host-fingerprints).
 
 ## Host fingerprints
 

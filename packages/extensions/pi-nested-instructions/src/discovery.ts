@@ -25,7 +25,7 @@ export async function discover(
       for (const directory of scope.directories) directories.add(directory);
 
       for (const file of scope.reads) {
-        const stamp = await files.stamp(file).catch(() => undefined);
+        const stamp = await files.stamp(file);
         const entry = visible.markRead(call, file, stamp);
         if (entry) entries.push(entry);
       }

@@ -276,7 +276,6 @@ export function bindNativeCompaction(
 
   return {
     request(instructions?: string, signal?: AbortSignal) {
-      if (!registration.active) throw new Error("pi-smart-compact binding has been disposed.");
       signal?.throwIfAborted();
       registration.pending = { instructions, signal };
     },

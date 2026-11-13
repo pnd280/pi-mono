@@ -169,11 +169,7 @@ class NativeTools {
 
   private refresh(session: AgentSession): boolean {
     const internal = nativeSession(session);
-    if (
-      !(internal._baseToolDefinitions instanceof Map) ||
-      internal._baseToolsOverride !== undefined
-    )
-      return false;
+    if (internal._baseToolsOverride !== undefined) return false;
     const settings = this.building.get(session);
 
     if (settings && internal._refreshToolRegistry === this.installedRefresh) {

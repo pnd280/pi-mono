@@ -62,11 +62,9 @@ This example shows every field. Remove the comments before you copy it, because 
   "ext.pi-session-utils": {
     // Optional. When neither the global nor the project settings set it, automatic naming is off.
     "auto-title": {
-      // Required after merging. The model for naming, as provider/model-id, available in Pi.
-      // The provider ID can't contain "/". Authentication uses Pi's provider configuration.
+      // Required after merging. The model for naming, as provider/model-id, available in Pi. The provider ID can't contain "/". Authentication uses Pi's provider configuration.
       "model": "provider/model-id",
-      // Required after merging. off, minimal, low, medium, high, xhigh, or max.
-      // A level that the model doesn't support is rejected, not adjusted.
+      // Required after merging. off, minimal, low, medium, high, xhigh, or max. A level that the model doesn't support is rejected, not adjusted.
       "thinkingLevel": "off"
     }
   }

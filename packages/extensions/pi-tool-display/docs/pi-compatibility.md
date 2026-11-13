@@ -35,7 +35,7 @@ Work through every section below when you bump the supported Pi version, checkin
 - [ ] Compaction insertion handling uses the current binding.
 - [ ] Settle insertion handling uses the current binding for the deferred `!` shell rows that Pi moves into the chat on `agent_settled`.
 
-The reload and disposal items follow the hook-restoration rule in [AGENTS.md](../AGENTS.md#pi-host-access).
+The reload and disposal items follow the [hook and disposal invariants](testing.md#hooks-and-disposal).
 
 Adapter selection treats the `resolveToolRenderers` chain as the owner's renderers. Pi uses the same chain for HTML export. Pi's MCP resolver answers every `mcp__` name, but servers register their tools after `/reload` reconstructs rows, and only generic rows can upgrade.
 
@@ -182,7 +182,7 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 - In Pi 1.5.1 and 1.5.2, the built-in MCP extension takes tool naming and input-schema normalisation from the `pi-mcp` package. Registered names, parameter schemas, source info, and MCP result details keep the shapes that the [built-in MCP adapter](../src/adapters/builtin/mcp/README.md) matches. Codemode result details and the `tool_search` result also keep their shapes.
 - In Pi 1.5.1 and 1.5.2, `validateToolArguments` runs on `@earendil-works/pi-schema`. It still clones its input, drops optional nulls that the schema rejects, converts values, and truncates fractional integers. Its messages read like `expected integer, got string`. The `pi-agent-core` agent loop is unchanged.
 - In Pi 1.5.1 and 1.5.2, tool render contexts and message and entry renderer options supply `keyText` and `keyHint`, and the subagent result renderer forwards them. Expansion hints in `rendering/format.ts` and the mode-cycling warning still import `keyText`. Pi's extension loader resolves that import to the host copy, as the host hooks also require.
-- In Pi 1.5.1 and 1.5.2, the API suite covers nested codemode execution, session reload, and later wrappers. The CLI suite checks native construction and selective-read recognition.
+- In Pi 1.5.1 and 1.5.2, the API suite covers session reload and later wrappers. The CLI suite checks native construction and selective-read recognition.
 - In Pi 1.4.0 to 1.5.2, `registerToolRenderer` can replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. The extension keeps its lookup hook because Pi also calls resolvers for HTML export, resolvers run in extension load order, and a resolver receives no host to claim the row's call.
 - In Pi 1.4.0 to 1.5.2, `durationMs` measures the whole `execute()` call, not only the shell or file operation, so shell and mutation durations include tool setup.
 - In Pi 1.5.1 and 1.5.2, a shell timeout status also names the shell's exit code when the shell exited but its background processes kept writing output until the timeout. The [native adapter](../src/adapters/native/README.md) styles that whole status as Pi's trailer. The observed fact stays a timeout without an exit code.
@@ -206,7 +206,6 @@ Pi 1.5.2 supplies `KeybindingHints` in renderer contexts, `messageId` and `times
 
 ## Coverage notes
 
-- Real codemode coverage checks adapter selection, four successful nested executions, a nested edit, one persisted parent result, and the absence of child display metadata.
 - No automated test covers built-in MCP discovery through codemode, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, or original server and tool identities. Recheck them with the [nested-execution contracts](#nested-execution).
 - No automated test covers rows that Pi inserts on `agent_settled`, a cache-warming notice that Pi extends in place, or the shell timeout status that names the shell's exit code.
 - External adapter fixtures don't establish compatibility with the live adapters.

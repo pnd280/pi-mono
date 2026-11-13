@@ -11,11 +11,10 @@ export function createTodoTool(controller: TodoController) {
     exposure: "model-only",
     label: "Todos",
     description:
-      "Manage a todo hierarchy: create, update, list, get, delete (tombstone), clear. Hierarchy is organizational; statuses and dependencies are independent.",
+      "Manage a todo hierarchy. Hierarchy is organizational; statuses and dependencies are independent.",
     promptGuidelines: [
-      "Use todo for work with 3+ steps or user-listed work; skip trivial work and chat-only requests.",
-      "With todo, mark work in_progress before starting and completed immediately after finishing; keep only one todo in_progress at a time.",
-      "Do not mark a todo completed while tests fail, work is partial, or errors remain; keep it in_progress and add a blocker todo."
+      "Use todo for multi-step or user-listed work; skip trivial work and chat-only requests.",
+      "With todo, mark work in_progress before starting and completed immediately after finishing."
     ],
     executionMode: "sequential",
     parameters: TodoParamsSchema,

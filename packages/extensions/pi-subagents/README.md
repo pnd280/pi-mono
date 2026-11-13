@@ -63,27 +63,19 @@ This example shows every field with its default, except `docs` and `templates`, 
   "ext.pi-subagents": {
     // Optional. A non-negative integer. 0 disables launches; 2 permits children and grandchildren. Default: 2.
     "maxDepth": 2,
-    // Optional. A positive integer that limits the whole live task tree,
-    // including reserved launches and stopping processes. Default: 8.
+    // Optional. A positive integer that limits the whole live task tree, including reserved launches and stopping processes. Default: 8.
     "maxConcurrent": 8,
-    // Optional. A non-negative integer that limits the launches that wait for capacity in FIFO order.
-    // 0 rejects a launch when all slots are occupied. Default: 8.
+    // Optional. A non-negative integer that limits the launches that wait for capacity in FIFO order. 0 rejects a launch when all slots are occupied. Default: 8.
     "maxQueued": 8,
     // Optional. true gives the model the job and job_abort tools. Default: false.
     "jobs": false,
-    // Optional. When task and job results reach a busy supervisor: "turn_end" or "settle". Default: "turn_end".
-    // See docs/background-results.md#delivery-timing.
+    // Optional. When task and job results reach a busy supervisor: "turn_end" or "settle". Default: "turn_end". See docs/background-results.md#delivery-timing.
     "resultDelivery": "turn_end",
     // Optional. The key that opens the task panel, in Pi key syntax. A modified Esc is invalid. Default: "ctrl+alt+s".
     "shortcut": "ctrl+alt+s",
-    // Optional. Markdown files whose text is added to the subagent tool description. Default: no docs.
-    // A relative path resolves from the directory of this settings file. Each file is at most 1 MiB.
-    // A project list replaces the global list, and an empty array removes the docs.
+    // Optional. Markdown files whose text is added to the subagent tool description. Default: no docs. A relative path resolves from the directory of this settings file. Each file is at most 1 MiB. A project list replaces the global list, and an empty array removes the docs.
     "docs": ["prompts/subagent.md"],
-    // Optional. Named default values for new tasks and resumes; a call sets `template` to use one. Default: no templates.
-    // For merge and validation rules, see docs/tasks.md#template-settings.
-    // Each entry is a template object, or the path of a JSON file that holds one template object.
-    // A relative path resolves from the directory of this settings file.
+    // Optional. Named default values for new tasks and resumes; a call sets `template` to use one. Default: no templates. For merge and validation rules, see docs/tasks.md#template-settings. Each entry is a template object, or the path of a JSON file that holds one template object. A relative path resolves from the directory of this settings file.
     "templates": [
       "templates/reviewer.json",
       {
@@ -93,17 +85,13 @@ This example shows every field with its default, except `docs` and `templates`, 
         "description": "File and symbol discovery, narrow test runs.",
         // Optional. A provider/id model. Default: none; the call's default applies.
         "model": "openai/gpt-5-mini",
-        // Optional. "off", "minimal", "low", "medium", "high", "xhigh", or "max".
-        // Default: none; the call's default applies.
+        // Optional. "off", "minimal", "low", "medium", "high", "xhigh", or "max". Default: none; the call's default applies.
         "thinking": "low",
         // Optional. true starts the task in the background. Default: false.
         "background": false,
-        // Optional. Pi CLI arguments, always added after the call's launch_args.
-        // At most 32 items of at most 2,048 characters. Nothing expands $VAR. Default: no arguments.
+        // Optional. Pi CLI arguments, always added after the call's launch_args. At most 32 items of at most 2,048 characters. Nothing expands $VAR. Default: no arguments.
         "launchArgs": ["--tools", "read,bash"],
-        // Optional. Files that the child adds to its system prompt. A relative path resolves from the
-        // directory of the file that holds the template. Each file must be readable when settings load.
-        // At most 32 items of at most 2,048 characters. Default: no files.
+        // Optional. Files that the child adds to its system prompt. A relative path resolves from the directory of the file that holds the template. Each file must be readable when settings load. At most 32 items of at most 2,048 characters. Default: no files.
         "appendSystemPrompts": ["prompts/scout.md"]
       }
     ]

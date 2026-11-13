@@ -16,4 +16,4 @@ Complete [workspace setup](../../README.md#setup), then run these commands from 
 | `vpr '@pi-mono/website#build'`   | Builds the client and server bundles into `apps/website/dist/`. |
 | `vpr '@pi-mono/website#preview'` | Serves the production build.                                    |
 
-When you change the extension list, the hero, or the routes, read the [website development notes](AGENTS.md).
+When you change the routes, read the [website development notes](AGENTS.md).

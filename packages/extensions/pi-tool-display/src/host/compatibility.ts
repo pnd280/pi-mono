@@ -18,8 +18,8 @@ export type RenderDefinition = ConstructorParameters<typeof ToolExecutionCompone
 
 export type Host = {
   session: AgentSession;
-  ui?: TUI;
-  chatContainer?: { children: Component[] };
+  ui: TUI;
+  chatContainer: { children: Component[] };
   toolOutputExpanded?: boolean;
   [hostMode]?: DisplayMode;
   getStartupExpansionState?: (this: Host) => boolean;

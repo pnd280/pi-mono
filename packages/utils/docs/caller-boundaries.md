@@ -4,13 +4,13 @@
 
 ## Patches
 
-[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. When present, file headers must be an adjacent `--- ` and `+++ ` pair. Invalid patches and patches over the limit return `undefined`; a limit that is not a nonnegative safe integer throws `RangeError`.
+[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. When present, file headers must be an adjacent `--- ` and `+++ ` pair. Invalid patches and patches over the limit return `undefined`.
 
 ## Output text and UTF-8
 
 [`splitOutputText`](../src/output-text.ts) distinguishes generated omissions by recorded UTF-16 ranges even when source resembles a notice. Preserve those ranges across transformations. Consumers style and sanitise for display. For stream retention, use [bounded stream output](../../libs/src/output-buffer/README.md).
 
-[`decodeUtf8Window`](../src/utf8.ts) counts discarded source bytes in `omittedBytes`, not replacement characters for invalid interior bytes. At a clipped edge, it discards at most one incomplete character. `utf8Prefix` and `utf8Suffix` clip text to a byte limit at code-point boundaries, and throw `RangeError` for a limit that is not a nonnegative safe integer.
+[`decodeUtf8Window`](../src/utf8.ts) counts discarded source bytes in `omittedBytes`, not replacement characters for invalid interior bytes. At a clipped edge, it discards at most one incomplete character. `utf8Prefix` and `utf8Suffix` clip text to a byte limit at code-point boundaries.
 
 ## Package provenance
 
@@ -26,7 +26,7 @@ Callers own input validation, error handling, scope limits beyond brace expansio
 
 ## Paths
 
-[`paths`](../src/paths.ts) works lexically, without symlink resolution or filesystem checks. `containsPath` requires two absolute paths, `relativeDisplayPath` an absolute working directory, and `expandHomePath` an absolute home directory; each throws `TypeError` otherwise. These helpers do not interpret tool prefixes, file URLs, or glob syntax.
+[`paths`](../src/paths.ts) works lexically, without symlink resolution or filesystem checks. `containsPath` requires two absolute paths, `relativeDisplayPath` an absolute working directory, and `expandHomePath` an absolute home directory. These helpers do not interpret tool prefixes, file URLs, or glob syntax.
 
 `windowsDrivePath` converts Pi's Git Bash, MSYS, Cygwin, and WSL drive aliases, such as `/c/dir`, `/mnt/c/dir`, and `/cygdrive/c/dir`, to `C:\dir` on any platform. Callers decide when to apply it; Pi applies it only on Windows.
 

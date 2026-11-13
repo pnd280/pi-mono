@@ -16,9 +16,9 @@ After a [version mismatch](../coordination/README.md#version-mismatch), each par
 
 Leave gaps between ranks so that new participants can fit between existing ones. Each participant states its reasons in its own documentation.
 
-| Participant       | Registration                                                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| pi-prompt-manager | Observer                                                                                                                |
-| pi-t3-skills      | Transform at `90`, to remove T3 Code's skill blocks ([reasons](../../../extensions/pi-t3-skills/AGENTS.md#constraints)) |
-| pi-skills         | Transform at `100`                                                                                                      |
-| pi-t3-skills      | Transform at `110`, to rewrite skill chips ([reasons](../../../extensions/pi-t3-skills/AGENTS.md#constraints))          |
+| Participant       | Registration                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| pi-prompt-manager | Observer                                                                                                       |
+| pi-t3-skills      | Transform at `90`, to remove T3 Code's skill blocks ([reasons](../../../extensions/pi-t3-skills/src/index.ts)) |
+| pi-skills         | Transform at `100`                                                                                             |
+| pi-t3-skills      | Transform at `110`, to rewrite skill chips ([reasons](../../../extensions/pi-t3-skills/src/index.ts))          |

@@ -32,23 +32,17 @@ Resolve relative skill links from this file. Each audit names the skill steps th
 - Skip the skills' confirmation steps. This skill's [Finish](#finish) replaces their verify-and-report steps, and the scope above replaces their default scope.
 - Repository-required approvals still apply, including approval for new invariants under the [testing policy](../../../docs/agents/testing.md#coverage).
 
-1. [UI consistency](../_aux/audit-ui-consistency/SKILL.md)
-   Establish intended user-facing contracts and preserve intentional differences. Audit with stages 1 to 3; revise with stage 4. If no UI surfaces are relevant, record why this audit is not applicable.
+1. [UI consistency](../_aux/audit-ui-consistency/SKILL.md): Establish intended user-facing contracts and preserve intentional differences. Audit with stages 1 to 3; revise with stage 4. If no UI surfaces are relevant, record why this audit is not applicable.
 
-2. [Reusability](../_aux/audit-reusability/SKILL.md)
-   Find verified substitutions and justified shared extractions. Preserve consumer policy and ownership; do not propose abstractions merely because code looks similar. Audit with stages 1 to 3; revise with stage 4.
+2. [Reusability](../_aux/audit-reusability/SKILL.md): Find verified substitutions and justified shared extractions. Preserve consumer policy and ownership; do not propose abstractions merely because code looks similar. Audit with stages 1 to 3; revise with stage 4.
 
-3. [TypeScript review](../_aux/typescript-review/SKILL.md)
-   Review runtime correctness and type contracts together, using the main skill and both companions that the skill names. Audit without implementation authorisation, so that the skill reports each defect and the gap in types, lint, or tests that let it pass. Revise by fixing each defect and its gap. If no TypeScript is relevant, record why this audit is not applicable.
+3. [TypeScript review](../_aux/typescript-review/SKILL.md): Review runtime correctness and type contracts together, using the main skill and both companions that the skill names. Audit without implementation authorisation, so that the skill reports each defect and the gap in types, lint, or tests that let it pass. Revise by fixing each defect and its gap. If no TypeScript is relevant, record why this audit is not applicable.
 
-4. [Coding style](../_aux/audit-coding-style/SKILL.md)
-   Find code that departs from established conventions. Preserve behaviour and avoid cosmetic churn without maintenance benefit. Audit with steps 1 and 2; revise with step 3.
+4. [Coding style](../_aux/audit-coding-style/SKILL.md): Find code that departs from established conventions. Preserve behaviour and avoid cosmetic churn without maintenance benefit. Audit with steps 1 and 2; revise with step 3.
 
-5. [Tests](../_aux/audit-tests/SKILL.md)
-   Preserve distinct regression protection, require evidence for removals, and record meaningful coverage gaps in the scope. Audit with steps 1 and 2; revise with step 3.
+5. [Tests](../_aux/audit-tests/SKILL.md): Preserve distinct regression protection, require evidence for removals, and record meaningful coverage gaps in the scope. Audit with steps 1 and 2; revise with step 3.
 
-6. [Documentation](../_aux/audit-docs-v2/SKILL.md)
-   Find inaccuracies, missing guidance, and problems of relevance, structure, and wording in documentation that the scoped behaviour affects, while preserving essential contracts. Audit with steps 1 to 4, and record each finding as a step 5 before → after pair in the findings list, not in a separate report. Revise with "Apply changes", then check the revised documentation with step 6. If no documentation is relevant, record why this audit is not applicable.
+6. [Documentation](../_aux/audit-docs-v2/SKILL.md): Find inaccuracies, missing guidance, and problems of relevance, structure, and wording in documentation that the scoped behaviour affects, while preserving essential contracts. Audit with steps 1 to 4, and record each finding as a step 5 before → after pair in the findings list, not in a separate report. Revise with "Apply changes", then check the revised documentation with step 6. If no documentation is relevant, record why this audit is not applicable.
 
 ## Audit phase
 
