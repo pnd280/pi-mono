@@ -1,6 +1,7 @@
 import type { AgentSession, ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
+import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import { OwnedHooks } from "../owned-hooks/index.ts";
+import type { NativeSettings } from "../../contracts.ts";
 import {
   inspectedConstruction,
   nativePrototype,
@@ -8,12 +9,6 @@ import {
   unchangedDefinition,
   type SessionInternals
 } from "./compatibility.ts";
-
-export type NativeSettings = {
-  cwd: string;
-  shellPath?: string | undefined;
-  commandPrefix?: string | undefined;
-};
 
 export type NativeToolObserver = {
   names: readonly string[];

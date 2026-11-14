@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Glossary](../GLOSSARY.md)
 
-This package tests settings trust, delegated execution through its private Pi host access, file mutation capture, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
+This package tests settings trust, delegated execution through its private Pi host access, native tool subscriptions, file mutation capture, bounded patch generation, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
 
 ## Must not regress
 
@@ -30,6 +30,8 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, integration:** Mutation observations preserve native write outcomes and queue order.
 - **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.
 - **High, integration:** Mutation observations add no post-write reads, and display uses their shared capture rather than rereading targets.
+- **High, integration:** Bounded patch requests refuse oversized inputs and results.
+- **High, integration:** Bounded patch requests recover after worker failure without blocking later requests or retaining unbounded queued source.
 
 ### Saved facts
 
@@ -48,6 +50,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **High, e2e:** Reload and removal restore only hooks and definitions still owned by this extension, and keep wrappers installed later.
 - **High, integration:** Retained observation callbacks cannot update calls or persist facts after their display session is disposed.
+- **High, e2e:** Disposing a native-tool subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, e2e:** Disposing a file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, e2e:** Disposal leaves other mutation subscribers and later wrappers active.
 - **High, e2e:** Disposed collectors cannot update or persist into replacement sessions.
@@ -61,6 +64,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 - Live MCP requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.
 - Pi owns native persistence internals.
+- The [release check](../../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks
 

@@ -20,7 +20,7 @@ When adding a message type or adapting a Pi row, preserve the distinction betwee
 
 - Keep all private Pi access under `host/`.
 - Collection belongs to the session, not the terminal binding.
-- Preserve mutation ordering, so other consumers of [native tools](../../libs/src/native-tools/README.md) and [file mutations](src/file-mutations/README.md) see no change.
+- Preserve mutation ordering, so other consumers of [native tools](src/host/native-tools/README.md) and [file mutations](src/file-mutations/README.md) see no change.
 - Present through hooks and renderers, and never recreate closures that you did not create.
 - Bind callbacks and pending events to the current binding, so that disposed ones never reattach old hooks.
 

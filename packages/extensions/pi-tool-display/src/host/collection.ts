@@ -8,7 +8,6 @@ import {
   type ExtensionAPI,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { observeNativeTools } from "@pi-mono/libs/native-tools";
 
 import { observeFileMutations } from "../file-mutations/index.ts";
 import type { DisplayFailure } from "../interpretation.ts";
@@ -22,6 +21,7 @@ import {
 } from "../transcript/messages.ts";
 import { DisplaySession, type ToolSnapshot } from "../transcript/session.ts";
 import { displaySettings } from "./configuration.ts";
+import { observeNativeTools } from "./native-tools/index.ts";
 import { selectAdapter } from "./selection.ts";
 
 /** Collection belongs to the session, including when no terminal is attached. */
@@ -124,7 +124,7 @@ export class DisplayCollector {
         event.type === "message_update" && "contentIndex" in event.assistantMessageEvent
           ? event.assistantMessageEvent.contentIndex
           : undefined;
-      const message = this.messages.read(event.message, index);
+      const message = this.messages.read(event.message, index, event.type !== "message_start");
       this.display.message(message, "live", event.type === "message_end");
     }
 
@@ -171,6 +171,8 @@ export class DisplayCollectors {
   private mutations;
   /** Failure kinds and adapter IDs already reported. */
   private failures = new Set<string>();
+  /** The session manager that this runtime's `session_start` announced. The append callback writes to this runtime's session, so collection rejects every other manager. */
+  private manager: object | undefined;
 
   constructor(
     private append?: ExtensionAPI["appendEntry"],
@@ -252,8 +254,15 @@ export class DisplayCollectors {
     };
   }
 
+  /**
+   * Whether this runtime may collect and adapt rows for a session. Pi can reconstruct the transcript before `session_start` announces its manager; after that, every other manager is foreign.
+   */
+  owns(session: AgentSession): boolean {
+    return this.active && (this.manager === undefined || this.manager === session.sessionManager);
+  }
+
   get(session: AgentSession): DisplayCollector | undefined {
-    if (!this.active) return;
+    if (!this.owns(session)) return;
     let collector = this.collectors.get(session);
 
     if (collector && collector.sessionId !== session.sessionManager.getSessionId()) {
@@ -277,6 +286,15 @@ export class DisplayCollectors {
   }
 
   start(manager: object): void {
+    this.manager = manager;
+
+    // A collector created before the announcement could belong to another runtime's session.
+    for (const [session, collector] of this.collectors)
+      if (session.sessionManager !== manager) {
+        collector.dispose();
+        this.collectors.delete(session);
+      }
+
     const session = this.runtimes.get(manager);
     if (session) this.get(session);
   }

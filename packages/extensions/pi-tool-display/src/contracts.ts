@@ -23,6 +23,12 @@ export const pendingLifecycles: ReadonlySet<Lifecycle> = new Set([
   "executing"
 ]);
 
+export type NativeSettings = {
+  cwd: string;
+  shellPath?: string | undefined;
+  commandPrefix?: string | undefined;
+};
+
 export type Outcome = "success" | "failure" | "cancelled" | "unavailable";
 
 export type OperationFact = {

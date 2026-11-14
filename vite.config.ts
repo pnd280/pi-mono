@@ -112,7 +112,8 @@ export default defineConfig({
                       source: [
                         "@earendil-works/pi-ai/!(compat|models|oauth|providers)/**",
                         "@earendil-works/pi-ai/providers/!(all)/**",
-                        "@earendil-works/{pi-agent-core,pi-coding-agent,pi-tui}/**/*"
+                        "@earendil-works/{pi-agent-core,pi-coding-agent,pi-tui}/**/*",
+                        "typebox/!(compile|value){,/**}"
                       ]
                     }
                   },
@@ -345,7 +346,7 @@ export default defineConfig({
         },
         {
           pattern: [
-            "packages/libs/src/bounded-diff/worker.ts",
+            "packages/extensions/pi-tool-display/src/bounded-diff/worker.ts",
             "packages/extensions/pi-prompt-manager/src/storage/collection-worker.ts"
           ],
           category: "worker"

@@ -182,6 +182,8 @@ export class Jobs {
       warn?(message: string): void;
       /** A job was accepted: its log file is open and its entry is appended. */
       started?(): void;
+      /** Another extension owns `bash` now, so a new command would run outside it. */
+      foreignBash(): boolean;
     }
   ) {
     this.bindingId = options.sessionId;
@@ -262,6 +264,12 @@ export class Jobs {
       throw new Error("Job session ended");
     }
 
+    // Checked at each start: an extension can register `bash` after the binding opened.
+    if (this.options.foreignBash()) {
+      log.end();
+      throw new Error("Job not started: another extension owns bash");
+    }
+
     const entry: JobEntry = {
       job_id,
       description: boundedText(input.description),
@@ -274,7 +282,7 @@ export class Jobs {
     try {
       this.options.append(JOB_ENTRY, entry);
     } catch (error) {
-      // Pi keeps the entry in memory, where it shows the job as cancelled; no command starts.
+      // Keep the cancelled job in this binding only; Pi rolled back the entry and no command starts.
       this.records.set(job_id, stoppedJob(entry));
       log.end();
       this.emit();

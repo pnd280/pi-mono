@@ -115,6 +115,8 @@ export default function subagents(
 
   /** The current binding offers the job tools. */
   let jobsOn = false;
+  const foreignBash = () =>
+    pi.getAllTools().some((tool) => tool.name === "bash" && tool.sourceInfo.source !== "builtin");
   pi.registerCommand("subagents", {
     description:
       "List tasks or jobs, show <task_id> (--since, --limit, --last) or <job_id>, abort <task_id|job_id>, or background [task_id]",
@@ -196,7 +198,8 @@ export default function subagents(
         ...shellOptions(pi.getSettings()),
         sessionId,
         cwd: ctx.cwd,
-        started: () => pi.events.emit(counterChannel, startedJobs)
+        started: () => pi.events.emit(counterChannel, startedJobs),
+        foreignBash
       },
       append: (type, data) => pi.appendEntry(type, data),
       warn: (message) => ctx.ui.notify(message, "warning"),
@@ -205,10 +208,10 @@ export default function subagents(
     };
   };
 
-  let registered: string | undefined;
+  let registered: { key: string; tasks: boolean; jobs: boolean } | undefined;
 
   /**
-   * Registers the four tools when their exposure, docs, templates, or delivery changed since the last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi activates a `model-only` tool when it is first registered or when its exposure changes to `model-only`. With `--tools`, every registration activates each listed tool again, which would undo the active tools that a profile chose; an unchanged registration is therefore skipped.
+   * Registers the four tools when their exposure, docs, templates, or delivery changed since the last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi activates a `model-only` tool when it is first registered or when its exposure changes to `model-only`. With `--tools`, every registration activates each listed tool again, which would undo the active tools that a profile chose. A later registration therefore keeps the active tools from before it, and adds only the owned tools whose exposure turned on.
    */
   const registerTools = (
     tasks: boolean,
@@ -218,8 +221,11 @@ export default function subagents(
     delivers: boolean
   ) => {
     const key = JSON.stringify([tasks, jobs, docs, templates, delivers]);
-    if (key === registered) return;
-    registered = key;
+    if (key === registered?.key) return;
+    const previous = registered;
+    registered = { key, tasks, jobs };
+    // The factory registration has no active tools to keep.
+    const active = previous ? pi.getActiveTools() : [];
     const taskExposure = tasks ? "model-only" : "hidden";
     const jobExposure = jobs ? "model-only" : "hidden";
     pi.registerTool({
@@ -246,6 +252,14 @@ export default function subagents(
       ...withCodemodeNotice(createJobAbortTool(currentJobs, emitOpenJob)),
       exposure: jobExposure
     });
+    if (!previous) return;
+    const turnedOn = [
+      ...(tasks && !previous.tasks ? ["subagent", "subagent_abort"] : []),
+      ...(jobs && !previous.jobs ? ["job", "job_abort"] : [])
+    ];
+    const now = pi.getActiveTools();
+    const kept = now.filter((name) => active.includes(name) || turnedOn.includes(name));
+    if (kept.length < now.length) pi.setActiveTools(kept);
   };
 
   // Registered at load, so Pi activates them before any session_start handler, such as a profile, chooses the active tools.
@@ -256,9 +270,7 @@ export default function subagents(
     await binding.open(opened);
     const { maxDepth, jobs, templates } = opened.config;
     // Jobs apply at all depths. They run commands through Pi's built-in shell.
-    const foreign =
-      jobs &&
-      pi.getAllTools().some((tool) => tool.name === "bash" && tool.sourceInfo.source !== "builtin");
+    const foreign = jobs && foreignBash();
     if (foreign) ctx.ui.notify(FOREIGN_BASH_WARNING, "warning");
     jobsOn = jobs && !foreign;
     // Print, JSON, and child runs end with their final reply, and their jobs end with them.

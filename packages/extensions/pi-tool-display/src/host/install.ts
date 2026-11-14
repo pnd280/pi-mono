@@ -99,19 +99,18 @@ export function installHostIntegration(
   function ensure(host: Host, reset = false): Binding | undefined {
     if (!active) return undefined;
     let binding = hosts.get(host);
+    // Replaces the collector after a session change, and rejects a foreign session.
+    const collector = collection.get(host.session);
 
     if (
       binding &&
-      (reset ||
-        sessions.get(host.session) !== binding ||
-        binding.collector.sessionId !== host.session.sessionManager.getSessionId())
+      (reset || sessions.get(host.session) !== binding || binding.collector !== collector)
     ) {
       release(binding);
       binding = undefined;
     }
 
     if (binding) return binding;
-    const collector = collection.get(host.session);
     if (!collector) return;
     const configuration = collector.settings;
 
@@ -205,6 +204,7 @@ export function installHostIntegration(
     if (!active) return definition;
 
     try {
+      if (!collection.owns(this.session)) return definition;
       const binding = hosts.get(this);
       const configuration = binding?.collector.settings ?? displaySettings(this.session);
       const selected = binding

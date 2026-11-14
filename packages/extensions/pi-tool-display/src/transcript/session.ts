@@ -5,7 +5,6 @@ import type {
   DisplayCall,
   DisplayMode,
   Outcome,
-  SavedOutput,
   SummaryNotice,
   ToolDisplayAdapter
 } from "../contracts.ts";
@@ -29,6 +28,8 @@ export type TranscriptMessage =
     }
   | {
       kind: "assistant";
+      /** One assistant message across its stream updates, finalisation, and replay, distinct from other messages with the same timestamp. It also owns the message's boundary. */
+      source: object;
       timestamp: number;
       boundary?: boolean;
       calls: readonly { index: number; id: string; name: string; args: unknown }[];
@@ -54,7 +55,6 @@ type DisplaySessionOptions = {
   append?: ExtensionAPI["appendEntry"] | undefined;
   warn: SavedCallsOptions["warn"];
   savedPaths?: SavedCallsOptions["savedPaths"];
-  readSavedOutput?: (path: string) => Promise<SavedOutput>;
   onFailure?: DisplayFailureHandler;
 };
 
@@ -80,7 +80,8 @@ export class DisplaySession {
   private saved: SavedCalls;
   private output: SavedOutputs;
   private messages = new Set<string>();
-  private assistants = new Map<number, { owner: object; after: DisplayCall | undefined }>();
+  /** The call that preceded each assistant message, where its boundary goes. */
+  private assistants = new Map<object, DisplayCall | undefined>();
   private noticeAnchor: DisplayCall | undefined;
   private disposed = false;
   private snapshot: ToolSnapshot | undefined;
@@ -99,12 +100,12 @@ export class DisplaySession {
       warn: options.warn,
       savedPaths: options.savedPaths
     });
-    this.output = new SavedOutputs(this.coordinator, options.readSavedOutput);
+    this.output = new SavedOutputs(this.coordinator);
   }
   refreshAdapters(): void {
     if (this.disposed) return;
 
-    // Registration can finish after reconstruction. Upgrade contracts and validate arguments against the new schemas without replaying calls.
+    // Registration can finish after reconstruction. Upgrade contracts and validate arguments against the new schemas without replaying calls. Native provenance exists from session construction, so a late adapter is never native and has no observed facts or saved output to restore; cancellation was replayed with the generic card.
     const tools = this.options.tools();
     this.coordinator.batch(() => {
       for (const call of this.coordinator.calls.values()) {
@@ -112,9 +113,6 @@ export class DisplaySession {
         const selected = tools.adapter(call.name);
         const upgraded = selected && selected.id !== "generic" ? selected : undefined;
         this.coordinator.refreshTools(call, upgraded ?? call.adapter, tools.args);
-        if (!upgraded) continue;
-        this.saved.replay(call);
-        if (call.result) this.output.retain(call, call.result);
       }
     });
   }
@@ -222,14 +220,10 @@ export class DisplaySession {
 
     const tools = this.snapshot ?? this.options.tools();
     coordinator.batch(() => {
-      let boundary = this.assistants.get(input.timestamp);
-
-      if (!boundary) {
-        boundary = { owner: {}, after: [...coordinator.calls.values()].at(-1) };
-        this.assistants.set(input.timestamp, boundary);
-      }
-
-      coordinator.setBoundary(boundary.owner, input.boundary ? boundary.after : undefined);
+      if (!this.assistants.has(input.source))
+        this.assistants.set(input.source, [...coordinator.calls.values()].at(-1));
+      const after = this.assistants.get(input.source);
+      coordinator.setBoundary(input.source, input.boundary ? after : undefined);
       if (input.boundary) this.noticeAnchor = undefined;
 
       for (const content of input.calls) {

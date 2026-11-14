@@ -57,6 +57,7 @@ type FixtureHost = {
   customFooter: NativeComponent | undefined;
   footerDataProvider: ReadonlyFooterDataProvider & { dispose(): void };
   createExtensionUIContext(): ExtensionContext["ui"];
+  setupAutocompleteProvider(): void;
   clearExtensionWidgets(): void;
   renderWidgets(): void;
   setExtensionFooter: ExtensionContext["ui"]["setFooter"];
@@ -205,6 +206,7 @@ export async function hostFixture(
       transcript: viewport.transcript,
       async bind() {
         await session.bindExtensions({ uiContext: ui, mode: "tui" });
+        host.setupAutocompleteProvider();
       },
       dispose
     };

@@ -18,6 +18,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, integration:** Settings section saves replace only their field.
 - **Critical, integration:** Settings section saves refuse invalid values, malformed sections, and held locks without changing the file.
 - **Critical, integration:** Settings section diagnostics show terminal-safe paths, while loads and saves still use the real paths.
+- **Critical, integration:** A project skill-reference format overrides the global format only when it is valid and comes from the trusted current directory, not an ancestor.
 - **Critical, unit:** For complete input snapshots, `displayText` removes terminal escape and control bytes other than normalised whitespace.
 - **Critical, unit:** For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
 - **Critical, e2e:** In every load order, startup commits run once per `session_start` emission, in ascending rank, after every extension's `session_start` handler.
@@ -32,12 +33,9 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **High, e2e:** In every load order, prompt parts are appended after the existing `appendSystemPrompt` text in ascending rank, once per run, and only after every pending hold has settled.
 - **High, e2e:** Shortcut claims that overlap, including different spellings of one key, register for no claimant and give one warning per conflict. Other claims register. After a later bind, a key that its claimant dropped or that now overlaps runs no handler.
 - **High, integration:** A configured FIFO cannot block `readSettingsFile` or session startup.
-- **High, integration:** Bounded patch requests refuse oversized inputs and results.
-- **High, integration:** Bounded patch requests recover after worker failure without blocking later requests or retaining unbounded queued source.
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
 - **High, unit:** Native hook disposal leaves later replacements by other owners intact.
 - **High, unit:** When one owner replaced a property several times, disposal restores the original property.
-- **High, e2e:** Disposing a native-tool subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, integration:** File renames retry only on Windows and only for `EPERM`, `EACCES`, and `EBUSY`, stop after 10 attempts, and keep the previous target when they fail.
 
 ## Not tested
@@ -47,7 +45,6 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - [Coordinator](../src/coordination/README.md) liveness, coordinator version-mismatch behaviour, and working-message command ownership are not tested because no invariant is approved for them yet.
 - TUI layout and settings-frame presentation are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation) for them.
 - Extensions own their collection formats and tool-card policies, and the validation, unreadable-file policy, and scope merge of their `readScopedSections` results.
-- The [release check](../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks
 

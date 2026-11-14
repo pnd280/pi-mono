@@ -6,11 +6,11 @@ This package tests what saved [run summaries](../GLOSSARY.md) contain, when they
 
 ## Must not regress
 
-The e2e [lifecycle scenario](../src/lifecycle.test.ts) drives retried runs, reloads, and shutdown through a real offline host. In Pi 1.5.2, reload and session replacement shut down the old extension instance and start a new one, so the scenario resets the session with reload.
+The e2e [lifecycle scenario](../src/lifecycle.test.ts) drives retried runs, reloads, and shutdown through a real offline host. In Pi 1.5.2, reload and session replacement shut down the old extension instance and start a new one, so the scenario resets the session with reload. A second e2e scenario in the same file saves a summary from an SDK session bound in RPC mode.
 
 Following Pi's [lifecycle contracts](pi-compatibility.md#lifecycle), the scenario reloads only after a run settles, and its last step disposes the [shared host fixture](../../../libs/src/validation/interactive-host/README.md) during a run, as a quit does.
 
-The e2e [nested-execution scenario](../src/nested-execution.test.ts) drives one nested run. The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events. It covers two cases that the host does not produce on demand. The first is a busy session at settlement, because Pi 1.5.2 defers prompts that handlers send during settlement. The second is a session reset or shutdown during an active run, because Pi 1.5.2 rejects a reload and settles a cancelled run first.
+The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events. It covers two cases that the host does not produce on demand. The first is a busy session at settlement, because Pi 1.5.2 defers prompts that handlers send during settlement. The second is a session reset or shutdown during an active run, because Pi 1.5.2 rejects a reload and settles a cancelled run first.
 
 - **High, e2e:** Appending a summary with `appendEntry` leaves the model's session context unchanged.
 - **High, e2e:** A started run appends exactly one summary at an idle `agent_settled`.
@@ -20,7 +20,7 @@ The e2e [nested-execution scenario](../src/nested-execution.test.ts) drives one 
 
 ## Not tested
 
-- Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, [milestone](../GLOSSARY.md) limits and deduplication, counter limits and merging, and rendering are below the severity bar. The listed scenarios compare whole saved summaries, so they also fail when these fields change.
+- Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, [milestone](../GLOSSARY.md) limits and deduplication, counter limits and merging, and rendering are below the severity bar. Isolation scenarios use representative accumulated state only to check that it does not carry into another run.
 - Libs owns the shared [tree-row layout](../../../libs/src/tui/components/tree/README.md).
 
 ## Manual checks

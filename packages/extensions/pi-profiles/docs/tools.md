@@ -75,7 +75,7 @@ While `codemode` is declared and `codemode.mode` is `"only"`, Pi leaves the acti
 
 pi-profiles registers its own `tool_search` while Pi loads extensions, also when no profile has a `defer` list. An extension cannot see the project trust decision while it loads, so it cannot tell whether a project profile has one. Pi then does not load its built-in `tool-search` extension; the README's [side effects](../README.md#side-effects) section tells how to stop the warning that Pi shows.
 
-The `tool_search` of pi-profiles is Pi's `tool_search`, built with Pi's own code: it has the same name, description, and search. It also finds the tools that the current profile deferred, and it loads the rest of their [groups](#groups) with them. Without deferred tools, it works as Pi's built-in `tool_search`.
+The `tool_search` of pi-profiles is Pi's `tool_search`, built with Pi's own code: it has the same name, description, and search. It also finds the tools that the current profile deferred, and it loads the rest of their [groups](#groups) with them. Without deferred or `deny` tools, it works as Pi's built-in `tool_search`.
 
 - If pi-profiles no longer owns `tool_search`, for example because another extension now registers it, resume, `/tree`, `/fork`, and `/reload` declare again the `direct` and `model-only` tools that the session's selection deferred. They also declare each registered tool of its deferred groups, except `hidden` tools.
 - If no registered, non-hidden `tool_search` is active, restoration declares all registered, non-hidden deferred tools, subject to Pi's tool restrictions.

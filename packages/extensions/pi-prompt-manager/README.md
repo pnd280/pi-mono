@@ -84,7 +84,7 @@ This example shows every field with its default. Remove the comments before you 
 
 Shortcuts use [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax).
 
-- Each invalid field falls back to its default with a warning. Unreadable or oversized settings use all defaults.
+- Each invalid field falls back to its default with a warning. An unreadable global settings file, or one larger than 1 MiB, uses all defaults with a warning.
 - Some keys are refused or shared with other extensions or Pi's built-in keys. [Launch shortcuts](docs/controls.md#launch-shortcuts) says which key wins and when a warning appears.
 
 ## Side effects

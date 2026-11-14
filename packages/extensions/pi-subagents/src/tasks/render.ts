@@ -4,11 +4,11 @@ import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duratio
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { displayLine, pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
-import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
 import { detailsSchema, launchArgItems, type ToolDetails } from "../details.ts";
+import { usageText } from "../text.ts";
 
 /** The task or job that a click on a card opens. */
 export type CardState = { id?: string | undefined; bindingId?: string | undefined };
@@ -126,13 +126,6 @@ export function clickable(
   });
 }
 
-/** Non-breaking spaces keep the group on one row when it fits. */
-function usage({ usage }: ToolDetails): string {
-  if (!Object.values(usage).some((value) => value > 0)) return "";
-
-  return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
-}
-
 /** A status phrase, with its time when the card has one. */
 const phrase = (text: string, preposition: string, time: string) =>
   time ? `${text} ${preposition} ${time}` : text;
@@ -223,7 +216,7 @@ function detailFacts(details: ToolDetails, failed: boolean) {
     description: details.description,
     identity: `${details.model}:${details.thinking}`,
     launchArgs: details.launch_args ?? [],
-    usage: usage(details),
+    usage: usageText(details),
     taskId: details.task_id,
     failed
   };

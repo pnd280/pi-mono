@@ -27,18 +27,16 @@ afterEach(async () => {
 interface HostOptions {
   /** File contents keyed by path relative to the workspace, which holds `agent` and `work`. */
   files?: Record<string, string>;
-  /** The session's working directory, relative to the workspace. */
-  cwd?: string;
   projectTrusted?: boolean;
 }
 
 async function host(
   extensions: ExtensionFactory[],
-  { files = {}, cwd: relativeCwd = "work", projectTrusted = true }: HostOptions = {}
+  { files = {}, projectTrusted = true }: HostOptions = {}
 ) {
   const directory = await createValidationWorkspace("pi-t3-skills-test-");
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
-  const cwd = join(directory, relativeCwd);
+  const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
   await mkdir(cwd, { recursive: true });
 
@@ -167,30 +165,14 @@ it.each([
     case: "an untrusted project format is ignored",
     project: { expansionFormat: "Read {path} for {command}" },
     projectTrusted: false
-  },
-  {
-    case: "a trusted ancestor's format is ignored",
-    project: { expansionFormat: "Read {path} for {command}" },
-    cwd: join("work", "child")
-  },
-  { case: "a format without {path} is ignored", project: { expansionFormat: "{command}" } },
-  {
-    case: "a format over 512 code points is ignored",
-    project: { expansionFormat: "x".repeat(513) + "{path}" }
-  },
-  {
-    case: "a section with an unknown key is ignored",
-    project: { expansionFormat: "{path}", unknown: true }
-  },
-  { case: "a format that isn't a string is ignored", project: { expansionFormat: 2 } }
-])("$case", async ({ project, projectTrusted, cwd, expected = globalFormat }) => {
+  }
+])("$case", async ({ project, projectTrusted, expected = globalFormat }) => {
   vi.stubEnv("T3_PI_MCP_EXTENSION_PATH", "/t3/pi-t3-mcp-extension.ts");
   const fixture = await host([t3Skills], {
     files: {
       [join("agent", "settings.json")]: section({ expansionFormat: "File: {path}" }),
       [projectSettings]: section(project)
     },
-    ...(cwd === undefined ? {} : { cwd }),
     ...(projectTrusted === undefined ? {} : { projectTrusted })
   });
   await fixture.session.prompt("Use $review");

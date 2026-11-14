@@ -88,7 +88,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 ### Jobs
 
 - **Critical, e2e:** (J4) `job` uses the `shellPath` and `shellCommandPrefix` settings.
-- **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden.
+- **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden, and a `job` call after a later `bash` registration starts no command.
 - **Critical, integration:** (J5) The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
 - **High, e2e:** (J1) A job delivers exactly one background result to its supervisor when the supervisor is busy, idle, or settling after an abort.
 - **High, e2e:** (J1) The supervisor settles while a job without `hold_run` runs.

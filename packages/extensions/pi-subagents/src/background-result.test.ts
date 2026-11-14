@@ -18,11 +18,15 @@ function stats(total: number, cost: number): SessionStats {
 }
 
 test("late usage counts only the unreported delta with its full model ID", () => {
-  expect(lateUsage(undefined, stats(20, 0.002), "p/m")).toBeUndefined();
-  expect(lateUsage(stats(10, 0.001), undefined, "p/m")).toBeUndefined();
-  expect(lateUsage(stats(10, 0.001), stats(10, 0.001), "p/m")).toBeUndefined();
+  const model = { provider: "p", model: "m" };
+  expect(lateUsage(undefined, stats(20, 0.002), model)).toBeUndefined();
+  expect(lateUsage(stats(10, 0.001), undefined, model)).toBeUndefined();
+  expect(lateUsage(stats(10, 0.001), stats(10, 0.001), model)).toBeUndefined();
   expect(
-    lateUsage(stats(10, 0.001), stats(25, 0.003), "openrouter/anthropic/claude")
+    lateUsage(stats(10, 0.001), stats(25, 0.003), {
+      provider: "openrouter",
+      model: "anthropic/claude"
+    })
   ).toMatchObject({
     provider: "openrouter",
     model: "anthropic/claude",

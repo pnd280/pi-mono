@@ -10,10 +10,10 @@ import {
   defineTool,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { expect, it, vi } from "vite-plus/test";
 
+import { useStepPatchDeadline } from "../../validation/bounded-diff/index.ts";
 import type { DisplayFact } from "../contracts.ts";
 import { OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
 import { observeMutationDefinition } from "../file-mutations/index.ts";

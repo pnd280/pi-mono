@@ -488,4 +488,20 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
       { extensions: [fileURLToPath(new URL("./foreign-bash.ts", import.meta.url))] }
     );
   });
+
+  test("J4: starts no command when another extension registers bash after the binding opened", async () => {
+    await withJobs(
+      async (_directory, start) => {
+        const host = await start();
+        await host.prompt("job-fast");
+        const [result] = await toolResults(host, "job");
+        expect(result?.isError).toBe(true);
+        expect(contentText(result?.content ?? "")).toBe(
+          "Job not started: another extension owns bash"
+        );
+        expect(await jobList(host)).toEqual([]);
+      },
+      { extensions: [fileURLToPath(new URL("./late-bash.ts", import.meta.url))] }
+    );
+  });
 });

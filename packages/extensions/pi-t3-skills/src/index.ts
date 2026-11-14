@@ -2,13 +2,13 @@ import { readFile } from "node:fs/promises";
 
 import type { ExtensionAPI, SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import { joinInputChain } from "@pi-mono/libs/input-chain";
+import { loadSkillReferenceFormat } from "@pi-mono/libs/skill-reference-settings";
 import {
   defaultSkillReferenceFormat,
   expandSkillReferences,
   skillReferenceCatalog
 } from "@pi-mono/utils/skill-reference";
 
-import { loadExpansionFormat } from "./config.ts";
 import { removeT3SkillSuffix } from "./t3-suffix.ts";
 
 /** T3 Code sets this only when it loads its own extension, which holds the skill-chip hook. */
@@ -56,6 +56,9 @@ export default function t3Skills(pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    format = loadExpansionFormat(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
+    format = loadSkillReferenceFormat("ext.pi-t3-skills", {
+      cwd: ctx.cwd,
+      projectTrusted: ctx.isProjectTrusted()
+    });
   });
 }

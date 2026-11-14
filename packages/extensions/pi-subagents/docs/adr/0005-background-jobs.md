@@ -35,4 +35,3 @@ Rejected. A server or a watcher does not exit, so the supervisor would stay busy
 - Print and JSON supervisors and children do not wait for jobs. Pi exits after their final reply, the jobs stop, and their results are lost. In these modes, the `job` description tells the model to use jobs only for processes that it needs during the run.
 - A job that ends between a pre-event and its final event adds its end entry to the old branch. If the change becomes final, its pending result is dropped. If an extension cancels the change, the result waits for the next run.
 - Pi stops only the shell's process group. A process that leaves the group continues after its job stops; see [job limits](../jobs.md#limits).
-- A `bash` override that another extension registers after settings load is not detected.

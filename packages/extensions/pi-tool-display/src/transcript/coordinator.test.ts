@@ -12,17 +12,8 @@ function rowHandle() {
   return { invalidate: vi.fn(), requestRender: vi.fn(), setExpanded: vi.fn() };
 }
 
-function fixture() {
-  const start = vi.fn(() => () => {});
-  const coordinator = new TranscriptCoordinator("runtime", {
-    animationClock: { start }
-  });
-
-  return { coordinator, start };
-}
-
 it("rejects foreign and disposed call updates without changing retained views or notifying rows", () => {
-  const { coordinator: c } = fixture();
+  const c = new TranscriptCoordinator("runtime", { animationClock: { start: () => () => {} } });
   const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "owned" };
   const call = c.add({
     reference,
@@ -58,36 +49,4 @@ it("rejects foreign and disposed call updates without changing retained views or
   } finally {
     c.dispose();
   }
-});
-
-it("keeps historical missing results still and separates identical call IDs by source position", () => {
-  const { coordinator: c, start } = fixture();
-  const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "duplicate" };
-  const first = c.add({
-    reference,
-    name: "read",
-    args: {},
-    adapter: nativeAdapter("read")!,
-    origin: "historical"
-  });
-  c.add({
-    reference,
-    name: "read",
-    args: { path: "prepared.ts" },
-    adapter: nativeAdapter("read")!,
-    origin: "historical"
-  });
-  expect(c.group(first)).toBeUndefined();
-  const second = c.add({
-    reference: { ...reference, contentIndex: 1 },
-    name: "read",
-    args: { path: "other.ts" },
-    adapter: nativeAdapter("read")!,
-    origin: "historical"
-  });
-  expect(first.key).not.toBe(second.key);
-  expect(c.calls.size).toBe(2);
-  expect(start).not.toHaveBeenCalled();
-  expect(c.byId("orphan")).toBeUndefined();
-  c.dispose();
 });

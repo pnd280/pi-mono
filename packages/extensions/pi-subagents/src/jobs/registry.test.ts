@@ -30,6 +30,7 @@ async function withJobs(
       cwd,
       sessionId: randomUUID(),
       branch: () => entries,
+      foreignBash: () => false,
       append: (customType, data) => {
         entries.push({
           type: "custom",

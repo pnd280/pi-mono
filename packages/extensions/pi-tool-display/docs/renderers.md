@@ -146,7 +146,7 @@ Generic rendering never infers missing transport or type information from names 
 
 ## Display budgets
 
-Patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behaviour). Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. The pending pulse changes only the heading marker. Running progress timers also refresh elapsed time.
+Patch generation runs off the UI thread under [shared worker limits](../src/bounded-diff/README.md#behaviour). Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. The pending pulse changes only the heading marker. Running progress timers also refresh elapsed time.
 
 In automatic CLI integration, parameters and generic arguments use the [validated copy of Pi's raw arguments](adapters.md#callback-arguments) when validation against the current tool schema succeeds. Otherwise, they use Pi's raw arguments. This applies to both compact previews and expanded parameters.
 

@@ -1,7 +1,7 @@
-import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
+import { createBoundedPatch } from "./bounded-diff/index.ts";
 import { creationPatch, mutationChange, parseRetainedPatch, sameRetainedHunks } from "./diff.ts";
 import type { FileMutation, MutationPatch } from "./file-mutations/index.ts";
 
@@ -20,14 +20,6 @@ it("retains shared patches and derives creation/modification facts", async () =>
   const patch = "--- file\n+++ file\n@@ -0,0 +1 @@\n+created\n";
   const created = mutation({ status: "ready", patch }, true);
   expect(await mutationChange(created)).toEqual({ kind: "change", change: "creation", patch });
-  expect(created.patch).toHaveBeenCalledWith(
-    expect.objectContaining({
-      maxSourceBytes: 8 * 1024 * 1024,
-      maxPatchBytes: 128 * 1024,
-      maxEditLength: 2000,
-      timeoutMs: 50
-    })
-  );
   expect((await mutationChange(mutation({ status: "ready", patch }))).change).toBe("modification");
 });
 
@@ -55,7 +47,7 @@ it.each([
     maxPatchBytes: 128 * 1024,
     maxEditLength: 2000,
     contextLines: 3,
-    // The deadline is wall-clock time that suite load can exceed; libs tests it.
+    // The deadline is wall-clock time that suite load can exceed.
     timeoutMs: STEP_TIMEOUT_MS
   });
   expect(observed.status).toBe("ready");

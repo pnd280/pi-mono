@@ -20,10 +20,7 @@ export class SavedOutputs {
   private evicted = new WeakSet<SavedOutput>();
   private disposed = false;
 
-  constructor(
-    private coordinator: TranscriptCoordinator,
-    private read: (path: string) => Promise<SavedOutput> = readSavedOutput
-  ) {}
+  constructor(private coordinator: TranscriptCoordinator) {}
 
   /** Keep the saved path from Pi's result details when the call's adapter shows saved output. */
   retain(call: DisplayCall, result: BorrowedToolResult): void {
@@ -77,9 +74,9 @@ export class SavedOutputs {
     return promise;
   }
 
-  /** Failed reads are not cached. Disposal discards late results. */
+  /** Resolved previews, including read-failure notices, are cached. Disposal discards late results. */
   private async loadOutput(path: string): Promise<SavedOutput | undefined> {
-    const output = await this.read(path);
+    const output = await readSavedOutput(path);
     // Disposal clears the cache, so a disposed owner evicts nothing.
     if (this.cache.size >= CACHE_ENTRIES) this.evictOldest();
     // Eviction may dispose the owner.

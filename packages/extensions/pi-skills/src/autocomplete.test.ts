@@ -1,14 +1,17 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import {
   CombinedAutocompleteProvider,
-  Editor,
-  ProcessTerminal,
-  TuiMainScreen,
   type AutocompleteProvider,
-  type EditorTheme
+  type Terminal
 } from "@earendil-works/pi-tui";
+import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
+import skills from "../index.ts";
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
 import { command } from "./test-fixture.ts";
 
@@ -35,41 +38,52 @@ it("does not claim a borrowed item reused by a delegated provider", async () => 
   );
 });
 
-const plain = (text: string) => text;
-const theme: EditorTheme = {
-  borderColor: plain,
-  selectList: {
-    selectedPrefix: plain,
-    selectedText: plain,
-    description: plain,
-    scrollInfo: plain,
-    noMatch: plain
+it("Enter accepts a leading skill completion in the mounted editor without submitting", async () => {
+  let skillPaths: string[] = [];
+  const fixture = await hostFixture([
+    skills,
+    (pi) => {
+      pi.on("resources_discover", () => ({ skillPaths }));
+    }
+  ]);
+
+  try {
+    skillPaths = await Promise.all(
+      ["review", "release"].map(async (name) => {
+        const path = join(fixture.directory, `${name}.md`);
+        await writeFile(path, `---\nname: ${name}\ndescription: Fixture skill\n---\nBody\n`);
+
+        return path;
+      })
+    );
+
+    let input = (_data: string) => {};
+
+    const terminal: Terminal = fixture.terminal;
+
+    terminal.start = (callback) => {
+      input = callback;
+    };
+
+    await fixture.bind();
+    const editor = fixture.host.editorContainer.children[0];
+    if (!(editor instanceof CustomEditor)) throw new Error("Expected the mounted Pi editor");
+    const onSubmit = vi.fn();
+    editor.onSubmit = onSubmit;
+    fixture.host.ui.setFocus(editor);
+    fixture.host.ui.start();
+
+    editor.setText("/skill:re");
+    input("\t");
+    await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true), {
+      interval: 1,
+      timeout: STEP_TIMEOUT_MS
+    });
+    input("\r");
+    expect(editor.getText()).toMatch(/^\/skill:(review|release) $/u);
+    expect(editor.isShowingAutocomplete()).toBe(false);
+    expect(onSubmit).not.toHaveBeenCalled();
+  } finally {
+    await fixture.dispose();
   }
-};
-const editorCommands = [command("skill:review"), command("skill:release")];
-
-function editorFixture() {
-  const current = new CombinedAutocompleteProvider(editorCommands, process.cwd());
-  const tui = new TuiMainScreen(new ProcessTerminal());
-  vi.spyOn(tui, "requestRender").mockImplementation(() => {});
-  const editor = new Editor(tui, theme);
-  const onSubmit = vi.fn();
-  editor.onSubmit = onSubmit;
-  editor.setAutocompleteProvider(createSkillAutocompleteProvider(current, () => editorCommands));
-
-  return { editor, onSubmit };
-}
-
-it("Enter accepts a leading skill completion without submitting", async () => {
-  const { editor, onSubmit } = editorFixture();
-  editor.setText("/skill:re");
-  editor.handleInput("\t");
-  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true), {
-    interval: 1,
-    timeout: STEP_TIMEOUT_MS
-  });
-  editor.handleInput("\r");
-  expect(editor.getText()).toMatch(/^\/skill:(review|release) $/u);
-  expect(editor.isShowingAutocomplete()).toBe(false);
-  expect(onSubmit).not.toHaveBeenCalled();
 });

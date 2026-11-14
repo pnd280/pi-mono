@@ -20,7 +20,7 @@ Selection previews must preserve native file access, results, and rendering fall
 
 - [ ] The supplied tool definition owns the extended native schema and the preserved prompt metadata.
 - [ ] The complete `ExtensionToolContext` that Pi passes to `execute` still matches what the native tool expects.
-- [ ] Execution arguments, cancellation, images, the output schema, and the original content, structured content, and details pass through.
+- [ ] Execution arguments, cancellation, images, the output schema, and the original content, structured content, and details pass through. The preview goes only into content and details, so codemode, which returns the structured content of a tool with an output schema, receives the source without the preview.
 - [ ] Execution never rereads the file.
 
 ### Schema

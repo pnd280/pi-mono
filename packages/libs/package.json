@@ -11,11 +11,10 @@
     "./prompt-parts": "./src/prompt-parts/index.ts",
     "./lifecycle": "./src/lifecycle/index.ts",
     "./settings-file": "./src/settings-file/index.ts",
+    "./skill-reference-settings": "./src/skill-reference-settings/index.ts",
     "./tui/components/settings-menu": "./src/tui/components/settings-menu/index.ts",
     "./output-buffer": "./src/output-buffer/index.ts",
-    "./bounded-diff": "./src/bounded-diff/index.ts",
     "./file-rename": "./src/file-rename/index.ts",
-    "./native-tools": "./src/native-tools/index.ts",
     "./timed-confirmation": "./src/timed-confirmation/index.ts",
     "./tui/responsive-custom-ui": "./src/tui/responsive-custom-ui/index.ts",
     "./tui/open-browser": "./src/tui/open-browser/index.ts",
@@ -31,7 +30,6 @@
     "./tui/components/text-preview": "./src/tui/components/text-preview/index.ts",
     "./tui/components/tree": "./src/tui/components/tree/index.ts",
     "./owned-hooks": "./src/owned-hooks/index.ts",
-    "./validation/bounded-diff": "./src/validation/bounded-diff/index.ts",
     "./validation/interactive-host": "./src/validation/interactive-host/index.ts",
     "./validation/pi-process": "./src/validation/pi-process/index.ts",
     "./validation/terminal-launcher": "./src/validation/terminal-launcher/index.ts",
@@ -46,7 +44,6 @@
   },
   "dependencies": {
     "@pi-mono/utils": "workspace:*",
-    "diff": "catalog:",
     "proper-lockfile": "catalog:",
     "zod": "catalog:"
   },

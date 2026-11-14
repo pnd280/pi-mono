@@ -8,7 +8,7 @@ import type {
   SessionStats
 } from "@earendil-works/pi-coding-agent";
 
-import { lateUsage, type LateUsage } from "../background-result.ts";
+import { lateUsage, type LateUsage, type ModelIdentity } from "../background-result.ts";
 import type { PiInvocation } from "../child/invocation.ts";
 import type * as ChildModule from "../child/run.ts";
 import type { ChildResult, ChildRun, ChildStart } from "../child/run.ts";
@@ -162,7 +162,7 @@ function queuedDetails(
 ): ToolDetails {
   return {
     ...(request.task_id === undefined ? {} : { task_id: request.task_id }),
-    description: boundedText(request.description),
+    description: request.description,
     model: boundedText(model),
     thinking: boundedText(thinking),
     ...launchArgsDetails(launchArgs),
@@ -242,6 +242,8 @@ export class Run {
   private started: TaskRecord | undefined;
   /** Statistics after `begin`; `end` counts this run's usage from here. */
   private usageStart: SessionStats | undefined;
+  /** The child's applied model, as the record's model; late usage needs its parts. */
+  private model: ModelIdentity | undefined;
   private starting: Promise<void> = Promise.resolve();
   /** Resolves when the run is in the background, from launch or after promotion. */
   private promotion = Promise.withResolvers<void>();
@@ -332,7 +334,7 @@ export class Run {
     this.taskId = resumed?.record.task_id ?? randomUUID();
     this.details = {
       binding_id: host.bindingId,
-      description: boundedText(request.description),
+      description: request.description,
       model,
       thinking,
       ...launchArgsDetails(launchArgs),
@@ -487,6 +489,7 @@ export class Run {
     this.lease ??= await WriterLease.acquire(start.sessionFile, [process.pid, pid]);
     host.lifetime.throwIfAborted();
     this.usageStart = start.usageStart;
+    this.model = start.model;
     const {
       request: { description },
       selection: { model, thinking, launchArgs }
@@ -507,7 +510,7 @@ export class Run {
     host.append(RUN_ENTRY, entry);
     details.task_id = this.taskId;
     const record = startRun(entry, host.parent, this.previous, {
-      model: start.model ?? model,
+      model: start.model ? `${start.model.provider}/${start.model.model}` : model,
       thinking: start.thinking,
       stats: start.usageStart
     });
@@ -539,6 +542,10 @@ export class Run {
     )
       return;
     const next = applyEvent(record, event);
+    const message = event.type === "message_end" ? event.message : undefined;
+    // As in `applyEvent`, a failed response can name a virtual model that never ran.
+    if (message?.role === "assistant" && message.stopReason !== "error")
+      this.model = { provider: message.provider, model: message.model };
 
     if (next !== record) {
       this.record = next;
@@ -604,7 +611,7 @@ export class Run {
     this.finished = true;
     host.report(this, { kind: "ended", ...(finished ? { record: finished } : {}) });
     this.reservation.release();
-    const late = lateUsage(this.reported, result.usageEnd, details.model);
+    const late = lateUsage(this.reported, result.usageEnd, this.model);
     const completion: RunCompletion = {
       details: { ...details },
       text: result.text,

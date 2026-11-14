@@ -109,6 +109,8 @@ type SDKFixture = {
   records(): Promise<TaskRecord[]>;
   /** The notifications that the supervisor showed. */
   notes: readonly string[];
+  /** The signal of each selection dialog that the supervisor showed. A selection stays open until its signal aborts. */
+  selections: readonly AbortSignal[];
 };
 
 async function fixture(
@@ -123,6 +125,8 @@ async function fixture(
 
   try {
     const launch = await fixtureLaunch(directory);
+    // Children inherit this environment, so it holds only the launch's names.
+    for (const name of Object.keys(process.env)) vi.stubEnv(name, undefined);
     for (const [name, value] of Object.entries(launch.options.env)) vi.stubEnv(name, value);
     vi.stubEnv(DEPTH_ENV, undefined);
     vi.stubEnv(TASK_ID_ENV, undefined);
@@ -184,10 +188,23 @@ async function fixture(
     }));
     const errors: unknown[] = [];
     const notes: string[] = [];
+    const selections: AbortSignal[] = [];
     const runner = session.extensionRunner;
     await session.bindExtensions({
       mode: "rpc",
-      uiContext: { ...runner.createContext().ui, notify: (message) => notes.push(message) },
+      uiContext: {
+        ...runner.createContext().ui,
+        notify: (message) => notes.push(message),
+        select: (_title, _options, options) => {
+          const signal = options?.signal;
+          if (signal) selections.push(signal);
+
+          return new Promise((resolve) => {
+            if (!signal || signal.aborted) resolve(undefined);
+            else signal.addEventListener("abort", () => resolve(undefined), { once: true });
+          });
+        }
+      },
       onError: (error) => errors.push(error)
     });
     const requests: TranscriptContext[] = [];
@@ -197,6 +214,7 @@ async function fixture(
       started: started.promise,
       requests,
       notes,
+      selections,
       intercept(next) {
         drop = next;
       },
@@ -603,6 +621,41 @@ test("keeps a late abort command of a replaced binding out of the replacement", 
       expect(session.sessionManager.getBranch().filter((entry) => entry.type === "custom")).toEqual(
         []
       );
+    },
+    () => {}
+  );
+});
+
+// RPC mode does not report a dismissed dialog to its client, so this case uses the SDK fixture's dialog signals.
+test("closes a child dialog that is still open when its run ends", async () => {
+  await fixture(
+    async (host) => {
+      const { session } = host;
+      // The `late-dialogs` child opens a selection and an editor, and ends once the editor has its answer, which this fixture's editor gives at once.
+      host.queue(
+        fauxAssistantMessage(
+          fauxToolCall("subagent", {
+            description: "Open dialog fixture",
+            prompt: "late-dialogs",
+            model: FIXTURE_MODEL
+          }),
+          { stopReason: "toolUse" }
+        ),
+        fauxAssistantMessage("Dialog task finished")
+      );
+      await bounded(session.prompt("Start the dialog task"), "dialog task");
+      const [result] = session.sessionManager
+        .getEntries()
+        .flatMap((entry) =>
+          entry.type === "message" &&
+          entry.message.role === "toolResult" &&
+          entry.message.toolName === "subagent"
+            ? [entry.message]
+            : []
+        );
+      expect(detailsSchema.parse(result?.details).state).toBe("completed");
+      expect(host.selections).toHaveLength(1);
+      expect(host.selections[0]!.aborted).toBe(true);
     },
     () => {}
   );

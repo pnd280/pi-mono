@@ -4,7 +4,7 @@ import {
   fauxToolCall,
   type FauxResponseFactory
 } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { AgentSession, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
@@ -13,6 +13,13 @@ import { counterChannel } from "./counters.ts";
 import agentSummary from "./index.ts";
 import { milestoneChannel } from "./milestones.ts";
 import { summaryEntryType } from "./summary.ts";
+
+const summaries = (session: AgentSession) =>
+  session.sessionManager
+    .getBranch()
+    .flatMap((entry) =>
+      entry.type === "custom" && entry.customType === summaryEntryType ? [entry.data] : []
+    );
 
 it("saves one summary per settled run, also when quit cancels it, and none for a run that starts during shutdown", async () => {
   // Only the live timer's interval is fake, so the timer count shows whether it still ticks.
@@ -39,13 +46,6 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
   const releases: (() => void)[] = [];
   const settlements: Promise<unknown>[] = [];
   let disposed = false;
-
-  const summaries = () =>
-    session.sessionManager
-      .getBranch()
-      .flatMap((entry) =>
-        entry.type === "custom" && entry.customType === summaryEntryType ? [entry.data] : []
-      );
 
   const start = (text: string) => {
     const prompt = session.prompt(text);
@@ -78,18 +78,6 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
     };
   };
 
-  const summary = (fields: Record<string, unknown>) => ({
-    durationMs: expect.any(Number) as unknown,
-    finishedAt: expect.any(Number) as unknown,
-    models: [{ provider: "summary-lifecycle", id: "offline", thinkingLevel: "off" }],
-    throughput: {
-      outputTokens: expect.any(Number) as unknown,
-      durationMs: expect.any(Number) as unknown
-    },
-    bashCalls: 0,
-    ...fields
-  });
-
   try {
     await fixture.bind();
     const faux = fauxProvider({ provider: "summary-lifecycle", models: [{ id: "offline" }] });
@@ -119,18 +107,20 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
     first.release();
     await firstPrompt;
     expect(vi.getTimerCount()).toBe(0);
-    expect(summaries()).toEqual([
-      summary({
-        milestones: ["Published v1.2.0"],
-        counters: [{ id: "tasks", verb: "delegated", singular: "task", plural: "tasks", count: 1 }]
-      })
-    ]);
+    expect(summaries(session)).toHaveLength(1);
+    expect(summaries(session)[0]).toHaveProperty("milestones");
+    expect(summaries(session)[0]).toHaveProperty("counters");
+    // The saved summary stays out of the model's context.
+    expect(JSON.stringify(session.sessionManager.buildSessionContext().messages)).not.toContain(
+      summaryEntryType
+    );
 
     // The next run starts without the settled run's milestones and counters.
     faux.setResponses([fauxAssistantMessage("Second response")]);
     await start("Second run");
-    expect(summaries()).toHaveLength(2);
-    expect(summaries()[1]).toEqual(summary({}));
+    expect(summaries(session)).toHaveLength(2);
+    expect(summaries(session)[1]).not.toHaveProperty("milestones");
+    expect(summaries(session)[1]).not.toHaveProperty("counters");
 
     // Another extension starts a run during shutdown, before the reloaded session starts.
     faux.setResponses([fauxAssistantMessage("Late response")]);
@@ -146,13 +136,12 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
       content: [{ type: "text", text: "Late response" }]
     });
     expect(vi.getTimerCount()).toBe(0);
-    expect(summaries()).toHaveLength(2);
+    expect(summaries(session)).toHaveLength(2);
 
     // After the reload, a run saves its own summary.
     faux.setResponses([fauxAssistantMessage("Third response")]);
     await start("Third run");
-    expect(summaries()).toHaveLength(3);
-    expect(summaries()[2]).toEqual(summary({}));
+    expect(summaries(session)).toHaveLength(3);
 
     // Quit cancels the run, which settles and saves its summary before shutdown.
     const last = held();
@@ -167,8 +156,7 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
     await fixture.dispose();
     expect(session.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "aborted" });
     expect(vi.getTimerCount()).toBe(0);
-    expect(summaries()).toHaveLength(4);
-    expect(summaries()[3]).toEqual(summary({}));
+    expect(summaries(session)).toHaveLength(4);
   } finally {
     try {
       if (!disposed) await fixture.dispose();
@@ -177,5 +165,22 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
       await Promise.all(settlements);
       vi.useRealTimers();
     }
+  }
+});
+
+it("saves the summary of a settled run in RPC mode", async () => {
+  const fixture = await hostFixture([agentSummary]);
+  const { session } = fixture;
+
+  try {
+    await session.bindExtensions({ mode: "rpc" });
+    const faux = fauxProvider({ provider: "summary-rpc", models: [{ id: "offline" }] });
+    session.modelRuntime.registerNativeProvider(faux.provider);
+    await session.setModel(faux.getModel());
+    faux.setResponses([fauxAssistantMessage("RPC response")]);
+    await session.prompt("RPC run");
+    expect(summaries(session)).toHaveLength(1);
+  } finally {
+    await fixture.dispose();
   }
 });

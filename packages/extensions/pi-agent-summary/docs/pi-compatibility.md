@@ -2,7 +2,7 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.5.2 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual visual checks; live-provider usage reporting; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
+> Last verified against Pi 1.5.2 with package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual visual checks; live-provider usage reporting; nested `bash` counting and virtual-model attribution in a real host; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
 
 ## Upgrade procedure
 

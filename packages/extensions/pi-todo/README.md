@@ -58,12 +58,12 @@ pi-todo ignores invalid settings. The working-message order is a separate settin
 
 ## Docs
 
-| When you…                                                                | Read                                                            |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| Want the exact actions, parameters, rules, and limits of the `todo` tool | [The todo tool](docs/todo-tool.md)                              |
-| Use remapped browser keys or fullscreen key priority                     | [Browser controls](docs/controls.md#the-todos-browser)          |
-| Need the settings file locations or the rules for invalid files          | [Settings](docs/controls.md#settings)                           |
-| Want to reorder or save the working message                              | [Working-message order](docs/controls.md#working-message-order) |
-| Change paging, the widget, or the working message                        | [Offline terminal checks](docs/validation.md) in both modes     |
-| Decide where a test belongs                                              | [Testing](docs/testing.md)                                      |
-| Upgrade Pi                                                               | [Pi compatibility](docs/pi-compatibility.md)                    |
+| When you…                                                                | Read                                                                          |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Want the exact actions, parameters, rules, and limits of the `todo` tool | [The todo tool](docs/todo-tool.md) and its [limits](docs/todo-tool.md#limits) |
+| Use remapped browser keys or fullscreen key priority                     | [Browser controls](docs/controls.md#the-todos-browser)                        |
+| Need the settings file locations or the rules for invalid files          | [Settings](docs/controls.md#settings)                                         |
+| Want to reorder or save the working message                              | [Working-message order](docs/controls.md#working-message-order)               |
+| Change paging, the widget, or the working message                        | [Offline terminal checks](docs/validation.md) in both modes                   |
+| Decide where a test belongs                                              | [Testing](docs/testing.md)                                                    |
+| Upgrade Pi                                                               | [Pi compatibility](docs/pi-compatibility.md)                                  |

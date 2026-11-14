@@ -31,7 +31,7 @@ const assistant = (name: string): unknown =>
   Reflect.get(pi.AssistantMessageComponent.prototype, name);
 
 const owners: Record<string, () => Methods> = {
-  "packages/libs/src/native-tools/compatibility.ts": () => ({
+  "packages/extensions/pi-tool-display/src/host/native-tools/compatibility.ts": () => ({
     _buildRuntime: session("_buildRuntime"),
     _refreshToolRegistry: session("_refreshToolRegistry")
   }),
@@ -48,7 +48,6 @@ const owners: Record<string, () => Methods> = {
     setExtensionStatus: mode("setExtensionStatus"),
     renderWidgets: mode("renderWidgets"),
     setExtensionFooter: mode("setExtensionFooter"),
-    createExtensionUIContext: mode("createExtensionUIContext"),
     mainScreenDoRender: Reflect.get(TuiMainScreen.prototype, "doRender"),
     altScreenDoRender: Reflect.get(TuiAltScreen.prototype, "doRender")
   }),

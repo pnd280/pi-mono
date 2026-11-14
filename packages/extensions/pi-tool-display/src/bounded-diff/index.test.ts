@@ -1,7 +1,7 @@
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { parsePatch } from "@pi-mono/utils/patch";
 import { expect, it } from "vite-plus/test";
 
-import { STEP_TIMEOUT_MS } from "../validation/pi-process/index.ts";
 import { createBoundedPatch, type BoundedPatchOptions } from "./index.ts";
 
 const budgets = {

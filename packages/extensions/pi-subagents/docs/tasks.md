@@ -9,7 +9,8 @@ A [task](../GLOSSARY.md#tasks-and-processes) keeps its ID for its whole life. Th
 Set `task_id` in a `subagent` call to continue a task with its earlier conversation. An inactive task resumes; an active task receives input and returns immediately. IDs appear in tool results and `/subagents list`. Only the supervisor model sends task input.
 
 - Use `delivery: "follow_up"` (the default) to add input after the current work, or `delivery: "steer"` to deliver it before the next model request.
-- Input to an active task uses only `prompt` and `delivery`. When the call also sets `model`, `thinking`, `background`, `launch_args`, or `template`, the result starts with a warning line that names the ignored fields.
+- An active task uses only `prompt` and `delivery`. After validation, the result warns about any supplied `model`, `thinking`, `background`, `launch_args`, or `template` fields that it ignored.
+- Active input must first pass parameter validation and the [launch-argument](#launch-arguments) and [template](#templates) checks. An argument rejected by the extension, an unknown template, or a single-value flag set by both the call and template prevents input delivery.
 - A launch or resume ignores `delivery`. When the call sets it, the result starts with a warning line.
 - Active-task input uses the existing capacity slot and result destination, and reports no additional usage.
 - When input continues a run after a final reply, the run's result contains that reply before the later replies.
@@ -46,7 +47,7 @@ Set `launch_args` to an array of more Pi CLI arguments for the child, such as `[
 
 A [template](../GLOSSARY.md#tasks-and-processes) fills in the launch values that a call leaves out, for a new task or a resume. Set `template` in a `subagent` call to the name of a template from the [`templates`](../README.md#configuration) setting. The `subagent` description lists each template with its `description` and the `model`, `thinking`, and `background` that it sets. For the position of the list in the description, see [how docs files are read](tool-docs.md#how-files-are-read). The list does not show the `launchArgs` or the prompt files. Without templates, the description has no list.
 
-The task label is the call's `description` after the template name in brackets, such as `[explorer] Lease ownership`. The task record, the child session name, and background results keep this label. The `subagent` description does not tell the model to add the prefix. A resume with a template also adds the prefix, and does not remove a prefix that the call's `description` already has. A resume without a template keeps the `description` of the call without a change.
+The task label is the call's `description` after the template name in brackets, such as `[explorer] Lease ownership`. The task record, the child session name, and background results keep this label. A label longer than 2,000 lines or 50 KB keeps only its first whole lines within both limits, followed by a `[Text truncated]` line; a label whose first line alone exceeds 50 KB becomes only that line. The `subagent` description does not tell the model to add the prefix. A resume with a template also adds the prefix, and does not remove a prefix that the call's `description` already has. A resume without a template keeps the `description` of the call without a change.
 
 ### Template settings
 

@@ -7,6 +7,7 @@ import {
   type ScopedSection
 } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
+import { errorMessage } from "@pi-mono/utils/errors";
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
@@ -126,7 +127,7 @@ function readTemplate(value: unknown, path: string): TemplateRead {
   try {
     checkLaunchArgs(launchArgs, "launchArgs");
   } catch (error) {
-    return { name, reason: error instanceof Error ? error.message : String(error) };
+    return { name, reason: errorMessage(error) };
   }
 
   const promptFlag = launchArgs.find((arg) => PROMPT_FLAGS.has(arg));

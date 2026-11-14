@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it } from "vite-plus/test";
 
-import { loadExpansionFormat } from "./config.ts";
+import { loadSkillReferenceFormat } from "./index.ts";
 
+const key = "ext.skill-fixture";
 const directories: string[] = [];
-const section = (expansionFormat: string) =>
-  JSON.stringify({ "ext.pi-skills": { expansionFormat } });
+const section = (expansionFormat: string) => JSON.stringify({ [key]: { expansionFormat } });
 
 function settings(global: string, project: string) {
-  const root = mkdtempSync(join(tmpdir(), "pi-skills-config-"));
+  const root = mkdtempSync(join(tmpdir(), "skill-reference-settings-"));
   directories.push(root);
   const agentDir = join(root, "agent");
   const cwd = join(root, "project");
@@ -34,34 +34,35 @@ it("uses trusted cwd settings over global settings, not untrusted or ancestor se
     `\uFEFF${section(" {command} ({path})")}`,
     `\uFEFF${section("Read {path} for {command}")}`
   );
-  expect(loadExpansionFormat(cwd, { agentDir })).toBe(" {command} ({path})");
-  expect(loadExpansionFormat(cwd, { agentDir, projectTrusted: true })).toBe(
+  expect(loadSkillReferenceFormat(key, { cwd, agentDir })).toBe(" {command} ({path})");
+  expect(loadSkillReferenceFormat(key, { cwd, agentDir, projectTrusted: true })).toBe(
     "Read {path} for {command}"
   );
   const child = join(cwd, "child");
   mkdirSync(child);
-  expect(loadExpansionFormat(child, { agentDir, projectTrusted: true })).toBe(
+  expect(loadSkillReferenceFormat(key, { cwd: child, agentDir, projectTrusted: true })).toBe(
     " {command} ({path})"
   );
 });
 
 it.each([
-  // Malformed JSON and non-object JSON share the libs readScopedSections "unreadable" result.
+  // Malformed JSON and non-object JSON share the readScopedSections "unreadable" result.
   "{malformed",
-  JSON.stringify({ "ext.pi-skills": null }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: 2 } }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: "{path}", unknown: true } }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: "{command}" } }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: "x".repeat(513) + "{path}" } })
+  JSON.stringify({ [key]: null }),
+  JSON.stringify({ [key]: { expansionFormat: 2 } }),
+  JSON.stringify({ [key]: { expansionFormat: "{path}", unknown: true } }),
+  JSON.stringify({ [key]: { expansionFormat: "{command}" } }),
+  JSON.stringify({ [key]: { expansionFormat: "x".repeat(513) + "{path}" } })
 ])("ignores invalid project settings without losing the global format: %s", (source) => {
   const { agentDir, cwd } = settings(section("File: {path}"), source);
-  expect(loadExpansionFormat(cwd, { agentDir, projectTrusted: true })).toBe("File: {path}");
+  expect(loadSkillReferenceFormat(key, { cwd, agentDir, projectTrusted: true })).toBe(
+    "File: {path}"
+  );
 });
 
 it("falls back when the project section has no format", () => {
-  const { agentDir, cwd } = settings(
-    section("File: {path}"),
-    JSON.stringify({ "ext.pi-skills": {} })
+  const { agentDir, cwd } = settings(section("File: {path}"), JSON.stringify({ [key]: {} }));
+  expect(loadSkillReferenceFormat(key, { cwd, agentDir, projectTrusted: true })).toBe(
+    "File: {path}"
   );
-  expect(loadExpansionFormat(cwd, { agentDir, projectTrusted: true })).toBe("File: {path}");
 });

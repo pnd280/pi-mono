@@ -33,6 +33,7 @@ E2e checks never use personal settings or credentials.
 - **High, unit:** Settlement, binding disposal, or an abort detected before the boundary discards the pending request.
 - **High, e2e:** Session replacement and reload dispose the old binding before binding the new session state.
 - **High, e2e:** When an extension that loads earlier turns `context_window` off at session start, it stays off.
+- **High, e2e:** `context_window` returns the current session's usage in its result details, whether Pi knows it, does not know it, or has none, including after session replacement and reload.
 - **High, unit:** Disposing a binding during an attempt prevents late outcome status publication, and outcome listeners are released when the native attempt exits, including on exceptions.
 
 ### Hook ownership
@@ -43,7 +44,7 @@ E2e checks never use personal settings or credentials.
 
 ## Not tested
 
-- Footer status, docs-file loading, and the text of `context_window` results are below the severity bar.
+- Footer status, docs-file loading, and the wording of `context_window` results are below the severity bar.
 - Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
 - The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.

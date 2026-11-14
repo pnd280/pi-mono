@@ -7,11 +7,11 @@ import {
   createWriteToolDefinition,
   defineTool
 } from "@earendil-works/pi-coding-agent";
-import type { PatchLimits } from "@pi-mono/libs/bounded-diff";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
+import type { PatchLimits } from "../bounded-diff/index.ts";
 import { observeMutationDefinition, type FileMutation } from "./index.ts";
 
 vi.mock("node:fs/promises", { spy: true });

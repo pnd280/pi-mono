@@ -26,7 +26,7 @@ async function probeWorkers(tree: string): Promise<string> {
   const failures = await Promise.all([
     probe("bounded-diff worker", async () => {
       const { createBoundedPatch } = boundedDiff.parse(
-        await import(join(tree, "lib/libs/src/bounded-diff/index.ts"))
+        await import(join(tree, "extensions/pi-tool-display/src/bounded-diff/index.ts"))
       );
 
       return createBoundedPatch({

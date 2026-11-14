@@ -7,15 +7,18 @@ import { z } from "zod";
 export const compactAcknowledgement = "Compaction requested.";
 
 /** `compact` result details: the summary model and its thinking level appear together or not at all. */
-export const compactDetailsSchema = z
-  .object({
+export const compactDetailsSchema = z.union([
+  z.object({
     scheduled: z.literal(true),
-    modelOverride: modelReferenceSchema.optional(),
-    thinkingLevel: z.enum(MODEL_THINKING_LEVELS).optional()
+    modelOverride: modelReferenceSchema,
+    thinkingLevel: z.enum(MODEL_THINKING_LEVELS)
+  }),
+  z.object({
+    scheduled: z.literal(true),
+    modelOverride: z.undefined().optional(),
+    thinkingLevel: z.undefined().optional()
   })
-  .refine(
-    (details) => (details.modelOverride === undefined) === (details.thinkingLevel === undefined)
-  );
+]);
 
 export type CompactDetails = z.output<typeof compactDetailsSchema>;
 

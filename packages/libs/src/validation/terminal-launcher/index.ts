@@ -12,7 +12,7 @@ const reuseDirectorySchema = z
   .min(1)
   .refine((path) => !path.startsWith("--"));
 
-export type TerminalLauncherOptions = {
+type TerminalLauncherOptions = {
   args: readonly string[];
   help: string;
   createWorkspace(): Promise<string>;

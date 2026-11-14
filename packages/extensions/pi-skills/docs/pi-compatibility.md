@@ -31,7 +31,7 @@ The input hook in the same file passes the current commands. The [input chain](.
 
 ### Settings and completion
 
-[Format settings](../src/config.ts) and [completion](../src/autocomplete.ts) own this behaviour.
+The [skill-reference settings library](../../../libs/src/skill-reference-settings/README.md) loads the format for the `ext.pi-skills` key, and [completion](../src/autocomplete.ts) owns suggestions.
 
 The user guide states the [format rules](rules.md#expansion-format) and the [completion rules](rules.md#completion) that users see.
 

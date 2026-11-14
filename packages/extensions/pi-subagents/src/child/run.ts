@@ -14,6 +14,7 @@ import {
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { errorMessage } from "@pi-mono/utils/errors";
 
+import type { ModelIdentity } from "../background-result.ts";
 import {
   DEPTH_ENV,
   PROTOCOL_KEY,
@@ -61,7 +62,7 @@ export type ChildStart = {
   /** The continued history ends with a tool call that has no result. */
   interrupted: boolean;
   /** The model and thinking level that the child applied after Pi resolved and clamped the selection. */
-  model?: string;
+  model?: ModelIdentity;
   thinking: string;
   /** Statistics after `begin`; Pi's totals also cover the file's earlier runs. */
   usageStart: SessionStats;
@@ -413,7 +414,9 @@ export class ChildRun {
       sessionId: begun.session_id,
       sessionFile: begun.session_file,
       interrupted: begun.interrupted,
-      ...(state.data.model ? { model: `${state.data.model.provider}/${state.data.model.id}` } : {}),
+      ...(state.data.model
+        ? { model: { provider: state.data.model.provider, model: state.data.model.id } }
+        : {}),
       thinking: state.data.thinkingLevel,
       usageStart: usage.data
     };

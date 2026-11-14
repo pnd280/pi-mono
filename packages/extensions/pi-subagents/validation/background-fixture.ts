@@ -36,21 +36,9 @@ export async function fixture(
     settings = {}
   }: { maxConcurrent?: number; maxDepth?: number; settings?: Record<string, unknown> } = {}
 ) {
-  const directory = await createFixtureWorkspace({
+  await withFixture(async (directory, start) => body(await start(), directory), {
     settings: { "ext.pi-subagents": { maxConcurrent, maxDepth }, ...settings }
   });
-  let host: Supervisor | undefined;
-
-  try {
-    host = await Supervisor.start(directory);
-    await body(host, directory);
-  } finally {
-    await host?.stop();
-    const leaked = await remainingProcesses(directory);
-    await killFixtureProcesses(directory);
-    await rm(directory, { recursive: true, force: true });
-    expect(leaked).toEqual([]);
-  }
 }
 
 /** Starts supervisors on demand in one workspace; all stop, and no fixture process may remain. */
@@ -72,12 +60,18 @@ export async function withFixture(
       return host;
     });
   } finally {
-    await Promise.all(hosts.map((host) => host.stop()));
-    const leaked = await remainingProcesses(directory);
-    await killFixtureProcesses(directory);
-    await rm(directory, { recursive: true, force: true });
-    expect(leaked, "Processes leaked after the supervisor exited").toEqual([]);
+    await cleanUp(directory, hosts);
   }
+}
+
+/** A failed stop still lets the workspace's processes and files go. */
+async function cleanUp(directory: string, hosts: readonly Supervisor[]): Promise<void> {
+  const stops = await Promise.allSettled(hosts.map((host) => host.stop()));
+  const leaked = await remainingProcesses(directory);
+  await killFixtureProcesses(directory);
+  await rm(directory, { recursive: true, force: true });
+  for (const stop of stops) if (stop.status === "rejected") throw stop.reason;
+  expect(leaked, "Processes leaked after the supervisor exited").toEqual([]);
 }
 
 function tokens(usage: ToolDetails["usage"]): number {

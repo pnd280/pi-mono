@@ -1,6 +1,6 @@
-import { PATCH_QUEUE_BYTES } from "@pi-mono/libs/bounded-diff";
 import { parsePatch } from "@pi-mono/utils/patch";
 
+import { PATCH_QUEUE_BYTES } from "./bounded-diff/index.ts";
 import type { ChangeFact, ChangeUnavailableReason } from "./contracts.ts";
 import type { FileMutation } from "./file-mutations/index.ts";
 
