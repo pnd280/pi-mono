@@ -13,6 +13,7 @@ import {
 import { Relay } from "../coordination/relay.ts";
 import type { ToolDetails } from "../details.ts";
 import type { RunConnection } from "../history/reader.ts";
+import { boundedText } from "../result.ts";
 import type { TaskRecord } from "./records.ts";
 import { Route, type Cancelled } from "./route.ts";
 import {
@@ -165,7 +166,9 @@ export class Tasks {
    */
   async submit(call: ToolInput, handlers: CallHandlers): Promise<Submission> {
     if (handlers.signal?.aborted) throw new Error("Cancelled by turn abort");
-    const request = applyTemplate(call, this.config.templates);
+    const expanded = applyTemplate(call, this.config.templates);
+    // One bounded label for the session name, details, and run record; recovery skips a record above `RECORD_MAX_BYTES`.
+    const request = { ...expanded, description: boundedText(expanded.description) };
 
     if (request.task_id !== undefined) {
       const delivery = request.delivery ?? "follow_up";

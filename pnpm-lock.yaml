@@ -550,9 +550,6 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
 
   packages/extensions/pi-smart-compact:
     dependencies:
@@ -610,9 +607,6 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       pi-skills:
         specifier: workspace:*
@@ -653,6 +647,9 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      diff:
+        specifier: 'catalog:'
+        version: 9.0.0
       fast-diff:
         specifier: 'catalog:'
         version: 1.3.0
@@ -689,9 +686,6 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../utils
-      diff:
-        specifier: 'catalog:'
-        version: 9.0.0
       proper-lockfile:
         specifier: 'catalog:'
         version: 4.1.2

@@ -13,7 +13,7 @@ import type { DisplayMode } from "../contracts.ts";
 /** Last selected mode per interactive host; survives rebinding and extension reloads. */
 export const hostMode = Symbol.for("pi-tool-display.mode");
 
-/** Private Pi 1.5.2 TUI contracts. Native construction belongs to libs/native-tools. */
+/** Private Pi 1.5.2 TUI contracts. Native construction belongs to native-tools/compatibility.ts. */
 export type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 export type Host = {

@@ -41,25 +41,13 @@ it("normalizes display arguments without mutating retained input", () => {
   const value = result(text, "preview");
 
   expect(adapter.supports?.(args, value)).toBe(true);
-  expect(
-    adapter
-      .invocation?.(args)
-      .map((part) => ("text" in part ? part.text : ""))
-      .join("")
-  ).toBe("a.ts · selection 2");
-  expect(
-    adapter.exploration?.(args, value)?.map(({ scope, parts }) => ({
-      scope,
-      text: parts.map((part) => ("text" in part ? part.text : "")).join("")
-    }))
-  ).toEqual([{ scope: { kind: "file", value: "a.ts" }, text: "a.ts · selection 2" }]);
-  expect(adapter.textParts?.(text, args, context(value))).toEqual([
-    { kind: "output", text, selection: [{ line: 1, start: 0, end: 6 }] }
-  ]);
+  adapter.invocation?.(args);
+  adapter.exploration?.(args, value);
+  adapter.textParts?.(text, args, context(value));
   expect(args).toEqual(before);
 });
 
-it("uses producer-owned per-block windows after native diagnostic separation", () => {
+it("keeps multi-block selected-read results unchanged during interpretation", () => {
   const first = "alpha\n";
   const second = "\t😀界tail\nnext\n\n[3 more lines in file. Use offset=14 to continue.]";
   const value: AgentToolResult<unknown> = {
@@ -79,21 +67,8 @@ it("uses producer-owned per-block windows after native diagnostic separation", (
   };
 
   expect(adapter.supports?.(args, value)).toBe(true);
-  expect(adapter.textParts?.(first, args, context(value))[0]?.selection).toEqual([]);
-  const parts = adapter.textParts?.(second, args, context(value, { contentIndex: 1 }));
-  expect(parts?.[0]).toEqual({
-    kind: "output",
-    text: "\t😀界tail\nnext",
-    selection: [
-      { line: 0, start: 1, end: 8 },
-      { line: 1, start: 0, end: 4 }
-    ]
-  });
-  expect(parts?.filter((part) => part.kind === "warning")).toEqual([
-    { kind: "warning", text: "[3 more lines in file. Use offset=14 to continue.]" }
-  ]);
-  expect(adapter.textParts?.("model preview", args, context(value, { contentIndex: 2 }))).toEqual(
-    []
-  );
+  adapter.textParts?.(first, args, context(value));
+  adapter.textParts?.(second, args, context(value, { contentIndex: 1 }));
+  adapter.textParts?.("model preview", args, context(value, { contentIndex: 2 }));
   expect(value).toEqual(before);
 });

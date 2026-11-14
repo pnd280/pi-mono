@@ -9,12 +9,7 @@ import entry from "../index.ts";
 import type { SummaryContext, SummaryEvents, SummaryExtensionAPI } from "./index.ts";
 
 const cleanup: (() => Promise<void>)[] = [];
-beforeEach(() =>
-  vi.useFakeTimers({
-    toFake: ["Date", "setInterval", "clearInterval", "performance"],
-    now: new Date("2026-01-01T14:34:56.000Z")
-  })
-);
+beforeEach(() => vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] }));
 afterEach(async () => {
   try {
     for (const dispose of cleanup.splice(0)) await dispose();
@@ -24,7 +19,7 @@ afterEach(async () => {
   }
 });
 
-export function fixture(mode: SummaryContext["mode"] = "tui") {
+export function fixture() {
   const directory = mkdtempSync(join(tmpdir(), "pi-agent-summary-"));
   vi.stubEnv("PI_CODING_AGENT_DIR", directory);
   const handlers: {
@@ -42,13 +37,12 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     message_end: [],
     tool_execution_start: []
   };
-  const setWorkingMessage = vi.fn();
   const ctx: SummaryContext = {
     cwd: directory,
-    mode,
+    mode: "tui",
     isIdle: () => true,
     isProjectTrusted: () => false,
-    ui: { setWorkingMessage, notify: vi.fn() }
+    ui: { setWorkingMessage: vi.fn(), notify: vi.fn() }
   };
   const api: SummaryExtensionAPI = {
     events: createEventBus(),
@@ -78,5 +72,5 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   entry(api as Parameters<typeof entry>[0]);
 
-  return { api, ctx, setWorkingMessage, emit };
+  return { api, ctx, emit };
 }

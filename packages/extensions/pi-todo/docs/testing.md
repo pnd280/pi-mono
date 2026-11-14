@@ -19,5 +19,5 @@ This package tests mutation atomicity, replayable snapshots, tool exposure, and 
 ## Not tested
 
 - Activation rules, widget collapse settings, widget layout, and the read-only browser are below the severity bar. The mutation and replay tests also exercise schema projection, rejected hierarchy and dependency changes, field limits, and model-facing list bounds as part of the listed invariants.
-- Libs own full snapshots of shared tree and layout output.
+- Shared TUI layout is checked manually; use the [shared TUI validation](../../../libs/src/tui/README.md#validation).
 - Pi owns its session persistence internals.

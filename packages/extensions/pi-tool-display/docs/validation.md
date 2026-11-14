@@ -342,6 +342,17 @@ Setup: load pi-tool-display and `pi-read`. Include repeated reads, tabs, wide ch
 | Expand and collapse groups at narrow and wide terminal sizes in light and dark themes. | Expanded reads show source once, without the appended preview.   |
 | Replay the session and expand a read.                                                  | The selection remains highlighted without repeating the preview. |
 
+### pi-todo
+
+Setup: load pi-tool-display and `pi-todo` in a disposable project, and use compact mode. The [fixed-plan terminal fixture](#terminal-launcher) makes no todo calls. Compare the cards with the [todo card rules](tools.md#todo) for exact wording and limits.
+
+| Do                                                                             | Expect                                                                                                                    |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Ask the model to create several todos, then update one to `in_progress`.       | Adjacent calls form one collapsed `Todos` group. Statuses and progress match the pi-todo widget and the `/todos` browser. |
+| Delete a todo, then list with a status filter and with `includeDeleted: true`. | List cards keep the output preview beside the summary and report the number of matching todos.                            |
+| Ask the model to call `todo` with arguments it cannot accept, such as `{}`.    | The call gets an ungrouped generic card, such as `Call failed todo({})`.                                                  |
+| Expand a todo card.                                                            | The full result text returns.                                                                                             |
+
 ## Platform limitations
 
 - Inline images need a native protocol that works in fullscreen, such as Kitty. Pi disables iTerm2 images in fullscreen (observed in Pi 0.99.2).

@@ -24,9 +24,10 @@ This package tests selection validation, the guard around Pi's native `read`, pr
 
 In Pi, read a file with a multiline selection that includes tabs and wide characters.
 
-| Do                                                 | Expect                                                             |
-| -------------------------------------------------- | ------------------------------------------------------------------ |
-| View the read collapsed and expanded.              | Context stays visible, and the preview isn't shown twice.          |
-| Narrow the terminal.                               | Highlighting stays on the selected span.                           |
-| Switch between light and dark themes.              | The highlight is readable in both.                                 |
-| Read an image and a missing file with a selection. | Each card matches Pi's native read and shows no selection preview. |
+| Do                                                         | Expect                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| View the read collapsed and expanded.                      | Context stays visible, and the preview isn't shown twice.          |
+| Narrow the terminal.                                       | Highlighting stays on the selected span.                           |
+| Switch between light and dark themes.                      | The highlight is readable in both.                                 |
+| Read an image and a missing file with a selection.         | Each card matches Pi's native read and shows no selection preview. |
+| Call `tools.read` with a selection from a codemode script. | The script gets the source without the selection preview.          |

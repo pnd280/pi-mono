@@ -1,6 +1,6 @@
 # pi-read
 
-The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. pi-read gives Pi's `read` a `selection` argument: the result keeps the usual surrounding lines, adds a short preview of just the selected span, and highlights the span when you expand the read.
+The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. pi-read gives Pi's `read` a `selection` argument: the result keeps the usual surrounding lines, adds a short preview of just the selected span to direct calls, and highlights the span when you expand the read.
 
 For `src/example.ts:12:4-15:9`, the model puts the filename in `path`, the span in `selection`, and the lines to read in `offset` and `limit`:
 
@@ -20,9 +20,9 @@ For `src/example.ts:12:4-15:9`, the model puts the filename in `path`, the span 
 
 ## Controls
 
-| Control           | Effect                                                                                                                             |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `read` model tool | Pi's `read` with an optional `selection` argument that adds a preview of the selected span and highlights it in the expanded read. |
+| Control           | Effect                                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read` model tool | Pi's `read` with an optional `selection` argument that adds a preview of the selected span to direct calls and highlights it in the expanded read. |
 
 ## Usage
 
@@ -38,7 +38,7 @@ The read window and the selection are independent: `offset` and `limit` choose t
 
 ### Preview
 
-The extension appends the preview after the file content and leaves the content unchanged.
+In a direct call, the extension appends the preview after the file content and leaves the content unchanged. A codemode script's `tools.read` gets Pi's native text result without the selection preview.
 
 - It shows at most five lines, and 500 code points per line, with `…` marking omissions.
 - If the selection extends beyond the read window, the preview may be partial.

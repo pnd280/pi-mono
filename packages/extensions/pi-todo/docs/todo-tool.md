@@ -10,7 +10,7 @@ The model calls the `todo` tool with one of these actions: `create`, `update`, `
 
 ## Parameters
 
-The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and applies the field limits from [limits](../src/state/limits.ts).
+The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and applies the field [limits](#limits).
 
 | Parameter                         | Actions                   | Meaning                                                                                 |
 | --------------------------------- | ------------------------- | --------------------------------------------------------------------------------------- |
@@ -32,14 +32,32 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 - A todo's subject can't be empty.
 - New todos start as `pending`. Completed todos can't go back to `pending` or `in_progress`.
 - Todos can be nested. On `update`, `parentId: null` moves a todo and its children to the top level.
-- A todo can be _blocked by_ others. Cycles of blocking todos aren't allowed.
+- A todo can be _blocked by_ others. Cycles of blocking todos aren't allowed. A repeated ID in `blockedBy` or `addBlockedBy` counts as one blocker.
 - A parent's status and blockers don't affect its children.
 - `delete` leaves a hidden marker (a _tombstone_). `list` hides deleted todos unless `includeDeleted: true`.
 - A todo with children that are not deleted can be moved but not deleted.
 - `clear` removes everything and resets IDs.
-- `list` returns at most 200 lines and 32,768 characters, including any omission notice. The result details keep the full snapshot.
-- `get` returns the saved metadata as one line of JSON, shortened to 4,000 characters. The result details keep the stored value unchanged.
-- [Limits](../src/state/limits.ts) on input and state also apply when results are replayed.
+
+## Limits
+
+The tool refuses a call that would exceed one of these limits and leaves the todos unchanged. Lengths count UTF-16 code units of the stored text, after the tool cleans it for terminal display.
+
+| Limit                     | Value                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------- |
+| Todos                     | 1,000, including deleted todos until `clear`                                          |
+| Nesting depth             | 8 levels, counting the top level                                                      |
+| `subject`                 | 200 code units                                                                        |
+| `description`             | 4,000 code units                                                                      |
+| `inProgressLabel`         | 200 code units                                                                        |
+| `owner`                   | 200 code units                                                                        |
+| Blocking todos            | 100 IDs in each of `blockedBy`, `addBlockedBy`, and `removeBlockedBy`, and 100 stored |
+| `metadata`                | 16 KiB of JSON and 8 levels of nesting, after an `update` merges it                   |
+| Saved todo state          | 512 KiB of JSON                                                                       |
+| Result parameters, errors | 64 KiB of JSON on top of the saved todo state                                         |
+
+`list` returns at most 200 lines and 32,768 characters, including any omission notice. `get` returns the saved metadata as one line of JSON, shortened to 4,000 characters. In both cases the result details keep the full snapshot.
+
+The same limits apply when results are replayed. The values are defined in [limits](../src/state/limits.ts).
 
 ## Tool cards
 

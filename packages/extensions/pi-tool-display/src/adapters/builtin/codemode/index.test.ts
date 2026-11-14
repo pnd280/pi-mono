@@ -4,7 +4,6 @@ import {
   type CodemodeToolDetails,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
@@ -20,7 +19,6 @@ const info: ToolInfo = {
   sourceInfo: { path: "builtin:codemode", source: "builtin", scope: "user", origin: "top-level" }
 };
 const adapter = builtinCodemodeAdapter(info)!;
-const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
 const HEADER = "Script completed\nWall time 0.1 seconds\nOutput:\n";
 const code = [
   'await tools.read({ path: "nested.txt" });',
@@ -67,8 +65,8 @@ function render(supplied: AgentToolResult<unknown>, expanded: boolean) {
   const context = renderContext(expanded);
   const call = renderers.renderCall(args, theme, context);
   const body = renderers.renderResult(supplied, context, theme, context);
-
-  return { heading: plain(call.render(120)), body: plain(body.render(120)) };
+  call.render(120);
+  body.render(120);
 }
 
 beforeAll(() => initTheme("dark", false));

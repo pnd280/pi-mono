@@ -8,30 +8,30 @@ import {
   createWriteToolDefinition,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
+import { parsePatch } from "@pi-mono/utils/patch";
+import { z } from "zod";
+
 import {
   createBoundedPatch,
   patchLimitsSchema,
   type BoundedPatchResult,
   type PatchLimits
-} from "@pi-mono/libs/bounded-diff";
-import { observeNativeTools } from "@pi-mono/libs/native-tools";
-import { parsePatch } from "@pi-mono/utils/patch";
-import { z } from "zod";
-
+} from "../bounded-diff/index.ts";
+import { observeNativeTools } from "../host/native-tools/index.ts";
 import { decodeTextFile, observeTextFile, type FileObservation } from "./source.ts";
 
 export type { FileObservation } from "./source.ts";
 
-export type MutationPatch = BoundedPatchResult | { status: "source-unavailable" };
+export type MutationPatch = Readonly<BoundedPatchResult | { status: "source-unavailable" }>;
 
 export type FileMutation = {
-  path: string;
-  sequence: number;
-  before: FileObservation;
-  after: FileObservation;
-  outcome: "success" | "failure";
+  readonly path: string;
+  readonly sequence: number;
+  readonly before: FileObservation;
+  readonly after: FileObservation;
+  readonly outcome: "success" | "failure";
   /** Call-scoped cache. Do not retain this closure: it owns the captured source. */
-  patch: (limits: PatchLimits) => Promise<MutationPatch>;
+  readonly patch: (limits: PatchLimits) => Promise<MutationPatch>;
 };
 
 export interface MutationSink {

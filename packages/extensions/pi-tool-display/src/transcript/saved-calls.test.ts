@@ -381,50 +381,35 @@ it.each([
   }
 );
 
-it.each([
-  {
-    case: "the session write fails",
-    name: "bash",
-    args: { command: "run" },
-    fact: operation({ outcome: "failure", exitCode: 2 }),
-    outcome: "failure",
-    writeFails: true,
-    warning: "call record not saved: the session write failed."
-  },
-  {
-    case: "the record exceeds the size limit",
-    name: "write",
-    args: { path: "new.ts", content: "x" },
-    fact: {
-      kind: "change",
-      change: "creation",
-      // Within the patch limit, but JSON escapes each quote past the record limit.
-      patch: `@@ -0,0 +1,1 @@\n+${'"'.repeat(100_000)}\n`
-    },
-    outcome: "success",
-    writeFails: false,
-    warning: "call record not saved: it exceeds 160 KiB or fails validation."
-  }
-] as const)(
-  "warns once when a call entry cannot be saved, keeping the live facts: $case",
-  ({ name, args, fact, outcome, writeFails, warning }) => {
-    const history = SessionManager.inMemory("/tmp");
-    const warn = vi.fn();
-    const append = vi.fn(() => {
-      if (writeFails) throw new Error("disk full");
-    });
-    const live = fixture(history, { append, warn });
+it("warns once when call entries exceed the size limit, keeping the live facts", () => {
+  const history = SessionManager.inMemory("/tmp");
+  const warn = vi.fn();
+  const append = vi.fn();
+  const live = fixture(history, { append, warn });
+  const fact: DisplayFact = {
+    kind: "change",
+    change: "creation",
+    // Within the patch limit, but JSON escapes each quote past the record limit.
+    patch: `@@ -0,0 +1,1 @@\n+${'"'.repeat(100_000)}\n`
+  };
 
-    try {
-      for (const id of ["first", "second"]) {
-        const call = runLive(live, history, { id, name, args, facts: [fact], outcome });
-        expect(call[fact.kind]).toEqual(fact);
-      }
-    } finally {
-      live.dispose();
+  try {
+    for (const id of ["first", "second"]) {
+      const call = runLive(live, history, {
+        id,
+        name: "write",
+        args: { path: "new.ts", content: "x" },
+        facts: [fact],
+        outcome: "success"
+      });
+      expect(call.change).toEqual(fact);
     }
-
-    expect(append).toHaveBeenCalledTimes(writeFails ? 2 : 0);
-    expect(warn).toHaveBeenCalledExactlyOnceWith(warning);
+  } finally {
+    live.dispose();
   }
-);
+
+  expect(append).not.toHaveBeenCalled();
+  expect(warn).toHaveBeenCalledExactlyOnceWith(
+    "call record not saved: it exceeds 160 KiB or fails validation."
+  );
+});

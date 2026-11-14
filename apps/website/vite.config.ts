@@ -5,7 +5,7 @@ import viteReact from "@vitejs/plugin-react";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
 const config = defineConfig({
-  plugins: lazyPlugins(() => [devtools(), tailwindcss(), tanstackStart(), viteReact()])
+  plugins: [lazyPlugins(() => [devtools(), tailwindcss(), tanstackStart(), viteReact()])]
 });
 
 export default config;

@@ -16,7 +16,7 @@ import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import piSessionUtils from "../index.ts";
 
-async function host(settings: string) {
+async function host(settings: string, { fileBacked = false } = {}) {
   const directory = await createValidationWorkspace("pi-session-utils-host-");
   const resources: { runtime?: Awaited<ReturnType<typeof createAgentSessionRuntime>> } = {};
   onTestFinished(async () => {
@@ -92,7 +92,8 @@ async function host(settings: string) {
   const runtime = await createAgentSessionRuntime(createRuntime, {
     cwd,
     agentDir,
-    sessionManager: SessionManager.inMemory(cwd)
+    // A file-backed session has a path before Pi writes its first assistant message.
+    sessionManager: fileBacked ? SessionManager.create(cwd) : SessionManager.inMemory(cwd)
   });
   resources.runtime = runtime;
 
@@ -207,5 +208,18 @@ it("persists and creates a child, cancelling naming and preserving only the pare
   );
   expect(childTitleRequest).toBeDefined();
   expect(SessionManager.open(parentPath).getSessionName()).toBe("Parent name");
+  expect(errors).toEqual([]);
+});
+
+it("creates no child of a session whose allocated file is not yet written", async () => {
+  const { runtime, errors } = await host("{}", { fileBacked: true });
+  const parentPath = runtime.session.sessionFile!;
+  const parentId = runtime.session.sessionManager.getSessionId();
+  expect(existsSync(parentPath)).toBe(false);
+  await runtime.session.prompt("/sesh create-empty-child");
+  expect(runtime.session.sessionManager.getSessionId()).toBe(parentId);
+  expect(runtime.session.sessionFile).toBe(parentPath);
+  expect(runtime.session.sessionManager.getHeader()?.parentSession).toBeUndefined();
+  expect(existsSync(parentPath)).toBe(false);
   expect(errors).toEqual([]);
 });

@@ -48,7 +48,7 @@ export type FixtureStreamContext = {
   text: (text: string) => void;
 };
 
-export type FixtureStreamOptions = {
+type FixtureStreamOptions = {
   model: FixtureModel;
   signal?: AbortSignal | undefined;
   /** Scenarios, delays, tool calls, and cooperative cancellation remain in the fixture. */

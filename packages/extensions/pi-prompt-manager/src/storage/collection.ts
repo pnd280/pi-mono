@@ -46,7 +46,7 @@ function decode(raw: Buffer): unknown {
 }
 
 /**
- * JSON.parse returns only JSON values, so a non-finite number is the only value that a write would change (to null). Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
+ * A write would turn a non-finite number into null, so such a document must stay read-only. Every other parsed value is written back as the same JSON value, though not always with the same text or JavaScript value: negative zero, for example, is written as 0. Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
  */
 function finiteNumbers(value: unknown): boolean {
   const pending = [value];

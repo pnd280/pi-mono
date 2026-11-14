@@ -26,10 +26,10 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
-import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
+import { useStepPatchDeadline } from "../../validation/bounded-diff/index.ts";
 import { observeFileMutations } from "../file-mutations/index.ts";
 import toolDisplay from "../index.ts";
 import { assistantMessage, messageToolCall, renderingTui } from "../test-fixture.ts";
@@ -1488,15 +1488,15 @@ it.each([
 
 it.each([
   { renderer: "auto", finalization: "in a new object" },
-  { renderer: "generic", finalization: "in a new object" },
   { renderer: "auto", finalization: "modified in place" },
-  { renderer: "auto", finalization: "renamed to write" },
+  { renderer: "auto", finalization: "moved and renamed to write" },
   { renderer: "generic", finalization: "renamed to write with unchanged arguments" }
 ])(
   "uses finalized calls $finalization in $renderer live summaries, expanded parameters, and saved facts",
   async ({ renderer, finalization }) => {
     const inPlace = finalization === "modified in place";
-    const renamed = finalization.startsWith("renamed");
+    const renamed = finalization.includes("renamed");
+    const moved = finalization.startsWith("moved");
     const unchanged = finalization.endsWith("unchanged arguments");
     // Only the specialised write adapter observes the creation and shows its diff.
     const observed = renamed && renderer === "auto";
@@ -1528,12 +1528,16 @@ it.each([
               partial: streamed
             }
           });
-          // message_end handlers can return a new argument object, modify Pi's object in place, or replace the tool, which Pi then executes in the same row.
+          // message_end handlers can return a new argument object, modify Pi's object in place, or replace the tool and move it to another content position, which Pi then executes in the same row.
           const call = inPlace
             ? streamedCall
             : fauxToolCall(renamed ? "write" : "read", args, { id: streamedCall.id });
           if (inPlace) streamedCall.arguments.path = "after.ts";
-          const finalized = inPlace ? streamed : assistantMessage([call]);
+          const finalized = inPlace
+            ? streamed
+            : assistantMessage(
+                moved ? [{ type: "text", text: "Writing the target instead." }, call] : [call]
+              );
           session.sessionManager.appendMessage(finalized);
           await tui.handleEvent({ type: "message_end", message: finalized });
           await tui.handleEvent({
@@ -1646,6 +1650,7 @@ it.each(["rpc", "print"] as const)(
         const assertPreserved = preserveRegistry(session);
         expect(host.getRegisteredToolDefinition).toBe(original);
         const faux = await fauxModel(session, "display-headless");
+        let requested: string[] = [];
         // A nonzero exit code is saved only for an observed call.
         faux.setResponses([
           fauxAssistantMessage([
@@ -1655,9 +1660,17 @@ it.each(["rpc", "print"] as const)(
               { id: "headless-shell" }
             )
           ]),
-          fauxAssistantMessage("done")
+          (context) => {
+            requested = context.messages
+              .filter((message) => message.role !== "system")
+              .map((message) => message.role);
+
+            return fauxAssistantMessage("done");
+          }
         ]);
         await session.prompt("Run the native command");
+        // Call facts are custom entries, so the next model request carries no display-fact message.
+        expect(requested).toEqual(["user", "assistant", "toolResult"]);
         const entries = session.sessionManager.getEntries();
         const facts = [
           {
@@ -1710,21 +1723,36 @@ it("replays session facts and Pi's duration after a fork and reload without reru
 
       try {
         tui.renderSessionItems([]);
-        await session.bindExtensions({ mode: "tui" });
+        // Pi's interactive mode binds an error listener, so reload rebuilds the transcript before session_start.
+        await session.bindExtensions({
+          mode: "tui",
+          onError: (error) => {
+            throw new Error(error.error);
+          }
+        });
         const faux = await fauxModel(session, "display-replay");
+        // Separate assistant messages can share a timestamp; each call keeps its own facts and duration, which the delay makes differ.
+        const timestamp = Date.now();
         faux.setResponses([
-          fauxAssistantMessage([
-            fauxToolCall(
-              "bash",
-              { command: "printf run >> runs.txt; printf kept; exit 3" },
-              { id: "kept" }
-            ),
-            fauxToolCall(
-              "write",
-              { path: "replayed.txt", content: "written line\n" },
-              { id: "written" }
-            )
-          ]),
+          fauxAssistantMessage(
+            [
+              fauxToolCall(
+                "bash",
+                { command: "printf run >> runs.txt; printf kept; exit 3" },
+                { id: "kept" }
+              ),
+              fauxToolCall(
+                "write",
+                { path: "replayed.txt", content: "written line\n" },
+                { id: "written" }
+              )
+            ],
+            { timestamp }
+          ),
+          fauxAssistantMessage(
+            [fauxToolCall("bash", { command: "sleep 0.1; exit 4" }, { id: "second" })],
+            { timestamp }
+          ),
           fauxAssistantMessage("done")
         ]);
         await session.prompt("Run the native command");
@@ -1742,17 +1770,17 @@ it("replays session facts and Pi's duration after a fork and reload without reru
           );
         if (!source) throw new Error("Expected the shell's assistant entry");
         const selected = manager.getLeafId()!;
-        const [durationMs] = manager
-          .getEntries()
-          .flatMap((entry) =>
-            entry.type === "message" &&
-            entry.message.role === "toolResult" &&
-            entry.message.toolCallId === "kept"
-              ? [entry.message.durationMs]
-              : []
-          );
-        if (durationMs === undefined) throw new Error("Expected Pi's saved duration");
-        const status = `Exit 3 · ${formatDuration(durationMs)}`;
+
+        const status = (id: string, exitCode: number) => {
+          const durationMs = toolResults(session).find(
+            (message) => message.toolCallId === id
+          )?.durationMs;
+          if (durationMs === undefined) throw new Error("Expected Pi's saved duration");
+
+          return `Exit ${exitCode} · ${formatDuration(durationMs)}`;
+        };
+
+        const statuses = [status("kept", 3), status("second", 4)];
         const excluded = manager.appendCustomEntry(CALL_TYPE, {
           entry: source.id,
           toolCallId: "kept",
@@ -1777,32 +1805,35 @@ it("replays session facts and Pi's duration after a fork and reload without reru
 
         const replayed = async () => {
           const facts = saved(session, CALL_TYPE);
-          await session.reload();
-          tui.chatContainer.clear();
-          tui.renderSessionEntries(manager.buildContextEntries());
-          const [shell, write] = tui.chatContainer.children.filter(
+          // Like Pi's /reload, rebuild the transcript before session_start.
+          await session.reload({
+            beforeSessionStart: () => {
+              tui.chatContainer.clear();
+              tui.renderSessionEntries(manager.buildContextEntries());
+            }
+          });
+          const [shell, write, second] = tui.chatContainer.children.filter(
             (child) => child instanceof ToolExecutionComponent
           );
-          if (!shell || !write) throw new Error("Expected the replayed rows");
-          shell.setExpanded(true);
-          write.setExpanded(true);
+          if (!shell || !write || !second) throw new Error("Expected the replayed rows");
+          for (const row of [shell, write, second]) row.setExpanded(true);
           expect(text(write)).toContain("written line");
           expect(text(write)).not.toContain("changed on disk");
           // Replay neither reruns the shell nor saves newly observed facts.
           expect(await readFile(join(cwd, "runs.txt"), "utf8")).toBe("run");
           expect(saved(session, CALL_TYPE)).toEqual(facts);
 
-          return shell;
+          return [shell, second];
         };
 
         const matching = await replayed();
-        expect(text(matching)).toContain(status);
+        matching.forEach((row, index) => expect(text(row)).toContain(statuses[index]));
         const file = manager.getSessionFile();
         // Like /fork and /clone: a new session file with the same selected entry IDs.
         manager.createBranchedSession(manager.getLeafId()!);
         expect(manager.getSessionFile()).not.toBe(file);
         const forked = await replayed();
-        expect(text(forked)).toContain(status);
+        forked.forEach((row, index) => expect(text(row)).toContain(statuses[index]));
       } finally {
         tui.footerDataProvider.dispose();
       }

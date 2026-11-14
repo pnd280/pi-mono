@@ -6,22 +6,21 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 
 ## Usage
 
-| Library                                                | Responsibility                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------------- |
-| [tool-schema](src/tool-schema/README.md)               | Zod input projection into a limited Pi tool-schema profile                |
-| [codemode-notice](src/codemode-notice/README.md)       | A codemode notice in model-only tool descriptions while codemode is on    |
-| [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
-| [input-chain](src/input-chain/README.md)               | Input observers and ranked transforms from one `input` handler            |
-| [prompt-parts](src/prompt-parts/README.md)             | Ranked system-prompt parts appended once per run                          |
-| [lifecycle](src/lifecycle/README.md)                   | Startup barrier, shortcut claims, shutdown phase, and run marks           |
-| [settings-file](src/settings-file/README.md)           | Bounded reads, trusted scopes, and locked settings-section saves          |
-| [file-rename](src/file-rename/README.md)               | File replacement by rename, with bounded retries on Windows               |
-| [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
-| [timed-confirmation](src/timed-confirmation/README.md) | Target comparison and confirmation deadline                               |
-| [owned-hooks](src/owned-hooks/README.md)               | Property replacement and conditional restoration                          |
-| [output-buffer](src/output-buffer/README.md)           | UTF-8 decoding and bounded stream retention                               |
-| [native-tools](src/native-tools/README.md)             | Shared observation of verified native tools                               |
-| [bounded-diff](src/bounded-diff/README.md)             | Bounded unified-patch generation                                          |
+| Library                                                            | Responsibility                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [tool-schema](src/tool-schema/README.md)                           | Zod input projection into a limited Pi tool-schema profile                |
+| [codemode-notice](src/codemode-notice/README.md)                   | A codemode notice in model-only tool descriptions while codemode is on    |
+| [working-message](src/working-message/README.md)                   | Shared working-message contributions and saved ordering                   |
+| [input-chain](src/input-chain/README.md)                           | Input observers and ranked transforms from one `input` handler            |
+| [prompt-parts](src/prompt-parts/README.md)                         | Ranked system-prompt parts appended once per run                          |
+| [lifecycle](src/lifecycle/README.md)                               | Startup barrier, shortcut claims, shutdown phase, and run marks           |
+| [settings-file](src/settings-file/README.md)                       | Bounded reads, trusted scopes, and locked settings-section saves          |
+| [skill-reference-settings](src/skill-reference-settings/README.md) | Trusted loading of a skill-reference format setting                       |
+| [file-rename](src/file-rename/README.md)                           | File replacement by rename, with bounded retries on Windows               |
+| [tui](src/tui/README.md)                                           | Components, browser interaction, layout, terminal text, and host mounting |
+| [timed-confirmation](src/timed-confirmation/README.md)             | Target comparison and confirmation deadline                               |
+| [owned-hooks](src/owned-hooks/README.md)                           | Property replacement and conditional restoration                          |
+| [output-buffer](src/output-buffer/README.md)                       | UTF-8 decoding and bounded stream retention                               |
 
 The input-chain, prompt-parts, lifecycle, and working-message coordinators follow one [coordinator protocol](src/coordination/README.md), so their results do not depend on extension load order.
 
@@ -31,7 +30,6 @@ Use these entry points only in validation code:
 
 | Library                                                                    | Responsibility                                                                          |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [validation/bounded-diff](src/validation/bounded-diff/README.md)           | Step deadline for bounded patches in tests that expect a generated patch                |
 | [validation/interactive-host](src/validation/interactive-host/README.md)   | Installed interactive host for isolated in-process tests                                |
 | [validation/pi-process](src/validation/pi-process/README.md)               | Private workspace directories, isolated launch configuration, and shared compile caches |
 | [validation/provider](src/validation/provider/README.md)                   | Scripted assistant messages and event streams                                           |
@@ -46,8 +44,7 @@ Callers pass options per call. The [working-message coordinator](src/working-mes
 
 Each library has its own effects; none makes network requests.
 
-- Storage and observation libraries read and write local files.
-- The diff library generates patches in a worker thread.
+- Storage libraries read and write local files.
 - TUI libraries and hooks modify Pi's host state.
 
 ## Validation

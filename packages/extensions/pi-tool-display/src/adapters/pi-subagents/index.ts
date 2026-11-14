@@ -1,6 +1,5 @@
 import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { OPEN_EVENT } from "pi-subagents/constants";
 import {
@@ -9,6 +8,7 @@ import {
   launchArgItems,
   type ToolDetails
 } from "pi-subagents/details";
+import { usageText } from "pi-subagents/text";
 import { z } from "zod";
 
 import type {
@@ -58,21 +58,14 @@ const abortCategory: SummaryCategory = {
   count: { one: "aborted {n} subagent", other: "aborted {n} subagents" }
 };
 
-/** Non-breaking spaces keep the group on one row when it fits. */
-function usage({ usage }: ToolDetails): string {
-  if (!Object.values(usage).some((value) => value > 0)) return "";
-
-  return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
-}
-
 /** Only expanded fields name a returned call's task; failures put usage before the reason. */
 function secondary(details: ToolDetails): string {
   if (details.returned) return details.task_id === undefined ? "Waiting for capacity" : "";
   if (details.state === "queued") return "Waiting for capacity";
   if (details.state === "running") return "";
-  if (details.state === "completed") return usage(details);
+  if (details.state === "completed") return usageText(details);
 
-  return [usage(details), details.error].filter(Boolean).join(" · ");
+  return [usageText(details), details.error].filter(Boolean).join(" · ");
 }
 
 function status(details: ToolDetails): NonNullable<DisplayProgress["status"]> {
@@ -222,7 +215,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
       description: details.description,
       identity: `${details.model}:${details.thinking}`,
       status: { glyph: TUI_GLYPHS.outcome.cancelled, text: "aborted", tone: "success" },
-      secondary: usage(details),
+      secondary: usageText(details),
       ...times(details),
       fields: fields(details.task_id, undefined, undefined, details.launch_args)
     };

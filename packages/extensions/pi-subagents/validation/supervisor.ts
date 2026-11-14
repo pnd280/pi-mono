@@ -28,6 +28,8 @@ export class Supervisor {
       depth?: number;
       /** A working directory other than `work/`, from `createFixtureDirectory`. */
       cwd?: string;
+      /** More Pi arguments, after the fixture's own. */
+      args?: string[];
     } = {}
   ): Promise<Supervisor> {
     const launch = await createPiLaunch({
@@ -42,7 +44,8 @@ export class Supervisor {
         "scripted",
         options.trusted === false ? "--no-approve" : "--approve",
         ...(options.sessionId ? ["--session", options.sessionId] : []),
-        ...(options.fork ? ["--fork", options.fork] : [])
+        ...(options.fork ? ["--fork", options.fork] : []),
+        ...(options.args ?? [])
       ]
     });
     const host = new Supervisor(
@@ -54,8 +57,13 @@ export class Supervisor {
     try {
       await host.state();
     } catch (error) {
-      await host.stop();
-      throw error;
+      const stopped = await host.stop().then(
+        () => undefined,
+        (stopError: unknown) => stopError
+      );
+      throw stopped === undefined
+        ? error
+        : new AggregateError([error, stopped], "The supervisor failed to start and to stop");
     }
 
     return host;
@@ -190,14 +198,32 @@ export class Supervisor {
     });
   }
 
+  /**
+   * Rejects when the supervisor or a process that holds its output pipes outlives the step limit. The supervisor is then killed and its pipes closed, so the wait still ends.
+   */
   async stop(): Promise<void> {
+    const child = this.connection.process;
     this.connection.closeInput();
-    const timer = setTimeout(() => this.connection.process.kill("SIGKILL"), STEP_TIMEOUT_MS);
+    let timer: NodeJS.Timeout | undefined;
+    const deadline = new Promise<"deadline">((resolve) => {
+      timer = setTimeout(resolve, STEP_TIMEOUT_MS, "deadline");
+    });
 
     try {
-      await this.connection.closed;
+      if ((await Promise.race([this.connection.closed, deadline])) !== "deadline") return;
     } finally {
       clearTimeout(timer);
     }
+
+    const exited = child.exitCode !== null || child.signalCode !== null;
+    child.kill("SIGKILL");
+    child.stdout.destroy();
+    child.stderr.destroy();
+    await this.connection.closed;
+    throw new Error(
+      exited
+        ? "Another process held the supervisor's output pipes after the supervisor exited"
+        : `The supervisor did not exit after its input closed; stderr: ${this.connection.stderrTail}`
+    );
   }
 }

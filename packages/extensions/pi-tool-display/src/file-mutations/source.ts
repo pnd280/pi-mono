@@ -4,8 +4,16 @@ import { open } from "node:fs/promises";
 import { hasErrorCode } from "@pi-mono/utils/errors";
 
 export type FileObservation =
-  | { status: "ready"; text: string }
-  | { status: "missing" | "not-file" | "too-large" | "changed" | "invalid-utf8" | "unavailable" };
+  | { readonly status: "ready"; readonly text: string }
+  | {
+      readonly status:
+        | "missing"
+        | "not-file"
+        | "too-large"
+        | "changed"
+        | "invalid-utf8"
+        | "unavailable";
+    };
 
 /** Decode bytes the caller already read with the same complete-or-refuse rules. */
 export function decodeTextFile(bytes: Uint8Array, maxBytes: number): FileObservation {

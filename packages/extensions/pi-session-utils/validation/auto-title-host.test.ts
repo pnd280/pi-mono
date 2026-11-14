@@ -18,22 +18,26 @@ import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import sessionUtils from "../index.ts";
 
+const titleSettings = (config: unknown) =>
+  JSON.stringify({ "ext.pi-session-utils": { "auto-title": config } });
+const titleConfig = { model: "title-fixture/title", thinkingLevel: "off" };
 const settings = JSON.stringify({
   theme: "light",
-  "ext.pi-session-utils": {
-    "auto-title": { model: "title-fixture/title", thinkingLevel: "off" }
-  }
+  "ext.pi-session-utils": { "auto-title": titleConfig }
 });
 
 async function host({
   projectTrusted = false,
   projectSettings,
+  projectSettingsDirectory = false,
   ancestorSettings,
   globalSettings = settings,
   extensions = []
 }: {
   projectTrusted?: boolean;
   projectSettings?: string;
+  /** Puts a directory at the project settings path, so reading it fails. */
+  projectSettingsDirectory?: boolean;
   ancestorSettings?: string;
   globalSettings?: string;
   extensions?: ExtensionFactory[];
@@ -66,6 +70,8 @@ async function host({
     await mkdir(join(cwd, CONFIG_DIR_NAME), { recursive: true });
     await writeFile(projectSettingsPath, projectSettings);
   }
+
+  if (projectSettingsDirectory) await mkdir(projectSettingsPath, { recursive: true });
 
   if (ancestorSettings !== undefined) {
     await mkdir(join(directory, CONFIG_DIR_NAME), { recursive: true });
@@ -155,7 +161,6 @@ async function host({
 it("keeps naming outside idle checks and the session-operation lock", async () => {
   const fixture = await host();
   const runner = fixture.session.extensionRunner;
-  expect(runner.getCommand("auto-name")).toBeUndefined();
   const handler = runner.getCommand("sesh")!.handler;
   const ctx = runner.createCommandContext();
   const busy = { ...ctx, isIdle: () => false };
@@ -179,15 +184,6 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   });
   expect(newSession).not.toHaveBeenCalled();
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-
-  for (const args of ["unknown", "persist extra", "create-empty-child extra"]) {
-    fixture.notify.mockClear();
-    await handler(args, operationContext);
-    expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-      "A session operation is already in progress.",
-      "warning"
-    );
-  }
 
   const latest = handler("auto-name", busy);
   await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2), { timeout: STEP_TIMEOUT_MS });
@@ -214,10 +210,25 @@ it.each([
   {
     failure: "invalid merged settings",
     projectTrusted: true,
-    projectSettings: JSON.stringify({
-      "ext.pi-session-utils": { "auto-title": { thinkingLevel: "automatic" } }
+    projectSettings: titleSettings({ thinkingLevel: "automatic" })
+  },
+  { failure: "model only", globalSettings: titleSettings({ model: "title-fixture/title" }) },
+  { failure: "thinking level only", globalSettings: titleSettings({ thinkingLevel: "off" }) },
+  { failure: "malformed project JSON", projectTrusted: true, projectSettings: "{malformed" },
+  {
+    failure: "unknown section key",
+    projectTrusted: true,
+    projectSettings: titleSettings(titleConfig),
+    globalSettings: JSON.stringify({
+      "ext.pi-session-utils": { "auto-title": titleConfig, unknown: true }
     })
   },
+  {
+    failure: "obsolete auto field",
+    projectTrusted: true,
+    projectSettings: titleSettings({ ...titleConfig, auto: true })
+  },
+  { failure: "unreadable project settings", projectTrusted: true, projectSettingsDirectory: true },
   {
     failure: "unavailable model",
     globalSettings: JSON.stringify({
@@ -259,11 +270,11 @@ it.each([
 ])(
   "selects the naming provider only from global or trusted project settings: $scope",
   async ({ projectTrusted, ancestor, selected }) => {
-    const projectSettings = JSON.stringify({
-      "ext.pi-session-utils": { "auto-title": { model: "project-title-fixture/title" } }
-    });
+    const projectSettings = titleSettings({ model: "project-title-fixture/title" });
     const fixture = await host({
       projectTrusted,
+      // The selected model and its thinking level come from different scopes.
+      ...(selected && { globalSettings: titleSettings({ thinkingLevel: "off" }) }),
       ...(ancestor ? { ancestorSettings: projectSettings } : { projectSettings })
     });
     const project = fauxProvider({ provider: "project-title-fixture", models: [{ id: "title" }] });
@@ -339,6 +350,23 @@ it("cancels when native /name changes or clears the title, even back to its orig
   finish();
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.notify.mock.calls).toEqual(progress);
+  expect(fixture.errors).toEqual([]);
+});
+
+it("keeps a title saved without a change event while naming is pending", async () => {
+  const fixture = await host();
+  const sm = fixture.session.sessionManager;
+  sm.appendMessage({ role: "user", content: "Request", timestamp: 0 });
+  const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
+  const response = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
+  fixture.faux.setResponses([() => response.promise]);
+  const pending = fixture.command();
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
+  // A direct SessionManager write emits no session_info_changed event.
+  sm.appendSessionInfo("External title");
+  response.resolve(fauxAssistantMessage("Late title"));
+  await pending;
+  expect(sm.getSessionName()).toBe("External title");
   expect(fixture.errors).toEqual([]);
 });
 

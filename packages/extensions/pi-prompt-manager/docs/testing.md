@@ -17,7 +17,7 @@ This package tests collection formats, retention and recovery, activation, clipb
 - **Critical, integration:** The repository refuses unsafe private-file paths.
 - **Critical, integration:** The repository protects collection and directory permissions through the private-files module.
 - **Critical, integration:** Draft additions that exceed capacity are refused without evicting existing drafts.
-- **Critical, integration:** Deletion requires the selected UUID to stay unique in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
+- **Critical, integration:** Deletion requires the selected UUID to stay unique among usable records in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
 - **High, integration:** Session expiry cancels queued and processing operations before replacement and releases active processing resources. Its cleanup waits for started atomic writes and for cancelled operations to release their locks.
 - **High, integration:** Cleanup warnings after a commit stay committed outcomes, not failed writes that the extension retries.
 

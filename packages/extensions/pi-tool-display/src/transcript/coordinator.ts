@@ -91,9 +91,9 @@ type MutableRun = {
   ended: boolean;
 };
 
-/** A live call's row identity: its source message, tool-call ID, and tool name. */
-function liveIdentity(reference: DisplayCall["reference"], name: string): string {
-  return JSON.stringify([reference.messageTimestamp, reference.toolCallId, name]);
+/** A live call's row identity: its source message and tool-call ID. Pi keeps the row by tool-call ID when middleware moves or renames the call. */
+function liveIdentity(reference: DisplayCall["reference"]): string {
+  return JSON.stringify([reference.messageTimestamp, reference.toolCallId]);
 }
 
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
@@ -164,7 +164,7 @@ export class TranscriptCoordinator implements TranscriptView {
   }: CallInput): DisplayCall {
     const key = callKey(this.runtime, reference);
     // Finalised assistant middleware can remove/reorder blocks around a streamed call. Keep its runtime row identity; only historical calls use source position alone.
-    const identity = liveIdentity(reference, name);
+    const identity = liveIdentity(reference);
     const existing =
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
@@ -173,13 +173,6 @@ export class TranscriptCoordinator implements TranscriptView {
       const renamed = existing.name !== name;
 
       if (renamed) {
-        const previous = liveIdentity(existing.reference, existing.name);
-
-        if (this.liveIdentities.get(previous) === existing) {
-          this.liveIdentities.delete(previous);
-          this.liveIdentities.set(identity, existing);
-        }
-
         existing.name = name;
         existing.adapter = adapter;
       }
@@ -239,10 +232,17 @@ export class TranscriptCoordinator implements TranscriptView {
     if (this.validate(call, validated) || adapterChanged) this.changed(call);
   }
   /**
-   * Validate the raw arguments again and report whether the call's arguments changed. Middleware can modify Pi's argument object in place, so this compares values, not identities. Equal values keep the arguments and their cached interpretation.
+   * Validate the raw arguments again and report whether the call's arguments changed. Middleware can modify Pi's argument object in place, so an independent validated copy is compared by value: equal values keep the arguments and their cached interpretation. When validation returns the object that the call already holds, its earlier contents are unknown, so the call counts as changed.
    */
   private validate(call: MutableCall, validated: ValidatedArgs): boolean {
     const args = validated(call.name, this.rawArgs.get(call));
+
+    if (args === call.args && typeof args === "object" && args !== null) {
+      this.interpretations.delete(call);
+
+      return true;
+    }
+
     if (isDeepStrictEqual(call.args, args)) return false;
     call.args = args;
 

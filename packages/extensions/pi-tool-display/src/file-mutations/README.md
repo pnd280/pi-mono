@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../README.md) · [Recorded data and replay](../../docs/recording.md#observation)
 
-Change cards and saved patches need to know what native `edit` and `write` calls changed on disk, without rereading the targets. [`observeFileMutations`](index.ts) observes verified native `edit` and `write` operations through [`@pi-mono/libs/native-tools`](../../../../libs/src/native-tools/README.md). The [display collectors](../host/collection.ts) subscribe, and [`displayMutationSink`](../observation/native.ts) turns each mutation into display facts.
+Change cards and saved patches need to know what native `edit` and `write` calls changed on disk, without rereading the targets. [`observeFileMutations`](index.ts) observes verified native `edit` and `write` operations through [native tool observation](../host/native-tools/README.md). The [display collectors](../host/collection.ts) subscribe, and [`displayMutationSink`](../observation/native.ts) turns each mutation into display facts.
 
 ## Behaviour
 
@@ -64,4 +64,4 @@ pi.on("session_shutdown", () => mutations.dispose());
 - Source observations require complete, valid UTF-8. Distinguish missing files from unavailable snapshots.
 - Use `sequence`, which is assigned just before each disk write, instead of callback order for net comparisons.
 
-Related: patch limits and statuses come from [`@pi-mono/libs/bounded-diff`](../../../../libs/src/bounded-diff/README.md).
+Related: patch limits and statuses come from [bounded patch generation](../bounded-diff/README.md).

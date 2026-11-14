@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { deliverySchema } from "../details.ts";
 
-/** The bounds of a call's launch arguments, a template's launch arguments, and a template's prompt files. Together they keep a run record well below `RECORD_MAX_BYTES`. */
+/** The bounds of a call's launch arguments, a template's launch arguments, and a template's prompt files. Together with the task label that `Tasks.submit` bounds, they keep a run record below `RECORD_MAX_BYTES`, unless most of the characters are ones that JSON writes as six-byte escapes. */
 export const LAUNCH_ARGS_MAX_ITEMS = 32;
 
 export const LAUNCH_ARG_MAX_LENGTH = 2048;

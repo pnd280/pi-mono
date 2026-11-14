@@ -1,12 +1,12 @@
 # Bounded patch generation
 
-[Library index](../../README.md#usage)
+[pi-tool-display](../../README.md) · [Diff view](../rendering/diff-view/README.md)
 
-Compare two file versions without blocking the main thread, within caller-chosen byte and time budgets. [`createBoundedPatch`](index.ts) (`@pi-mono/libs/bounded-diff`) returns a unified patch or a status that says why there is none.
+Compare two file versions without blocking the main thread, within caller-chosen byte and time budgets. [`createBoundedPatch`](index.ts) returns a unified patch or a status that says why there is none.
 
 ## Behaviour
 
-`createBoundedPatch` asynchronously generates unified patches, normalising CRLF to LF and returning `binary` for NULs. The library does not read files; callers supply complete source text.
+`createBoundedPatch` asynchronously generates unified patches, normalising CRLF to LF and returning `binary` for NULs. The module does not read files; callers supply complete source text.
 
 One shared off-main-thread worker serialises requests. Request timeouts exclude queue wait. Worker startup has a separate 5-second deadline, so a request that starts a worker can wait that long before its own timeout begins. An idle worker does not keep the process alive.
 
@@ -25,7 +25,7 @@ Active and waiting inputs share a 64 MiB accounting budget, `PATCH_QUEUE_BYTES`,
 ## Usage
 
 ```ts
-import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
+import { createBoundedPatch } from "./bounded-diff/index.ts";
 
 const result = await createBoundedPatch({
   path: "src/index.ts",
@@ -59,4 +59,4 @@ Supply one options object:
 - Choose budget values. See [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
 - Classify the change and translate result statuses into diagnostics in the consumer.
 
-Related: patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [tool-display diff view](../../../extensions/pi-tool-display/src/rendering/diff-view/README.md).
+Related: patch parsing belongs to [`@pi-mono/utils/patch`](../../../../utils/src/patch.ts), and rendering belongs to the [diff view](../rendering/diff-view/README.md).

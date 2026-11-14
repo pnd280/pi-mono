@@ -79,26 +79,22 @@ const resultDetailsSchema = detailsSchema.extend({
 
 export type LateUsage = z.infer<typeof lateUsageSchema>;
 
-/** Splits `provider/model` at the first `/`; model IDs can contain `/`. */
-function splitModel(model: string): { provider: string; model: string } {
-  const index = model.indexOf("/");
+/** A model's provider and ID, kept apart: either can contain `/`. */
+export type ModelIdentity = Pick<LateUsage, "provider" | "model">;
 
-  return index < 0
-    ? { provider: "", model }
-    : { provider: model.slice(0, index), model: model.slice(index + 1) };
-}
-
-/** Usage after a background call returned, or `undefined` when there is none to count. */
+/**
+ * Usage after a background call returned, or `undefined` when there is none to count. `model` is the child's applied model; a child without one has made no model request.
+ */
 export function lateUsage(
   reported: SessionStats | undefined,
   end: SessionStats | undefined,
-  model: string
+  model: ModelIdentity | undefined
 ): LateUsage | undefined {
-  if (!reported || !end) return undefined;
+  if (!reported || !end || !model) return undefined;
   const usage = usageDifference(reported, end);
   if (!usage.totalTokens && !usage.cost.total) return undefined;
 
-  return { ...splitModel(model), usage };
+  return { provider: model.provider, model: model.model, usage };
 }
 
 /** The result message of a background or promoted task's run, from the run's completion. */

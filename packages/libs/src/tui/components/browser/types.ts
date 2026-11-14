@@ -13,7 +13,7 @@ export type BrowserSelectionAction<Item> = {
   run(item: Item): boolean | Promise<boolean>;
 };
 
-export type BrowserRemoval<Item> = {
+type BrowserRemoval<Item> = {
   label: string;
   confirmation: string;
   pending: string;

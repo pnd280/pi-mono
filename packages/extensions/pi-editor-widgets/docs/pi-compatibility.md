@@ -25,11 +25,10 @@ Each gate unwraps recorded hook predecessors.
 | `setExtensionStatus`                                 | Discovery temporarily replaces it and intercepts the receiver before native status effects.             |
 | `renderWidgets`                                      | The coordinator replaces native region mounting.                                                        |
 | `setExtensionFooter`                                 | The coordinator replaces it to detect ownership changes and calls it to acquire and release the footer. |
-| `createExtensionUIContext`                           | This private call supplies the live theme getter used by the coordinator.                               |
 | `switchTuiMode`                                      | The coordinator rebinds renderer hooks and restores regular-mode usage displays after mode changes.     |
 | `TuiMainScreen.doRender` and `TuiAltScreen.doRender` | The coordinator replaces each renderer's frame boundary to invalidate layout measurements.              |
 
-A failed gate leaves the coordinator inactive and reports the existing unsupported-host warning. Public `requestRender`, container methods, footer-provider methods, and session metrics retain capability checks; they are not private implementation hooks.
+A failed gate leaves the coordinator inactive and reports the existing unsupported-host warning. The coordinator reads the theme from the public `ctx.ui.theme`, which Pi keeps as a live proxy over the current theme, so it needs no private call or gate. Public `requestRender`, container methods, footer-provider methods, and session metrics retain capability checks; they are not private implementation hooks.
 
 ### Status discovery
 
@@ -52,6 +51,7 @@ Pi's stable UI reference is a forwarding proxy, so hook the real renderer and re
 
 The compositor recognises image prefixes before text measurement and preserves complete output under the [image placement policy](settings.md#how-rows-render). Image geometry, identifiers, and terminal placement remain Pi-owned.
 
+- [ ] `ctx.ui.theme` still forwards to the current theme after a theme change.
 - [ ] The stable `ui` reference is still a forwarding proxy, and `renderer` still returns the real renderer behind it.
 - [ ] The real renderer still renders each frame through its protected `doRender` method, also when keyboard input bypasses `requestRender`.
 - [ ] `switchTuiMode` still performs every switch between regular and fullscreen modes.
@@ -129,13 +129,12 @@ Never render an unknown context window as zero. The label shows the selected mod
 
 These private hooks have no complete public replacements in Pi 1.5.2:
 
-| Private hook                   | Parity                              | Public API that Pi would need                                |
-| ------------------------------ | ----------------------------------- | ------------------------------------------------------------ |
-| `setExtensionStatus` probe     | None                                | A read API for other extensions' widgets and statuses        |
-| `renderWidgets`                | None                                | A widget layout or placement provider                        |
-| `setExtensionFooter`           | Partial, through `ctx.ui.setFooter` | A footer-ownership change event                              |
-| `createExtensionUIContext`     | Partial, through `ctx.ui.theme`     | None, if the coordinator takes the theme from `ctx.ui.theme` |
-| `switchTuiMode`                | None                                | A TUI mode-change event                                      |
-| `doRender` and `requestRender` | None                                | A renderer frame or lifecycle hook                           |
+| Private hook                   | Parity                              | Public API that Pi would need                         |
+| ------------------------------ | ----------------------------------- | ----------------------------------------------------- |
+| `setExtensionStatus` probe     | None                                | A read API for other extensions' widgets and statuses |
+| `renderWidgets`                | None                                | A widget layout or placement provider                 |
+| `setExtensionFooter`           | Partial, through `ctx.ui.setFooter` | A footer-ownership change event                       |
+| `switchTuiMode`                | None                                | A TUI mode-change event                               |
+| `doRender` and `requestRender` | None                                | A renderer frame or lifecycle hook                    |
 
 When Pi adds a public registry, layout, mode-change, or renderer-lifecycle API, use it instead of the matching private hook. Replace the boundary and its tests together, without transitional adapters.

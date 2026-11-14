@@ -14,7 +14,13 @@ import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
+import {
+  END_ENTRY,
+  MARKER_ENTRY,
+  RECORD_MAX_BYTES,
+  RUN_ENTRY,
+  TASK_ID_ENV
+} from "../src/constants.ts";
 import { detailsSchema } from "../src/details.ts";
 import { readRunFile } from "../src/history/sessions.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
@@ -383,7 +389,37 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         expect((await stat(`${directory}/work/interrupted-effect`)).mtimeMs).toBe(effect.mtimeMs);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
 
-        // The supervisor stores two small entries per run, whatever its children write.
+        // A label that the tool accepts above the record limit leaves a run record that recovery keeps, so a rebuilt binding lists the task and resumes it in its child file.
+        await host.prompt("delegate-long-label");
+        const labelled = detailsSchema.parse((await host.results()).at(-1)!.details).task_id!;
+        const labelledRun = (await host.entries())
+          .flatMap((entry) =>
+            entry.type === "custom" && entry.customType === RUN_ENTRY ? [entry] : []
+          )
+          .at(-1)!;
+        expect(Buffer.byteLength(JSON.stringify(labelledRun.data))).toBeLessThanOrEqual(
+          RECORD_MAX_BYTES
+        );
+        const live = (await taskList(host)).find((task) => task.task_id === labelled)!;
+        await host.request({
+          type: "prompt",
+          message: `/fixture-parent-fork ${(await host.entries()).at(-1)!.id}`
+        });
+        const identity = {
+          task_id: labelled,
+          session_id: live.session_id,
+          session_file: live.session_file
+        };
+        expect((await taskList(host)).find((task) => task.task_id === labelled)).toMatchObject(
+          identity
+        );
+        await host.prompt(`history-id ${labelled}`);
+        expect(detailsSchema.parse((await host.results()).at(-1)!.details).state).toBe("completed");
+        expect((await taskList(host)).find((task) => task.task_id === labelled)).toMatchObject(
+          identity
+        );
+
+        // The supervisor stores two small entries per run, whatever its children write. Only the bounded long label above makes its run entry larger.
         const stored = host.records.flatMap((event) =>
           event.type === "entry_appended" &&
           event.entry.type === "custom" &&
@@ -407,7 +443,8 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         expect(new Set(ends).size).toBe(ends.length);
         expect(ends.every((run) => runs.includes(run))).toBe(true);
         for (const entry of stored)
-          expect(Buffer.byteLength(JSON.stringify(entry.data))).toBeLessThan(2048);
+          if (entry.id !== labelledRun.id)
+            expect(Buffer.byteLength(JSON.stringify(entry.data))).toBeLessThan(2048);
         expect(await readdir(join(directory, "agent"))).not.toContain("pi-subagents");
         expect(
           (await readdir(dirname(original.session_file))).filter((name) => name.endsWith(".lease"))
@@ -491,9 +528,22 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
 
         expect(await argvOrder(`argv-id ${tasks[0]!.task_id}`)).toBe(true);
 
-        /** The last `count` results by label, with each child's selection, launch arguments, and level. */
-        const launches = async (count: number) =>
-          Object.fromEntries(
+        /** The last `count` results by their call's description, with each child's selection, launch arguments, and level. */
+        const launches = async (count: number) => {
+          // The result's label adds the template name, which is below the severity bar.
+          const descriptions = new Map(
+            (await host.entries()).flatMap((entry) =>
+              entry.type === "message" && entry.message.role === "assistant"
+                ? entry.message.content.flatMap((part) =>
+                    part.type === "toolCall"
+                      ? [[part.id, z.string().parse(part.arguments.description)] as const]
+                      : []
+                  )
+                : []
+            )
+          );
+
+          return Object.fromEntries(
             (await host.results()).slice(-count).map((result) => {
               const details = detailsSchema.parse(result.details);
               expect(details.state).toBe("completed");
@@ -505,7 +555,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
               const mode = argv.indexOf("--mode");
 
               return [
-                details.description,
+                descriptions.get(result.toolCallId) ?? `Missing call ${result.toolCallId}`,
                 {
                   selection: /Selection: (\S+)/.exec(text)?.[1],
                   // The child's `process.argv` starts with Node and the Pi script.
@@ -515,6 +565,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
               ];
             })
           );
+        };
 
         // A call value replaces the template's value, and an omitted one takes it. The call's launch arguments come first, then the template's, then its prompt files as absolute paths in order. The extension's `--thinking` after `--mode` is the requested level.
         await host.prompt("delegate-template");
@@ -524,18 +575,18 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           ...prompts.flatMap((path) => ["--append-system-prompt", path])
         ];
         expect(await launches(3)).toEqual({
-          "[fixture] Template defaults": {
+          "Template defaults": {
             selection: "subagents-fixture/reasoning:high",
             args: [`--${LAUNCH_FLAG}`, "marker", ...templateArgs],
             thinking: "high"
           },
-          "[fixture] Template call thinking": {
+          "Template call thinking": {
             selection: "subagents-fixture/reasoning:low",
             args: templateArgs,
             thinking: "low"
           },
           // The scripted model has no thinking levels, so the child applies `off` to the template's requested level.
-          "[fixture] Template call model": {
+          "Template call model": {
             selection: "subagents-fixture/scripted:off",
             args: templateArgs,
             thinking: "high"
@@ -545,7 +596,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         // On resume, the template's values replace those of the task's latest run, which requested the default model and the marker arguments.
         await host.prompt(`template-resume ${tasks[0]!.task_id}`);
         expect(await launches(1)).toEqual({
-          "[fixture] Template resume": {
+          "Template resume": {
             selection: "subagents-fixture/reasoning:high",
             args: templateArgs,
             thinking: "high"

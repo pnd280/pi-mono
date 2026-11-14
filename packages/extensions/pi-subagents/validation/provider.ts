@@ -489,6 +489,9 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
         ].join("\n")
       }
     ];
+  // A label of `RECORD_MAX_BYTES`, which the tool schema accepts.
+  if (scenario === "delegate-long-label")
+    return [{ description: "x".repeat(1024 * 1024), prompt: "remember" }];
   if (scenario === "delegate-launch-error")
     return [
       {

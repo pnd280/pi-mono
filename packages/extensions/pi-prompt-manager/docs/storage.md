@@ -125,9 +125,9 @@ Collections are UTF-8 JSON with the canonical `cwd` and entries in newest-first 
 | ------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | Unavailable        | Invalid UTF-8 or JSON, an unsupported document, or read limits exceeded. | Nothing; repair by hand. The file is never overwritten. A missing file counts as empty.                                      |
 | Read-only          | Usable records with invalid UUIDs, or numbers that parse as non-finite.  | Inspecting, copying, and [safe restoring](../README.md#restore-text). Changes need a repair.                                 |
-| Ambiguous deletion | Duplicate UUIDs.                                                         | Every occurrence is kept, but those IDs can't be deleted. Unique IDs can still be deleted if the file is otherwise writable. |
+| Ambiguous deletion | Usable records with duplicate UUIDs.                                     | Every occurrence is kept, but those IDs can't be deleted. Unique IDs can still be deleted if the file is otherwise writable. |
 
-- Records with unusable text produce a warning and are ignored. A successful change may drop them.
+- Records with unusable text produce a warning and are ignored, including when UUIDs are checked for duplicates. A successful change may drop them.
 - "History" also ignores oversized records.
 - Each collection fails independently of the other.
 

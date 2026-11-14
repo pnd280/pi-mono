@@ -185,7 +185,7 @@ export class SavedCalls {
 
   /** Native observation of a live call started; only observed calls save operations. */
   observe(call: DisplayCall): void {
-    if (this.disposed || call.origin !== "live") return;
+    if (call.origin !== "live") return;
     this.sourceEntry(call);
     this.observed.set(call, this.observed.get(call) ?? {});
   }
@@ -202,12 +202,12 @@ export class SavedCalls {
 
   /** Pi's end event. Extensions can still replace the result before Pi saves it. */
   end(call: DisplayCall, outcome: Outcome): void {
-    if (!this.disposed && call.origin === "live") this.ended.set(call, outcome);
+    if (call.origin === "live") this.ended.set(call, outcome);
   }
 
   /** Pi's final result message. Write at most one call entry; Pi appends the result after it. */
   finish(call: DisplayCall, result: AgentToolResult<unknown>, published: Outcome): void {
-    if (this.disposed || call.origin !== "live") return;
+    if (call.origin !== "live") return;
     const observed = this.observed.get(call);
     const ended = this.ended.get(call);
     this.observed.delete(call);
@@ -231,7 +231,7 @@ export class SavedCalls {
 
   /** Restore saved facts, again once Pi's result supplies its outcome and duration. */
   replay(call: DisplayCall): void {
-    if (this.disposed || call.origin !== "historical") return;
+    if (call.origin !== "historical") return;
     const { coordinator, history } = this.options;
     const { messageEntryId: entry, toolCallId } = call.reference;
     if (!entry) return;
@@ -246,7 +246,7 @@ export class SavedCalls {
     if (operation) coordinator.fact(call, operation);
   }
 
-  /** Pi lets a run settle before it ends or replaces a session, so no call is still running. */
+  /** Observation callbacks can outlive their session; facts they report afterwards are dropped. The disposed session makes no other calls. */
   dispose(): void {
     this.disposed = true;
   }

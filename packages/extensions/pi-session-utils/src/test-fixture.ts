@@ -4,8 +4,6 @@ type SeshHandler = Parameters<
   Parameters<typeof registerSessionCommand>[0]["registerCommand"]
 >[1]["handler"];
 
-export type SessionCommandContext = Parameters<SeshHandler>[1];
-
 /** Returns the `/sesh` handler, so tests drive session operations through the registered command. */
 export function registerSesh(): SeshHandler {
   const handlers: SeshHandler[] = [];

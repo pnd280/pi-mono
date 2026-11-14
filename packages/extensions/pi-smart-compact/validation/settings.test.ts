@@ -14,14 +14,78 @@ import { expect, it } from "vite-plus/test";
 import smartCompact from "../index.ts";
 import { sdkSessionFixture } from "./sdk-session.ts";
 
-it.each([
+const section = (config: unknown) => JSON.stringify({ "ext.pi-smart-compact": config });
+const route = (provider: string) =>
+  section({
+    rules: [{ match: "^compact-settings/", model: `${provider}/summary`, thinkingLevel: "off" }]
+  });
+
+// Both scopes share readSection (src/config.ts), so each rejected section appears in one participating scope.
+const rejected = [
+  { failure: "null section", config: null },
+  { failure: "missing match", config: { rules: [{ model: "compact-global/summary" }] } },
+  { failure: "invalid regex", config: { rules: [{ match: "(" }] } },
+  { failure: "malformed model", config: { rules: [{ match: "", model: "model-only" }] } },
+  {
+    failure: "invalid thinking level",
+    config: { rules: [{ match: "", thinkingLevel: "automatic" }] }
+  },
+  { failure: "invalid manual flag", config: { applyToManual: "true" } },
+  { failure: "invalid automatic flag", config: { applyToAuto: null } },
+  { failure: "empty focus path", config: { compactionInstructionsFile: "   " } },
+  { failure: "unknown key", config: { unknown: true } }
+].map(({ failure, config }, index) =>
+  index % 2
+    ? { scope: `global ${failure}`, projectTrusted: true, global: section(config) }
+    : { scope: `trusted project ${failure}`, projectTrusted: true, project: section(config) }
+);
+
+it.each<{
+  scope: string;
+  projectTrusted: boolean;
+  global?: string;
+  project?: string;
+  expectedProvider?: string;
+  details?: object;
+}>([
   { scope: "untrusted project", projectTrusted: false, expectedProvider: "compact-global" },
   { scope: "trusted project", projectTrusted: true, expectedProvider: "compact-project" },
-  // Both scopes share readSection (src/config.ts); config.test.ts rejects each invalid file in both scopes.
-  { scope: "invalid trusted project", projectTrusted: true, expectedProvider: undefined }
+  { scope: "malformed trusted project", projectTrusted: true, project: "{invalid" },
+  {
+    scope: "bare first match",
+    projectTrusted: false,
+    global: section({
+      rules: [
+        { match: "^other/", model: "compact-project/summary", thinkingLevel: "off" },
+        { match: "/active$" },
+        { match: "", model: "compact-global/summary", thinkingLevel: "off" }
+      ]
+    }),
+    expectedProvider: "compact-settings",
+    details: { scheduled: true }
+  },
+  {
+    scope: "unmerged first match",
+    projectTrusted: false,
+    global: section({
+      rules: [
+        { match: "^compact-settings/", model: "compact-global/summary" },
+        { match: "", model: "compact-project/summary", thinkingLevel: "high" }
+      ]
+    }),
+    expectedProvider: "compact-global",
+    details: { scheduled: true, modelOverride: "compact-global/summary", thinkingLevel: "off" }
+  },
+  ...rejected
 ])(
   "routes requested compaction only through valid participating settings: $scope",
-  async ({ scope, projectTrusted, expectedProvider }) => {
+  async ({
+    projectTrusted,
+    global: globalSettings = route("compact-global"),
+    project: projectSettings = route("compact-project"),
+    expectedProvider,
+    details
+  }) => {
     const active = fauxProvider({ provider: "compact-settings", models: [{ id: "active" }] });
     const global = fauxProvider({ provider: "compact-global", models: [{ id: "summary" }] });
     const project = fauxProvider({ provider: "compact-project", models: [{ id: "summary" }] });
@@ -83,20 +147,9 @@ it.each([
     ]);
 
     try {
-      const section = (provider: string) =>
-        JSON.stringify({
-          "ext.pi-smart-compact": {
-            rules: [
-              { match: "^compact-settings/", model: `${provider}/summary`, thinkingLevel: "off" }
-            ]
-          }
-        });
-      await writeFile(join(fixture.agentDir, "settings.json"), section("compact-global"));
+      await writeFile(join(fixture.agentDir, "settings.json"), globalSettings);
       await mkdir(join(fixture.cwd, CONFIG_DIR_NAME), { recursive: true });
-      await writeFile(
-        join(fixture.cwd, CONFIG_DIR_NAME, "settings.json"),
-        scope === "invalid trusted project" ? "{invalid" : section("compact-project")
-      );
+      await writeFile(join(fixture.cwd, CONFIG_DIR_NAME, "settings.json"), projectSettings);
       const { session } = fixture;
       session.settingsManager.setProjectTrusted(projectTrusted);
       session.settingsManager.applyOverrides({
@@ -122,6 +175,7 @@ it.each([
       );
       expect(results).toHaveLength(1);
       expect(results[0]?.isError).toBe(expectedProvider === undefined);
+      if (details) expect(results[0]?.details).toEqual(details);
       if (expectedProvider === undefined)
         expect(results[0]).toHaveProperty(
           "content.0.text",

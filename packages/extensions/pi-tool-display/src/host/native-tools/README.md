@@ -1,8 +1,8 @@
 # Native tool observation
 
-[Library index](../../README.md#usage)
+[pi-tool-display](../../../README.md)
 
-Independently loaded extensions that react to native Pi tools would each wrap the same tools if they worked alone. [`@pi-mono/libs/native-tools`](index.ts) shares one observation of verified native Pi tool definitions, from both the API and the CLI, across those consumers.
+The display collectors and [file mutation observation](../../file-mutations/README.md) both react to native Pi tools, and would each wrap the same tools if they worked alone. [`observeNativeTools`](index.ts) shares one observation of verified native Pi tool definitions, from both the API and the CLI, across those subscribers.
 
 ## Behaviour
 
@@ -12,7 +12,7 @@ Observation excludes SDK overrides, custom tools, and changed definitions. It pr
 
 - Each tool gets at most one wrapper, from the first eligible subscriber that lists its name.
 - Subscriptions have independent lifetimes.
-- Disposal restores only replacements that this library still owns.
+- Disposal restores only replacements that this module still owns.
 - After their subscriber is disposed, retained wrappers call the original tool.
 - A callback that disposes another subscriber prevents later callbacks to that subscriber in the same dispatch.
 
@@ -23,7 +23,7 @@ If Pi's construction contract is not recognised, or an observer callback throws,
 ## Usage
 
 ```ts
-import { observeNativeTools } from "@pi-mono/libs/native-tools";
+import { observeNativeTools } from "./native-tools/index.ts";
 
 // During extension loading, before Pi builds the runtime.
 const native = observeNativeTools({
@@ -61,8 +61,8 @@ pi.on("session_shutdown", () => native.dispose());
 - Use `isNative(session, name, tool?)` to check whether the current definition is verified, including shared replacements. Pass `tool` when you already hold the name's `ToolInfo`. Otherwise the check reads `session.getAllTools()`, which builds info for every tool.
 - Keep policy, warnings, and persistence in the consumer.
 
-Related: [pi-tool-display](../../../extensions/pi-tool-display/README.md) observes `bash` and `powershell` through this library, and wraps `edit` and `write` through its [file mutation observation](../../../extensions/pi-tool-display/src/file-mutations/README.md).
+Related: the [display collectors](../collection.ts) observe `bash` and `powershell` through this module, and wrap `edit` and `write` through [file mutation observation](../../file-mutations/README.md).
 
 ## Validation
 
-The display [API](../../../extensions/pi-tool-display/src/host/install.test.ts) and [installed-CLI](../../../extensions/pi-tool-display/src/host/install-cli.test.ts) suites exercise integration.
+The display [API](../install.test.ts) and [installed-CLI](../install-cli.test.ts) suites exercise integration.

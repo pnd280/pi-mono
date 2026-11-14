@@ -36,7 +36,6 @@ export type WidgetHost = {
   footerContainer: Container;
   customFooter: NativeComponent | undefined;
   footerDataProvider: ReadonlyFooterDataProvider;
-  createExtensionUIContext(): ExtensionContext["ui"];
   renderWidgets(): void;
   setExtensionFooter: ExtensionContext["ui"]["setFooter"];
 };
@@ -62,10 +61,6 @@ const hostHashes = {
   setExtensionFooter: new Set([
     "7eed76ffc30d64b63edf638c82d2571b1f95ce637cf7daf3f5537afd9f2ae5cc",
     "f37882eace0d7aa8fe719440cb51d57134ca33652d811d84ffcce2460f199112"
-  ]),
-  createExtensionUIContext: new Set([
-    "9d4e6324456b3fbeafc0164acdce2495d40f8807cf969986761ef6e7e82cf45a",
-    "d5a9dc7b63e0b1be41091d34aae592c0a7451d86eaa837b97bdae81c5d34e49f"
   ])
 };
 
@@ -163,7 +158,6 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
   }
 
   if (!compatible(found)) return undefined;
-  const nativeUI = found.createExtensionUIContext();
 
-  return { host: found, theme: () => nativeUI.theme };
+  return { host: found, theme: () => ui.theme };
 }

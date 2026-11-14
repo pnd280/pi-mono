@@ -71,14 +71,23 @@ function hasAssistantBoundary(
   });
 }
 
+/** The source of each assistant message object that a read has seen, shared by live collection and transcript reconstruction. Pi saves the finalised message object and replays that object, so a replay reuses the source that its stream started and records the message's predecessor once. Distinct messages are distinct objects, even when their timestamps match. */
+const sources = new WeakMap<object, object>();
+
 /** Normalise messages and discover buffered calls before Pi constructs their rows. Streaming content is append-only; starts, finalisation, and replay scan the full message. Ordinary updates visit only the changed block and newly visible tail. */
 export class TranscriptMessages {
   private timestamp: number | undefined;
   private indexedContent = 0;
+  private source: object = {};
 
   constructor(private readonly ownNotices = false) {}
 
-  read(input: unknown, updatedContentIndex?: number): TranscriptMessage | undefined {
+  /** `continued` marks a stream update or the finalised version of the assistant message that the previous read started. Every other assistant message object is a new message unless a read has already seen it, even when its timestamp matches. */
+  read(
+    input: unknown,
+    updatedContentIndex?: number,
+    continued = false
+  ): TranscriptMessage | undefined {
     const value = record(input);
     // System updates are invisible; Pi decides whether usage/custom entries insert rows.
     if (value.role === "system" || value.type === "usage" || value.type === "custom") return;
@@ -93,35 +102,46 @@ export class TranscriptMessages {
       };
     if (value.role === "toolResult") return toolResult(value, input);
     if (value.role !== "assistant" || !Array.isArray(value.content)) return { kind: "boundary" };
-    const interruption = assistantInterruption(value);
 
+    return this.assistant(value, value.content, updatedContentIndex, continued);
+  }
+
+  private assistant(
+    value: Record<string, unknown>,
+    content: readonly unknown[],
+    updatedContentIndex: number | undefined,
+    continued: boolean
+  ): TranscriptMessage {
+    const interruption = assistantInterruption(value);
     const timestamp = Number(value.timestamp);
+    const same = continued && timestamp === this.timestamp;
+    if (!same) this.source = sources.get(value) ?? {};
+    sources.set(value, this.source);
     const start =
-      updatedContentIndex === undefined ||
-      timestamp !== this.timestamp ||
-      value.content.length < this.indexedContent
+      updatedContentIndex === undefined || !same || content.length < this.indexedContent
         ? 0
         : this.indexedContent;
     const calls: AssistantCall[] = [];
 
     if (updatedContentIndex !== undefined && updatedContentIndex < start) {
-      const call = assistantCall(value.content[updatedContentIndex], updatedContentIndex);
+      const call = assistantCall(content[updatedContentIndex], updatedContentIndex);
       if (call) calls.push(call);
     }
 
-    for (let index = start; index < value.content.length; index++) {
-      const call = assistantCall(value.content[index], index);
+    for (let index = start; index < content.length; index++) {
+      const call = assistantCall(content[index], index);
       if (call) calls.push(call);
     }
 
     this.timestamp = timestamp;
-    this.indexedContent = value.content.length;
+    this.indexedContent = content.length;
 
     return {
       kind: "assistant",
+      source: this.source,
       timestamp,
       calls,
-      boundary: hasAssistantBoundary(value, value.content),
+      boundary: hasAssistantBoundary(value, content),
       ...(interruption ? { interruption } : {})
     };
   }

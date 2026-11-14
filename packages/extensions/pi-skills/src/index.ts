@@ -4,6 +4,7 @@ import {
   type SlashCommandInfo
 } from "@earendil-works/pi-coding-agent";
 import { joinInputChain } from "@pi-mono/libs/input-chain";
+import { loadSkillReferenceFormat } from "@pi-mono/libs/skill-reference-settings";
 import {
   defaultSkillReferenceFormat,
   expandSkillReferences,
@@ -11,7 +12,6 @@ import {
 } from "@pi-mono/utils/skill-reference";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
-import { loadExpansionFormat } from "./config.ts";
 import { completeInlineSlash } from "./editor.ts";
 
 /** Expands references before later transforms; observers still see the typed text. */
@@ -38,7 +38,10 @@ export default function skills(pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    format = loadExpansionFormat(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
+    format = loadSkillReferenceFormat("ext.pi-skills", {
+      cwd: ctx.cwd,
+      projectTrusted: ctx.isProjectTrusted()
+    });
     if (ctx.mode !== "tui") return;
 
     ctx.ui.addAutocompleteProvider((current) =>

@@ -69,7 +69,7 @@ export function cloneTask(task: TaskCloneSource): Task {
   }
 
   if (task.parentId !== undefined) cloned.parentId = task.parentId;
-  if (task.blockedBy !== undefined) cloned.blockedBy = [...task.blockedBy];
+  if (task.blockedBy !== undefined) cloned.blockedBy = [...new Set(task.blockedBy)];
   if (task.owner !== undefined) cloned.owner = compactDisplayText(task.owner);
   if (task.metadata !== undefined) cloned.metadata = structuredClone(task.metadata);
 
@@ -590,7 +590,8 @@ function buildCreatedTask(
   if (parentId !== undefined) task.parentId = parentId;
   if (params.description) task.description = params.description;
   if (params.inProgressLabel) task.inProgressLabel = params.inProgressLabel;
-  if (params.blockedBy && params.blockedBy.length > 0) task.blockedBy = [...params.blockedBy];
+  if (params.blockedBy && params.blockedBy.length > 0)
+    task.blockedBy = [...new Set(params.blockedBy)];
   if (params.owner) task.owner = params.owner;
   if (params.metadata) task.metadata = structuredClone(params.metadata);
 
@@ -865,6 +866,12 @@ function validateUpdatedDependencies(
     }
 
     if (!nextBlockedBy.includes(dependency)) nextBlockedBy.push(dependency);
+  }
+
+  const mergedFailure = fieldLimitFailure({ blockedBy: nextBlockedBy });
+
+  if (mergedFailure !== undefined) {
+    return { ok: false, result: errorResult(state, "update", params, mergedFailure.error) };
   }
 
   if (detectCycle(state.tasks, current.id, nextBlockedBy)) {
