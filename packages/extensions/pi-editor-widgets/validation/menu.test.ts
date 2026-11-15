@@ -22,7 +22,12 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layo
     agentDir: fixture.agentDir,
     projectTrusted: true
   });
-  const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn(), vi.fn());
+  const coordinator = new WidgetCoordinator({
+    host: fixture.host,
+    theme: () => fixture.ui.theme,
+    warn: vi.fn(),
+    exec: vi.fn()
+  });
   const close = vi.fn();
   const requestRender = vi.fn();
   const preferences = settings.load();

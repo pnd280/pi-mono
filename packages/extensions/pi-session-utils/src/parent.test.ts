@@ -41,10 +41,10 @@ it("resolves paths and exact IDs without reading or migrating conversation histo
   const contents = readFileSync(parent, "utf8").replace('"version":3', '"version":1');
   writeFileSync(parent, `${contents}${"not parsed as conversation history".repeat(1000)}`);
   const before = readFileSync(parent, "utf8");
-  expect(resolveParentSession(parent, cwd)).toBe(parent);
-  expect(resolveParentSession(id, cwd)).toBe(parent);
+  expect(resolveParentSession(parent, { cwd })).toBe(parent);
+  expect(resolveParentSession(id, { cwd })).toBe(parent);
   expect(readFileSync(parent, "utf8")).toBe(before);
-  expect(() => resolveParentSession(id.slice(0, 8), cwd)).toThrow(Error);
+  expect(() => resolveParentSession(id.slice(0, 8), { cwd })).toThrow(Error);
 });
 
 // Creating symlinks on Windows needs Developer Mode or administrator rights.
@@ -54,10 +54,10 @@ it.skipIf(process.platform === "win32")(
     const custom = join(directory, "custom");
     mkdirSync(custom);
     symlinkSync(parent, join(custom, "link.jsonl"));
-    expect(resolveParentSession(id, cwd, custom)).toBe(parent);
+    expect(resolveParentSession(id, { cwd, sessionDir: custom })).toBe(parent);
     copyFileSync(parent, join(custom, "copy.jsonl"));
-    expect(() => resolveParentSession(id, cwd, custom)).toThrow(Error);
-    expect(resolveParentSession(parent, cwd, custom)).toBe(parent);
+    expect(() => resolveParentSession(id, { cwd, sessionDir: custom })).toThrow(Error);
+    expect(resolveParentSession(parent, { cwd, sessionDir: custom })).toBe(parent);
   }
 );
 
@@ -76,11 +76,11 @@ it("rejects missing, malformed, oversized, and non-file parents without leaking 
     })
   ]) {
     writeFileSync(invalid, contents);
-    expect(() => resolveParentSession(invalid, cwd)).toThrow(
+    expect(() => resolveParentSession(invalid, { cwd })).toThrow(
       expect.objectContaining({ message: excludesSecret })
     );
   }
 
-  expect(() => resolveParentSession(join(directory, "missing.jsonl"), cwd)).toThrow(Error);
-  expect(() => resolveParentSession(directory, cwd)).toThrow(Error);
+  expect(() => resolveParentSession(join(directory, "missing.jsonl"), { cwd })).toThrow(Error);
+  expect(() => resolveParentSession(directory, { cwd })).toThrow(Error);
 });

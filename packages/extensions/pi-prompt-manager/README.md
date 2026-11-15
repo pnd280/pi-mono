@@ -66,12 +66,9 @@ This example shows every field with its default. Remove the comments before you 
 ```jsonc
 {
   "ext.pi-prompt-manager": {
-    // Optional. How many history entries to keep. Default: 250.
-    // Numbers are floored and clamped to 1–5,000; numeric strings are invalid.
-    // Lowering it prunes on the next captured prompt.
+    // Optional. How many history entries to keep. Default: 250. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it prunes on the next captured prompt.
     "historyRetention": 250,
-    // Optional. Keys in Pi key syntax for each action.
-    // An empty list disables the action, and an invalid list uses the default.
+    // Optional. Keys in Pi key syntax for each action. An empty list disables the action, and an invalid list uses the default.
     "shortcuts": {
       // Optional. The keys that open "History". Default: ["ctrl+r"].
       "history": ["ctrl+r"],

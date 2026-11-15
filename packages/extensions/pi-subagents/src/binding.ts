@@ -237,7 +237,6 @@ export class SessionBinding {
     return stopped;
   }
 
-  /** Without `tasks`, while a session change stops them, the widget counts only jobs. */
   private showWidget(opened: Opened, tasks: Tasks | undefined): void {
     opened.widget.dispose();
     opened.widget = taskWidget(tasks, opened.jobs, opened.session.ui, () => {

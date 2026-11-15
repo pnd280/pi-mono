@@ -154,7 +154,7 @@ Both cards hide raw parameters by default, also on expansion. `showParameters: t
 
 ## Subagents
 
-Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as progress cards with status, model, and usage. Background jobs appear as cards with the command and job ID. In fullscreen, a click opens the task or job, after pi-subagents checks that the card is current and that it owns the task or job.
+Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as progress cards with status, model, and usage. Background jobs appear as cards with the command and job ID. In fullscreen, a click opens the task or job, under the [click rules](../README.md#mouse-and-terminal-modes).
 
 ### Task cards
 
@@ -234,7 +234,7 @@ Todo calls from [`pi-todo`](../../pi-todo/README.md) appear as `Todos` cards wit
 - Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 - After a result exists, incompatible arguments give ungrouped generic cards, for example `Call failed todo({})`.
 
-Todo calls are left out of [summary lines](presentation.md#notices-and-todo-calls-in-runs), including incompatible calls with generic cards. They add no counts, and a run of only todo calls shows no line.
+Todo calls are left out of [summary lines](presentation.md#notices-and-todo-calls-in-runs), including incompatible calls with generic cards.
 
 ## Nested instructions
 
@@ -244,7 +244,7 @@ Instruction notices from [`pi-nested-instructions`](../../pi-nested-instructions
 - Expand with Pi's tool-output shortcut (default **Ctrl+O**), or click the header in fullscreen, to read the formatted Markdown.
 - Only header clicks toggle the card. Selection and scrolling in the body stay native.
 - Notices with invalid details show their text beneath a generic heading.
-- Notices join the preceding run of this extension's tool calls, but do not cross unrelated messages or tools that keep their own renderer. They separate exploration groups without ending a run. A collapsed run hides its notices, and a notice without a preceding run stays standalone.
+- Notices join runs and separate exploration groups as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
 - Valid notices add loaded, updated, and removed counts to the run's summary line. Each file path, or directory for removals, counts once per action within the run. Invalid and standalone notices add no counts to another run.
 - Tool `rendererOverrides` and `showParameters` do not apply.
 - Saved notices render even without pi-nested-instructions loaded. Without pi-tool-display, Pi shows the full messages in its default renderer.

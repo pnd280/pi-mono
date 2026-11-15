@@ -56,7 +56,7 @@ Record one finding per cause with title, priority, category, classification, loc
 
 ### 4. Apply requested changes
 
-Implement authorised substitutions or extractions without repeat approval. Leave conditional redesigns outside that authorisation as decisions. Preserve identifiers, ownership, and consumer policy; remove superseded code, update all consumers and inaccurate documentation, and add compatibility aliases only if requested.
+Implement authorised substitutions or extractions without repeat approval. Leave conditional redesigns outside that authorisation as decisions. Preserve identifiers, ownership, and consumer policy.
 
 Follow [testing guidance](../../../../docs/agents/testing.md#coverage) to decide whether a regression test is allowed, which layer owns it, and for red/green evidence.
 

@@ -8,7 +8,7 @@ metadata:
 
 # Update Pi compatibility
 
-Accept a target version; when none is supplied, use the latest stable release and ask only if it is a pre-release or the request names another release line. Audit and planning requests are read-only; migration requests authorise routine compatible substitutions, subject to the decision boundaries below. Do not commit, stage, reset, or discard changes. Migrated code supports the target only; do not add fallbacks for earlier Pi versions.
+Accept a target version; when none is supplied, use the latest stable release and ask only if it is a pre-release or the request names another release line. Audit and planning requests are read-only; migration requests authorise routine compatible substitutions, subject to the decision boundaries below. Do not commit, stage, reset, or discard changes.
 
 ## Workflow
 

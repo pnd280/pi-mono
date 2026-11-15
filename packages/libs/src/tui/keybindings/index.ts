@@ -54,7 +54,7 @@ export const canonicalKeySchema = z
     return z.NEVER;
   });
 
-function canonicalKey(value: unknown): KeyId | undefined {
+function canonicalKey(value: string): KeyId | undefined {
   return canonicalKeySchema.safeParse(value).data;
 }
 

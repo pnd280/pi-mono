@@ -213,13 +213,19 @@ export default function subagents(
   /**
    * Registers the four tools when their exposure, docs, templates, or delivery changed since the last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi activates a `model-only` tool when it is first registered or when its exposure changes to `model-only`. With `--tools`, every registration activates each listed tool again, which would undo the active tools that a profile chose. A later registration therefore keeps the active tools from before it, and adds only the owned tools whose exposure turned on.
    */
-  const registerTools = (
-    tasks: boolean,
-    jobs: boolean,
-    docs: string,
-    templates: string,
-    delivers: boolean
-  ) => {
+  const registerTools = ({
+    tasks,
+    jobs,
+    docs,
+    templates,
+    delivers
+  }: {
+    tasks: boolean;
+    jobs: boolean;
+    docs: string;
+    templates: string;
+    delivers: boolean;
+  }) => {
     const key = JSON.stringify([tasks, jobs, docs, templates, delivers]);
     if (key === registered?.key) return;
     const previous = registered;
@@ -230,13 +236,13 @@ export default function subagents(
     const jobExposure = jobs ? "model-only" : "hidden";
     pi.registerTool({
       ...withCodemodeNotice(
-        createSubagentTool(
-          currentTasks,
-          emitOpen,
-          () => pi.events.emit(counterChannel, delegated),
+        createSubagentTool({
+          current: currentTasks,
+          open: emitOpen,
+          delegated: () => pi.events.emit(counterChannel, delegated),
           docs,
           templates
-        )
+        })
       ),
       exposure: taskExposure
     });
@@ -263,7 +269,7 @@ export default function subagents(
   };
 
   // Registered at load, so Pi activates them before any session_start handler, such as a profile, chooses the active tools.
-  registerTools(true, true, "", "", depth === 0);
+  registerTools({ tasks: true, jobs: true, docs: "", templates: "", delivers: depth === 0 });
 
   /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
   const open = async (ctx: ExtensionContext, { docs, ...opened } = session(ctx)) => {
@@ -275,7 +281,13 @@ export default function subagents(
     jobsOn = jobs && !foreign;
     // Print, JSON, and child runs end with their final reply, and their jobs end with them.
     const delivers = depth === 0 && ctx.mode !== "print" && ctx.mode !== "json";
-    registerTools(depth < maxDepth, jobsOn, docs, templateGuidance(templates), delivers);
+    registerTools({
+      tasks: depth < maxDepth,
+      jobs: jobsOn,
+      docs,
+      templates: templateGuidance(templates),
+      delivers
+    });
   };
 
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {

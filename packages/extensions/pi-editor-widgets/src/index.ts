@@ -38,12 +38,12 @@ export default function editorWidgets(pi: ExtensionAPI): void {
         throw new Error(
           "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.5.2 and /reload, or disable the extension. Native UI was left unchanged."
         );
-      coordinator = new WidgetCoordinator(
-        binding.host,
-        binding.theme,
-        (message) => notify(ctx, message),
-        (command, args, options) => pi.exec(command, args, options)
-      );
+      coordinator = new WidgetCoordinator({
+        host: binding.host,
+        theme: binding.theme,
+        warn: (message) => notify(ctx, message),
+        exec: (command, args, options) => pi.exec(command, args, options)
+      });
       apply(ctx, settingsFor(ctx).load());
     } catch (error) {
       notify(

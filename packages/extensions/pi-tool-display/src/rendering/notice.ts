@@ -33,14 +33,21 @@ const explanations = {
   removed: "The earlier instructions for this directory no longer apply."
 };
 
-function headerRows(
-  label: string,
-  file: string | undefined,
-  width: number,
-  expanded: boolean,
-  hasChildren: boolean,
-  theme: NoticeTheme
-): string[] {
+function headerRows({
+  label,
+  file,
+  width,
+  expanded,
+  hasChildren,
+  theme
+}: {
+  label: string;
+  file: string | undefined;
+  width: number;
+  expanded: boolean;
+  hasChildren: boolean;
+  theme: NoticeTheme;
+}): string[] {
   const marker = expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   const title = `${theme.fg("accent", marker)} ${theme.fg("accent", theme.bold(label))}`;
   const continuation = {
@@ -106,7 +113,14 @@ export function createNoticeRenderer() {
           }
 
           const hasChildren = expansion.expanded && child.length > 0;
-          const lines = headerRows(label, file, width, expansion.expanded, hasChildren, theme);
+          const lines = headerRows({
+            label,
+            file,
+            width,
+            expanded: expansion.expanded,
+            hasChildren,
+            theme
+          });
           headerHeight = lines.length;
           const items: TreeItem[] = [];
 

@@ -37,8 +37,7 @@ const MIN_DESCRIPTION_WIDTH = 16;
 function titleBorder(
   theme: Theme,
   kind: ViewerFrame["kind"],
-  description: string,
-  id: string,
+  { description, id }: { description: string; id: string },
   width: number
 ): string {
   const border = (text: string) => theme.fg("border", text);
@@ -157,10 +156,17 @@ function contextValues(
  */
 export function taskRows(
   theme: Theme,
-  record: TaskRecord,
-  parent: TaskRecord | undefined,
-  compactions: Compactions | undefined,
-  frame: string | undefined
+  {
+    record,
+    parent,
+    compactions,
+    frame
+  }: {
+    record: TaskRecord;
+    parent: TaskRecord | undefined;
+    compactions: Compactions | undefined;
+    frame: string | undefined;
+  }
 ): MetadataRow[] {
   let mode = "";
   if (record.state === "active")
@@ -298,7 +304,7 @@ export function renderViewer({
   const rows = Math.max(1, Math.floor(tui.terminal.rows * (tui.mode === "fullscreen" ? 1 : 3 / 4)));
   const { header, footer, height } = fitViewer(rows, {
     title: subject
-      ? titleBorder(theme, kind, subject.description, subject.id, width)
+      ? titleBorder(theme, kind, subject, width)
       : theme.fg("border", "─".repeat(width)),
     metadata: subject ? metadataTable(theme, subject.metadata, width) : [],
     diagnostics: diagnostics.map((text) => theme.fg("error", compactDisplayText(text))),

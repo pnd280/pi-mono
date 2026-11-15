@@ -27,13 +27,19 @@ const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   builtinToolSearchAdapter
 ];
 
-export function selectAdapter(
-  settings: DisplaySettings,
-  name: string,
-  original: Pick<ToolDefinition, "renderCall" | "renderResult"> | undefined,
-  native: boolean,
-  info?: ToolInfo
-): ToolDisplayAdapter | undefined {
+export function selectAdapter({
+  settings,
+  name,
+  original,
+  native,
+  info
+}: {
+  settings: DisplaySettings;
+  name: string;
+  original: Pick<ToolDefinition, "renderCall" | "renderResult"> | undefined;
+  native: boolean;
+  info?: ToolInfo | undefined;
+}): ToolDisplayAdapter | undefined {
   const mode = settings.valid ? (settings.rendererOverrides[name] ?? "auto") : "original";
   if (mode === "original") return undefined;
   if (mode === "generic") return genericAdapter;

@@ -350,7 +350,10 @@ function commandHints(name: string, command: Command, cwd: string): PathHint[] {
   return hints.flatMap((hint) => nativeHint(hint) ?? []);
 }
 
-export function bashHints(source: string, cwd: string, home: string): PathHint[] {
+export function bashHints(
+  source: string,
+  { cwd, home }: { cwd: string; home: string }
+): PathHint[] {
   const script = parse(source);
   if ((script.errors?.length ?? 0) > 0) return [];
   const hints: PathHint[] = [];

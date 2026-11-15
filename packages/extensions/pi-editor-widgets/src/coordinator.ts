@@ -47,13 +47,24 @@ export class WidgetCoordinator {
   private active = true;
   private readonly nativeFooter: WidgetHost["setExtensionFooter"];
   private unsubscribe: (() => void) | undefined;
+  private readonly host: WidgetHost;
+  private readonly theme: () => Theme;
+  private readonly warn: (message: string) => void;
 
-  constructor(
-    private readonly host: WidgetHost,
-    private readonly theme: () => Theme,
-    private readonly warn: (message: string) => void,
-    exec: ExtensionAPI["exec"]
-  ) {
+  constructor({
+    host,
+    theme,
+    warn,
+    exec
+  }: {
+    host: WidgetHost;
+    theme: () => Theme;
+    warn: (message: string) => void;
+    exec: ExtensionAPI["exec"];
+  }) {
+    this.host = host;
+    this.theme = theme;
+    this.warn = warn;
     if (host.customFooter)
       throw new Error(
         "pi-editor-widgets: footer conflict. Disable the other footer extension and /reload; native widgets and statuses remain supported."
@@ -326,13 +337,13 @@ export class WidgetCoordinator {
         source.available ? [[id, source.component] as const] : []
       )
     );
-    const separator = this.theme().fg("dim", " • ");
+    const options = { sources, width, separator: this.theme().fg("dim", " • ") };
     this.measured = {
       width,
       rendered: {
-        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator, "bottom"),
-        belowEditor: renderRows(layout.belowEditor, sources, width, separator),
-        footer: renderRows(layout.footer, sources, width, separator)
+        aboveEditor: renderRows(layout.aboveEditor, { ...options, align: "bottom" }),
+        belowEditor: renderRows(layout.belowEditor, options),
+        footer: renderRows(layout.footer, options)
       }
     };
 

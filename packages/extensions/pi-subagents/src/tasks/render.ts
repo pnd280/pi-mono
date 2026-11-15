@@ -100,8 +100,7 @@ export function field(
   theme: Theme,
   label: string,
   value: string,
-  width: number,
-  labelWidth: number
+  { width, labelWidth }: { width: number; labelWidth: number }
 ): string[] {
   const column = width >= labelWidth + 2 ? labelWidth : 0;
   const rows = value ? wrapRows(value, width - column) : [""];
@@ -327,7 +326,7 @@ class CardRow {
     const valueWidth = width - labelWidth;
     const pad = " ".repeat(labelWidth);
     const labelled = (label: string, value: string) =>
-      field(theme, label, value, width, LABEL_WIDTH);
+      field(theme, label, value, { width, labelWidth: LABEL_WIDTH });
 
     const title = `${theme.fg("toolTitle", theme.bold(this.kind))} ${theme.fg("toolTitle", displayLine(card.description) || "…")}`;
     const activity = card.activity ? theme.fg("muted", ` · now ${displayLine(card.activity)}`) : "";

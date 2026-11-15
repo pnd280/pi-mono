@@ -52,17 +52,13 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-editor-widgets": {
-    // Optional. Omit it to inherit the global layout, or in global settings to use the default layout.
-    // When present, all four regions are required and no other fields are allowed.
+    // Optional. Omit it to inherit the global layout, or in global settings to use the default layout. When present, all four regions are required and no other fields are allowed.
     "layout": {
-      // Rows above the editor. Each row lists widget:<key>, status:<key>, builtin:<name>, "separator", or "flex".
-      // Up to 1,000 rows, each with up to 1,000 entries. Default: no rows.
+      // Rows above the editor. Each row lists widget:<key>, status:<key>, builtin:<name>, "separator", or "flex". Up to 1,000 rows, each with up to 1,000 entries. Default: no rows.
       "aboveEditor": [],
       // Rows below the editor, with the same entries and limits. Default: no rows.
       "belowEditor": [["widget:git-status"]],
-      // Footer rows, with the same entries and limits. A row has each ID once and at most one "flex".
-      // Built-in names: cwd, git-branch, git-changes, session-title, tokens, context, and model.
-      // Default: cwd, git-branch, and session-title, then tokens and context with model right-aligned.
+      // Footer rows, with the same entries and limits. A row has each ID once and at most one "flex". Built-in names: cwd, git-branch, git-changes, session-title, tokens, context, and model. Default: cwd, git-branch, and session-title, then tokens and context with model right-aligned.
       "footer": [
         ["builtin:cwd", "separator", "builtin:git-branch"],
         ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]

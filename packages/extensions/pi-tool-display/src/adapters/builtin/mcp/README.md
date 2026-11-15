@@ -10,7 +10,7 @@ The adapter matches MCP server tools registered by Pi's built-in MCP extension: 
 
 The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) have no namespace and stay unmatched; they use generic cards. [`pi-mcp-adapter`](../../pi-mcp-adapter/README.md) tools have their own adapter. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
-Pi 1.5.2 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names. [MCP tool cards](../../../../docs/tools.md#mcp-tools) tells users which names override keys need. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
+Pi sanitises the registered tool names; [MCP tool cards](../../../../docs/tools.md#mcp-tools) gives the rule and the names that override keys need. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
 
 The [adapter contract](contract.md) lists the accepted result details and the data behind each card.
 

@@ -1,6 +1,6 @@
 import { parsePatch } from "@pi-mono/utils/patch";
 
-import { PATCH_QUEUE_BYTES } from "./bounded-diff/index.ts";
+import { PATCH_QUEUE_BYTES, type PatchLimits } from "./bounded-diff/index.ts";
 import type { ChangeFact, ChangeUnavailableReason } from "./contracts.ts";
 import type { FileMutation } from "./file-mutations/index.ts";
 
@@ -14,7 +14,7 @@ const PATCH_LIMITS = {
   maxEditLength: 2000,
   timeoutMs: 50,
   contextLines: 4
-};
+} satisfies PatchLimits;
 
 const OBSERVATION_MIB = PATCH_LIMITS.maxSourceBytes / 1024 / 1024;
 

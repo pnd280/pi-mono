@@ -7,7 +7,11 @@ import type {
 import { z } from "zod";
 
 import { Emissions, rendezvous, report, type Host, type Notify } from "../coordination/index.ts";
-import { settingsSection, type SettingsSection } from "../settings-file/index.ts";
+import {
+  settingsSection,
+  type SettingsScope,
+  type SettingsSection
+} from "../settings-file/index.ts";
 import {
   WorkingMessageCoordinator,
   completeOrder,
@@ -129,7 +133,7 @@ function installCoordinator(host: Host): Shared {
       const store = settings;
       const preferences = store.load();
       const ids = coordinator.snapshot().map((entry) => entry.id);
-      const scopes: OrderSettingsScope[] = [
+      const scopes: OrderSettingsScope<SettingsScope>[] = [
         {
           id: "global",
           label: "global",
@@ -184,8 +188,6 @@ function installCoordinator(host: Host): Shared {
               close,
               save: (destination, order) => {
                 if (lifetime.signal.aborted) throw new Error("This session has ended.");
-                if (destination !== "global" && destination !== "project")
-                  throw new Error("Unknown save scope.");
                 store.save(destination, order);
                 const saved = store.load();
                 coordinator.setOrder(saved.project ?? saved.global ?? []);

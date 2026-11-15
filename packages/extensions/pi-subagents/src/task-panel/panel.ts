@@ -11,6 +11,7 @@ import {
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import type { KeybindingSource } from "@pi-mono/libs/tui/keybindings";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { RunReader, TaskView } from "../history/reader.ts";
 import type { Jobs } from "../jobs/registry.ts";
@@ -87,9 +88,10 @@ class TranscriptView implements Component {
 
   private installViewer(): void {
     if (!this.active) return;
-    const transcript = this.source?.transcript;
+    const source = this.source;
+    const transcript = source?.transcript;
 
-    if (!this.viewer && transcript) {
+    if (!this.viewer && source && transcript) {
       // Nested cards carry the child session's binding, so accept any task in this tree.
       const open = (task_id: string) => {
         try {
@@ -102,7 +104,7 @@ class TranscriptView implements Component {
       // Nested calls use the same cards as the main chat.
       this.viewer = new TranscriptViewer(transcript, {
         ui: this.tui,
-        cwd: this.source?.cwd ?? "",
+        cwd: source.cwd,
         tools: new Map([
           ["subagent", createRenderers(open)],
           ["subagent_abort", createRenderers(open, "subagent_abort")]
@@ -159,8 +161,7 @@ class TranscriptView implements Component {
     try {
       await this.tasks.abort(id);
     } catch (error) {
-      if (this.active && this.viewing === id)
-        this.error = error instanceof Error ? error.message : "Task action failed";
+      if (this.active && this.viewing === id) this.error = errorMessage(error);
     }
 
     this.tui.requestRender();
@@ -179,13 +180,12 @@ class TranscriptView implements Component {
       subject: record && {
         description: record.description,
         id: record.task_id,
-        metadata: taskRows(
-          this.theme,
+        metadata: taskRows(this.theme, {
           record,
           parent,
-          this.source?.transcript?.compactions(),
-          this.working?.frame()
-        )
+          compactions: this.source?.transcript?.compactions(),
+          frame: this.working?.frame()
+        })
       },
       diagnostics: [
         ...(this.viewer && this.source?.unavailable ? [this.source.unavailable] : []),
@@ -495,7 +495,7 @@ export class TaskPanel implements Component {
     try {
       await run();
     } catch (error) {
-      if (this.active) this.error = error instanceof Error ? error.message : "Task action failed";
+      if (this.active) this.error = errorMessage(error);
     }
 
     if (this.active) this.update();

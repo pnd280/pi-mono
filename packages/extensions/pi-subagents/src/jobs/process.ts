@@ -37,12 +37,17 @@ async function drainOutput(state: { closed: boolean; lastData: number }): Promis
 }
 
 /** Pi supplies the resolved command, cwd and session environment through its public operations. */
-export function jobOperations(
-  shellPath: string | undefined,
-  onData: (data: Buffer) => void,
-  onStopError: (error: Error) => void,
-  onSpawn: (child: ChildProcess) => () => void
-): BashOperations {
+export function jobOperations({
+  shellPath,
+  onData,
+  onStopError,
+  onSpawn
+}: {
+  shellPath: string | undefined;
+  onData: (data: Buffer) => void;
+  onStopError: (error: Error) => void;
+  onSpawn: (child: ChildProcess) => () => void;
+}): BashOperations {
   return {
     async exec(command, cwd, { signal, timeout, env }) {
       if (signal?.aborted) throw new Error("aborted");

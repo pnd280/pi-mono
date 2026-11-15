@@ -33,7 +33,7 @@ const MAX_SERVERS = 32;
 const toolNameSchema = z.string().min(1).max(MAX_TOOL_NAME_LENGTH);
 const toolListSchema = z.array(toolNameSchema).max(MAX_TOOLS);
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
+const isObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
@@ -41,11 +41,12 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
  */
 const mcpServersSchema = z.custom<Record<string, McpServerConfig>>((value) => {
   if (!isObject(value)) return false;
-  const names = Object.keys(value);
+  const entries: [string, unknown][] = Object.entries(value);
+  const names = entries.map(([name]) => name);
 
   return (
     names.length <= MAX_SERVERS &&
-    names.every((name) => /^[A-Za-z0-9_-]+$/.test(name) && isObject(value[name])) &&
+    entries.every(([name, server]) => /^[A-Za-z0-9_-]+$/.test(name) && isObject(server)) &&
     // Pi gives names that differ only in `-` and `_` the same tool namespace.
     new Set(names.map((name) => name.replaceAll("-", "_"))).size === names.length
   );

@@ -88,13 +88,19 @@ function classifySummary(
 }
 
 /** Wait for Pi's final abort check before appending metadata at its persistence boundary. */
-function recordSummaryBeforeCompaction(
-  session: NativeSession,
-  registration: Registration,
-  result: Awaited<ReturnType<DefaultCompaction>>,
-  signal: AbortSignal,
-  entry: SummaryModelEntry
-) {
+function recordSummaryBeforeCompaction({
+  session,
+  registration,
+  result,
+  signal,
+  entry
+}: {
+  session: NativeSession;
+  registration: Registration;
+  result: Awaited<ReturnType<DefaultCompaction>>;
+  signal: AbortSignal;
+  entry: SummaryModelEntry;
+}) {
   if (signal.aborted) return;
   registration.clearSummary?.();
   const manager = session.sessionManager;
@@ -205,9 +211,12 @@ export function bindNativeCompaction(
       );
 
       if (registration?.active && trigger !== undefined)
-        recordSummaryBeforeCompaction(this, registration, result, args[3], {
-          ...summarySelection,
-          trigger
+        recordSummaryBeforeCompaction({
+          session: this,
+          registration,
+          result,
+          signal: args[3],
+          entry: { ...summarySelection, trigger }
         });
 
       return result;

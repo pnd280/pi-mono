@@ -19,7 +19,7 @@ port.on("message", (request: CollectionRequest) => {
         : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const value =
       request.kind === "read"
-        ? readCollection(request.options.collection, request.options.cwd, raw)
+        ? readCollection({ ...request.options, raw })
         : updateCollection({ ...request.options, raw });
     response = { status: "success", value };
   } catch (error) {

@@ -19,7 +19,7 @@ For host integration, a failed gate leaves the affected feature disabled as desc
 
 ## Contracts to verify
 
-Work through every section below when you bump the supported Pi version, checking the API build and the installed CLI build.
+Check each item in the API build and in the installed CLI build.
 
 ### Host hooks
 

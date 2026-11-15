@@ -24,11 +24,11 @@ it("refuses corrupt documents without treating them as empty", () => {
     Buffer.from('{"version":1,"cwd":"/wrong","entries":[]}'),
     Buffer.from('{"version":1,"cwd":"/fixture","entries":null}')
   ]) {
-    expect(() => readCollection("drafts", scope.cwd, raw)).toThrow();
+    expect(() => readCollection({ ...scope, raw })).toThrow();
     expect(() => updateCollection({ ...scope, raw, operation: add("new") })).toThrow();
   }
 
-  expect(readCollection("drafts", scope.cwd).entries).toEqual([]);
+  expect(readCollection({ ...scope, raw: undefined }).entries).toEqual([]);
 });
 
 it("deletes only unique unchanged UUID/text/timestamp identities despite unrelated insertion", () => {
@@ -92,7 +92,7 @@ it("never evicts drafts when count, UTF-8 text, or final JSON escaping exceed ca
     })
   ).toThrow("256 KiB");
   const almostFull = rawDocument([entry("kept")], { extra: "x".repeat(limits.draftFile - 500) });
-  expect(readCollection("drafts", scope.cwd, almostFull).access).toBe("writable");
+  expect(readCollection({ ...scope, raw: almostFull }).access).toBe("writable");
   expect(() =>
     updateCollection({ ...scope, raw: almostFull, operation: add("x" + "\n".repeat(400)) })
   ).toThrow("capacity");

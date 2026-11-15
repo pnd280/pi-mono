@@ -67,7 +67,7 @@ Record each actionable finding's title, priority, category, classification, `pat
 
 ### 4. Apply requested changes
 
-Existing implementation requests need no repeat approval. Preserve raw data contracts and update affected consumers and documentation together.
+Existing implementation requests need no repeat approval. Preserve raw data contracts.
 
 **Complete when:** all authorised changes and their consumers are updated. Report blocked changes as incomplete.
 

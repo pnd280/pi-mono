@@ -113,7 +113,12 @@ function callRows(
       width
     );
     if (shown[0] !== undefined)
-      rows.push(...field(theme, "command", theme.fg("toolOutput", shown[0]), width, LABEL_WIDTH));
+      rows.push(
+        ...field(theme, "command", theme.fg("toolOutput", shown[0]), {
+          width,
+          labelWidth: LABEL_WIDTH
+        })
+      );
     rows.push(
       ...rest
         .rows(Math.max(1, width - LABEL_WIDTH))
@@ -126,14 +131,21 @@ function callRows(
 }
 
 /** The result's labelled rows and body, prepared when the result or expansion change. */
-function resultRows(
-  kind: Kind,
-  result: Result,
-  details: JobDetails | undefined,
-  expanded: boolean,
-  error: boolean,
-  theme: Theme
-): (width: number) => string[] {
+function resultRows({
+  kind,
+  result,
+  details,
+  expanded,
+  error,
+  theme
+}: {
+  kind: Kind;
+  result: Result;
+  details: JobDetails | undefined;
+  expanded: boolean;
+  error: boolean;
+  theme: Theme;
+}): (width: number) => string[] {
   const text = result.content
     .flatMap((block) => (block.type === "text" && block.text !== undefined ? [block.text] : []))
     .join("\n");
@@ -146,14 +158,14 @@ function resultRows(
         ? []
         : fit(
             [
-              ...field(
-                theme,
-                "status",
-                theme.fg("error", `${TUI_GLYPHS.outcome.failure} failed`),
+              ...field(theme, "status", theme.fg("error", `${TUI_GLYPHS.outcome.failure} failed`), {
                 width,
-                LABEL_WIDTH
-              ),
-              ...field(theme, "error", theme.fg("error", reason), width, LABEL_WIDTH)
+                labelWidth: LABEL_WIDTH
+              }),
+              ...field(theme, "error", theme.fg("error", reason), {
+                width,
+                labelWidth: LABEL_WIDTH
+              })
             ],
             width
           );
@@ -178,10 +190,11 @@ function resultRows(
 
   return (width) => {
     const rows = [
-      ...field(theme, "status", theme.fg(color, label), width, LABEL_WIDTH),
-      ...field(theme, "job", theme.fg("muted", shownId), width, LABEL_WIDTH)
+      ...field(theme, "status", theme.fg(color, label), { width, labelWidth: LABEL_WIDTH }),
+      ...field(theme, "job", theme.fg("muted", shownId), { width, labelWidth: LABEL_WIDTH })
     ];
-    if (expanded) rows.push(...field(theme, "log", theme.fg("muted", log), width, LABEL_WIDTH));
+    if (expanded)
+      rows.push(...field(theme, "log", theme.fg("muted", log), { width, labelWidth: LABEL_WIDTH }));
 
     return body ? [...fit(rows, width), "", ...bodyRows.rows(width)] : fit(rows, width);
   };
@@ -207,7 +220,16 @@ function createJobRenderers(
       context.state.bindingId = details?.binding_id;
 
       return clickable(
-        new Rows(resultRows(kind, result, details, options.expanded, context.isError, theme)),
+        new Rows(
+          resultRows({
+            kind,
+            result,
+            details,
+            expanded: options.expanded,
+            error: context.isError,
+            theme
+          })
+        ),
         context.state,
         open
       );

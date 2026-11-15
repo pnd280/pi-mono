@@ -327,7 +327,7 @@ it("preserves live and restored cards and native registries through initializati
         errors.push(error);
       }
     });
-    // Session start now installs verified native observation in every mode.
+    // Session start installs verified native observation in every mode.
     assertPreserved = preserveRegistry(session);
     assertNoRegistration();
     assertPreserved();

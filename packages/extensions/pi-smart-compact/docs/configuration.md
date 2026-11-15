@@ -42,7 +42,7 @@ The `docs` setting lists UTF-8 files that tell the model how to use `context_win
 
 ## Where settings live
 
-Put the `ext.pi-smart-compact` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
+[Configuration](../README.md#configuration) names the global and project settings files. Parent directories aren't searched.
 
 - A trusted project's fields override the global fields, and fields that it leaves out are inherited.
 - The extension doesn't watch settings, instruction files, or docs files, so run `/reload` after changes.

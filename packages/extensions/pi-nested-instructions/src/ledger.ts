@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ExtensionContext, SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
-import { absolutePathSchema, decodeNotice, digest, noticeSchema, noticeType } from "./notices.ts";
+import { absolutePathSchema, digest, noticeBody, noticeSchema, noticeType } from "./notices.ts";
 import type { Invocation } from "./scopes.ts";
 
 export const readType = "pi-nested-instructions.read";
@@ -97,17 +97,16 @@ export function ledger(session: SessionView): Ledger {
       if (!parsed.success) continue;
       const notice = parsed.data;
       // A context replacement retains details, but no longer contains these instructions.
-      const message = visible
+      const content = visible
         .get(entry.id)
-        ?.find(
-          (candidate): candidate is Extract<typeof candidate, { role: "custom" }> =>
-            candidate.role === "custom" &&
-            typeof candidate.content === "string" &&
-            digest(candidate.content) === notice.messageDigest
-        );
-      if (!message) continue;
-      const { body } = decodeNotice({ content: message.content, details: notice });
-      scopes.set(notice.directory, { path: notice.path, body });
+        ?.flatMap((candidate) =>
+          candidate.role === "custom" && typeof candidate.content === "string"
+            ? [candidate.content]
+            : []
+        )
+        .find((text) => digest(text) === notice.messageDigest);
+      if (content === undefined) continue;
+      scopes.set(notice.directory, { path: notice.path, body: noticeBody(content, notice) });
 
       if (notice.action !== "loaded") {
         for (const file of reads.keys())

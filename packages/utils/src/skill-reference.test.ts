@@ -14,10 +14,12 @@ describe("native skill-insertion guard", () => {
   it("guards existing command-leading references without padding them twice", () => {
     const format = "{command} ({path})";
     const reference = "/skill:review (/skills/review/SKILL.md)";
-    expect(expandSkillReferences(reference, review, format, commandToken)).toBe(` ${reference}`);
-    expect(expandSkillReferences(` ${reference}`, review, format, commandToken)).toBe(
-      ` ${reference}`
-    );
+    expect(
+      expandSkillReferences(reference, { catalog: review, format, resolve: commandToken })
+    ).toBe(` ${reference}`);
+    expect(
+      expandSkillReferences(` ${reference}`, { catalog: review, format, resolve: commandToken })
+    ).toBe(` ${reference}`);
   });
 
   it("guards a registered leading command produced by substitution without rescanning it", () => {
@@ -25,14 +27,22 @@ describe("native skill-insertion guard", () => {
       "/skill:review": "/skill:plan",
       "/skill:plan": "/skills/plan.md"
     });
-    expect(expandSkillReferences("/skill:review", chained, "{path}", commandToken)).toBe(
-      " /skill:plan"
-    );
+    expect(
+      expandSkillReferences("/skill:review", {
+        catalog: chained,
+        format: "{path}",
+        resolve: commandToken
+      })
+    ).toBe(" /skill:plan");
   });
 
   it("leaves an ordinary leading skill command unchanged", () => {
     expect(
-      expandSkillReferences("/skill:review rest", review, "{command} ({path})", () => undefined)
+      expandSkillReferences("/skill:review rest", {
+        catalog: review,
+        format: "{command} ({path})",
+        resolve: () => undefined
+      })
     ).toBe("/skill:review rest");
   });
 });

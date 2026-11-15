@@ -40,7 +40,7 @@ export type SelectedSource = {
   partial: boolean;
 };
 
-/** Coordinates address raw code points, before terminal sanitization or tab expansion. */
+/** Coordinates address raw code points, before terminal sanitisation or tab expansion. */
 export function selectSource(
   lines: readonly string[],
   firstLine: number,

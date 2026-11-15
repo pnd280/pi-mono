@@ -7,18 +7,18 @@ export const skillReferenceFormatSchema = z.string().max(512).includes("{path}")
 export const defaultSkillReferenceFormat = "[{command}](<{path}>)";
 
 /** The fields of Pi's `SlashCommandInfo` that skill references use. */
-export interface SkillCommandInfo {
+export type SkillCommandInfo = {
   readonly name: string;
   readonly source: string;
   readonly sourceInfo: { readonly path: string };
-}
+};
 
-export interface SkillReferenceCatalog {
+export type SkillReferenceCatalog = {
   /** Registered skill file paths, keyed by the full `/skill:<name>` command. */
   readonly skills: ReadonlyMap<string, string>;
   /** Registered prompt-template names, without the slash. */
   readonly templates: ReadonlySet<string>;
-}
+};
 
 /** Projects Pi's registered commands onto the skills and prompt templates that references use. */
 export function skillReferenceCatalog(
@@ -48,9 +48,15 @@ function formatSkillReference(format: string, command: string, path: string): st
  */
 export function expandSkillReferences(
   text: string,
-  catalog: SkillReferenceCatalog,
-  format: string,
-  resolve: (token: string) => string | undefined
+  {
+    catalog,
+    format,
+    resolve
+  }: {
+    catalog: SkillReferenceCatalog;
+    format: string;
+    resolve: (token: string) => string | undefined;
+  }
 ): string {
   if (catalog.skills.size === 0) return text;
 

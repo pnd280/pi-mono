@@ -1,8 +1,13 @@
 import type { Editor, EditorComponent } from "@earendil-works/pi-tui";
 import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 
-type InlineEditor = EditorComponent &
-  Pick<Editor, "getLines" | "getCursor" | "isShowingAutocomplete">;
+const inlineMethods = [
+  "getLines",
+  "getCursor",
+  "isShowingAutocomplete"
+] as const satisfies readonly (keyof Editor)[];
+
+type InlineEditor = EditorComponent & Pick<Editor, (typeof inlineMethods)[number]>;
 
 // Pi's editor has no public trigger, and opens its picker for a typed slash only at message start. Reviewed against Pi 1.5.2's API build and bundled CLI. Never learn fingerprints from the running host: an unknown editor must keep only Pi's own completion. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
@@ -40,9 +45,7 @@ function startsInlineCompletion(lines: string[], cursorLine: number, cursorCol: 
 }
 
 function isInlineEditor(editor: EditorComponent): editor is InlineEditor {
-  return ["getLines", "getCursor", "isShowingAutocomplete"].every(
-    (name) => typeof Reflect.get(editor, name) === "function"
-  );
+  return inlineMethods.every((name) => typeof Reflect.get(editor, name) === "function");
 }
 
 /**

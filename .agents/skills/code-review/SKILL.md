@@ -66,7 +66,6 @@ The Audit phase is complete when every audit has a status, every finding has a p
 Apply the planned revisions in audit order, so that style, test, and documentation revisions apply to the code that earlier revisions produce. Use each audit's revise steps.
 
 - Before each revision, check its finding against the current code. An earlier revision can resolve or change it.
-- Update affected consumers, tests, and documentation together.
 - Hold code that the revisions add or change to the same audit criteria. Record a new finding for each problem that a revision introduces, and fix it.
 - Run relevant checks after each revision instead of only at the end. Fix regressions that your changes cause, and keep baseline failures explicit.
 - Do not force edits when the evidence supports keeping the code. Change the planned action to keep and give the reason.

@@ -9,6 +9,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { decodeUtf8Window } from "@pi-mono/utils/utf8";
 
+import { asError } from "../child/platform.ts";
+
 /** The one wording of both omission markers, so that the writer and the reader agree. */
 const OMITTED = "Earlier output omitted";
 
@@ -68,8 +70,6 @@ export async function readLogTail(
 /** Includes the omission marker. Compact to half the limit to avoid rewriting on every chunk. */
 const MAX_LOG_BYTES = 16 * 1024 * 1024;
 const RETAIN_LOG_BYTES = MAX_LOG_BYTES / 2;
-
-const asError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
 /** A private, bounded log. All writes and compactions use the original handle, never its path. */
 export class JobLog extends Writable {

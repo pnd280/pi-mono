@@ -65,5 +65,5 @@ pi-todo ignores invalid settings. The working-message order is a separate settin
 | Need the settings file locations or the rules for invalid files          | [Settings](docs/controls.md#settings)                                         |
 | Want to reorder or save the working message                              | [Working-message order](docs/controls.md#working-message-order)               |
 | Change paging, the widget, or the working message                        | [Offline terminal checks](docs/validation.md) in both modes                   |
-| Decide where a test belongs                                              | [Testing](docs/testing.md)                                                    |
+| Check what the tests protect                                             | [Testing](docs/testing.md)                                                    |
 | Upgrade Pi                                                               | [Pi compatibility](docs/pi-compatibility.md)                                  |

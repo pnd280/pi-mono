@@ -28,11 +28,11 @@ export function encode(document: Document): string {
 }
 
 export function collection(entries: StoredEntry[] = [], kind: Collection = "drafts"): Snapshot {
-  return readCollection(
-    kind,
-    "/fixture",
-    Buffer.from(encode({ version: 1, cwd: "/fixture", entries }))
-  );
+  return readCollection({
+    collection: kind,
+    cwd: "/fixture",
+    raw: Buffer.from(encode({ version: 1, cwd: "/fixture", entries }))
+  });
 }
 
 export function session(): WriteScope {

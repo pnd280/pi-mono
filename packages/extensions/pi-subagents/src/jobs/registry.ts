@@ -57,10 +57,7 @@ type LiveJob = {
   done: Promise<JobRecord>;
 };
 
-type Ended = {
-  outcome: JobEndEntry["outcome"];
-  exit_code: number | null;
-  error?: string;
+type Ended = Pick<JobEndEntry, "outcome" | "exit_code" | "error"> & {
   /** Pi's text already states the error, so the result adds no `Error:` line. */
   stated?: true;
 };
@@ -311,9 +308,9 @@ export class Jobs {
 
   /** Keep output out of Pi's accumulator: it would create a second, unbounded disk log. */
   private operations(live: Omit<LiveJob, "done">): BashOperations {
-    return jobOperations(
-      this.options.shellPath,
-      (data) => {
+    return jobOperations({
+      shellPath: this.options.shellPath,
+      onData: (data) => {
         if (live.writeError || live.log.destroyed || live.log.writableEnded) return;
 
         if (live.log.writableLength + data.length > MAX_PENDING_LOG_BYTES) {
@@ -330,9 +327,9 @@ export class Jobs {
         live.clipped ||= output.length > DEFAULT_MAX_BYTES;
         live.output = output.subarray(-DEFAULT_MAX_BYTES);
       },
-      (error) => (live.stopError ??= error),
-      (child) => this.trackProcess(child)
-    );
+      onStopError: (error) => (live.stopError ??= error),
+      onSpawn: (child) => this.trackProcess(child)
+    });
   }
 
   private async run(

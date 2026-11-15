@@ -79,11 +79,11 @@ function summary(names: readonly string[]): string {
 /**
  * A response's calls are summarised at the entry that completes them, so later entries never add an item before a cursor. Calls that never complete have no summary.
  */
-function items(entries: readonly SessionEntry[]): { id: string; item: Item }[] {
-  const result: { id: string; item: Item }[] = [];
+function items(entries: readonly SessionEntry[]): { id: string; index: number; item: Item }[] {
+  const result: { id: string; index: number; item: Item }[] = [];
   const open = new Map<string, { names: string[]; pending: Set<string> }>();
 
-  for (const entry of entries) {
+  for (const [index, entry] of entries.entries()) {
     if (entry.type !== "message") continue;
     const { message } = entry;
 
@@ -93,13 +93,14 @@ function items(entries: readonly SessionEntry[]): { id: string; item: Item }[] {
       open.delete(message.toolCallId);
       group.pending.delete(message.toolCallId);
       if (!group.pending.size)
-        result.push({ id: entry.id, item: { type: "tools", text: summary(group.names) } });
+        result.push({ id: entry.id, index, item: { type: "tools", text: summary(group.names) } });
       continue;
     }
 
     if (message.role !== "user" && message.role !== "assistant") continue;
     const value = contentText(message.content);
-    if (value) result.push({ id: entry.id, item: { type: message.role, text: text(value) } });
+    if (value)
+      result.push({ id: entry.id, index, item: { type: message.role, text: text(value) } });
     if (message.role !== "assistant") continue;
     const calls = message.content.filter((block) => block.type === "toolCall");
     const group = { names: calls.map((call) => call.name), pending: new Set<string>() };
@@ -165,8 +166,7 @@ export async function showTask(reader: RunReader, id: string, tokens: string[]):
   if (config.since !== undefined && start < 0)
     throw new Error("Unknown subagent transcript cursor");
   const all = items(entries);
-  const positions = new Map(entries.map((entry, index) => [entry.id, index]));
-  const eligible = all.filter((item) => (positions.get(item.id) ?? -1) > start);
+  const eligible = all.filter((item) => item.index > start);
 
   const selected =
     config.since === undefined ? eligible.slice(-config.limit) : eligible.slice(0, config.limit);

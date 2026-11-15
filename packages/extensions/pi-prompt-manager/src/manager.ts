@@ -1,3 +1,4 @@
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { displayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 
 import { NativeClipboardError } from "./clipboard.ts";
@@ -28,11 +29,13 @@ export type ViewRequest = {
 
 export type EditorPort = { read(): string; write(text: string): void };
 
+type Severity = NonNullable<Parameters<ExtensionContext["ui"]["notify"]>[1]>;
+
 export type ManagerPorts = {
   repository: Repository;
   editor: EditorPort;
   copy(text: string, signal: AbortSignal): Promise<void>;
-  notify(this: void, message: string, severity: "info" | "warning" | "error"): void;
+  notify(this: void, message: string, severity: Severity): void;
   open(request: ViewRequest): Promise<void>;
   now(): Date;
 };
@@ -73,7 +76,7 @@ export class PromptManager {
     return mutation;
   }
 
-  notify(message: string, severity: "info" | "warning" | "error" = "info") {
+  notify(message: string, severity: Severity = "info") {
     if (this.isActive()) this.ports.notify(displayText(message), severity);
   }
 

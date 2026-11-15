@@ -125,13 +125,19 @@ function toolResult(request: ToolInput, result: Submission) {
 }
 
 /** `current` resolves the tasks of the current session binding at each call. */
-export function createSubagentTool(
-  current: () => Promise<Tasks>,
-  open: (id: string, binding?: string) => void,
-  delegated: () => void,
-  docs: string,
-  templates: string
-) {
+export function createSubagentTool({
+  current,
+  open,
+  delegated,
+  docs,
+  templates
+}: {
+  current: () => Promise<Tasks>;
+  open: (id: string, binding?: string) => void;
+  delegated: () => void;
+  docs: string;
+  templates: string;
+}) {
   return {
     name: "subagent",
     label: "Subagent",

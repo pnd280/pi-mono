@@ -10,7 +10,7 @@ Argument and snapshot validation use the action and status vocabularies from `pi
 
 A validated snapshot in retained `details.tasks` supplies todo subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new todo when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
 
-After a result exists, incompatible arguments use ungrouped generic cards, for example `Call failed todo({})`. Unrecognised details do not force fallback, but subjects, progress, and outcomes require validated details.
+After a result exists, incompatible arguments use [ungrouped generic cards](../../../docs/tools.md#todo). Unrecognised details do not force fallback, but subjects, progress, and outcomes require validated details.
 
 ## Display
 

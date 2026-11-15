@@ -46,7 +46,7 @@ function readWindow(args: RenderArgs): string | undefined {
   return `lines ${first}-${last}`;
 }
 
-/** Style on first render and again after invalidation, so a theme change cannot retain old colors. */
+/** Style on first render and again after invalidation, so a theme change cannot retain old colours. */
 function themedText(content: () => string): Component {
   let text: Text | undefined;
 
@@ -58,15 +58,23 @@ function themedText(content: () => string): Component {
   };
 }
 
-function renderDocument(
-  document: ReadDocument,
-  path: string | undefined,
-  selection: Selection | undefined,
-  theme: Theme,
-  expanded: boolean,
-  windowed: boolean,
-  hints: KeybindingHints
-): Component {
+function renderDocument({
+  document,
+  path,
+  selection,
+  theme,
+  expanded,
+  windowed,
+  hints
+}: {
+  document: ReadDocument;
+  path: string | undefined;
+  selection: Selection | undefined;
+  theme: Theme;
+  expanded: boolean;
+  windowed: boolean;
+  hints: KeybindingHints;
+}): Component {
   const ranges = selection ? document.select(selection).ranges : [];
 
   return themedText(() => {
@@ -141,15 +149,15 @@ export function createReadRenderers(base: NativeRead): ReadRenderers {
         );
       }
 
-      return renderDocument(
+      return renderDocument({
         document,
-        args.path,
-        args.selection,
+        path: args.path,
+        selection: args.selection,
         theme,
-        options.expanded,
-        readWindow(args) !== undefined,
-        context
-      );
+        expanded: options.expanded,
+        windowed: readWindow(args) !== undefined,
+        hints: context
+      });
     }
   };
 }

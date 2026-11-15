@@ -95,6 +95,11 @@ export function decodeNotice(message: NoticeMessage): { notice: Notice | undefin
           .filter((part) => part.type === "text")
           .map((part) => part.text)
           .join("\n");
+
+  return { notice, body: noticeBody(content, notice) };
+}
+
+export function noticeBody(content: string, notice: Notice | undefined): string {
   const { prefix, suffix } = notice
     ? noticeFrame(notice.displayPath, notice.action)
     : { prefix: "", suffix: "" };
@@ -103,8 +108,5 @@ export function decodeNotice(message: NoticeMessage): { notice: Notice | undefin
     content.startsWith(prefix) &&
     content.endsWith(suffix);
 
-  return {
-    notice,
-    body: framed ? content.slice(prefix.length, content.length - suffix.length) : content
-  };
+  return framed ? content.slice(prefix.length, content.length - suffix.length) : content;
 }

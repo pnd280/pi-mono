@@ -60,7 +60,6 @@ This package tests settings trust, delegated execution through its private Pi ho
 ## Not tested
 
 - The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, and nested-instruction notice cards. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
-- Libs and utils own shared algorithms and budgets.
 - Live MCP requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.
 - Pi owns native persistence internals.

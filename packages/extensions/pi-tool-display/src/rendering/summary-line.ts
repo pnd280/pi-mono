@@ -183,7 +183,6 @@ export function renderRunSummary(summary: RunSummary, options: SummaryLineOption
   const items = summary.segments.map((segment, index) =>
     truncateToWidth(segmentText(segment, theme, index === 0), contentWidth, "…")
   );
-  // Wrap only between items, aligned with the first item.
   const rows = pack(items, separator, contentWidth);
   const marker = theme.fg("muted", open ? TUI_GLYPHS.expanded : TUI_GLYPHS.closed);
   const lines = rows.map((row, y) => `${y ? INDENT : `${marker} `}${row}`);
@@ -191,7 +190,6 @@ export function renderRunSummary(summary: RunSummary, options: SummaryLineOption
   const last = lines.at(-1) ?? "";
   const gap = width - visibleWidth(last) - visibleWidth(count);
 
-  // Put the count on its own row when it does not fit after the last item.
   if (gap >= COUNT_GAP) lines[lines.length - 1] = last + " ".repeat(gap) + count;
   else
     lines.push(

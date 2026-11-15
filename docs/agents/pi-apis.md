@@ -8,7 +8,7 @@ Find installed documentation and examples in [Pi API references](pi-docs.md).
 
 ## Private-method gates
 
-- Gate each patch of, or call to, a private Pi method with a SHA-256 [host fingerprint](../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). Follow that section when you add, move, or remove one.
+Gate each patch of, or call to, a private Pi method with a SHA-256 [host fingerprint](../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). Follow that section when you add, move, or remove one.
 
 ## Custom types
 

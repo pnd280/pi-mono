@@ -1,4 +1,5 @@
 import type { JsonAgentSessionEvent, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { TaskRecord } from "../tasks/records.ts";
 import type { Tasks } from "../tasks/registry.ts";
@@ -187,7 +188,7 @@ class TaskSource {
       if (!this.isActive() || record.run_id !== this.record.run_id) return;
       const live = this.live?.runId === record.run_id && this.live.connected;
       if (live) this.unavailable = "Child transcript unavailable";
-      else this.unavailable = error instanceof Error ? error.message : "Transcript unavailable";
+      else this.unavailable = errorMessage(error);
       this.changed();
     } finally {
       this.refreshing = false;
