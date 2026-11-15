@@ -310,7 +310,7 @@ export type SummaryNotice = {
 };
 
 /**
- * Callbacks receive borrowed arguments and results; never mutate or persist them. In the automatic CLI integration, arguments are a copy of Pi's raw arguments validated against the currently registered tool schema. They exclude changes by the tool's `prepareArguments` and `tool_call` handlers, so they can differ from the executed arguments. They are Pi's raw arguments when this validation fails or the tool is not registered. Standalone cards, and rows without a transcript call, receive Pi's raw arguments. Standalone cards skip CLI-only supports, exploration, and run-summary callbacks. A used callback that throws causes atomic generic fallback; presentation failures keep the row generic through later updates.
+ * Callbacks receive borrowed arguments and results; never mutate or persist them. `docs/adapters.md` and `docs/renderers.md` own which arguments callbacks receive, which callbacks standalone cards skip, and how a throwing callback falls back.
  */
 export type ToolDisplayAdapter = {
   /** Stable contract ID. `pi:*`, `pi-mcp-adapter:*`, and `generic` are reserved. */

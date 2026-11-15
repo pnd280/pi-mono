@@ -45,13 +45,15 @@ export async function layoutPreview(
   return lines;
 }
 
+type PreviewLayout = { width: number; lines: string[] | undefined };
+
 /** A controlled viewport: consumers supply display-safe text and interpret navigation keys. */
 export class ScrollableTextPreview {
   private text = "";
   private height = 1;
   private offset = 0;
   private disposed = false;
-  private layout: { width: number; lines: string[] | undefined } | undefined;
+  private layout: PreviewLayout | undefined;
 
   constructor(private readonly options: { changed(): void; current(): boolean }) {}
 
@@ -98,7 +100,7 @@ export class ScrollableTextPreview {
   }
 
   private prepare(width: number): void {
-    const layout = { width, lines: undefined as string[] | undefined };
+    const layout: PreviewLayout = { width, lines: undefined };
     this.layout = layout;
     const current = () => !this.disposed && this.options.current() && this.layout === layout;
     void layoutPreview(this.text, width, current).then((lines) => {

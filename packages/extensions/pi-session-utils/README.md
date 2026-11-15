@@ -83,11 +83,11 @@ To turn off naming only, remove `auto-title` from the global settings and from t
 
 ## Docs
 
-| When you…                                                                                                           | Read                                                         |
-| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Want the exact rules for `persist` and `create-empty-child`, or a busy agent                                        | [Session operations](docs/sessions.md)                       |
-| Pass a parent by ID, or combine `--parent-session` with other session options                                       | [Parent lookup](docs/sessions.md#parent-lookup-from-the-cli) |
-| Use a custom session directory                                                                                      | [Session directories](docs/sessions.md#session-directories)  |
-| Want to know what text is sent, what cancels naming, or use print, JSON, or RPC mode                                | [Automatic naming](docs/naming.md)                           |
-| Run or change the tests, which use offline fixture providers, so they need no credentials and make no paid requests | [Testing](docs/testing.md)                                   |
-| Upgrade Pi                                                                                                          | [Pi compatibility](docs/pi-compatibility.md)                 |
+| When you…                                                                            | Read                                                         |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Want the exact rules for `persist` and `create-empty-child`, or a busy agent         | [Session operations](docs/sessions.md)                       |
+| Pass a parent by ID, or combine `--parent-session` with other session options        | [Parent lookup](docs/sessions.md#parent-lookup-from-the-cli) |
+| Use a custom session directory                                                       | [Session directories](docs/sessions.md#session-directories)  |
+| Want to know what text is sent, what cancels naming, or use print, JSON, or RPC mode | [Automatic naming](docs/naming.md)                           |
+| Run or change the tests                                                              | [Testing](docs/testing.md)                                   |
+| Upgrade Pi                                                                           | [Pi compatibility](docs/pi-compatibility.md)                 |

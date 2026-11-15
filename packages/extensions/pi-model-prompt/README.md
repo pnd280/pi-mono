@@ -10,13 +10,13 @@ With the configuration below, Claude models get `~/.pi/agent/prompts/ant.md` and
 2. List them for each model in the [settings](#configuration).
 3. Switch models as usual. The matching files apply from the next prompt.
 
-pi-model-prompt adds the files of the first matching rule that sets `append` after Pi's append text, such as `APPEND_SYSTEM.md` or `--append-system-prompt`; it does not replace that text. The files come before the text of [pi-profiles](../pi-profiles/README.md), and models with no matching rule get only Pi's append text. To give each model its own instructions instead of a shared `APPEND_SYSTEM.md`, follow [replace shared instructions](docs/rules.md#replace-shared-instructions).
+Only the first matching rule that sets `append` adds its files. The files come before the text of [pi-profiles](../pi-profiles/README.md), and models with no matching rule get only Pi's append text. To give each model its own instructions instead of a shared `APPEND_SYSTEM.md`, follow [replace shared instructions](docs/rules.md#replace-shared-instructions).
 
 ## Configuration
 
 Put the `ext.pi-model-prompt` section in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`). pi-model-prompt reads only the global settings and ignores project settings. Run `/reload` after you edit settings or a prompt file.
 
-pi-model-prompt reads settings from `PI_CODING_AGENT_DIR` or `~/.pi/agent`. An SDK host that sets a custom agent directory must also set `PI_CODING_AGENT_DIR` to it.
+An SDK host that sets a custom agent directory must also set `PI_CODING_AGENT_DIR` to it.
 
 This example shows every field. Remove the comments before you copy it, because Pi reads `settings.json` as plain JSON:
 

@@ -106,7 +106,7 @@ function recordDetails(bindingId: string, record: TaskRecord): Omit<ToolDetails,
     background: record.background,
     delivery: "follow_up",
     started_at: record.started_at,
-    ended_at: record.ended_at ?? null,
+    ended_at: record.ended_at,
     activity: "",
     usage: record.usage ?? detailsUsage()
   };

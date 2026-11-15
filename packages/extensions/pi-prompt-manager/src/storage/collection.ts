@@ -70,13 +70,19 @@ function validDocument(value: unknown): value is z.infer<typeof documentEnvelope
   return documentEnvelopeSchema.safeParse(value).success;
 }
 
-function snapshot(
-  collection: Collection,
-  document: Document,
-  bytes: number,
-  warnings: string[] = [],
+function snapshot({
+  collection,
+  document,
+  bytes,
+  warnings = [],
   serializationSafe = true
-): Snapshot {
+}: {
+  collection: Collection;
+  document: Document;
+  bytes: number;
+  warnings?: string[];
+  serializationSafe?: boolean;
+}): Snapshot {
   const ids = new Map<string, number>();
 
   for (const entry of document.entries) {
@@ -129,8 +135,17 @@ function snapshot(
   };
 }
 
-export function readCollection(collection: Collection, cwd: string, raw?: Buffer): Snapshot {
-  if (raw === undefined) return snapshot(collection, { version: 1, cwd, entries: [] }, 0);
+export function readCollection({
+  collection,
+  cwd,
+  raw
+}: {
+  collection: Collection;
+  cwd: string;
+  raw: Buffer | undefined;
+}): Snapshot {
+  if (raw === undefined)
+    return snapshot({ collection, document: { version: 1, cwd, entries: [] }, bytes: 0 });
   if (raw.length > limits.read)
     throw new PromptError(`Collection exceeds the 64 MiB read bound. ${reductionGuidance}`);
   const value = decode(raw);
@@ -164,13 +179,13 @@ export function readCollection(collection: Collection, cwd: string, raw?: Buffer
     entries.push(entry);
   }
 
-  const result = snapshot(
+  const result = snapshot({
     collection,
-    { ...value, version: 1, cwd, entries },
-    raw.length,
+    document: { ...value, version: 1, cwd, entries },
+    bytes: raw.length,
     warnings,
     serializationSafe
-  );
+  });
 
   // Invalid/blank records still count against normal capacity until a deletion repairs the file.
   if (
@@ -290,7 +305,7 @@ export function updateCollection({
   operation: Mutation;
   retention: number;
 }): PrivateFileUpdate<Snapshot> {
-  const current = readCollection(collection, cwd, raw);
+  const current = readCollection({ collection, cwd, raw });
   const document = apply(current, operation, retention);
   if (document === undefined) return { status: "unchanged", value: current };
   const content = encode(document);
@@ -309,5 +324,5 @@ export function updateCollection({
     );
   }
 
-  return { status: "replace", content, value: snapshot(collection, document, bytes) };
+  return { status: "replace", content, value: snapshot({ collection, document, bytes }) };
 }

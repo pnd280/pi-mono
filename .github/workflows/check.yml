@@ -1,6 +1,6 @@
 name: check
 
-# Pull requests run this workflow; on master, release.yml runs it before the release job.
+# On master, release.yml calls this workflow before its release job.
 on:
   pull_request:
   workflow_call:

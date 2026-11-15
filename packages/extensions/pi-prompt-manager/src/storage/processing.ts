@@ -1,20 +1,22 @@
 import { Worker } from "node:worker_threads";
 
-import { PromptError, type Collection, type Snapshot } from "../model.ts";
+import { PromptError, type Snapshot } from "../model.ts";
 import { readCollection, updateCollection } from "./collection.ts";
 
-type ReadOptions = {
-  collection: Collection;
-  cwd: string;
-  raw: Buffer | undefined;
-  signal?: AbortSignal;
-};
+type ReadParameters = Parameters<typeof readCollection>[0];
 
-type UpdateOptions = Parameters<typeof updateCollection>[0] & { signal?: AbortSignal };
+type UpdateParameters = Parameters<typeof updateCollection>[0];
 
-type ReadInput = Omit<ReadOptions, "raw" | "signal"> & { raw: Uint8Array | undefined };
+type ReadOptions = ReadParameters & { signal?: AbortSignal };
 
-type UpdateInput = Omit<UpdateOptions, "raw" | "signal"> & { raw: Uint8Array | undefined };
+type UpdateOptions = UpdateParameters & { signal?: AbortSignal };
+
+/** Structured cloning delivers a Buffer to the worker as a plain Uint8Array. */
+type WorkerInput<Options> = Omit<Options, "raw"> & { raw: Uint8Array | undefined };
+
+type ReadInput = WorkerInput<ReadParameters>;
+
+type UpdateInput = WorkerInput<UpdateParameters>;
 
 type UpdateResult = ReturnType<typeof updateCollection>;
 
@@ -117,8 +119,7 @@ const processor = new CollectionWorker();
 
 export async function readCollectionAsync({ signal, ...options }: ReadOptions): Promise<Snapshot> {
   signal?.throwIfAborted();
-  if ((options.raw?.length ?? 0) < workerThreshold)
-    return readCollection(options.collection, options.cwd, options.raw);
+  if ((options.raw?.length ?? 0) < workerThreshold) return readCollection(options);
   const result = await processor.run({ kind: "read", options }, signal);
   if (result.status !== "ready") throw new PromptError("Unexpected collection processing result.");
 

@@ -86,7 +86,10 @@ function defaultDirectories(): string[] {
   }
 }
 
-export function resolveParentSession(reference: string, cwd: string, sessionDir?: string): string {
+export function resolveParentSession(
+  reference: string,
+  { cwd, sessionDir }: { cwd: string; sessionDir?: string | undefined }
+): string {
   const path = expandPath(reference, cwd);
   const isPath = isAbsolute(reference) || /[/\\]/.test(reference) || existsSync(path);
 

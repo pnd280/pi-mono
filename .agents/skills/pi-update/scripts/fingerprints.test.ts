@@ -19,7 +19,12 @@ it("isolates fingerprint inspection from implicit extensions, credentials, and m
     PI_OFFLINE: "0",
     PI_TELEMETRY: "1"
   });
-  const probe = fingerprintProbe("/installed/cli.js", "/explicit/fingerprints.ts", "/isolated", parentEnv);
+  const probe = fingerprintProbe({
+    cli: "/installed/cli.js",
+    extension: "/explicit/fingerprints.ts",
+    home: "/isolated",
+    parentEnv
+  });
 
   expect(probe.args).toEqual([
     "/installed/cli.js", "--no-extensions", "-e", "/explicit/fingerprints.ts", "--help"

@@ -119,7 +119,7 @@ export function deriveBlocks(taskList: readonly Task[]): Map<number, number[]> {
 
 function taskListResultText(taskList: readonly Task[], params: TaskMutationParams): string {
   const hierarchy = deriveTaskHierarchy(taskList);
-  if (!hierarchy) return "No todos";
+  if (!hierarchy) throw new Error("todo hierarchy is invalid");
 
   const includeDeleted = params.includeDeleted === true;
   const statusFilter = params.status;
@@ -198,11 +198,10 @@ function renderListEntry(entry: TaskHierarchyEntry, statusFilter: TaskStatus | u
 function taskDetailResultText(taskList: readonly Task[], task: Task): string {
   const blocks = deriveBlocks(taskList).get(task.id) ?? [];
   const hierarchy = deriveTaskHierarchy(taskList);
-  const children = hierarchy
-    ? (hierarchy.childrenByParentId.get(task.id) ?? []).filter(
-        (child) => child.status !== "deleted"
-      )
-    : [];
+  if (!hierarchy) throw new Error("todo hierarchy is invalid");
+  const children = (hierarchy.childrenByParentId.get(task.id) ?? []).filter(
+    (child) => child.status !== "deleted"
+  );
   const lines = [`#${task.id} [${task.status}] ${compactDisplayText(task.subject)}`];
   if (task.parentId !== undefined) lines.push(`  parent: #${task.parentId}`);
 
@@ -469,7 +468,9 @@ function applyCreateTaskMutation(state: TodoState, params: TaskMutationParams): 
     return errorResult(state, "create", params, "todo id limit reached");
   }
 
-  if (!params.subject || !params.subject.trim()) {
+  const subject = params.subject;
+
+  if (!subject || !subject.trim()) {
     return errorResult(state, "create", params, "subject required for create");
   }
 
@@ -481,7 +482,7 @@ function applyCreateTaskMutation(state: TodoState, params: TaskMutationParams): 
     return errorResult(state, "create", params, dependencyError);
   }
 
-  const newTask = buildCreatedTask(state.nextId, params, parent.value);
+  const newTask = buildCreatedTask({ id: state.nextId, subject, params, parentId: parent.value });
   const nextState: TodoState = {
     tasks: [...state.tasks.map(cloneTask), newTask],
     nextId: state.nextId + 1
@@ -581,12 +582,18 @@ function createDependencyError(
   return undefined;
 }
 
-function buildCreatedTask(
-  id: number,
-  params: TaskMutationParams,
-  parentId: number | undefined
-): Task {
-  const task: Task = { id, subject: params.subject ?? "", status: "pending" };
+function buildCreatedTask({
+  id,
+  subject,
+  params,
+  parentId
+}: {
+  id: number;
+  subject: string;
+  params: TaskMutationParams;
+  parentId: number | undefined;
+}): Task {
+  const task: Task = { id, subject, status: "pending" };
   if (parentId !== undefined) task.parentId = parentId;
   if (params.description) task.description = params.description;
   if (params.inProgressLabel) task.inProgressLabel = params.inProgressLabel;
@@ -652,14 +659,14 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
   const metadata = validateUpdatedMetadata(state, current, params);
   if (!metadata.ok) return metadata.result;
 
-  const updated = buildUpdatedTask(
+  const updated = buildUpdatedTask({
     current,
     params,
-    nextStatus,
-    parent.value.parentId,
-    dependencies.value,
-    metadata.value
-  );
+    status: nextStatus,
+    parentId: parent.value.parentId,
+    blockedBy: dependencies.value,
+    metadata: metadata.value
+  });
   let nextTasks = state.tasks.map((task, taskIndex) =>
     taskIndex === index ? updated : cloneTask(task)
   );
@@ -938,14 +945,21 @@ function validateUpdatedMetadata(
   };
 }
 
-function buildUpdatedTask(
-  current: Task,
-  params: TaskMutationParams,
-  status: TaskStatus,
-  parentId: number | undefined,
-  blockedBy: number[],
-  metadata: TaskMetadata | undefined
-): Task {
+function buildUpdatedTask({
+  current,
+  params,
+  status,
+  parentId,
+  blockedBy,
+  metadata
+}: {
+  current: Task;
+  params: TaskMutationParams;
+  status: TaskStatus;
+  parentId: number | undefined;
+  blockedBy: number[];
+  metadata: TaskMetadata | undefined;
+}): Task {
   const updated = cloneTask({
     ...current,
     status,

@@ -434,7 +434,6 @@ export class Run {
     return this.done;
   }
 
-  /** A foreground call waits for the result; a background or promoted call returns once started. */
   private async returned(): Promise<RunReturn> {
     const started = await this.child.started;
     const interrupted = started?.interrupted ?? false;

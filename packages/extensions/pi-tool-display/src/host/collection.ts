@@ -238,13 +238,14 @@ export class DisplayCollectors {
         const definition = session.getToolDefinition(name);
         const info = registered(name);
 
-        return selectAdapter(
-          configuration,
+        return selectAdapter({
+          settings: configuration,
           name,
-          definition && session.extensionRunner.resolveToolRenderers(name, () => definition),
-          this.native.isNative(session, name, info),
+          original:
+            definition && session.extensionRunner.resolveToolRenderers(name, () => definition),
+          native: this.native.isNative(session, name, info),
           info
-        );
+        });
       },
       args: (name, args) => {
         const info = registered(name);

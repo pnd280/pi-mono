@@ -18,6 +18,10 @@ const loadBrowserModules = () => (browserModules ??= importBrowserModules());
 
 const actions = ["collapse", "expand", "toggle"] as const;
 
+export type TodosCommandContext = Pick<ExtensionCommandContext, "signal"> & {
+  ui: Pick<ExtensionUIContext, "custom" | "notify">;
+};
+
 export function getTodosArgumentCompletions(prefix: string) {
   const normalized = prefix.trimStart().toLowerCase();
   const matches = actions
@@ -68,9 +72,7 @@ export class TodosCustomViewHost {
   }
 
   async show(
-    ctx: Pick<ExtensionCommandContext, "signal"> & {
-      ui: Pick<ExtensionUIContext, "custom" | "notify">;
-    },
+    ctx: TodosCommandContext,
     controller: Pick<TodoController, "getTodos">
   ): Promise<void> {
     // Read the host context before the view loads; the invocation can end during the import.
@@ -104,9 +106,7 @@ export class TodosCustomViewHost {
 
 export async function runTodosCommand(
   args: string,
-  ctx: Pick<ExtensionCommandContext, "signal"> & {
-    ui: Pick<ExtensionUIContext, "custom" | "notify">;
-  },
+  ctx: TodosCommandContext,
   controller: Pick<TodoController, "getTodos">,
   options: {
     customViewHost: TodosCustomViewHost;

@@ -4,9 +4,3 @@
 
 - Publish live text through the shared [working-message coordinator](../../libs/src/working-message/README.md).
 - Accept [milestones and counters](GLOSSARY.md) only through their [public channels](docs/milestones-and-counters.md), checked against the saved schema's limits, so saved summaries stay renderable.
-
-## Validation
-
-| When you…                    | Read                                                   |
-| ---------------------------- | ------------------------------------------------------ |
-| Change lifecycle or host use | [Pi compatibility checklist](docs/pi-compatibility.md) |

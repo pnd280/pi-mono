@@ -14,6 +14,9 @@ const GROUP_CHECK_MS = 50;
 /** How long a group can remain after SIGKILL, such as zombies that their new parent reaps. */
 const KILL_CHECK_MS = 1_000;
 
+export const asError = (error: unknown) =>
+  error instanceof Error ? error : new Error(String(error));
+
 export function processOptions(): Pick<SpawnOptions, "detached" | "windowsHide"> {
   return process.platform === "win32" ? { detached: false, windowsHide: true } : { detached: true };
 }
@@ -89,7 +92,7 @@ export function terminateTree(
       }
     } while (added);
   } catch (error) {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
   } finally {
     // Kill descendants first. All targets came from this live handle, never saved records.
     for (const pid of [...owned].reverse()) {
@@ -97,7 +100,7 @@ export function terminateTree(
         if (groups.has(pid)) signalProcess(-pid, "SIGKILL");
         signalProcess(pid, "SIGKILL");
       } catch (error) {
-        onError(error instanceof Error ? error : new Error(String(error)));
+        onError(asError(error));
       }
     }
   }
@@ -139,7 +142,7 @@ export function forceStop(
 
   // The live child holds its PID, so the first signal reaches its own group.
   return stopGroup(pid).catch((error: unknown) => {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
   });
 }
 
@@ -157,13 +160,13 @@ export function stopRemainingGroup(
     // An answer proves only that a group with this PGID exists. After the child is reaped, only the remaining members keep the number, so a reused PGID can belong to another group.
     if (signalGroup(pid, 0) === "gone") return undefined;
   } catch (error) {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
 
     return undefined;
   }
 
   return stopGroup(pid).catch((error: unknown) => {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
   });
 }
 

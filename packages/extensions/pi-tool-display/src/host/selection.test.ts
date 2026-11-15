@@ -20,7 +20,8 @@ it("applies exact-name renderer overrides before native and extension adapters",
         generic: "generic",
         auto: native ? "pi:grep" : "pi-mcp-adapter:direct"
       };
-      expect(selectAdapter(settings, "grep", owner, native, mcpToolInfo("grep"))?.id).toBe(
+      const info = mcpToolInfo("grep");
+      expect(selectAdapter({ settings, name: "grep", original: owner, native, info })?.id).toBe(
         expected[mode]
       );
     }
@@ -28,7 +29,15 @@ it("applies exact-name renderer overrides before native and extension adapters",
     const invalid = loadDisplaySettings([
       { path: "settings", settings: { "ext.pi-tool-display": { showParameters: "invalid" } } }
     ]);
-    expect(selectAdapter(invalid, "grep", owner, native, mcpToolInfo("grep"))).toBeUndefined();
+    expect(
+      selectAdapter({
+        settings: invalid,
+        name: "grep",
+        original: owner,
+        native,
+        info: mcpToolInfo("grep")
+      })
+    ).toBeUndefined();
   }
 
   // Prototype-like names without an override keep automatic selection: a renderer slot stays (not generic), and a tool without one gets a generic card (not original).
@@ -40,7 +49,11 @@ it("applies exact-name renderer overrides before native and extension adapters",
   ]);
 
   for (const name of ["toString", "constructor"]) {
-    expect(selectAdapter(overridden, name, owner, false)).toBeUndefined();
-    expect(selectAdapter(overridden, name, undefined, false)?.id).toBe("generic");
+    expect(
+      selectAdapter({ settings: overridden, name, original: owner, native: false })
+    ).toBeUndefined();
+    expect(
+      selectAdapter({ settings: overridden, name, original: undefined, native: false })?.id
+    ).toBe("generic");
   }
 });

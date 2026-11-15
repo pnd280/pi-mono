@@ -8,6 +8,8 @@ import { taskRecordSchema } from "../tasks/records.ts";
 const id = z.string().min(1).max(1024);
 const version = z.literal(PROTOCOL_VERSION);
 const slot = z.object({ request_id: id, owner: id });
+const ERROR_MAX_LENGTH = 4096;
+const errorSchema = z.string().max(ERROR_MAX_LENGTH);
 
 /** `/subagents begin`: the supervisor starts one run of a child. */
 export const beginSchema = z.object({
@@ -21,7 +23,7 @@ export const beginSchema = z.object({
 /** `/subagents slot`: a capacity reply that travels down to the requesting supervisor. */
 export const slotReplySchema = slot.extend({
   granted: z.boolean(),
-  error: z.string().max(4096).optional()
+  error: errorSchema.optional()
 });
 
 const controlRequestSchema = z.discriminatedUnion("kind", [
@@ -44,6 +46,13 @@ export type SlotReply = z.infer<typeof slotReplySchema>;
 
 export type Control = z.infer<typeof controlSchema>;
 
+/** The payload of each reserved `/subagents` subcommand that a supervisor sends to its child. */
+export type ChildCommands = {
+  begin: z.infer<typeof beginSchema>;
+  slot: SlotReply;
+  control: Control;
+};
+
 /** Messages from a child to its supervisor, sent as the child's protocol status. */
 export const childMessageSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -59,7 +68,7 @@ export const childMessageSchema = z.discriminatedUnion("kind", [
     /** The continued history ends with a tool call that has no result. */
     interrupted: z.boolean()
   }),
-  z.object({ kind: z.literal("begin-failed"), run_id: id, error: z.string().max(4096) }),
+  z.object({ kind: z.literal("begin-failed"), run_id: id, error: errorSchema }),
   z.object({ kind: z.literal("task"), record: taskRecordSchema }),
   slot.extend({ kind: z.literal("slot-request") }),
   slot.extend({ kind: z.literal("slot-release") }),
@@ -68,7 +77,7 @@ export const childMessageSchema = z.discriminatedUnion("kind", [
     request_id: id,
     details: detailsSchema.optional(),
     record: taskRecordSchema.optional(),
-    error: z.string().max(4096).optional()
+    error: errorSchema.optional()
   })
 ]);
 
@@ -78,11 +87,11 @@ const MESSAGE_MAX_BYTES = RECORD_MAX_BYTES + 64 * 1024;
 
 /** An error for a protocol reply, within the error field's limit. */
 export function errorText(error: unknown, fallback: string): string {
-  return (error instanceof Error ? error.message : fallback).slice(0, 4096);
+  return (error instanceof Error ? error.message : fallback).slice(0, ERROR_MAX_LENGTH);
 }
 
 /** Serialise a protocol payload, rejecting one over the protocol budget. */
-export function encode(value: unknown): string {
+export function encode(value: ChildMessage | ChildCommands[keyof ChildCommands]): string {
   const text = JSON.stringify(value);
   if (Buffer.byteLength(text) > MESSAGE_MAX_BYTES)
     throw new Error("Subagent message exceeds the protocol budget");

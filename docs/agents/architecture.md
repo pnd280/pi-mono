@@ -10,10 +10,4 @@ When choosing an owner or changing package boundaries, start with the [workspace
 
 ## Reuse decision
 
-Before implementing behaviour, search shared packages, relevant extensions, and Pi APIs and components.
-
-| When…                                 | Action                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------ |
-| An existing implementation fits       | Reuse it.                                                                |
-| Another extension needs the behaviour | Extract it into the matching shared package; keep consumer policy local. |
-| The behaviour is extension-specific   | Keep it local.                                                           |
+Before implementing behaviour, search shared packages, relevant extensions, and Pi APIs and components, and reuse an implementation that fits. When another extension needs the behaviour, extract it into the matching shared package and keep consumer policy local.

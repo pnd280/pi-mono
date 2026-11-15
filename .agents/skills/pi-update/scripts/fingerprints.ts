@@ -30,7 +30,7 @@ const row = (name: string): unknown => Reflect.get(pi.ToolExecutionComponent.pro
 const assistant = (name: string): unknown =>
   Reflect.get(pi.AssistantMessageComponent.prototype, name);
 
-const owners: Record<string, () => Methods> = {
+const owners = {
   "packages/extensions/pi-tool-display/src/host/native-tools/compatibility.ts": () => ({
     _buildRuntime: session("_buildRuntime"),
     _refreshToolRegistry: session("_refreshToolRegistry")
@@ -77,14 +77,14 @@ const owners: Record<string, () => Methods> = {
     tryTriggerAutocomplete: Reflect.get(Editor.prototype, "tryTriggerAutocomplete"),
     requestAutocomplete: Reflect.get(Editor.prototype, "requestAutocomplete")
   })
-};
+} satisfies Record<string, () => Methods>;
 
 const inspectedVersions: Partial<Record<string, string>> = {
   "packages/extensions/pi-editor-widgets/src/host.ts": widgetVersion,
   "packages/extensions/pi-tool-display/src/host/compatibility.ts": displayVersion
-};
+} satisfies Partial<Record<keyof typeof owners, string>>;
 
-// Every 64-hex string literal in non-test workspace TypeScript, by file.
+// Every 64-hex string literal in non-test TypeScript under packages/, by file.
 function listedHashes(): Map<string, Set<string>> {
   const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "packages/*.ts"], {
     encoding: "utf8"
@@ -134,12 +134,17 @@ function parse(stderr: string): Fingerprints {
 }
 
 /** Build an inspection-only invocation without inheriting credentials or project resources. */
-export function fingerprintProbe(
-  cli: string,
-  extension: string,
-  home: string,
-  parentEnv: Readonly<NodeJS.ProcessEnv>
-) {
+export function fingerprintProbe({
+  cli,
+  extension,
+  home,
+  parentEnv
+}: {
+  cli: string;
+  extension: string;
+  home: string;
+  parentEnv: Readonly<NodeJS.ProcessEnv>;
+}) {
   return {
     args: [cli, "--no-extensions", "-e", extension, "--help"],
     cwd: home,
@@ -162,7 +167,12 @@ function cliFingerprints(): Fingerprints {
 
   try {
     // Help loads explicit extensions, then exits without sending a model request.
-    const { args, ...options } = fingerprintProbe(cli, fileURLToPath(import.meta.url), home, process.env);
+    const { args, ...options } = fingerprintProbe({
+      cli,
+      extension: fileURLToPath(import.meta.url),
+      home,
+      parentEnv: process.env
+    });
     const probe = spawnSync(process.execPath, args, {
       ...options,
       encoding: "utf8",

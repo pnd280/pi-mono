@@ -135,10 +135,12 @@ function wrap(items: Item[], width: number): Item[][] {
 
 function compose(
   items: Item[],
-  width: number,
-  hasFlex: boolean,
-  separator: string,
-  align: Align
+  {
+    width,
+    hasFlex,
+    separator,
+    align
+  }: { width: number; hasFlex: boolean; separator: string; align: Align }
 ): Rendered {
   const height = Math.max(0, ...items.map((item) => item.lines.length));
   const top = (item: Item) => (align === "bottom" ? height - item.lines.length : 0);
@@ -199,17 +201,24 @@ function compose(
 
 export function renderRows(
   rows: string[][],
-  sources: ReadonlyMap<string, Component>,
-  width: number,
-  separator: string,
-  align: Align = "top"
+  {
+    sources,
+    width,
+    separator,
+    align = "top"
+  }: { sources: ReadonlyMap<string, Component>; width: number; separator: string; align?: Align }
 ): Rendered {
   const result: Rendered = { lines: [], cells: [] };
   if (width < 1) return result;
 
   for (const row of rows) {
     for (const items of wrap(measure(row, sources, width), width)) {
-      const rendered = compose(items, width, row.includes("flex"), separator, align);
+      const rendered = compose(items, {
+        width,
+        hasFlex: row.includes("flex"),
+        separator,
+        align
+      });
       const offset = result.lines.length;
       result.cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));
       result.lines.push(...rendered.lines);

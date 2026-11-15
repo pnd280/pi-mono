@@ -31,7 +31,11 @@ function chipCommand(token: string): string | undefined {
 
 /** Replaces each registered `$<name>` chip with its formatted skill reference. */
 function rewriteSkillChips(text: string, commands: SlashCommandInfo[], format: string): string {
-  return expandSkillReferences(text, skillReferenceCatalog(commands), format, chipCommand);
+  return expandSkillReferences(text, {
+    catalog: skillReferenceCatalog(commands),
+    format,
+    resolve: chipCommand
+  });
 }
 
 export default function t3Skills(pi: ExtensionAPI): void {

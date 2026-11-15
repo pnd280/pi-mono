@@ -162,7 +162,7 @@ export class Tasks {
   }
 
   /**
-   * Run one call: input to an active task, or a launch or resume that waits for capacity. A foreground call returns the run's result; a background or promoted call returns when its run starts. Errors before the task is claimed throw; later failures return as a result.
+   * Run one call: input to an active task, or a launch or resume that waits for capacity; `Run.launch` gives when a launch returns. Errors before the task is claimed throw; later failures return as a result.
    */
   async submit(call: ToolInput, handlers: CallHandlers): Promise<Submission> {
     if (handlers.signal?.aborted) throw new Error("Cancelled by turn abort");
@@ -336,9 +336,7 @@ export class Tasks {
       throw new Error("Subagent process has exited");
   }
 
-  /**
-   * Cancel an active task of this subtree. With `drop`, a direct task's cancellation result goes to nobody; a task that finished before the abort keeps its result. A failed cleanup of the task's processes throws after the task stops.
-   */
+  /** Cancel an active task of this subtree through `Route.cancel`. */
   abort(
     taskId: string,
     { reason = "Cancelled by user", drop = false }: { reason?: string; drop?: boolean } = {}

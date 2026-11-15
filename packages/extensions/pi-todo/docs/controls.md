@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-You read todos in the `/todos` browser and the widget, and the `ext.pi-todo` settings choose how the widget starts. The [package README](../README.md) gives the overview.
+You read todos in the `/todos` browser and the widget, and the `ext.pi-todo` settings choose how the widget starts.
 
 ## The `/todos` browser
 

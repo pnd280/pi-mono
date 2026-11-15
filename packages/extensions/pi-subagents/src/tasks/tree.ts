@@ -20,6 +20,9 @@ export type TreeChange = {
   publish?: { record: TaskRecord; urgency: Urgency };
 };
 
+/** The listed records in depth-first order, and by ID. */
+type Listing = { list: readonly TaskRecord[]; byId: ReadonlyMap<string, TaskRecord> };
+
 /**
  * The tasks that the child files of `roots` name, at any depth. Each run's ancestry names its child's tasks; the run reader stops an active run's ancestry at its marker. An unreadable file adds no descendants.
  */
@@ -58,8 +61,8 @@ export class TaskTree {
   private read = new Set<string>();
   /** Sequence numbers of the latest started and applied file reads. */
   private reads = { started: 0, applied: 0 };
-  /** The listed records in depth-first order, and by ID; rebuilt after a change. */
-  private order: { list: readonly TaskRecord[]; byId: ReadonlyMap<string, TaskRecord> } | undefined;
+  /** Rebuilt after a change. */
+  private order: Listing | undefined;
   private observers = 0;
   private timer: ReturnType<typeof setInterval> | undefined;
   private closed = false;
@@ -222,7 +225,7 @@ export class TaskTree {
   }
 
   /** Each listed task once, below its parent; a record in a parent cycle is not listed. */
-  private listed(): { list: readonly TaskRecord[]; byId: ReadonlyMap<string, TaskRecord> } {
+  private listed(): Listing {
     if (this.order) return this.order;
     const children = new Map<string | null, TaskRecord[]>();
 

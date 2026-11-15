@@ -48,4 +48,4 @@ Send terminal bytes with `send(data)` and force a render with `render()`. The re
 
 Run the affected consumer suites; each suite registers only its own feature.
 
-The fixture relies on installed Pi's private containers, `mountInteractiveTui`, `createExtensionUIContext`, `createChatViewport`, and `setupAutocompleteProvider`, which `bind()` runs after session binding as Pi's startup does. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.
+The fixture relies on installed Pi's private containers, `mountInteractiveTui`, `createExtensionUIContext`, `createChatViewport`, and `setupAutocompleteProvider`, which `bind()` runs after session binding as Pi's startup does. The [compatibility checklist](../../../docs/pi-compatibility.md#offline-fixtures) tracks those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.

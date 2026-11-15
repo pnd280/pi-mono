@@ -90,14 +90,19 @@ function status(details: ToolDetails): NonNullable<DisplayProgress["status"]> {
   };
 }
 
-function fields(
-  task: string | undefined,
-  background: boolean | undefined,
-  delivery: string | undefined,
-  launchArgs: readonly string[] = []
-): DisplayProgress["fields"] {
+function fields({
+  taskId,
+  background,
+  delivery,
+  launchArgs = []
+}: {
+  taskId: string | undefined;
+  background?: boolean | undefined;
+  delivery?: string | undefined;
+  launchArgs?: readonly string[] | undefined;
+}): DisplayProgress["fields"] {
   return [
-    ...(task ? [{ label: "task_id", value: task }] : []),
+    ...(taskId ? [{ label: "task_id", value: taskId }] : []),
     ...(launchArgs.length ? [{ label: "launch_args", items: launchArgItems(launchArgs) }] : []),
     ...(background ? [{ label: "background", value: "true" }] : []),
     ...(delivery === "steer" ? [{ label: "delivery", value: "steer" }] : [])
@@ -160,7 +165,12 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
         description: args.description ?? "…",
         identity: [args.model, args.thinking].filter(Boolean).join(":"),
         secondary: "",
-        fields: fields(args.task_id, args.background, args.delivery, args.launch_args),
+        fields: fields({
+          taskId: args.task_id,
+          background: args.background,
+          delivery: args.delivery,
+          launchArgs: args.launch_args
+        }),
         ...prompt
       };
 
@@ -172,7 +182,12 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
       secondary: secondary(details),
       // Returned calls describe their fixed acknowledgement, not the child's later state.
       ...(details.returned ? {} : times(details)),
-      fields: fields(details.task_id, details.background, details.delivery, details.launch_args),
+      fields: fields({
+        taskId: details.task_id,
+        background: details.background,
+        delivery: details.delivery,
+        launchArgs: details.launch_args
+      }),
       ...prompt,
       ...(details.state === "completed" && !details.returned ? { resultPreview: true } : {})
     };
@@ -207,7 +222,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
         description: args.task_id ?? "…",
         identity: "",
         secondary: "",
-        fields: fields(args.task_id, undefined, undefined)
+        fields: fields({ taskId: args.task_id })
       };
 
     return {
@@ -217,7 +232,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
       status: { glyph: TUI_GLYPHS.outcome.cancelled, text: "aborted", tone: "success" },
       secondary: usageText(details),
       ...times(details),
-      fields: fields(details.task_id, undefined, undefined, details.launch_args)
+      fields: fields({ taskId: details.task_id, launchArgs: details.launch_args })
     };
   }
 };

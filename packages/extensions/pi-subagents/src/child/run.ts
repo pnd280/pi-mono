@@ -22,7 +22,13 @@ import {
   STOP_GRACE_MS,
   TASK_ID_ENV
 } from "../constants.ts";
-import { childMessageSchema, decode, encode, type ChildMessage } from "../coordination/protocol.ts";
+import {
+  childMessageSchema,
+  decode,
+  encode,
+  type ChildCommands,
+  type ChildMessage
+} from "../coordination/protocol.ts";
 import { firstLine } from "../result.ts";
 import { ChildConnection, type ProcessExit, type RpcRecord } from "./connection.ts";
 import type { PiInvocation } from "./invocation.ts";
@@ -297,9 +303,9 @@ export class ChildRun {
   /**
    * Send a reserved `/subagents` subcommand and return the child's reply; undefined when the connection was closing and nothing was sent. A `handled` response is not success: Pi also reports it when the command handler throws. The child writes its reply before Pi writes the command's response, so a missing reply is reported, never retried.
    */
-  async ask<T>(
-    name: string,
-    payload: unknown,
+  async ask<Name extends keyof ChildCommands, T>(
+    name: Name,
+    payload: ChildCommands[Name],
     match: (message: ChildMessage) => T | undefined
   ): Promise<T | undefined> {
     let reply: T | undefined;
@@ -326,7 +332,10 @@ export class ChildRun {
   /**
    * Send a reserved `/subagents` subcommand that has no reply; false when the connection was closing and nothing was sent. It is not input: it neither invalidates collection nor arms completion, and its pending response holds stdin open.
    */
-  async command(name: string, payload: unknown): Promise<boolean> {
+  async command<Name extends keyof ChildCommands>(
+    name: Name,
+    payload: ChildCommands[Name]
+  ): Promise<boolean> {
     if (this.closing || this.finished) return false;
     const response = await this.connection.request({
       type: "prompt",

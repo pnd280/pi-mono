@@ -82,7 +82,7 @@ The [offline fixtures](../README.md#offline-validation) depend on these Pi contr
 - [ ] Offline fixtures isolate authentication.
 - [ ] Offline fixtures load the installed CLI.
 - [ ] Offline fixtures accept the launcher flags.
-- [ ] The [interactive host fixture](../src/validation/interactive-host/README.md) still finds the private containers, UI-context creation, renderer mounting, and `createChatViewport` it relies on.
+- [ ] The [interactive host fixture](../src/validation/interactive-host/README.md) still finds the private containers, UI-context creation, renderer mounting, autocomplete setup, and `createChatViewport` it relies on.
 - [ ] Pi focuses `editor` at startup before the renderer starts, as `inputHostFixture` does. Custom-UI tests depend on this focus.
 
 ## Limitations

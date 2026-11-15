@@ -34,11 +34,11 @@ export type FileMutation = {
   readonly patch: (limits: PatchLimits) => Promise<MutationPatch>;
 };
 
-export interface MutationSink {
+export type MutationSink = {
   maxSourceBytes: number;
   started?(): void;
   completed(mutation: FileMutation): void | Promise<void>;
-}
+};
 
 export type MutationObserver = {
   eligible(session: AgentSession, name: string): boolean;

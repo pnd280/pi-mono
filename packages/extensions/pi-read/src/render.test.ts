@@ -15,7 +15,7 @@ const themeMethods: Pick<Theme, "fg" | "bg" | "bold" | "getBgAnsi"> = {
   bold: (text) => text,
   getBgAnsi: () => "\x1b[49m"
 };
-// The renderer uses only these theme methods; syntax coloring is owned by the shared helper.
+// The renderer uses only these theme methods; syntax colouring is owned by the shared helper.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const theme = themeMethods as Theme;
 

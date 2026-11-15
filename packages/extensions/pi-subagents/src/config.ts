@@ -242,10 +242,12 @@ export function loadConfig(
   cwd: string,
   { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): SubagentsConfig & { docs: string; warnings: string[] } {
-  const [global = unset(), project = unset()] = readScopedSections(
+  const [globalSection, projectSection] = readScopedSections(
     { cwd, projectTrusted, agentDir },
     "ext.pi-subagents"
-  ).map(readSection);
+  );
+  const global = readSection(globalSection);
+  const project = projectSection ? readSection(projectSection) : unset();
   const warnings = [...global.warnings, ...project.warnings];
   const docs = readDocs(project.docPaths ?? global.docPaths ?? [], warnings);
 

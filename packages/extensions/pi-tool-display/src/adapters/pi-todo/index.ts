@@ -107,7 +107,7 @@ function taskSubject(
   return subject === undefined || subject === "" ? undefined : subject;
 }
 
-function changeSummary(args: NonNullable<ReturnType<typeof parseArgs>>): string {
+function changeSummary(args: z.infer<typeof argsSchema>): string {
   const changes: string[] = [];
   if (args.status !== undefined) changes.push(`status → ${TASK_STATUS_TEXT[args.status]}`);
   if (args.subject !== undefined) changes.push("subject");

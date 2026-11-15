@@ -17,7 +17,7 @@ import {
   type Host
 } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
-import { TranscriptRows } from "./rows.ts";
+import { TranscriptRows, type RowFailureStage } from "./rows.ts";
 
 type Binding = {
   host: Host;
@@ -67,7 +67,7 @@ export function installHostIntegration(
   const rowChrome = rowContractCompatible();
   let modeWarning = false;
   let rowWarning = false;
-  const rowFailures = new Set<"bind" | "release">();
+  const rowFailures = new Set<RowFailureStage>();
   let active = true;
 
   function rowsFor(host: Host): TranscriptRows {
@@ -78,7 +78,7 @@ export function installHostIntegration(
   }
 
   /** Row failures leave the session usable, so each stage warns once. */
-  function rowFailure(stage: "bind" | "release"): void {
+  function rowFailure(stage: RowFailureStage): void {
     if (rowFailures.has(stage)) return;
     rowFailures.add(stage);
     collection.warning(

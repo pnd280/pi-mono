@@ -52,20 +52,15 @@ This example shows every field. Remove the comments before you copy it, because 
         "description": "Write and test code",
         // Optional. A provider/model-id reference. Omit it to keep the current model.
         "model": "anthropic/claude-sonnet-4-5",
-        // Optional. off, minimal, low, medium, high, xhigh, or max. Pi limits it to what the model supports.
-        // Omit it to leave the level to Pi.
+        // Optional. off, minimal, low, medium, high, xhigh, or max. Pi limits it to what the model supports. Omit it to leave the level to Pi.
         "thinking": "medium",
-        // Optional. Up to 32 MCP servers in the shape of Pi's mcp.json entries. Omit it to add no servers.
-        // They run only while this profile is selected. A project profile cannot use "auth".
+        // Optional. Up to 32 MCP servers in the shape of Pi's mcp.json entries. Omit it to add no servers. They run only while this profile is selected. A project profile cannot use "auth".
         "mcpServers": {
           "tracker": { "url": "https://mcp.example.com/mcp" }
         },
-        // Optional. Tool names or * patterns, up to 256 in each list.
-        // Omit it to declare the tools that are declared without a profile.
+        // Optional. Tool names or * patterns, up to 256 in each list. Omit it to declare the tools that are declared without a profile.
         "tools": {
-          // Optional. Tools that stop being declared until the model loads them with tool_search.
-          // A tool that the branch already used, or that tool_search cannot load again, stays declared.
-          // An array in the list is a group of tools that load together. Omit it to defer no tools.
+          // Optional. Tools that stop being declared until the model loads them with tool_search. A tool that the branch already used, or that tool_search cannot load again, stays declared. An array in the list is a group of tools that load together. Omit it to defer no tools.
           "defer": [["mcp__github__*"]]
         }
       },
@@ -74,15 +69,12 @@ This example shows every field. Remove the comments before you copy it, because 
         "description": "Read and plan without changing files",
         "model": "openai-codex/gpt-5.1",
         "thinking": "high",
-        // Optional. Up to 32 text files that are added to the system prompt, up to 1 MiB each. Omit it to add no text.
-        // A relative path resolves from the directory of the settings file: the agent directory or the project's .pi directory.
+        // Optional. Up to 32 text files that are added to the system prompt, up to 1 MiB each. Omit it to add no text. A relative path resolves from the directory of the settings file: the agent directory or the project's .pi directory.
         "appendSystemPrompts": ["profiles/plan.md"],
         "tools": {
-          // Optional. The tools to declare at the switch, before deny and defer apply. A defer list can also declare tool_search.
-          // Omit it to start from the tools that are declared without a profile.
+          // Optional. The tools to declare at the switch, before deny and defer apply. A defer list can also declare tool_search. Omit it to start from the tools that are declared without a profile.
           "allow": ["read", "grep", "find", "ls"],
-          // Optional. Tools that stay off while the profile is selected, also when another extension turns them on.
-          // Omit it to deny no tools.
+          // Optional. Tools that stay off while the profile is selected, also when another extension turns them on. Omit it to deny no tools.
           "deny": ["edit", "write"]
         }
       }
@@ -111,5 +103,5 @@ Here `~/.pi/agent/profiles/plan.md` contains the instructions for the `plan` pro
 | Define MCP servers in a profile                                         | [Profile MCP servers](docs/tools.md#profile-mcp-servers) |
 | Use the `/profile` menu and its tool states                             | [Profile menu](docs/menu.md)                             |
 | Resume, fork, use `/tree` or `/reload`, or start with a profile         | [Profiles across sessions](docs/sessions.md)             |
-| Decide where a test belongs                                             | [Testing](docs/testing.md)                               |
+| Check what the tests protect                                            | [Testing](docs/testing.md)                               |
 | Upgrade Pi                                                              | [Pi compatibility](docs/pi-compatibility.md)             |

@@ -22,7 +22,11 @@ function expandSkillInput(text: string, commands: SlashCommandInfo[], format: st
   // Existing references can start with a template command and still need the leading guard.
   if (!text.includes("/skill:") && !text.startsWith("/")) return text;
 
-  return expandSkillReferences(text, skillReferenceCatalog(commands), format, (token) => token);
+  return expandSkillReferences(text, {
+    catalog: skillReferenceCatalog(commands),
+    format,
+    resolve: (token) => token
+  });
 }
 
 export default function skills(pi: ExtensionAPI): void {

@@ -150,7 +150,7 @@ Thinking separates exploration groups, but never splits or ends a run. A single 
 
 ### Notices and todo calls in runs
 
-[Nested-instruction notices](tools.md#nested-instructions) join the preceding run without splitting or ending it, but they still separate groups. They add separate counts for loaded, updated, and removed instructions, hide with the run, and return to their original positions when it opens. A notice with no preceding run stays standalone.
+[Nested-instruction notices](tools.md#nested-instructions) join the preceding run without splitting or ending it, but they still separate groups. They hide with the run, and return to their original positions when it opens. A notice with no preceding run stays standalone.
 
 Todo calls stay in their run but are left out of the line, including incompatible calls shown with generic fallback. They don't affect counts. A run of only todo calls, with no counted notices, shows no line.
 
@@ -184,9 +184,7 @@ Each category counts identities separately and keeps their latest outcomes.
 #### Categories
 
 - Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/run-summary.ts).
-- Pi's built-in [codemode](tools.md#codemode) counts each script once as `ran 1 script`. Nested calls never count.
-- Pi's built-in [tool search](tools.md#tool-search) adds a loaded-tools category, deduplicated by tool name across the run. Calls without valid, nonempty loaded-name details count individually as `tool_search`.
-- [Instruction notices](tools.md#nested-instructions) count once per persisted file path and action, or per directory for removals. These counts stay separate from tool outcomes and file-read counts.
+- Pi's built-in [codemode](tools.md#codemode) and [tool search](tools.md#tool-search), [pi-subagents](tools.md#subagents-in-summary-lines), and [instruction notices](tools.md#nested-instructions) count as their sections in supported tool cards describe. Instruction counts stay separate from tool outcomes and file-read counts.
 
 #### Order and wording
 

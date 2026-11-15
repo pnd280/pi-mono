@@ -149,7 +149,7 @@ export class JobLogView implements Component {
     try {
       await this.jobs.abort(this.jobId);
     } catch (error) {
-      if (this.active) this.error = error instanceof Error ? error.message : "Job action failed";
+      if (this.active) this.error = errorMessage(error);
     }
 
     this.tui.requestRender();

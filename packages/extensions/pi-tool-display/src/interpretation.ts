@@ -227,13 +227,16 @@ function groupKey(
   return { scope, title };
 }
 
-function cardMeaning(
-  adapter: ToolDisplayAdapter,
-  args: unknown,
-  result: BorrowedToolResult | undefined,
-  pending: boolean,
-  recorded: Outcome
-): CardInterpretation {
+function cardMeaning({
+  adapter,
+  args,
+  result,
+  pending,
+  recorded
+}: Omit<CardInterpretationInput, "failed"> & {
+  adapter: ToolDisplayAdapter;
+  recorded: Outcome;
+}): CardInterpretation {
   const mcp = adapter.mcp?.(args, result);
   const reported = result && !pending ? adapter.outcome?.(result) : undefined;
   const outcomes = [recorded, reported, pending ? undefined : mcp?.outcome];
@@ -256,13 +259,13 @@ export function interpretCard(
   evaluator: AdapterEvaluator
 ): CardInterpretation {
   return evaluator.interpret((adapter) =>
-    cardMeaning(
+    cardMeaning({
       adapter,
-      input.args,
-      input.result,
-      input.pending,
-      input.failed ? "failure" : "success"
-    )
+      args: input.args,
+      result: input.result,
+      pending: input.pending,
+      recorded: input.failed ? "failure" : "success"
+    })
   );
 }
 
@@ -282,7 +285,7 @@ export function interpret(
   return evaluator.interpret((candidate): CallInterpretation => {
     const adapter =
       result && candidate.supports?.(args, result) === false ? genericAdapter : candidate;
-    const meaning = cardMeaning(adapter, args, result, pending, recorded);
+    const meaning = cardMeaning({ adapter, args, result, pending, recorded });
     const exploration = adapter.exploration?.(args, result) ?? [];
 
     return {

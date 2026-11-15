@@ -20,6 +20,8 @@ const settingsSchema = z.strictObject({
 
 export type Settings = z.output<typeof settingsSchema>;
 
+type ShortcutAction = keyof Settings["shortcuts"];
+
 function parseSettings(value: unknown): { settings: Settings; warnings: string[] } {
   const result = settingsSchema.safeParse(value === undefined ? {} : value);
   const warnings: string[] = [];
@@ -39,7 +41,7 @@ function parseSettings(value: unknown): { settings: Settings; warnings: string[]
   const historyRetention =
     settingsSchema.shape.historyRetention.safeParse(section.historyRetention).data ?? 250;
 
-  const bindings = (action: "history" | "saveDraft") => {
+  const bindings = (action: ShortcutAction) => {
     const parsed = shortcutsSchema.shape[action].safeParse(shortcuts[action]);
     if (parsed.success) return parsed.data;
     warnings.push("invalid launch shortcut list; using that action's default.");
@@ -64,7 +66,7 @@ function resolveShortcuts(settings: Settings, warnings: string[]) {
     { action: "history", keys: settings.shortcuts.history },
     { action: "saveDraft", keys: settings.shortcuts.saveDraft }
   ]);
-  const keys = (action: "history" | "saveDraft") =>
+  const keys = (action: ShortcutAction) =>
     bindings.filter((binding) => binding.action === action).map((binding) => binding.key);
   const history = keys("history");
 

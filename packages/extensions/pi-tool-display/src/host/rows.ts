@@ -1,7 +1,8 @@
 import {
   AssistantMessageComponent,
   CustomMessageComponent,
-  ToolExecutionComponent
+  ToolExecutionComponent,
+  type AgentSessionEvent
 } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
@@ -27,6 +28,8 @@ import { bindRowChrome } from "./row-layout.ts";
 
 type RowHost = Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded" | "streamingComponent">;
 
+export type RowFailureStage = "bind" | "release";
+
 type RowOptions = {
   styleAssistant: boolean;
   /** Pi's row contract is recognized; otherwise rows keep Pi's own chrome. */
@@ -35,7 +38,7 @@ type RowOptions = {
   syncMode?: () => void;
   action?: (action: DisplayAction) => void;
   /** A row's hooks failed to install or to release. A row without hooks stands alone. */
-  failed: (stage: "bind" | "release") => void;
+  failed: (stage: RowFailureStage) => void;
 };
 
 /**
@@ -131,7 +134,7 @@ export class TranscriptRows {
   /**
    * Pi's `handleEvent`. A compaction inserts its summary into the binding that is current when the event settles: success rebinds before it appends the summary, and a failure appends notices to the original binding. A settled run moves the user's deferred bash rows into the chat. A binding that outlives the event binds its new rows.
    */
-  async handleEvent(type: string, handle: () => Promise<void>): Promise<void> {
+  async handleEvent(type: AgentSessionEvent["type"], handle: () => Promise<void>): Promise<void> {
     const host = this.host;
     const binding = this.binding;
     // message_end updates the component and clears the host's streaming reference.

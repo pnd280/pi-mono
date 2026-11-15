@@ -69,38 +69,36 @@ async function nativeHints(name: string, input: Input, cwd: string): Promise<Pat
 
   const add = (
     value: string | null | undefined,
-    kind: PathHint["kind"],
-    read: boolean,
-    pattern = false,
-    relativeTo = cwd
+    hint: Pick<PathHint, "kind" | "read"> & Partial<Pick<PathHint, "cwd" | "pattern">>
   ) => {
-    if (value) output.push({ value, cwd: relativeTo, kind, read, pattern });
+    if (value) output.push({ value, cwd, pattern: false, ...hint });
   };
 
   switch (name) {
     case "read":
-      add(searchPath, "auto", true);
+      add(searchPath, { kind: "auto", read: true });
       break;
     case "ls":
-      add(searchPath, "directory", false);
+      add(searchPath, { kind: "directory", read: false });
       break;
 
     case "find":
-      add(searchPath, "directory", false);
+      add(searchPath, { kind: "directory", read: false });
       // Unrooted filename patterns do not identify a directory.
-      if (input.pattern?.includes("/")) add(input.pattern, "auto", false, true, base);
+      if (input.pattern?.includes("/"))
+        add(input.pattern, { kind: "auto", read: false, pattern: true, cwd: base });
       break;
 
     case "grep":
-      add(searchPath, "auto", true);
+      add(searchPath, { kind: "auto", read: true });
       if (input.glob?.includes("/") && !input.glob.startsWith("!"))
-        add(input.glob, "auto", true, true, base);
+        add(input.glob, { kind: "auto", read: true, pattern: true, cwd: base });
       break;
 
     case "bash": {
       const { bashHints } = await loadBash();
 
-      return bashHints(input.command ?? "", cwd, homedir());
+      return bashHints(input.command ?? "", { cwd, home: homedir() });
     }
 
     default:

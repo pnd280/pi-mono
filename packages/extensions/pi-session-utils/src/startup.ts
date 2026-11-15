@@ -50,7 +50,10 @@ function applyStartupParent(manager: SessionManager, args: Args): void {
 
   const sessionDir =
     manager.getSessionDir() || args.sessionDir || process.env.PI_CODING_AGENT_SESSION_DIR;
-  header.parentSession = resolveParentSession(reference.data, manager.getCwd(), sessionDir);
+  header.parentSession = resolveParentSession(reference.data, {
+    cwd: manager.getCwd(),
+    sessionDir
+  });
 }
 
 export function installParentSessionStartup(pi: Pick<ExtensionAPI, "on" | "getFlag">): void {
