@@ -27,7 +27,7 @@
   "_aux/typescript-taste": {
     "source": "$local",
     "skill": "typescript-taste",
-    "hash": "9f190e61d6e641c84f259b9633ab6f15699cc151865d6b2c2ce50946392fbe98"
+    "hash": "334b87dd4beb70607d13a8ee37e92d3a54f492052cce7ddf9f418ba4eea1ba89"
   },
   "_aux/writing-for-agents": {
     "source": "https://github.com/mattpocock/skills",
