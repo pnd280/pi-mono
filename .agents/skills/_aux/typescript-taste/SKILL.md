@@ -8,31 +8,59 @@ metadata:
 
 ## Sources of truth
 
-The preference is to infer types from the implementation or canonical schema and derive shared types rather than maintain mirrors. Explicit types are welcome for public contracts, intentional inference constraints, or materially better diagnostics.
+Infer types from the implementation or the canonical schema, and derive shared types from that source rather than mirror it. Write explicit types for public contracts, deliberate inference constraints, or materially better diagnostics.
 
-For a separately declared API/configuration fragment that will later be spread into or passed to a typed boundary, prefer checking it at its declaration with `satisfies`. Inference alone does not check the intended contract; `satisfies` checks compatibility and catches excess keys on fresh object literals while retaining useful inference. It performs no runtime validation.
+Check a separately declared API or configuration fragment at its declaration with `satisfies` when it is later spread into or passed to a typed boundary. Inference alone leaves the intended contract unchecked; `satisfies` checks it, catches excess keys on the fresh object literal, and keeps the inferred type.
 
-A literal that must name a member of an existing union, such as an event, entry, or message `type` in a membership check, needs that union as its declared type. Inference widens the array in `["message_end"].includes(event.type)` to `string[]`, so a misspelt or renamed member still type-checks. `as const` narrows the array to its own members and then rejects the wider argument. Declare the collection with the union instead, such as `ReadonlySet<JsonAgentSessionEvent["type"]>`, or compare with `===`, which rejects a literal outside the union.
+A literal that must name a member of an existing union, such as an event, entry, or message `type` in a membership check, takes its type from that union: declare the collection as `ReadonlySet<JsonAgentSessionEvent["type"]>`, or compare with `===`, so that a misspelt or renamed member fails to compile. In `["message_end"].includes(event.type)`, inference widens the array to `string[]` and accepts any string, and `as const` narrows the array to its own members and then rejects the wider argument.
 
 ## Trust boundaries
 
-At untrusted boundaries, prefer `unknown` followed by narrowing or validation. The owner favors keeping unavoidable `any` local to an interoperability gap, with runtime evidence or a concrete boundary assumption explaining each `any` or assertion. Narrowing, validation, or better modeling are preferred to casts; a casting wrapper is useful when it centralizes a documented boundary assumption or meaningful domain operation.
+A boundary is where a value arrives from outside the type checker's reach: I/O, `JSON.parse`, or a published or untyped API. A workspace package that is type-checked with its callers under the same configuration is inside the boundary. Settle which case applies from the callers: who imports the code, and whether the package is published.
 
-A sound type predicate proves its claimed narrowing at runtime. A non-null object check establishes `object`, not a plain object or `Record<string, unknown>`:
+Parse, don't validate: at a boundary, a parser takes `unknown` and returns a domain type. Prefer narrowing, validation, or better modeling to a cast. Keep an unavoidable `any` local to its interoperability gap, and back each `any` or assertion with evidence: a runtime check or a concrete boundary assumption. A casting wrapper earns its place when it centralizes a documented boundary assumption or a meaningful domain operation.
+
+A sound type predicate or parser proves at runtime every constraint of the type that it claims. A non-null object check establishes `object`, not a plain object or `Record<string, unknown>`:
 
 ```ts
 const isObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null;
 ```
 
-A stronger predicate needs checks for the additional constraints it claims. Type annotations and assertions supply no runtime evidence.
+## Past the boundary
+
+The parsed type is the evidence: internal signatures take the domain type, and internal code uses it without checking again. Shotgun parsing is the smell, internal code that proves again what its input type already states:
+
+- A parameter typed `unknown` or `Record<string, unknown>` although its producers supply a domain type.
+- `isRecord` or `typeof` property checks on a value that is already typed.
+- The same guard defined again in another file.
+
+For callers that already supply a parsed `User`, this:
+
+```ts
+function userLabel(user: User): string {
+  if (!isRecord(user)) return "Unknown";
+  if (typeof user.name !== "string") return "Unknown";
+  return user.name;
+}
+```
+
+becomes:
+
+```ts
+function userLabel(user: User): string {
+  return user.name;
+}
+```
+
+Before you remove a guard, verify that every caller supplies the parsed type: an unchecked cast, an untyped caller, or later mutation makes the guard load-bearing. A function that itself receives untrusted input is a boundary; keep its check, or move it into an explicit parser.
+
+## Fallbacks
+
+Return a fallback value such as `undefined`, `{}`, `[]`, or `"Unknown"` only where recovery is documented. Elsewhere, let invalid input or a broken invariant fail visibly.
 
 ## Shapes and arguments
 
-The owner's default is `type` for ordinary aliases and closed object shapes, and `interface` for deliberately open contracts—declaration merging, module augmentation, independently extended registries—or established project class contracts.
+Default to `type` for ordinary aliases and closed object shapes. Use `interface` for a deliberately open contract (declaration merging, module augmentation, an independently extended registry) or an established project class contract.
 
-Object parameters are preferred when names distinguish several meaningful inputs or stabilize optional/evolving fields. Short conventional sequences can stay positional, especially when migration cost outweighs call-site clarity.
-
-## Object guards
-
-Prefer preserving validated domain types over repeatedly reconstructing them with object and property checks. See [object guard patterns](references/ai-slop-fingerprints/index.md).
+Take an object parameter when names distinguish several meaningful inputs or stabilize optional or evolving fields. A short conventional sequence stays positional, especially when migration cost outweighs call-site clarity.
