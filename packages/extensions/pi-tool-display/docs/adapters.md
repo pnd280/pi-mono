@@ -57,6 +57,8 @@ Session messages use Pi's public `registerMessageRenderer` API from this extensi
 
 The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) derives summary categories and identities from validated notice details. Its [notice card renderer](../src/rendering/notice.ts) lives with the other card layout, so notice paths share target wrapping. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
 
+The [pi-smart-compact adapter](../src/adapters/pi-smart-compact/README.md#compatibility-and-registration) renders context status messages as [standalone rows](tools.md#context-status-rows), which need no host handling.
+
 ## Recognise tool contracts
 
 Match verified provenance and the parameter structure the renderer needs: types, required fields, and object strictness where relevant. Do not fingerprint complete schemas or require numeric bounds, descriptions, or other details that provider-facing projection can omit or rewrite. Removing `minimum` from an integer coordinate, for example, must not disable its display adapter. Validate argument values and result shapes separately before specialised rendering.

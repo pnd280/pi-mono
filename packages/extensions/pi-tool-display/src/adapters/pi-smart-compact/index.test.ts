@@ -1,7 +1,14 @@
-import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent";
+import {
+  CustomMessageComponent,
+  initTheme,
+  type AgentToolResult,
+  type MessageRenderer
+} from "@earendil-works/pi-coding-agent";
+import { contextStatusType } from "pi-smart-compact/result";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
+import { renderContextStatus } from "../../rendering/context-status.ts";
 import { keybindingHints, plainTheme as theme } from "../../test-fixture.ts";
 import {
   smartCompactDisplayAdapter as compact,
@@ -80,4 +87,34 @@ it("keeps context usage results unchanged while rendering collapsed and expanded
 
     expect(supplied).toEqual(before);
   }
+});
+
+it("keeps context status messages unchanged while rendering", () => {
+  const message = {
+    role: "custom",
+    customType: contextStatusType,
+    content: 'Context usage: {"tokens":152340,"contextWindow":200000,"percent":76.17}',
+    display: true,
+    timestamp: 0,
+    details: {
+      tokens: 152340,
+      contextWindow: 200000,
+      percent: 76.17,
+      model: "provider/model",
+      countedBy: "provider/counter"
+    }
+  } satisfies Parameters<MessageRenderer>[0];
+  const before = structuredClone(message);
+  const component = new CustomMessageComponent(message, renderContextStatus);
+
+  for (const expanded of [false, true]) {
+    component.setExpanded(expanded);
+
+    for (const width of [12, 80]) {
+      component.invalidate();
+      expect(component.render(width).join("\n")).toContain("152,340");
+    }
+  }
+
+  expect(message).toEqual(before);
 });

@@ -2,13 +2,14 @@
 
 [pi-smart-compact adapter](README.md) · [Adapter development](../../../docs/adapters.md)
 
-Adapter maintainers use this contract when they change result handling. [Smart compact cards](../../../docs/tools.md#smart-compact) describes what users see. The producer's pure [`pi-smart-compact/result`](../../../../pi-smart-compact/src/result.ts) module owns the acknowledgement text and the details schemas that the adapter validates.
+Adapter maintainers use this contract when they change result handling. [Smart compact cards](../../../docs/tools.md#smart-compact) describes what users see. The producer's pure [`pi-smart-compact/result`](../../../../pi-smart-compact/src/result.ts) module owns the acknowledgement text, the context status message type, and the details schemas that the adapter validates.
 
 ## Display
 
 - The card does not repeat a successful `Compaction requested.` acknowledgement that has `details.scheduled: true`.
 - Valid `details.modelOverride` and `details.thinkingLevel` supply the request-time model and thinking level.
 - Valid `details.tokens`, `details.contextWindow`, and `details.percent` supply the usage summary.
+- A context status message supplies the same usage summary when its whole `details` matches `contextStatusSchema`.
 
 ## Limitations
 
