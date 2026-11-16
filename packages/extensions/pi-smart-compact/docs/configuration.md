@@ -40,6 +40,32 @@ The `docs` setting lists UTF-8 files that tell the model how to use `context_win
 - A trusted project's list replaces the global list, and an empty array removes the docs.
 - Only the selected files are read, at startup or `/reload`, each up to 1 MiB.
 
+## Context status
+
+The `statusStep` setting makes the extension add a [context status](../README.md#context-status) to the session, so the model learns its context usage without a `context_window` call.
+
+The extension checks usage before each run starts and after each completed response. It adds a status when usage is past a multiple of `statusStep` that the session has not reported yet:
+
+- With a step of 50,000, the boundaries are 50,000, 100,000, 150,000, and so on, in tokens as Pi counts them.
+- A response that passes several boundaries adds one status, with the current usage.
+- Usage that moves back and forth across a boundary does not add a second status for it.
+- After a compaction, the boundaries count from zero again.
+- A status after a run's last response reaches the model with your next prompt.
+- A status never starts a model request of its own.
+
+A change of conversation model reports again, because each provider counts tokens differently:
+
+- Before the new model's first response, a status at or above one step gives the previous model's count against the new model's context window. Pi has no count from the new model yet.
+- After the new model's first response, a second status gives its own count.
+- A virtual model keeps its boundaries while it routes between physical models.
+
+Edge cases:
+
+- The check before a run excludes the prompt that starts it, so a large prompt is reported after the first response.
+- While Pi does not know the usage, such as right after a compaction, no status is added. The same holds after a response for which another extension adds a compaction.
+- Earlier statuses stay in the session, where later models still read them, until a compaction summarises them.
+- After you change `statusStep`, the boundaries apply to the usage in the latest status.
+
 ## Where settings live
 
 [Configuration](../README.md#configuration) names the global and project settings files. Parent directories aren't searched.
@@ -55,11 +81,11 @@ The `docs` setting lists UTF-8 files that tell the model how to use `context_win
 `compact` becomes unavailable until you fix the problem and run `/reload` if any of these happen:
 
 - A settings file is unreadable, malformed, or over 1 MiB.
-- A value is invalid, including a `match` that isn't a valid regular expression.
+- A value is invalid, including a `match` that isn't a valid regular expression and a `statusStep` from 1 to 49,999.
 - `ext.pi-smart-compact` or a rule contains an unknown key.
 - A selected instruction or docs file is missing or unreadable.
 
-`context_window`, without docs, and Pi's native compaction keep working. For failures of the summary model itself, see [failed attempts](requests.md#failed-attempts).
+`context_window`, without docs, and Pi's native compaction keep working. No context status is added. For failures of the summary model itself, see [failed attempts](requests.md#failed-attempts).
 
 ## Edge cases
 

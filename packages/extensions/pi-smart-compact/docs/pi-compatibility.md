@@ -97,6 +97,13 @@ Native preparation can swallow an error without emitting an event, so a missing 
 
 The status counts entries rather than events, so resumed sessions and tree navigation stay accurate. See [What you see](../README.md#what-you-see) for the interactive-terminal display limit.
 
+### Context status
+
+- [ ] In `before_agent_start` and `turn_end` handlers, `ctx.getContextUsage()` estimates the projected context: the usage of the latest valid response plus an estimate for later messages, or an estimate of the whole projection when a context edit follows that response.
+- [ ] An assistant message names the `provider` and `model` that produced it, which under a virtual selection is the physical model.
+
+[Context status](configuration.md#context-status) uses no private APIs. It reads the reported boundary from the branch, so resumed sessions and tree navigation need no state of their own.
+
 ### What Pi still owns
 
 - [ ] Pi still owns native preparation, the active model's compaction settings, hook cancellation and custom summaries, retries, usage and file metadata, saving compaction entries, and rebuilding the finalised projection.
@@ -184,6 +191,7 @@ Setup: an interactive Pi session with the extension loaded and a configured prov
 | Ask the model to call `compact` during a multi-step task | Pi's compaction progress shows, and the task continues afterwards.           |
 | Press **Escape** during compaction                       | Compaction is cancelled; the agent run continues with a cancellation status. |
 | Read the resulting summary with a real provider          | It keeps the requested focus and the information needed to continue.         |
+| Set `statusStep`, then work past the first boundary      | The model can quote the usage from the context status.                       |
 
 ## Limitations
 

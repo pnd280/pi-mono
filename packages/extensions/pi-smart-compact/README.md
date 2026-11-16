@@ -1,6 +1,6 @@
 # pi-smart-compact
 
-Keep long tasks going before they reach the context limit. pi-smart-compact lets the model check its context usage and compact its own context mid-task, and you can configure a summary model for each conversation model, apply it to `/compact` and automatic compaction, add an instruction file of extra focus, and add docs that tell the model when to compact.
+Keep long tasks going before they reach the context limit. pi-smart-compact lets the model check its context usage and compact its own context mid-task, and you can configure a summary model for each conversation model, apply it to `/compact` and automatic compaction, add an instruction file of extra focus, add docs that tell the model when to compact, and report context usage to the model each time it grows by a set number of tokens.
 
 _Compaction_ replaces older conversation history with a summary that a model writes. Pi does the compaction itself. For example, after a large refactor the model can call `compact({ instructions: "Preserve modified files and remaining tests." })` and then carry on. When [pi-tool-display](../pi-tool-display/README.md) is loaded, the call shows as a "Requested compaction" card.
 
@@ -36,9 +36,19 @@ compact({ instructions: "Preserve decisions, modified files, and remaining tests
 
 For the full request sequence, several calls in one response, other extensions' hooks, and SDK use, read [compaction requests](docs/requests.md).
 
+### Context status
+
+With [`statusStep`](#configuration) set, the model does not have to ask. Each time usage passes a multiple of the step, the extension adds one message to the session that the model reads before its next response:
+
+```text
+Context usage: {"tokens":152340,"contextWindow":200000,"percent":76.17}
+```
+
+The JSON is what `context_window` returns, so your [docs](docs/configuration.md#docs) apply to it. For when a status appears, and what happens after compaction or a model change, read [context status](docs/configuration.md#context-status).
+
 ### What you see
 
-- When [pi-tool-display](../pi-tool-display/README.md) is loaded, `compact` calls show as a "Requested compaction" card with the focus and summary model, and context usage shows as readable totals. The model never sees the summary-model selection.
+- When [pi-tool-display](../pi-tool-display/README.md) is loaded, `compact` calls show as a "Requested compaction" card with the focus and summary model, and context usage shows as readable totals, both for `context_window` calls and for each context status. Without it, a context status shows as its message text. The model never sees the summary-model selection.
 - The interactive terminal footer shows `compacted N×`, which counts the successful compactions on the active branch, including those from other extensions. Print, JSON, and RPC modes do not publish this decorative status.
 
 ## Configuration
@@ -71,7 +81,9 @@ This example shows every field. Remove the comments before you copy it, because 
     // Optional. A UTF-8 file, up to 1 MiB, of extra focus for every compaction route, whatever rules, applyToManual, and applyToAuto say. A relative path resolves from the settings file's directory. Default: no extra focus.
     "compactionInstructionsFile": "compaction-instructions.txt",
     // Optional. UTF-8 files, up to 1 MiB each, whose text follows the context_window description. Default: no docs.
-    "docs": ["context-window.md"]
+    "docs": ["context-window.md"],
+    // Optional. Report context usage to the model each time it passes a multiple of this many tokens. A whole number of at least 50000. 0 or null turns it off, also for a value inherited from global settings. Default: off.
+    "statusStep": 50000
   }
 }
 ```
@@ -83,7 +95,7 @@ Invalid settings, or a missing instruction or docs file, make `compact` unavaila
 ## Side effects
 
 - pi-smart-compact sends conversation history to the active or configured summary model through Pi's native summarisation requests, with the usual provider usage and cost.
-- It saves to the current session native compaction entries, `pi-smart-compact.model` entries for default summaries, and status messages for skipped, cancelled, or failed requested attempts. Raw history stays in the session file.
+- It saves to the current session native compaction entries, `pi-smart-compact.model` entries for default summaries, status messages for skipped, cancelled, or failed requested attempts, and, with `statusStep`, `pi-smart-compact.context-usage` messages. Raw history stays in the session file.
 - Metadata and native compaction are separate writes. A storage error can leave one without the other. Cancellation protects them only before native persistence starts.
 - It patches private Pi methods in memory for the session. On shutdown it restores only the hooks that it still owns, and leaves later replacements by other extensions in place.
 - In interactive terminal mode, it sets and clears one footer status, `pi-smart-compact.compactions`.
@@ -96,6 +108,7 @@ Invalid settings, or a missing instruction or docs file, make `compact` unavaila
 | Write rule patterns, choose thinking levels, or route through virtual models         | [Rules](docs/configuration.md#rules)                             |
 | Place the instruction file, override it per project, or use `session_before_compact` | [Instruction file](docs/configuration.md#instruction-file)       |
 | Tell the model when to check context usage or compact                                | [Docs](docs/configuration.md#docs)                               |
+| Find out when a context status appears, or what a model change does to it            | [Context status](docs/configuration.md#context-status)           |
 | Combine global and project settings, or turn routing off                             | [Where settings live](docs/configuration.md#where-settings-live) |
 | Find out why `compact` is unavailable                                                | [Errors](docs/configuration.md#errors)                           |
 | Pick a summary model for overflow recovery or check what metadata is saved           | [Edge cases](docs/configuration.md#edge-cases)                   |

@@ -342,6 +342,16 @@ Setup: load pi-tool-display and `pi-read`. Include repeated reads, tabs, wide ch
 | Expand and collapse groups at narrow and wide terminal sizes in light and dark themes. | Expanded reads show source once, without the appended preview.   |
 | Replay the session and expand a read.                                                  | The selection remains highlighted without repeating the preview. |
 
+### pi-smart-compact
+
+Setup: load pi-tool-display and `pi-smart-compact` with [`statusStep`](../../pi-smart-compact/docs/configuration.md) set, in a disposable project. Use compact mode for the layout checks, then fullscreen summary mode once the calls on both sides of a status have finished.
+
+| Do                                                                      | Expect                                                                                                                      |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Work past the first status boundary during a run of tool calls.         | One row reads `Context usage` with the usage summary, such as `152,340 / 200,000 tokens · 76.17% used`, and splits the run. |
+| Resize to narrow widths and compare dark and light themes, then replay. | The row wraps beneath its label and stays readable.                                                                         |
+| Switch to fullscreen summary mode, then replay.                         | The row stays visible between two summary lines, and neither line counts it.                                                |
+
 ### pi-todo
 
 Setup: load pi-tool-display and `pi-todo` in a disposable project, and use compact mode. The [fixed-plan terminal fixture](#terminal-launcher) makes no todo calls. Compare the cards with the [todo card rules](tools.md#todo) for exact wording and limits.

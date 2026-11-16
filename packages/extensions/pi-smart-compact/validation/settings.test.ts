@@ -33,7 +33,8 @@ const rejected = [
   { failure: "invalid manual flag", config: { applyToManual: "true" } },
   { failure: "invalid automatic flag", config: { applyToAuto: null } },
   { failure: "empty focus path", config: { compactionInstructionsFile: "   " } },
-  { failure: "unknown key", config: { unknown: true } }
+  { failure: "unknown key", config: { unknown: true } },
+  { failure: "status step below the minimum", config: { statusStep: 49_999 } }
 ].map(({ failure, config }, index) =>
   index % 2
     ? { scope: `global ${failure}`, projectTrusted: true, global: section(config) }

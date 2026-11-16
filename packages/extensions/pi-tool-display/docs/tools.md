@@ -130,7 +130,7 @@ Selective reads from [`pi-read`](../../pi-read/README.md) group like native read
 
 ## Smart compact
 
-Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage.
+Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. Its context status messages appear as one-line rows.
 
 Both cards hide raw parameters by default, also on expansion. `showParameters: true` shows them. The compaction focus stays visible either way. Without a current verified tool definition, the calls get generic cards.
 
@@ -151,6 +151,13 @@ Both cards hide raw parameters by default, also on expansion. `showParameters: t
 - Valid token counts, context window, and percentage give a compact usage summary.
 - Unknown token usage stays unknown. A missing percentage is not calculated, and usage over capacity is not clamped.
 - Invalid details and errors keep the original text and diagnostics. Expansion shows the raw result.
+
+### Context status rows
+
+- A context status reads "Context usage" followed by the same usage summary as the context-window card, such as `152,340 / 200,000 tokens · 76.17% used`. The row omits the conversation model and the model that supplied the count.
+- The row stands alone, like other visible custom messages: it splits a run of tool cards, and summary lines do not count it.
+- A row wider than the terminal wraps beneath its label. Expansion does not change it.
+- Invalid or missing details keep Pi's default message box with the original text.
 
 ## Subagents
 
