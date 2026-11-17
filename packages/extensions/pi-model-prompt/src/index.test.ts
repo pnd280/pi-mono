@@ -16,6 +16,7 @@ import {
   SettingsManager,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
+import { isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import modelPrompt from "../index.ts";
@@ -58,8 +59,7 @@ async function host({
   await write("shared.md", "SHARED-APPEND");
   await write("fallback.md", "FALLBACK-APPEND");
   await write("settings.json", JSON.stringify({ "ext.pi-model-prompt": { rules } }));
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
 
   const settingsManager = SettingsManager.inMemory({
     compaction: { enabled: false },
