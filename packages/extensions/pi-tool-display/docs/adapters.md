@@ -63,11 +63,11 @@ The [pi-smart-compact adapter](../src/adapters/pi-smart-compact/README.md#compat
 
 Match verified provenance and the parameter structure the renderer needs: types, required fields, and object strictness where relevant. Do not fingerprint complete schemas or require numeric bounds, descriptions, or other details that provider-facing projection can omit or rewrite. Removing `minimum` from an integer coordinate, for example, must not disable its display adapter. Validate argument values and result shapes separately before specialised rendering.
 
-Build required schema fixtures through the registered tool's projection. Choose automated coverage through the [package testing guide](testing.md), and follow the matching [adapter validation](validation.md#adapter-validation) procedure. Projection changes also affect schema-inspecting consumers: include their adapter and installed-CLI checks when you check the affected invariants.
+Build required schema fixtures through the registered tool's projection. Choose automated coverage through the [package testing guide](testing.md), and follow the matching [adapter validation](validation.md#adapter-validation) procedure.
 
 ## Progress cards and actions
 
-Use the [progress and action callback contracts](renderers.md#progress-cards-and-actions) when adding task cards or host-dispatched actions.
+Use the [progress and action callback contracts](renderers.md#progress-cards-and-actions) when adding task cards or host-dispatched actions. The [subagent adapter](../src/adapters/pi-subagents/README.md) demonstrates both.
 
 ## Summary items
 
@@ -90,8 +90,6 @@ The host selects rendering in this order:
 5. Unmatched tools: preserve any supplied renderer slots; otherwise use generic rendering.
 
 The resolver list and `selectAdapter` are host-internal; no public registration API exists. Late tool registration switches reconstructed generic rows to available adapters.
-
-The [subagent adapter](../src/adapters/pi-subagents/README.md) demonstrates structured progress and actions.
 
 ## Built-in adapters
 

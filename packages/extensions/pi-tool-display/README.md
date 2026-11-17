@@ -87,11 +87,9 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-tool-display": {
-    // Optional. The starting mode, also used when a Pi action collapses verbose output.
-    // "summary" or "compact". Default: "summary". Ctrl+O follows the mode cycle.
+    // Optional. The starting mode, also used when a Pi action collapses verbose output. "summary" or "compact". Default: "summary". Ctrl+O follows the mode cycle.
     "collapsedMode": "summary",
-    // Optional. true shows optional details on dedicated cards. Default: false.
-    // Structured blocks still need expansion. MCP and generic cards always show arguments.
+    // Optional. true shows optional details on dedicated cards. Default: false. Structured blocks still need expansion. MCP and generic cards always show arguments.
     "showParameters": false,
     // Optional. The renderer for each exact, registered tool name. Default: "auto" for every tool.
     "rendererOverrides": {
