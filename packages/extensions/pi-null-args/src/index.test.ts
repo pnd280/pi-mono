@@ -53,9 +53,20 @@ it("drops optional arguments sent as the text null and passes the rest unchanged
     mode: Type.Optional(Type.Union([Type.Literal("fast"), Type.Literal("slow")])),
     note: Type.Optional(Type.String())
   });
+  const textProbe = (options: Parameters<typeof Type.Object>[1]) =>
+    Type.Object(
+      { text: Type.Optional(Type.String()), note: Type.Optional(Type.String()) },
+      options
+    );
   const received = await receivedArguments(
     {
-      probe: parameters,
+      probe: Type.Object({
+        ...parameters.properties,
+        flag: Type.Optional(Type.Boolean()),
+        count: Type.Optional(Type.Number()),
+        label: Type.Optional(Type.String()),
+        nothing: Type.Optional(Type.Union([Type.String(), Type.Null()]))
+      }),
       composed_probe: Type.Union([
         Type.Intersect([parameters, Type.Object({ group: Type.String() })]),
         Type.Object({ other: Type.Optional(Type.Boolean()) })
@@ -78,32 +89,74 @@ it("drops optional arguments sent as the text null and passes the rest unchanged
         { text: Type.Optional(Type.String()) },
         { enum: [{ text: "null" }] }
       ),
-      counted_probe: Type.Object({ text: Type.Optional(Type.String()) }, { minProperties: 1 })
+      counted_probe: Type.Object({ text: Type.Optional(Type.String()) }, { minProperties: 1 }),
+      dependencies_probe: textProbe({ dependencies: { note: ["text"] } }),
+      dependent_required_probe: textProbe({ dependentRequired: { note: ["text"] } }),
+      dependent_schemas_probe: textProbe({ dependentSchemas: { note: { required: ["text"] } } }),
+      // Removing `text` would let both alternatives match.
+      one_of_probe: Type.Object(
+        {},
+        {
+          oneOf: [
+            Type.Object({ text: Type.Optional(Type.String()) }),
+            Type.Object({ text: Type.Optional(Type.Number()) })
+          ]
+        }
+      ),
+      dynamic_probe: {
+        type: "object",
+        properties: { text: { type: "string" } },
+        $dynamicRef: "#input",
+        $defs: { input: { $dynamicAnchor: "input", required: ["text"] } }
+      }
     },
     [
-      fauxToolCall("probe", { text: "null", mode: "null", note: "kept" }),
+      fauxToolCall("probe", {
+        text: "null",
+        mode: "null",
+        note: "kept",
+        flag: false,
+        count: 0,
+        label: "",
+        nothing: null
+      }),
       fauxToolCall("composed_probe", { text: "null", group: "null", mode: "null", note: "kept" }),
       fauxToolCall("referenced_probe", { text: "null", note: "kept" }),
-      fauxToolCall("conditional_probe", { text: "null", note: "kept" }),
-      ...["negated_probe", "constant_probe", "enumerated_probe", "counted_probe"].map((name) =>
-        fauxToolCall(name, { text: "null" })
-      )
+      ...[
+        "conditional_probe",
+        "dependencies_probe",
+        "dependent_required_probe",
+        "dependent_schemas_probe"
+      ].map((name) => fauxToolCall(name, { text: "null", note: "kept" })),
+      ...[
+        "negated_probe",
+        "constant_probe",
+        "enumerated_probe",
+        "counted_probe",
+        "one_of_probe",
+        "dynamic_probe"
+      ].map((name) => fauxToolCall(name, { text: "null" }))
     ]
   );
 
   expect(Object.fromEntries(received)).toEqual({
-    probe: { text: "null", note: "kept" },
+    probe: { text: "null", note: "kept", flag: false, count: 0, label: "", nothing: null },
     composed_probe: { text: "null", group: "null", note: "kept" },
     referenced_probe: { text: "null", note: "kept" },
     conditional_probe: { text: "null", note: "kept" },
+    dependencies_probe: { text: "null", note: "kept" },
+    dependent_required_probe: { text: "null", note: "kept" },
+    dependent_schemas_probe: { text: "null", note: "kept" },
     negated_probe: { text: "null" },
     constant_probe: { text: "null" },
     enumerated_probe: { text: "null" },
-    counted_probe: { text: "null" }
+    counted_probe: { text: "null" },
+    one_of_probe: { text: "null" },
+    dynamic_probe: { text: "null" }
   });
 });
 
-it("preserves nested values and required null text through allOf, anyOf, and oneOf", async () => {
+it("preserves nested values and required null text through allOf and anyOf", async () => {
   const parameters = Type.Object({
     text: Type.String(),
     mode: Type.Optional(Type.Union([Type.Literal("fast"), Type.Literal("slow")])),
@@ -122,12 +175,11 @@ it("preserves nested values and required null text through allOf, anyOf, and one
       )
     )
   });
-  const probes = ["all_of_probe", "any_of_probe", "one_of_probe"];
+  const probes = ["all_of_probe", "any_of_probe"];
   const received = await receivedArguments(
     {
       all_of_probe: Type.Intersect([parameters, Type.Object({})]),
-      any_of_probe: Type.Union([parameters, Type.Object({ other: Type.Optional(Type.Boolean()) })]),
-      one_of_probe: Type.Object({}, { oneOf: [parameters, Type.Object({ other: Type.Boolean() })] })
+      any_of_probe: Type.Union([parameters, Type.Object({ other: Type.Optional(Type.Boolean()) })])
     },
     probes.map((name) =>
       fauxToolCall(name, {

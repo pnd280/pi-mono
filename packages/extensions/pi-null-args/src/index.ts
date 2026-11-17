@@ -3,6 +3,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 // These keywords need resolution or evaluation before a name can be treated as optional. Negations, fixed values, and property counts can require a property that no `required` list names.
 const unsupportedKeywords = [
   "$ref",
+  "$dynamicRef",
+  "oneOf",
   "if",
   "dependencies",
   "dependentRequired",
@@ -17,7 +19,6 @@ type ArgumentSchema = {
   required?: string[];
   allOf?: ArgumentSchema[];
   anyOf?: ArgumentSchema[];
-  oneOf?: ArgumentSchema[];
 } & Partial<Record<(typeof unsupportedKeywords)[number], unknown>>;
 
 function requiredNames(schema: ArgumentSchema): string[] | undefined {
@@ -26,11 +27,7 @@ function requiredNames(schema: ArgumentSchema): string[] | undefined {
   // Preserve a branch's required value even when another branch makes the name optional.
   const names = [...(schema.required ?? [])];
 
-  for (const branch of [
-    ...(schema.allOf ?? []),
-    ...(schema.anyOf ?? []),
-    ...(schema.oneOf ?? [])
-  ]) {
+  for (const branch of [...(schema.allOf ?? []), ...(schema.anyOf ?? [])]) {
     const required = requiredNames(branch);
     if (!required) return undefined;
     names.push(...required);
