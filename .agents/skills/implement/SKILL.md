@@ -8,14 +8,14 @@ metadata:
 
 # Implement
 
-Work **autonomously** from start to report: make each decision yourself and record it. Changes that repository policy reserves for user approval, such as a new test invariant, go into the report as proposals.
+Work autonomously from start to report: make each decision yourself and record it. Changes that repository policy reserves for user approval, such as a new test invariant, go into the report as proposals.
 
 1. Note the uncommitted changes that already exist, then implement the task. Done when every requirement of the task is met and the checks that [verification](../../../docs/agents/verification.md) requires pass, apart from failures that existed before the change.
 2. Review the changes with [code review](../code-review/SKILL.md).
 
    When subagent delegation is unavailable, run code review yourself on the task's changes and preserve the pre-existing changes. Done when every finding has an outcome and the verification checks pass; then go to step 5.
 
-   Otherwise, split the task's changes into **chunks** with disjoint paths, such as one per package, and keep each change with its tests and docs. Split chunks so that each reviewer's diff fits in one tool output (50 KB). Review a new standard or rule that the task adds as a chunk of its own. Every subagent for a chunk gets its **brief**: the task, your implementation decisions, the autonomy rule above, the chunk's changed behaviour and paths, and the pre-existing changes in those paths to preserve.
+   Otherwise, split the task's changes into chunks with disjoint paths, such as one per package, and keep each change with its tests and docs. Split chunks so that each reviewer's diff fits in one tool output (50 KB). Review a new standard or rule that the task adds as a chunk of its own. Every subagent for a chunk gets its brief: the task, your implementation decisions, the autonomy rule above, the chunk's changed behaviour and paths, and the pre-existing changes in those paths to preserve.
 
    Fan out an audit-only code review, one subagent per chunk. Each subagent runs only the Audit phase, leaves the working tree as it found it, and returns every finding with its audit, `path:line` references, evidence, and planned action (revise, keep with a reason, decision needed, or unresolved). Done when every chunk has returned its findings and the working tree is unchanged.
 

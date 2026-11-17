@@ -8,11 +8,13 @@ Compare intended reading order with colour, weight, spacing, indentation, border
 
 Identify each surface's roles:
 
-- **Context:** view or group heading.
-- **Primary content:** subject, target, or selection.
-- **State and outcome:** progress, result, or attention needed.
-- **Supporting information:** counts, timestamps, dependencies, IDs, or annotations.
-- **Available actions:** controls and recovery.
+| Role                   | Content                                               |
+| ---------------------- | ----------------------------------------------------- |
+| Context                | View or group heading                                 |
+| Primary content        | Subject, target, or selection                         |
+| State and outcome      | Progress, result, or attention needed                 |
+| Supporting information | Counts, timestamps, dependencies, IDs, or annotations |
+| Available actions      | Controls and recovery                                 |
 
 Use these roles as a comparison aid rather than a fixed layout. Actionable failures or safety confirmations may need priority; different meanings need not share row counts, components, or colours.
 
@@ -22,7 +24,6 @@ Use these roles as a comparison aid rather than a fixed layout. Actionable failu
 - Give repeated titles, badges, and labels enough context to justify their emphasis.
 - Preserve relationships through connectors, indentation, wrapping, and continuations.
 - Attach status, counts, and diagnostics to the item they describe.
-- Keep selection apparent while retaining semantic styling.
 - Preserve terminology and hierarchy during expansion.
 - Prioritise identity, outcome, and controls over metadata in constrained views.
 
