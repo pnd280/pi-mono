@@ -570,8 +570,11 @@ export class ChildRun {
         this.connection.pendingCount === 0 &&
         !this.closing
       ) {
+        // On a resume, the session's last assistant text can be an earlier run's reply.
         if (text.command === "get_last_assistant_text")
-          this.text = [...this.earlier, text.data.text].filter(Boolean).join("\n\n");
+          this.text = [...this.earlier, this.lastAssistant ? text.data.text : null]
+            .filter(Boolean)
+            .join("\n\n");
         if (usage.command === "get_session_stats") this.usageEnd = usage.data;
         this.closeInput();
       }

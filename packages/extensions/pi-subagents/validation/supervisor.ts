@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import type { RpcCommand, RpcExtensionUIRequest } from "@earendil-works/pi-coding-agent";
 import { createPiLaunch, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 
-import { ChildConnection, type RpcRecord } from "../src/child/connection.ts";
+import { ChildConnection, type ProcessExit, type RpcRecord } from "../src/child/connection.ts";
 import { processOptions } from "../src/child/platform.ts";
 import { DEPTH_ENV, JOB_RESULT_MESSAGE } from "../src/constants.ts";
 import { FIXTURE_PROVIDER } from "./provider.ts";
@@ -199,9 +199,9 @@ export class Supervisor {
   }
 
   /**
-   * Rejects when the supervisor or a process that holds its output pipes outlives the step limit. The supervisor is then killed and its pipes closed, so the wait still ends.
+   * Returns the supervisor's exit. Rejects when the supervisor or a process that holds its output pipes outlives the step limit. The supervisor is then killed and its pipes closed, so the wait still ends.
    */
-  async stop(): Promise<void> {
+  async stop(): Promise<ProcessExit> {
     const child = this.connection.process;
     this.connection.closeInput();
     let timer: NodeJS.Timeout | undefined;
@@ -210,7 +210,8 @@ export class Supervisor {
     });
 
     try {
-      if ((await Promise.race([this.connection.closed, deadline])) !== "deadline") return;
+      const exit = await Promise.race([this.connection.closed, deadline]);
+      if (exit !== "deadline") return exit;
     } finally {
       clearTimeout(timer);
     }

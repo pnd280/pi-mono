@@ -374,7 +374,11 @@ class CardRow {
             )
           );
         if (retained.length < card.prompt.length || lines.length > PROMPT_LINES)
-          rows.push(`${pad}${theme.fg("dim", "… (prompt truncated)")}`);
+          rows.push(
+            ...wrapRows(theme.fg("dim", "… (prompt truncated)"), valueWidth).map(
+              (row) => `${pad}${row}`
+            )
+          );
       }
     }
 
@@ -423,8 +427,11 @@ class CardRow {
         .map((line) => theme.fg(color, line));
       if (shown < lines.length)
         rows.push(
-          theme.fg("muted", `... (${lines.length - shown} more lines,`) +
-            ` ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`
+          ...wrapRows(
+            theme.fg("muted", `... (${lines.length - shown} more lines,`) +
+              ` ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`,
+            width
+          )
         );
     }
 

@@ -151,7 +151,7 @@ test.for(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"]
       await work;
 
       if (action === "shutdown" || action === "SIGKILL") {
-        await host.connection.closed;
+        await host.stop();
         expect(await remainingProcesses(directory)).toEqual([]);
       } else {
         const tasks = await taskList(host);

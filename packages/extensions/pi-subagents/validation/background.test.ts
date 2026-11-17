@@ -9,7 +9,13 @@ import { expect, test as caseTest, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
 import { lateUsageOf } from "../src/background-result.ts";
-import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
+import {
+  END_ENTRY,
+  LATE_USAGE_KIND,
+  RESULT_MESSAGE,
+  RUN_ENTRY,
+  TASKS_MESSAGE
+} from "../src/constants.ts";
 import { detailsSchema, jobDetailsSchema } from "../src/details.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
 import {
@@ -89,13 +95,7 @@ test.each([
           background: true,
           state: "running"
         });
-        const completion = await host.wait(
-          (record) =>
-            record.type === "message_end" &&
-            record.message.role === "custom" &&
-            record.message.customType === RESULT_MESSAGE,
-          start
-        );
+        const completion = await host.wait(isResult, start);
         expect(completion.type).toBe("message_end");
         // Both cases continue the same run: idle after the `agent_end` wait, busy at settlement.
         await host.wait(
@@ -170,7 +170,7 @@ test("cancels a background call on turn abort while its child starts, without a 
   );
 });
 
-test("ends a background wait on follow-up, steering, and abort without cancelling the task", async () => {
+test("ends a background wait on follow-up, steering, and abort without cancelling the task, and delivers a result that arrives during a manual compaction", async () => {
   await fixture(async (host, directory) => {
     // The child holds its reply until `run-release`, so the wait stays open across the steps.
     await host.reply("background-late");
@@ -187,7 +187,24 @@ test("ends a background wait on follow-up, steering, and abort without cancellin
     await host.request({ type: "abort" });
     await host.wait((record) => record.type === "agent_settled", start);
     expect((await taskList(host))[0]?.state).toBe("active");
+    // The task ends during a manual compaction, which ends without an event.
+    await writeFile(join(directory, "work", "compact-hold"), "");
+    const compacted = host.request({ type: "compact" });
+    await expect
+      .poll(() => readFile(join(directory, "work", "compact-held")).then(Boolean, () => false), {
+        timeout: STEP_TIMEOUT_MS
+      })
+      .toBe(true);
     await release(directory, "run-release");
+    await host.wait(
+      (record) =>
+        record.type === "entry_appended" &&
+        record.entry.type === "custom" &&
+        record.entry.customType === END_ENTRY,
+      start
+    );
+    await writeFile(join(directory, "work", "compact-release"), "");
+    await compacted;
     await host.wait(isResult, start);
     await host.wait(replies("Idle continuation prepared: true"), start);
     expect(
@@ -415,12 +432,7 @@ test("promotes foreground work, retains it across turn abort, and counts late us
     });
     // The promoted child holds its final reply until now.
     await release(directory, "run-release");
-    await host.wait(
-      (event) =>
-        event.type === "message_end" &&
-        event.message.role === "custom" &&
-        event.message.customType === RESULT_MESSAGE
-    );
+    await host.wait(isResult);
     await host.wait(
       (event) =>
         event.type === "message_end" &&

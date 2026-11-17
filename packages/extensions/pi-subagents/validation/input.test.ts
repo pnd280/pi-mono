@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { RESULT_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/details.ts";
-import { release, taskList, withFixture } from "./background-fixture.ts";
+import { isResult, release, taskList, withFixture } from "./background-fixture.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 // Each test owns its workspace and processes.
@@ -80,13 +80,7 @@ test.each(["follow_up", "steer", "settling", "exiting"] as const)(
           expect(contentText(update.content)).toContain(
             "Input occurrences: 1; earlier context: true"
           );
-        if (mode !== "exiting")
-          await host.wait(
-            (event) =>
-              event.type === "message_end" &&
-              event.message.role === "custom" &&
-              event.message.customType === RESULT_MESSAGE
-          );
+        if (mode !== "exiting") await host.wait(isResult);
         const entries = await host.entries();
         const completions = entries.filter(
           (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
@@ -156,12 +150,7 @@ test.for(["stopped", "live"])(
         const update = (await host.results()).at(-1)!;
         expect(contentText(update.content)).toContain("Background task updated");
         expect(update.usage).toBeUndefined();
-        await host.wait(
-          (event) =>
-            event.type === "message_end" &&
-            event.message.role === "custom" &&
-            event.message.customType === RESULT_MESSAGE
-        );
+        await host.wait(isResult);
         const completion = (await host.entries()).filter(
           (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
         );
@@ -180,13 +169,7 @@ test.for(["stopped", "live"])(
       expect(rejected.isError).toBe(true);
       expect(contentText(rejected.content)).toContain("Only direct tasks can be resumed");
       expect(await readFile(child!.session_file, "utf8")).toBe(saved);
-      if (mode === "live")
-        await host.wait(
-          (event) =>
-            event.type === "message_end" &&
-            event.message.role === "custom" &&
-            event.message.customType === RESULT_MESSAGE
-        );
+      if (mode === "live") await host.wait(isResult);
       const state = await host.state();
       await host.stop();
       host = await start({ sessionId: state.sessionId });

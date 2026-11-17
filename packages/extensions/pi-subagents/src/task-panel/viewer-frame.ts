@@ -208,7 +208,7 @@ export function taskRows(
 }
 
 /**
- * A job viewer's `status`, `command`, `log`, and `error` rows. `command` holds the display lines of the command. The error shows only when it adds to the exit code.
+ * A job viewer's `status`, `error`, `log`, and `command` rows. `command` holds the display lines of the command. The error shows only when it adds to the exit code.
  */
 export function jobRows(
   theme: Theme,
@@ -231,9 +231,10 @@ export function jobRows(
       separator: " · ",
       values: [statusValue(theme, record, true, frame), exit]
     },
-    { label: "command", values: command.map((line) => theme.fg("mdCode", `$ ${line}`)) },
+    // Before the command, so a long command cannot push the error or the log path out of a short header.
+    { label: "error", error: true, values: [error] },
     { label: "log", values: [compactDisplayText(record.log_file)] },
-    { label: "error", error: true, values: [error] }
+    { label: "command", values: command.map((line) => theme.fg("mdCode", `$ ${line}`)) }
   ];
 }
 
@@ -307,7 +308,9 @@ export function renderViewer({
       ? titleBorder(theme, kind, subject, width)
       : theme.fg("border", "─".repeat(width)),
     metadata: subject ? metadataTable(theme, subject.metadata, width) : [],
-    diagnostics: diagnostics.map((text) => theme.fg("error", compactDisplayText(text))),
+    diagnostics: diagnostics.flatMap((text) =>
+      wrapRows(compactDisplayText(text), width).map((row) => theme.fg("error", row))
+    ),
     hints: renderHintFooter({
       width,
       maxRows: rows,

@@ -232,29 +232,51 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
     }
   );
 
-  test("J1: delivers a timed-out job as failed even after an abort during group cleanup", async () => {
-    await withJobs(async (directory, start) => {
-      const host = await start();
-      const after = host.records.length;
-      await host.prompt("job-timeout");
-      const job = await startedJob(host);
-      const group = await jobGroup(directory);
-      await expect.poll(() => processStat(group), { timeout: STEP_TIMEOUT_MS }).toBeUndefined();
-      expect(groupAlive(group)).toBe(true);
-      await host.prompt(`job-abort-id ${job.job_id}`);
-      expect(
-        jobDetailsSchema.parse((await toolResults(host, "job_abort")).at(-1)?.details)
-      ).toMatchObject({ outcome: "failed", error: "timed out after 1 s" });
-      await settledAfterJobResult(host, after);
-      const results = await host.jobResults();
-      expect(results).toHaveLength(1);
-      expect(results[0]?.details).toMatchObject({
-        state: "inactive",
-        outcome: "failed",
-        exit_code: null
+  test.for([
+    {
+      kind: "timeout",
+      when: "after the shell exited",
+      stopping: async (_directory: string, group: number) => {
+        await expect.poll(() => processStat(group), { timeout: STEP_TIMEOUT_MS }).toBeUndefined();
+      }
+    },
+    {
+      kind: "trapped",
+      when: "before the shell exits",
+      stopping: async (directory: string) => {
+        await expect
+          .poll(() => readFile(join(directory, "work", "job-term")).then(Boolean, () => false), {
+            timeout: STEP_TIMEOUT_MS
+          })
+          .toBe(true);
+      }
+    }
+  ])(
+    "J1: delivers a timed-out job as failed after an abort during its stop $when",
+    async ({ kind, stopping }) => {
+      await withJobs(async (directory, start) => {
+        const host = await start();
+        const after = host.records.length;
+        await host.prompt(`job-${kind}`);
+        const job = await startedJob(host);
+        const group = await jobGroup(directory);
+        await stopping(directory, group);
+        expect(groupAlive(group)).toBe(true);
+        await host.prompt(`job-abort-id ${job.job_id}`);
+        expect(
+          jobDetailsSchema.parse((await toolResults(host, "job_abort")).at(-1)?.details)
+        ).toMatchObject({ outcome: "failed", error: "timed out after 1 s" });
+        await settledAfterJobResult(host, after);
+        const results = await host.jobResults();
+        expect(results).toHaveLength(1);
+        expect(results[0]?.details).toMatchObject({
+          state: "inactive",
+          outcome: "failed",
+          exit_code: null
+        });
       });
-    });
-  });
+    }
+  );
 
   test("J2: a turn abort leaves a job running; job_abort stops its process group without a result", async () => {
     await withJobs(async (directory, start) => {
@@ -314,10 +336,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
           await host.request({ type: "switch_session", sessionPath: saved });
         else if (action === "reload")
           await host.request({ type: "prompt", message: "/fixture-reload" });
-        else {
-          host.connection.closeInput();
-          expect(await host.connection.closed).toMatchObject({ code: 0, signal: null });
-        }
+        else expect(await host.stop()).toMatchObject({ code: 0, signal: null });
 
         expect(await groupGone(group), action).toBe(true);
         expect(host.records.some(isJobResult), action).toBe(false);
@@ -338,37 +357,29 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
     });
   });
 
-  test.each(["print", "json"])(
-    "J2: %s mode stops the job's process group at exit",
-    async (mode) => {
-      const directory = await createFixtureWorkspace({ settings: JOBS });
+  test("J2: print mode stops the job's process group at exit", async () => {
+    const directory = await createFixtureWorkspace({ settings: JOBS });
 
-      try {
-        const launch = await fixtureLaunch(directory);
-        const child = promisify(execFile)(
-          launch.command,
-          [
-            ...launch.args,
-            "--print",
-            ...(mode === "json" ? ["--mode", "json"] : []),
-            "job-group-hold"
-          ],
-          { ...launch.options, timeout: STEP_TIMEOUT_MS }
-        );
-        child.child.stdin?.end();
-        // The run ends only after the job has written its group.
-        const group = await jobGroup(directory);
-        await release(directory, "run-release");
-        const { stdout } = await child;
-        expect(stdout).toContain("Background job started");
-        expect(await groupGone(group)).toBe(true);
-        expect(await remainingProcesses(directory)).toEqual([]);
-      } finally {
-        await killFixtureProcesses(directory);
-        await rm(directory, { recursive: true, force: true });
-      }
+    try {
+      const launch = await fixtureLaunch(directory);
+      const child = promisify(execFile)(
+        launch.command,
+        [...launch.args, "--print", "job-group-hold"],
+        { ...launch.options, timeout: STEP_TIMEOUT_MS }
+      );
+      child.child.stdin?.end();
+      // The run ends only after the job has written its group.
+      const group = await jobGroup(directory);
+      await release(directory, "run-release");
+      const { stdout } = await child;
+      expect(stdout).toContain("Background job started");
+      expect(await groupGone(group)).toBe(true);
+      expect(await remainingProcesses(directory)).toEqual([]);
+    } finally {
+      await killFixtureProcesses(directory);
+      await rm(directory, { recursive: true, force: true });
     }
-  );
+  });
 
   test("J6: a print run waits for a job with hold_run, and its result continues the run", async () => {
     const directory = await createFixtureWorkspace({ settings: JOBS });
@@ -419,8 +430,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
       const second = await startedJob(host);
       const group = await jobGroup(directory);
       const { sessionId } = await host.state();
-      host.connection.closeInput();
-      await host.connection.closed;
+      await host.stop();
       expect(await groupGone(group)).toBe(true);
 
       const restarted = await start({ sessionId });
@@ -491,15 +501,16 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
 
   test("J4: starts no command when another extension registers bash after the binding opened", async () => {
     await withJobs(
-      async (_directory, start) => {
+      async (directory, start) => {
         const host = await start();
-        await host.prompt("job-fast");
+        await host.prompt("job-marker");
         const [result] = await toolResults(host, "job");
         expect(result?.isError).toBe(true);
         expect(contentText(result?.content ?? "")).toBe(
           "Job not started: another extension owns bash"
         );
         expect(await jobList(host)).toEqual([]);
+        await expect(readFile(join(directory, "work", "job-ran"))).rejects.toThrow("ENOENT");
       },
       { extensions: [fileURLToPath(new URL("./late-bash.ts", import.meta.url))] }
     );

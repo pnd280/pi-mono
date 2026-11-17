@@ -6,9 +6,9 @@ import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
-import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
+import { END_ENTRY } from "../src/constants.ts";
 import { detailsSchema } from "../src/details.ts";
-import { taskList, withFixture } from "./background-fixture.ts";
+import { isResult, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses } from "./processes.ts";
 
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
@@ -63,12 +63,7 @@ test("pages tool summaries on the selected ancestry once without modifying the c
       }
     });
     await writeFile(`${directory}/work/digest-release`, "release");
-    await host.wait(
-      (event) =>
-        event.type === "message_end" &&
-        event.message.role === "custom" &&
-        event.message.customType === RESULT_MESSAGE
-    );
+    await host.wait(isResult);
     const completed = await show();
     expect(completed.items).toEqual([
       { type: "user", text: "activity-digest" },
@@ -151,6 +146,7 @@ test("pages tool summaries on the selected ancestry once without modifying the c
     expect(last).toEqual({
       task_id: id,
       state: "inactive",
+      outcome: "completed",
       cursor: entries
         .filter((entry) => entry.type === "message" && entry.message.role === "assistant")
         .at(-1)!.id,
@@ -192,6 +188,8 @@ test("pages tool summaries on the selected ancestry once without modifying the c
     expect(JSON.parse((await host.command(`show ${aborting} --last`)).message)).toEqual({
       task_id: aborting,
       state: "inactive",
+      outcome: "cancelled",
+      error: "Cancelled by user",
       cursor: assistants[0]!.id,
       text: "Fixture text before the tool"
     });

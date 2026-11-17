@@ -33,7 +33,6 @@ export const FIXTURE_MODEL = `${FIXTURE_PROVIDER}/scripted`;
 /** A model with thinking levels, unlike the supervisor's. */
 const REASONING_MODEL = `${FIXTURE_PROVIDER}/reasoning`;
 
-/** Each supervisor process fails its first `background-retry` reply once. */
 let retried = false;
 
 /** The `pi.events` channel on which `extension.ts` reports each pending background result. */
@@ -55,6 +54,14 @@ const IDLE_RELEASE = "idle-release";
  * A `late-dialogs` child writes the answers that its open select and editor dialogs receive to these files, `cancelled` for a cancelled dialog and `value <answer>` otherwise.
  */
 export const LATE_DIALOG_ANSWERS = { select: "late-select-answer", editor: "late-editor-answer" };
+
+/** Terminal controls in the dialog and reply of a `control-text` child: an erase, a window title, and a C1 erase. */
+export const CONTROL_TEXT = "\u001b[2J\u001b]0;unsafe title\u0007\u009b2J";
+
+const FIXED_REPLIES = new Map([
+  ["remember", "Fixture seed recorded"],
+  ["control-text", `Control reply ${CONTROL_TEXT}`]
+]);
 
 /** An editor prefill that the supervisor shows sanitised and cut: tabs, CRLF, and over 2,000 lines. */
 const EDITOR_PREFILL = Array.from(
@@ -100,6 +107,8 @@ const GROUP_ZOMBIE_SCRIPT =
  */
 const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
   ["fast", { command: "printf 'Fixture job output'" }],
+  // Leaves `job-ran`, so a test can tell whether the command ran.
+  ["marker", { command: ": > job-ran" }],
   [
     "barrier",
     { command: "while [ ! -e job-release ]; do sleep 0.05; done; printf 'Fixture job output'" }
@@ -138,6 +147,14 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
     {
       // The shell exits at timeout; its resistant member keeps cleanup active for a late abort.
       command: `sh -c 'trap "" TERM; echo $$ > job-member; exec sleep 600' >/dev/null 2>&1 & while [ ! -s job-member ]; do sleep 0.01; done; echo $$ > job-group; wait`,
+      timeout: 1
+    }
+  ],
+  [
+    "trapped",
+    {
+      // The shell records the timeout's SIGTERM in `job-term` and runs on until SIGKILL, so an abort can arrive before it exits.
+      command: `trap 'echo > job-term' TERM; echo $$ > job-group; while :; do sleep 0.05; done`,
       timeout: 1
     }
   ]
@@ -201,6 +218,9 @@ function continuationPlan(scenario: string): Call[] | undefined {
         prompt: history[1] === "extend" ? "nested-background" : "history-context"
       }
     ];
+  const command = /^command-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+  if (command)
+    return [{ description: "Resume with a command", task_id: command, prompt: "/subagents list" }];
   const resumedStubborn = /^stubborn-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
 
   return resumedStubborn
@@ -555,12 +575,12 @@ async function holdToolTurn(
 }
 
 /**
- * Keeps a child running: `finite` briefly; `finite-idle` also until `idle-release`; `finite-late` and `input-hold` until `run-release`; `capacity-hold-<n>` until `capacity-release-<n>`.
+ * Keeps a child running: `finite` briefly; `finite-idle` until `idle-release`; `finite-late` and `input-hold` until `run-release`; `capacity-hold-<n>` until `capacity-release-<n>`.
  */
 async function holdChildReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
   const held = /^capacity-hold-(\d)$/.exec(scenario)?.[1];
   if (held) await runRelease(signal, `capacity-release-${held}`);
-  if (["finite", "finite-idle"].includes(scenario)) await setTimeout(1500, undefined, { signal });
+  if (scenario === "finite") await setTimeout(1500, undefined, { signal });
   // The result reaches the supervisor only after its final turn, so that turn cannot take it.
   if (scenario === "finite-idle") await runRelease(signal, IDLE_RELEASE);
   if (["finite-late", "input-hold"].includes(scenario)) await runRelease(signal);
@@ -654,7 +674,8 @@ function plainResponse(
     return `Input occurrences: ${context.messages.filter((item) => item.role === "user" && contentText(item.content) === "input-payload").length}; earlier context: ${context.messages.some((item) => item.role === "user" && contentText(item.content).endsWith("-hold"))}`;
   if (scenario.startsWith("display\n"))
     return "Wide 界面 é 👩‍💻\n\u001b[2J\u001b]0;unsafe title\u0007Literal child text";
-  if (scenario === "remember") return "Fixture seed recorded";
+  const fixed = FIXED_REPLIES.get(scenario);
+  if (fixed !== undefined) return fixed;
   if (scenario === "history-context")
     return JSON.stringify(
       context.messages
@@ -1048,6 +1069,12 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
         (await ctx.ui.select("Fixture selection", ["Same", "\u001b[31mSame\u001b[0m"])) ===
         "\u001b[31mSame\u001b[0m";
 
+    if (prompt === "control-text")
+      await ctx.ui.select(`Control dialog ${CONTROL_TEXT}`, [
+        `Control option ${CONTROL_TEXT}`,
+        "Plain"
+      ]);
+
     if (prompt === "editor") {
       const received = await ctx.ui.editor("Fixture editor", EDITOR_PREFILL);
       // A changed answer is reported by its SHA-256, so a test can check the exact text received.
@@ -1102,6 +1129,12 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
         ]
       };
     }
+  });
+  // While `compact-hold` exists, a compaction holds until the test creates `compact-release`.
+  pi.on("session_before_compact", async (_event, ctx) => {
+    if (!existsSync(join(ctx.cwd, "compact-hold"))) return;
+    await writeFile(join(ctx.cwd, "compact-held"), "");
+    while (!existsSync(join(ctx.cwd, "compact-release"))) await setTimeout(25);
   });
   pi.on("agent_settled", async (_event, ctx) => {
     if (!settleHold) return;

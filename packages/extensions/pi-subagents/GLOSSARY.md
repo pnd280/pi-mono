@@ -63,7 +63,7 @@ The entry that a child writes at the start of each run in the child file. A run'
 _Avoid_: run header
 
 **Selected ancestry**:
-The supervisor's path from its session root to its current leaf. Its `run` and `end` entries set the state of each task. See [runs and entries](docs/history.md#runs-and-entries).
+The supervisor's path from its session root to its current leaf. See [runs and entries](docs/history.md#runs-and-entries).
 _Avoid_: branch history, timeline
 
 **Writer lease**:

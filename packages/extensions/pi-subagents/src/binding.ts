@@ -195,7 +195,8 @@ export class SessionBinding {
     if (failures.length) throw new AggregateError(failures, failures.map(errorMessage).join("; "));
   }
 
-  private async openTasks(opened: Opened): Promise<Bound> {
+  /** Installs the tasks also after a revoke during the refresh, so that `close` stops them, but gives them only to an unrevoked binding. */
+  private async openTasks(opened: Opened): Promise<Bound | undefined> {
     const { session, jobs } = opened;
     const tasks: Tasks = new Tasks(session.config, session.branch(), {
       ...session.tasks,
@@ -208,6 +209,7 @@ export class SessionBinding {
     });
     const reader = new RunReader(tasks);
     await tasks.tree.refresh();
+    if (this.revoked) tasks.invalidate();
     const bound: Bound = {
       tasks,
       jobs,
@@ -218,7 +220,7 @@ export class SessionBinding {
     opened.release = session.delivery.add(tasks.results);
     this.showWidget(opened, tasks);
 
-    return bound;
+    return this.revoked ? undefined : bound;
   }
 
   /**

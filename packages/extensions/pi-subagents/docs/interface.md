@@ -14,7 +14,7 @@ If the shortcut overlaps a key claimed by pi-profiles or pi-prompt-manager, neit
 
 Pi skips a shortcut when it detects a conflict with one of its reserved keys, such as `shift+tab` under the default bindings, and shows a warning. Pi's conflict check does not detect every equivalent key combination. Use `/subagents` instead, or set another `shortcut` and run `/reload`.
 
-The panel has the same layout as the list browsers of other workspace extensions, such as pi-todo. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
+The panel has the same layout as the list browsers of other workspace extensions, such as pi-todo. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs, and brackets mark the current view, such as `[all 3]`; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
 
 ### Task rows
 
@@ -24,7 +24,7 @@ The panel has the same layout as the list browsers of other workspace extensions
 - While a task is active, its context use such as `48k/200k` (used/total, `?` when unknown after compaction) replaces the tokens; the tokens return when it settles. Usage goes up while a task runs and adds up across resumes. Token and cost details omit zero or unknown values.
 - When a row is wider than the panel, the model and the details move to their own rows, and the details stay aligned to the right edge. Long text wraps under the description. Wrapped rows continue the tree guides, and a parent's wrapped rows carry a `│` stem down to its children.
 
-A `(n/m)` line under the list shows the selection position; the borders do not count hidden rows. Use **PageUp/PageDown** or the fullscreen mouse wheel to scroll the list.
+A `(n/m)` line under the list shows the selection position; the borders do not count hidden rows. Use **PageUp/PageDown** or the fullscreen mouse wheel to scroll the list. In fullscreen mode, click a task or job row to open its viewer.
 
 ### Panel keys
 
@@ -44,13 +44,13 @@ When bindings overlap, the first applicable action wins in this order: back or c
 
 Edge cases:
 
-- A shown action with no usable binding says "unavailable". Its default key is not restored.
+- A shown action with no usable binding says "unavailable". Its default key is not restored. When a configured binding takes **Tab**, the view hint names **Shift+Tab**.
 - The back or close action excludes **Ctrl+C**. That key stays with Pi's copy or interrupt handling unless another configured panel action claims it.
 - Key-release events perform no action.
 
 The footer shows abort and background actions only when they apply to the selected item. Controls belong to the panel or viewer only while it has focus.
 
-The panel keeps the close hint first when space is limited. Below ten terminal rows, the list shows only the close binding and a resize instruction; list actions are disabled. The viewers keep their separate height limits.
+The panel keeps the close hint first when space is limited. Below ten terminal rows, the list shows only the close binding and a resize instruction; list actions are disabled. An action error under the list wraps and takes only rows that leave one list row, so the panel never exceeds the terminal height. The viewers keep their separate height limits.
 
 ### Jobs in the panel
 
@@ -94,9 +94,9 @@ The viewer shows the child's messages with Pi's chat components. Pi's built-in t
 The log viewer shows the end of the job's log file: at most 2,000 lines or 50 KiB, plus an `[Earlier output omitted]` line when output is excluded from that window. It also retains the `[Earlier output omitted: N bytes]` marker when the [log file's size limit](jobs.md#log-files) removed output. While the job is active, the viewer reads the file again every second and follows new output. It reads the file once more when the job ends. Its metadata rows are:
 
 - `status`: a spinner and the elapsed time while the job is active. After the job ends, the outcome and the duration as for a task, then `exit code` and the exit code, or `none`.
-- `command`: each line of the command, after `$ `.
-- `log`: the log file path.
 - `error`: the job's error, only when it adds to the exit code, such as `timed out after 60 s`.
+- `log`: the log file path.
+- `command`: each line of the command, after `$ `. This row is last, so a long command does not push the other rows out of view.
 
 Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll; in fullscreen mode, the mouse wheel also scrolls. **Ctrl+D** aborts an active job, and **Esc** returns to the list. A missing or unreadable log file shows a diagnostic. An empty log shows "(no output)".
 
@@ -129,7 +129,7 @@ Other labelled rows show the selection, usage, error, and task ID:
 
 - `model`: the model and thinking level. Before the task reports, only an explicitly requested model and thinking level appear.
 - `args`: on expanded cards only, the [launch arguments](tasks.md#launch-arguments) in the format of the [task viewer's](#task-viewer) `args` row. Before the task reports, the row shows the launch arguments of the call.
-- `usage`: usage such as `↑48k ↓3.1k $0.21`, when a value is positive.
+- `usage`: usage such as `↑48k ↓3.1k $0.210`, when a value is positive.
 - `error`: the first line of a failure's error. Cancellation uses the warning colour, like other cancelled status details; the panel's `⊘` glyph uses the error colour, like pi-tool-display headings. See [notices and colours](../../pi-tool-display/docs/presentation.md#notices-and-colours).
 - `task`: the first eight characters of the task ID; expansion shows the full ID.
 

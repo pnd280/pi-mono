@@ -12,7 +12,7 @@ import type { TaskPanel } from "./panel.ts";
 let panel: Promise<typeof PanelModule> | undefined;
 const loadPanel = () => (panel ??= import("./panel.ts"));
 
-const transcriptOverlay = {
+const detailOverlay = {
   anchor: "center",
   width: "100%",
   maxHeight: "100%"
@@ -65,19 +65,36 @@ export class Panels {
         return openResponsiveCustomUI({
           ui: this.ctx.ui,
           signal: this.controller.signal,
-          useOverlay: (tui) => tui.mode === "fullscreen" && !!this.panel?.viewingTranscript,
-          overlayOptions: transcriptOverlay,
+          useOverlay: (tui) => tui.mode === "fullscreen" && !!this.panel?.viewingDetail,
+          overlayOptions: detailOverlay,
           onInputRoutingUnavailable: () =>
             this.ctx.ui.notify(
               "Subagent panel fullscreen input routing is unavailable on this host. Use regular mode if controls do not respond.",
               "warning"
             ),
           create: (tui, theme, keys, close) => {
-            this.panel = new TaskPanel(this.tasks, this.jobs, this.reader, tui, theme, keys, close);
-            this.select?.(this.panel);
+            const panel = new TaskPanel(
+              this.tasks,
+              this.jobs,
+              this.reader,
+              tui,
+              theme,
+              keys,
+              close
+            );
+            this.panel = panel;
+
+            try {
+              this.select?.(panel);
+            } catch (error) {
+              // The host disposes only a returned view, so a failed selection stops the panel's timer and subscriptions here.
+              panel.dispose();
+              throw error;
+            }
+
             this.select = undefined;
 
-            return this.panel;
+            return panel;
           }
         });
       })

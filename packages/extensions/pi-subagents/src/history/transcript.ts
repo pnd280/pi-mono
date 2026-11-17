@@ -31,7 +31,6 @@ export type TranscriptItem =
       call: ToolCall;
       output: ToolOutput | undefined;
       partial: boolean;
-      started: boolean;
     };
 
 type ToolItem = Extract<TranscriptItem, { kind: "tool" }>;
@@ -327,8 +326,7 @@ export class Transcript {
           key: `${key}\0${index}`,
           call,
           output: failure ?? execution?.output,
-          partial: failure ? false : (execution?.partial ?? false),
-          started: execution !== undefined
+          partial: failure ? false : (execution?.partial ?? false)
         };
         open.set(call.id, item);
         // A connection observes every call it runs, so earlier unresolved calls never finish. Without one, only the calls of the latest response can still run.

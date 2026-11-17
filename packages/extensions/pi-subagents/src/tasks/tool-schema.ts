@@ -18,7 +18,7 @@ export const toolInputSchema = z.strictObject({
   delivery: deliverySchema
     .optional()
     .describe(
-      "For input to an active task. follow_up (default) waits until the current work finishes; steer arrives before the next atomic action."
+      "For input to an active task. follow_up (default) waits until the current work finishes; steer arrives after the current tool calls finish, before the next model request."
     ),
   background: z
     .boolean()

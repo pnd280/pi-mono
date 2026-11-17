@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.5.2 on Linux with offline suites and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; a child's idle cache warming; live providers.
+> Last verified against Pi 1.5.2 with offline suites on Linux and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks), which last ran on Pi 1.0.2; the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; a child's idle cache warming; live providers.
 
 ## Upgrade procedure
 
@@ -17,29 +17,33 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 ### Launch and stop
 
 - [ ] The official subagent example's invocation selection still handles script, compiled-binary, and PATH launches.
-- [ ] `--model provider/id`, `--thinking`, `--session`, `--approve`, and `--no-approve` retain their meanings.
+- [ ] `--model provider/id` selects that model.
+- [ ] `--thinking` sets the thinking level.
+- [ ] `--session` opens the named session file.
+- [ ] `--approve` trusts project-local files for the run, and `--no-approve` ignores them.
 - [ ] When `--mode`, `--approve`, or `--no-approve` appears again later in the arguments, the later flag applies, so the extension's flags apply over the same flags in [launch arguments](tasks.md#launch-arguments).
-- [ ] Pi reads every argument after `--` as a message. The [launch-argument check](tasks.md#launch-arguments) rejects `--`, so that the extension's trust flag applies.
+- [ ] After `--`, Pi reads an argument that starts with `@` as a file input and every other argument as a message. The [launch-argument check](tasks.md#launch-arguments) rejects `--`, so that the extension's trust flag applies.
 - [ ] Pi still resolves a relative value of `--extension`, `-e`, `--skill`, `--prompt-template`, and `--theme` from the working directory, and converts a `file://` value to an absolute path. Its package manager still reads the prefixes in `REMOTE_SOURCE` in [tool-schema.ts](../src/tasks/tool-schema.ts) as built-in, npm, or git sources: compare them with `parseSource`.
 - [ ] Pi still reads the value of `--system-prompt` and `--append-system-prompt` from a file of that name relative to the working directory when one exists, so [templates](tasks.md#templates) reject these flags.
 - [ ] Pi opens a `--session` file in the working directory of its header, so the [resume check](history.md#resume) compares that directory with the supervisor's.
 - [ ] `VALUE_FLAGS` in [tool-schema.ts](../src/tasks/tool-schema.ts) still lists each Pi flag that always takes the next argument, whatever it is (`args[++i]` in Pi's `dist/cli/args.js`), apart from the flags that other parameters own. No other flag, including an unknown flag, takes a next `--mode`.
-- [ ] An unknown provider in `--model` fails the launch.
+- [ ] An unmatched `--model provider/id` value with an unrecognised provider prefix fails the launch. The whole value can instead match a catalogue ID under another provider.
 - [ ] An unlisted model ID under a known provider can reach that provider.
-- [ ] An invalid thinking level gives a warning, and Pi uses its default level.
+- [ ] An invalid `--thinking` value gives a warning and is ignored.
 - [ ] With `--session`, `--model` and `--thinking` replace the selection that Pi restores from the session file.
 - [ ] `get_state` returns the resolved model and the thinking level clamped to it.
-- [ ] Assistant `message_end` events carry the physical `provider`, `model`, and Pi `thinkingLevel` of each response.
+- [ ] Provider-stream assistant `message_end` events carry the physical `provider`, `model`, and Pi `thinkingLevel`. Synthetic failure events name the selected model and can omit `thinkingLevel`.
 - [ ] Failed virtual-model routing gives an assistant `message_end` that names the virtual model with `stopReason: "error"`.
 - [ ] `thinking_level_changed` reports later changes of the thinking level.
 - [ ] `new_session` accepts `parentSession`.
 - [ ] `set_session_name` names the new session with the task description and rejects blank names.
 - [ ] `get_state` returns the full session ID and session-file path.
 - [ ] A new session writes no file until Pi persists the first prompt.
-- [ ] Without `--tools`, Pi restores a resumed session's tool loadout from its session file instead of the `defaultTools` setting.
-- [ ] Without `--tools`, a resumed child also turns on registered `direct` and `model-only` tools that no system message of the child file adds or removes, unless `defaultActive: false`.
+- [ ] Without a `--tools` list that replaces the defaults, and without `--no-tools` or `--no-builtin-tools`, Pi restores a resumed session's tool loadout from its session file instead of the `defaultTools` setting.
+- [ ] Without a `--tools` list that replaces the defaults, and without `--no-tools` or `--no-builtin-tools`, a resumed child also turns on registered `direct` and `model-only` tools that no system message of the child file adds or removes, unless `defaultActive: false`.
+- [ ] A `--tools` list of `+`/`-` modifiers restores the recorded loadout and then applies the modifiers.
 - [ ] A recorded tool that an extension registers as `hidden`, such as `subagent` at `maxDepth`, stays inactive after resume.
-- [ ] `clear_queue` followed by `abort` prevents queued input from continuing.
+- [ ] `clear_queue` clears pending steering and follow-up input before `abort`. Prompts deferred during `agent_settled` remain scheduled after its handlers finish.
 - [ ] Closing stdin disposes the collectors and RPC event stream, then awaits `session_shutdown`.
 - [ ] Pi awaits `session_shutdown` for session replacement, reload, and graceful exit.
 - [ ] On stdin EOF and graceful exit, Pi aborts the active run and waits until it settles before `session_shutdown`.
@@ -56,7 +60,7 @@ The child-process backend depends on Pi's public lifecycle and RPC ordering, whi
 
 Resume opens the task's [child file](../GLOSSARY.md#history) with `--session` and checks its session ID before `begin`.
 
-When `launch_args` gives no `--tools`, the child receives no `--tools`, so Pi restores a resumed child's tool loadout from its child file. The package's tools register when the extension loads, and again at `session_start` under the [registration rule](../AGENTS.md#boundaries), and they stay active. The [depth tests](../validation/descendants.test.ts) cover the active and the hidden case.
+The [depth tests](../validation/descendants.test.ts) cover the active and the hidden case.
 
 The supervisor reads the final text and statistics before stdin EOF. Because Pi loads new extension instances after `session_shutdown`, a revoked [session binding](../GLOSSARY.md#tasks-and-processes) is never opened again. Because shortcuts are set up after `resources_discover`, the panel shortcut that the startup handler claims works at once.
 
@@ -68,7 +72,7 @@ Pi's abort before `session_shutdown` sets how a foreground task stops when its s
 
 - [ ] Exported RPC unions match LF-delimited records, optional CR stripping, command IDs, and `extension_ui_response` routing.
 - [ ] `prompt` starts a turn when the session is idle.
-- [ ] `prompt` queues input when the session is busy.
+- [ ] During an active run, `prompt` queues input when `streamingBehavior` is supplied.
 - [ ] `prompt` reports `disposition: "handled"` for slash commands.
 - [ ] Slash commands execute during streaming.
 - [ ] A handled command completes without `agent_settled` only when no run has been observed on the connection.
@@ -99,13 +103,17 @@ Pi's abort before `session_shutdown` sets how a foreground task stops when its s
 - [ ] Tree navigation to a user or custom message moves the leaf to its parent only when that entry is not the current leaf.
 - [ ] Tree navigation to any other entry selects that entry.
 - [ ] Navigation without a summary appends no entry and emits no `session_start`.
-- [ ] Cancelling `session_before_tree`, `session_before_fork`, or `session_before_switch` also cancels the RPC `fork` and `new_session` commands, and appends nothing.
+- [ ] Cancelling `session_before_tree` cancels tree navigation.
+- [ ] Cancelling `session_before_fork` cancels RPC `fork`.
+- [ ] Cancelling `session_before_switch` cancels RPC `new_session`.
 - [ ] Before-tree, before-fork, and before-switch hooks run before teardown.
 - [ ] After a cancelled change, a cancelled or failed branch summary, or a fork or switch that fails before teardown, Pi emits no session event.
 - [ ] `session_tree` and replacement `session_start` supply the final [selected ancestry](../GLOSSARY.md#history), including user-entry parent selection.
 - [ ] `getBranch()` supplies the data for task recovery.
 - [ ] `get_entries` supports durable entry cursors and supplies the authoritative leaf.
 - [ ] Ordinary messages do not emit `entry_appended`.
+
+Ordinary prompts fail during compaction or a branch summary. The cancelled session changes above append no entries.
 
 A handled command can start model work. Work that the connection observed must settle before result collection. A pending prompt prevents collection from closing stdin, and input after closing resumes the task in its child file. A baseline `get_session_stats` read after `begin` gives each run's usage.
 
@@ -118,10 +126,10 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 ### Extension UI and registration
 
 - [ ] Registration in the extension factory activates a `model-only` tool before `session_start` handlers run.
-- [ ] Without `--tools`, registering a tool again with an unchanged exposure replaces its definition and does not activate it again.
-- [ ] With `--tools`, any registration activates every registered declarable tool that the list names.
+- [ ] Without a `--tools` list that replaces the defaults, and without `--no-tools` or `--no-builtin-tools`, registering a tool again with an unchanged exposure replaces its definition and does not activate it again.
+- [ ] With a `--tools` list that replaces the defaults (no `+`/`-` modifiers), any registration activates every registered declarable tool that the list names.
 - [ ] A change to `hidden` removes the tool from the active tools.
-- [ ] Parallel tool execution still works.
+- [ ] With agent-core's default parallel mode, two `subagent` calls in one response that has no sequential tool call start before either finishes.
 - [ ] Hidden registration prevents model and codemode calls from launching disabled tools.
 - [ ] Tool renderers receive partial arguments, shared state, expansion state, and streaming results.
 - [ ] The tool render context supplies `keyHint`, which formats Pi's configured keybindings, also for `ToolExecutionComponent` rows that the viewer creates.
@@ -131,13 +139,15 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 - [ ] RPC `select`, `confirm`, `input`, and `editor` requests and replies still map to `ctx.ui`.
 - [ ] Supported dialog timeouts pass through RPC.
 - [ ] `ctx.ui.editor` still takes no abort signal, and the interactive editor still expands tabs, normalises line ends, and trims the text that it returns.
-- [ ] The exported terminal components, theme tokens, and truncation helpers retain their contracts.
+- [ ] `@earendil-works/pi-tui` still exports `Container`, `Spacer`, `Text`, `Loader`, `ScrollView`, `MouseRegion`, `truncateToWidth`, `visibleWidth`, and `isKeyRelease`, which the cards, panel, and viewers import.
+- [ ] `truncateToWidth` and `visibleWidth` clip and measure styled text in terminal columns.
+- [ ] The theme still defines the `dim`, `muted`, `accent`, `error`, `warning`, `border`, `toolTitle`, `toolOutput`, `mdCode`, `customMessageLabel`, `scrollbarThumb`, and `scrollbarTrack` colours.
 
-These `--tools` contracts set the [registration rule](../AGENTS.md#boundaries). Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so a registration after the factory's restores the active tools from before it and keeps only the owned tools whose exposure turned on.
+These `--tools` contracts set the [registration rule](../AGENTS.md#boundaries). Without a `--tools` list that replaces the defaults, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With such a list, Pi activates every listed tool again on any registration, so a registration after the factory's restores the active tools from before it and keeps only the owned tools whose exposure turned on.
 
 Fire-and-forget child UI is dropped. Because `ctx.ui.editor` takes no signal, a forwarded editor stays open after its run is cancelled, and `editorText` in the [dialog forwarder](../src/child/dialogs.ts) copies the editor's whitespace changes to detect an unchanged prefill; when Pi adds an editor signal, pass it and close the editor on cancellation.
 
-A child adds its [result instructions](children.md#result-instructions) as a prompt part at rank `300`. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks.
+The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks.
 
 ### Background jobs
 
@@ -202,11 +212,14 @@ The offline tests exercise background waits in `agent_end`, slash commands durin
 - [ ] After an abort during a tool call, Pi adds an empty assistant message with `stopReason: "aborted"`.
 - [ ] JSON `message_start`, `message_update`, and `message_end` events, with `assistantMessageEvent` content indices and tool-call deltas that `parseStreamingJson` reads, rebuild a streaming assistant message.
 - [ ] Execution events carry the `toolCallId` of a call in that streaming message.
-- [ ] The exported chat components, `ToolExecutionComponent`, and the individual built-in `create*ToolDefinition` renderers support the viewer.
+- [ ] Pi exports each chat component and `create*ToolDefinition` factory that the [transcript viewer](../src/task-panel/viewer.ts) imports.
+- [ ] `ToolExecutionComponent` applies streamed `updateArgs`, `updateResult`, and `setExpanded`.
 - [ ] Without `setArgsComplete`, the built-in tool renderers read no files, as in Pi's own history.
-- [ ] Inline and overlay custom UI, widgets, and fullscreen mouse regions support the viewer.
+- [ ] Inline custom UI receives the panel's input and restores the editor when it closes.
+- [ ] A full-terminal custom overlay closes only its own overlay.
+- [ ] Widget `MouseRegion`s receive fullscreen left clicks.
 
-A supervisor waits only after `stop` or `toolUse`, so it never blocks retry or compaction. Low-level follow-up queues can remain unconsumed after an abort. [Delivery](../src/delivery.ts) uses the `turn_end` save for `resultDelivery: "turn_end"` ([ADR 0006](adr/0006-deliver-background-results-at-turn-end.md)).
+The supervisor's `agent_end` handler waits only after `stop` or `toolUse`. In print and JSON modes and in nested supervisors, `agent_before_settle` can also wait after a final error, which Pi runs after retry and compaction. Neither wait blocks retry or compaction. Low-level follow-up queues can remain unconsumed after an abort. [Delivery](../src/delivery.ts) uses the `turn_end` save for `resultDelivery: "turn_end"` ([ADR 0006](adr/0006-deliver-background-results-at-turn-end.md)).
 
 A child waits in `agent_end` after a normal reply, and in `agent_before_settle` after a final error that Pi does not recover. Read the final statistics and close stdin after `agent_end` without waiting for the abort reply. A shared deadline still bounds abort, the statistics read, and shutdown. The idle wake in delivery depends on the idle `sendMessage` contracts.
 
@@ -214,23 +227,22 @@ The child-file reader parses complete nonblank JSON lines strictly in memory. It
 
 The resume warning ignores the calls of a failed or aborted response, and the viewer shows the response's error for them. Through the session projections, `show --last` returns the active conversation's text and cursor. The child file's ancestry of the selected run supplies digest paging, cursors, and cumulative usage; raw append-order entries from abandoned branches are excluded. The [last-text test](../validation/show.test.ts) confirms that Pi adds the empty aborted message after an abort during a tool call, because without that message the skip has no coverage.
 
-Regular mode uses `ctx.ui.custom` with `overlay: false` at three-quarters of the terminal height. Fullscreen mode uses a full-terminal overlay. Host remounts preserve the logical task panel and transcript, and closing the viewer restores the task list with its view and selection. Panel keys and expansion remain local to that presentation.
+Regular mode uses `ctx.ui.custom` with `overlay: false`, and fullscreen mode a full-terminal overlay. Host remounts preserve the logical task panel and transcript.
 
 The [input cases](../validation/input.test.ts) exercise running input, deferred settle-boundary input, input during exit and resume, and owner-only resume of inactive descendants. The [digest cases](../validation/show.test.ts) exercise ancestry-scoped paging.
 
 ## Limitations
 
 - In Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call. In Pi 1.5.1 and 1.5.2, the message has `stopReason: "aborted"`.
-- In Pi 1.2.0, the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) was not rerun. A source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field. The offline suite passed.
-- In Pi 1.3.0, the ADR 0003 runtime probe was not rerun. A source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.
-- In Pi 1.3.0, a one-time probe resumed a session that recorded `subagent`. The tool stayed active, and it stayed inactive when the session resumed at `maxDepth`. The offline suite passed.
+- In Pi 1.2.0, a source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field.
+- In Pi 1.3.0, a source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.
 - In Pi 1.3.0, Pi's session loader appends a newline to a file that ends with a partial line.
-- In Pi 1.4.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.3.0 found the session manager, RPC mode, print mode, extension runner, and extension types unchanged. `AgentSession` changed in transcript tool restoration, recovery omission, and the compaction check; agent core added request `identity`. The offline suite passed.
+- In Pi 1.4.0, a source comparison with Pi 1.3.0 found the session manager, RPC mode, print mode, extension runner, and extension types unchanged. `AgentSession` changed in transcript tool restoration, recovery omission, and the compaction check; agent core added request `identity`.
 - In Pi 1.4.0, a source review found that resume also turns on registered `direct` and `model-only` tools that the child file never recorded, unless `defaultActive: false`. The `session_start` registration hides them again where needed.
-- In Pi 1.5.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.4.0 found RPC mode, print mode, the extension runner, the bash tool, truncation, and the agent loop unchanged. The session manager now removes an entry from memory when its write fails, and forks write through one file handle; `appendCustomMessageEntry` and `appendUsage` are unchanged. `AgentSession` keeps the order of tools that stay active and appends newly activated ones; hidden tools still drop out of the loadout. The offline suite passed.
+- In Pi 1.5.0, a source comparison with Pi 1.4.0 found RPC mode, print mode, the extension runner, the bash tool, truncation, and the agent loop unchanged. The session manager now removes an entry from memory when its write fails, and forks write through one file handle; `appendCustomMessageEntry` and `appendUsage` are unchanged. `AgentSession` keeps the order of tools that stay active and appends newly activated ones; hidden tools still drop out of the loadout.
 - In Pi 1.5.0 to 1.5.2, `ToolExecutionComponent.updateArgs` applies new arguments at the next render instead of at once.
-- In Pi 1.5.1, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.5.0 found the session manager, the agent loop, and transcript tool restoration unchanged. The extension runner changed only for Markdown transformers, the bash tool only in the timeout status of Pi's local shell operations, which jobs replace, and truncation outside `truncateTail` and the default limits. The session runtime, RPC mode, and print mode changed in shutdown; the [launch and stop](#launch-and-stop) checklist names the abort and SIGTERM contracts. `AgentSession.reload()` now rejects a call during a run or a compaction. The offline suite passed.
-- In Pi 1.5.2, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.5.1 found the session manager, `AgentSession`, RPC mode, print mode, the extension runner, the bash tool, and agent core unchanged. Startup, interactive mode, and the session runtime changed only in opening a session whose stored working directory is missing: interactive mode now also offers to fork it. Children run in RPC mode, which still exits with an error. The offline suite passed.
+- In Pi 1.5.1, a source comparison with Pi 1.5.0 found the session manager, the agent loop, and transcript tool restoration unchanged. The extension runner changed only for Markdown transformers, the bash tool only in the timeout status of Pi's local shell operations, which jobs replace, and truncation outside `truncateTail` and the default limits. The session runtime, RPC mode, and print mode changed in shutdown; the [launch and stop](#launch-and-stop) checklist names the abort and SIGTERM contracts. `AgentSession.reload()` now rejects a call during a run or a compaction.
+- In Pi 1.5.2, a source comparison with Pi 1.5.1 found the session manager, `AgentSession`, RPC mode, print mode, the extension runner, the bash tool, and agent core unchanged. Startup, interactive mode, and the session runtime changed only in opening a session whose stored working directory is missing: interactive mode now also offers to fork it. Children run in RPC mode, which still exits with an error.
 - In Pi 1.5.1 and 1.5.2, a source review found that the `cacheWarming` setting defaults to `idle`, also in a child. Pi then keeps the child's cache-warming timer after the run settles, and cancels it when it disposes the session, after `session_shutdown`. A warming request that completes between the supervisor's read of the child's statistics and that disposal adds a usage entry to the [child file](../GLOSSARY.md#history), outside the run's reported usage.
 
 ## Replacement opportunities

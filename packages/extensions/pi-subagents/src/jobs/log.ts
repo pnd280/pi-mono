@@ -34,7 +34,7 @@ export function formatLogTail(
 }
 
 /**
- * The end of a job's log file, at most `maxBytes` and `maxLines`. It reads only the file's last bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow a link that replaced the path after `lstat`, but only the same regular file is read.
+ * The end of a job's log file: at most `maxBytes` and `maxLines` of output, plus omission markers. It reads the file's last bytes and its first 128 bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow a link that replaced the path after `lstat`, but only the same regular file is read.
  */
 export async function readLogTail(
   path: string,

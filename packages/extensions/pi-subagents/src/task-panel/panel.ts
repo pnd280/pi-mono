@@ -11,6 +11,7 @@ import {
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import type { KeybindingSource } from "@pi-mono/libs/tui/keybindings";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { RunReader, TaskView } from "../history/reader.ts";
@@ -22,6 +23,11 @@ import { PanelControls, type PanelAction } from "./controls.ts";
 import { JobLogView } from "./job-viewer.ts";
 import { renderViewer, Spinner, taskRows, type ViewerBody } from "./viewer-frame.ts";
 import { TranscriptViewer } from "./viewer.ts";
+
+/** Two border rows, the title, the view row, and three blank rows frame the list. */
+const FRAME_ROWS = 7;
+/** Pi's regular-mode rows around the panel: a blank row and this extension's widget above it, and the footer's path and statistics rows below it. */
+const PI_CHROME_ROWS = 4;
 
 /** A scrollable transcript, inline in regular mode and overlaid in fullscreen mode. */
 class TranscriptView implements Component {
@@ -222,11 +228,13 @@ class TranscriptView implements Component {
       below = Math.max(0, lines.length - above - body.length);
       if (contentWidth < width) body = this.paintScrollbar(body, contentWidth, lines.length);
     } else
-      body = [
+      body = (
         this.source?.unavailable
-          ? this.theme.fg("error", compactDisplayText(this.source.unavailable))
-          : this.theme.fg("dim", "Loading transcript…")
-      ].slice(0, height);
+          ? wrapRows(compactDisplayText(this.source.unavailable), width).map((row) =>
+              this.theme.fg("error", row)
+            )
+          : [this.theme.fg("dim", "Loading transcript…")]
+      ).slice(0, height);
 
     this.bodyRows = body.length;
 
@@ -241,9 +249,9 @@ class TranscriptView implements Component {
       Math.min(2, track),
       Math.min(track, Math.round((track * track) / content))
     );
-    const maxTop = Math.max(0, content - track);
-    const offset =
-      maxTop === 0 ? 0 : Math.round(((this.scroll?.scrollTop ?? 0) / maxTop) * (track - thumb));
+    const offset = Math.round(
+      ((this.scroll?.scrollTop ?? 0) / (content - track)) * (track - thumb)
+    );
     this.scrollbar = { height: thumb, content };
 
     return body.map((line, row) => {
@@ -343,7 +351,7 @@ export class TaskPanel implements Component {
     { scrollbar: "hidden" }
   );
   private bodyRows = 0;
-  private transcript: TranscriptView | JobLogView | undefined;
+  private detail: TranscriptView | JobLogView | undefined;
   private active = true;
   private error = "";
   private unsubscribe: () => void;
@@ -371,8 +379,8 @@ export class TaskPanel implements Component {
     this.unobserve = tasks.tree.observe();
   }
 
-  get viewingTranscript(): boolean {
-    return this.transcript !== undefined;
+  get viewingDetail(): boolean {
+    return this.detail !== undefined;
   }
 
   private update(id = this.selectedEntry && entryId(this.selectedEntry)): void {
@@ -394,8 +402,8 @@ export class TaskPanel implements Component {
   }
 
   private closeDetail = () => {
-    this.transcript?.dispose();
-    this.transcript = undefined;
+    this.detail?.dispose();
+    this.detail = undefined;
     this.tui.requestRender();
   };
 
@@ -404,9 +412,9 @@ export class TaskPanel implements Component {
     this.tasks.owned(id);
     this.error = "";
 
-    if (!(this.transcript instanceof TranscriptView)) {
-      this.transcript?.dispose();
-      this.transcript = new TranscriptView(
+    if (!(this.detail instanceof TranscriptView)) {
+      this.detail?.dispose();
+      this.detail = new TranscriptView(
         this.tasks,
         this.reader,
         this.tui,
@@ -416,7 +424,7 @@ export class TaskPanel implements Component {
       );
     }
 
-    this.transcript.open(id);
+    this.detail.open(id);
     this.tui.requestRender();
   }
 
@@ -424,8 +432,8 @@ export class TaskPanel implements Component {
     if (!this.active) return;
     const view = new JobLogView(this.jobs, id, this.tui, this.theme, this.keys, this.closeDetail);
     this.error = "";
-    this.transcript?.dispose();
-    this.transcript = view;
+    this.detail?.dispose();
+    this.detail = view;
     this.tui.requestRender();
   }
 
@@ -437,15 +445,15 @@ export class TaskPanel implements Component {
   ownsFullscreenInput(data: string): boolean {
     if (!this.active) return false;
 
-    return this.transcript
-      ? this.transcript.ownsFullscreenInput(data)
+    return this.detail
+      ? this.detail.ownsFullscreenInput(data)
       : this.controls.actionFor(data) !== undefined;
   }
 
   handleInput(data: string): void {
     if (!this.active || isKeyRelease(data)) return;
 
-    if (this.transcript) this.transcript.handleInput(data);
+    if (this.detail) this.detail.handleInput(data);
     else {
       const action = this.controls.actionFor(data);
       if (action === "cancel") this.close();
@@ -535,17 +543,18 @@ export class TaskPanel implements Component {
     const jobs = this.jobs.list();
 
     return views
-      .map(({ label, match, matchJob }, index) =>
-        this.theme.fg(
-          index === this.view ? "accent" : "muted",
-          `${label} ${tasks.filter(match).length + jobs.filter(matchJob).length}`
-        )
-      )
+      .map(({ label, match, matchJob }, index) => {
+        const tab = `${label} ${tasks.filter(match).length + jobs.filter(matchJob).length}`;
+
+        return index === this.view
+          ? this.theme.fg("accent", `[${tab}]`)
+          : this.theme.fg("muted", tab);
+      })
       .join(this.theme.fg("muted", " | "));
   }
 
   render(width: number): string[] {
-    if (this.transcript) return this.transcript.render(width);
+    if (this.detail) return this.detail.render(width);
 
     const { theme } = this;
 
@@ -560,12 +569,13 @@ export class TaskPanel implements Component {
     const tabs = this.tabs();
     const help = renderHintFooter({
       width,
-      maxRows: Math.max(1, this.tui.terminal.rows - 13),
+      // The hints leave the position row and one list row.
+      maxRows: Math.max(1, this.tui.terminal.rows - FRAME_ROWS - PI_CHROME_ROWS - 2),
       hints: [
         this.controls.hint("cancel", "close"),
         ...this.controls.navigationHints("select"),
         this.controls.hint("confirm", "inspect"),
-        this.controls.hint("nextView", "view"),
+        this.controls.viewHint(),
         ...this.actionHints()
       ],
       padding: "  ",
@@ -575,13 +585,21 @@ export class TaskPanel implements Component {
     const position = this.entries.length
       ? [theme.fg("dim", `  (${this.selected + 1}/${this.entries.length})`)]
       : [];
-    const diagnostics = (this.error ? [this.error] : []).map((text) =>
-      this.theme.fg("error", compactDisplayText(text))
-    );
-    // Two border rows, the title, the view row, and three blank rows frame the list, as in the browser.
+    // Diagnostics take only rows that leave one body row, so the frame stays within the terminal.
+    const diagnostics = (this.error ? wrapRows(compactDisplayText(this.error), width) : [])
+      .slice(
+        0,
+        Math.max(0, this.tui.terminal.rows - FRAME_ROWS - 1 - position.length - help.length)
+      )
+      .map((row) => this.theme.fg("error", row));
     const height = Math.max(
       1,
-      this.tui.terminal.rows - 11 - position.length - help.length - diagnostics.length
+      this.tui.terminal.rows -
+        FRAME_ROWS -
+        PI_CHROME_ROWS -
+        position.length -
+        help.length -
+        diagnostics.length
     );
     const lines = this.listScroll.render(width);
     this.listScroll.updateLayout(lines.length, height, () => this.tui.requestRender());
@@ -624,7 +642,7 @@ export class TaskPanel implements Component {
 
   handleMouse(event: TuiMouseEvent): ReturnType<NonNullable<Component["handleMouse"]>> {
     if (!this.active) return;
-    if (this.transcript) return this.transcript.handleMouse(event);
+    if (this.detail) return this.detail.handleMouse(event);
 
     // Rows 0 to 4 are the top border, the title, the view row, and two blank rows.
     if (event.y < 5 || event.y > this.bodyRows + 4) return;
@@ -652,12 +670,12 @@ export class TaskPanel implements Component {
   }
 
   invalidate(): void {
-    this.transcript?.invalidate();
+    this.detail?.invalidate();
   }
 
   dispose(): void {
     this.active = false;
-    this.transcript?.dispose();
+    this.detail?.dispose();
     clearInterval(this.timer);
     this.unobserve();
     this.unsubscribe();

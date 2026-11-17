@@ -8,5 +8,5 @@ import type { ToolDetails } from "./details.ts";
 export function usageText({ usage }: ToolDetails): string {
   if (!Object.values(usage).some((value) => value > 0)) return "";
 
-  return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
+  return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(3)}`;
 }

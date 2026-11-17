@@ -18,7 +18,7 @@ The model calls `job` with a `command`, a short `description`, an optional `time
 
 By default, the supervisor does not wait for jobs, and a run settles while its jobs run. When a job exits, its background result arrives as a `pi-subagents.job-result` message. If the supervisor is busy, the result joins the run in the same way as a [task result](background-results.md). If the supervisor is idle, the result starts a new turn.
 
-The result contains a `<job>` envelope with the job ID, the outcome, and the exit code. Then it contains the last 2,000 lines or 50 KiB of output. After a failure, Pi's status line follows, such as `Command exited with code 2` or `Command timed out after 60 seconds`. An `Error:` line follows when the job's error adds to that text, such as a signal name or a log write failure. The log file path comes last.
+The result contains a `<job>` envelope with the job ID, the outcome, and the exit code when the shell exited. Then it contains the last 2,000 lines or 50 KiB of output. After a failure, Pi's status line follows, such as `Command exited with code 2` or `Command timed out after 60 seconds`. An `Error:` line follows when the job's error adds to that text, such as a signal name or a log write failure. The log file path comes last.
 
 | Exit              | Outcome     | Example error                            |
 | ----------------- | ----------- | ---------------------------------------- |

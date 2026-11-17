@@ -6,13 +6,14 @@ import {
   truncateHead,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
+import { utf8Prefix } from "@pi-mono/utils/utf8";
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
 import type { ToolDetails } from "./details.ts";
 import { parseFlags } from "./flags.ts";
 import type { RunReader } from "./history/reader.ts";
-import { boundedText, detailsUsage, sumUsage } from "./result.ts";
+import { detailsUsage, sumUsage } from "./result.ts";
 import type { TaskRecord } from "./tasks/records.ts";
 
 type Item = { type: "user" | "assistant" | "tools"; text: string };
@@ -44,8 +45,15 @@ function options(tokens: string[]): Options {
   };
 }
 
-function text(value: string): string {
-  return truncateHead(value, { maxBytes: 2000, maxLines: 2000 }).content;
+/** Shown text within the limits; unlike Pi's `truncateHead`, a first line over the byte limit keeps its start. */
+function shown(value: string, maxLines = 2000, maxBytes = 2000): string {
+  const result = truncateHead(value, { maxLines, maxBytes });
+  if (!result.truncated) return result.content;
+  const content = result.firstLineExceedsLimit
+    ? utf8Prefix(value.split("\n", 1)[0] ?? "", maxBytes)
+    : result.content;
+
+  return `${content}\n[Text truncated]`;
 }
 
 function usage(entries: readonly SessionEntry[]): ToolDetails["usage"] {
@@ -73,7 +81,7 @@ function summary(names: readonly string[]): string {
   const counts = new Map<string, number>();
   for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
 
-  return text([...counts].map(([name, count]) => `${name} ×${count}`).join(", "));
+  return shown([...counts].map(([name, count]) => `${name} ×${count}`).join(", "));
 }
 
 /**
@@ -100,7 +108,7 @@ function items(entries: readonly SessionEntry[]): { id: string; index: number; i
     if (message.role !== "user" && message.role !== "assistant") continue;
     const value = contentText(message.content);
     if (value)
-      result.push({ id: entry.id, index, item: { type: message.role, text: text(value) } });
+      result.push({ id: entry.id, index, item: { type: message.role, text: shown(value) } });
     if (message.role !== "assistant") continue;
     const calls = message.content.filter((block) => block.type === "toolCall");
     const group = { names: calls.map((call) => call.name), pending: new Set<string>() };
@@ -133,16 +141,25 @@ function lastText(entries: readonly SessionEntry[]): {
   return { cursor: null, text: null };
 }
 
+/** The read run's state and outcome, even when the task starts another run during the read. */
+function runFields(id: string, task: TaskRecord) {
+  return {
+    task_id: id,
+    state: task.state,
+    outcome: task.outcome,
+    ...(task.error === undefined ? {} : { error: task.error })
+  };
+}
+
 /** The `--last` response, with the text shortened until the complete response fits the output budget. */
-function lastResponse(id: string, state: TaskRecord["state"], entries: readonly SessionEntry[]) {
+function lastResponse(run: ReturnType<typeof runFields>, entries: readonly SessionEntry[]) {
   const { cursor, text } = lastText(entries);
 
   for (let maxBytes = DEFAULT_MAX_BYTES; ; maxBytes = Math.floor(maxBytes / 2)) {
     const response = {
-      task_id: id,
-      state,
+      ...run,
       cursor,
-      text: text === null ? null : boundedText(text, DEFAULT_MAX_LINES, maxBytes)
+      text: text === null ? null : shown(text, DEFAULT_MAX_LINES, maxBytes)
     };
 
     // Escaped control characters can make the JSON text larger than the text.
@@ -151,15 +168,14 @@ function lastResponse(id: string, state: TaskRecord["state"], entries: readonly 
   }
 }
 
-/** The state is the read run's state, even when the task starts another run during the read. */
 export async function showTask(reader: RunReader, id: string, tokens: string[]): Promise<unknown> {
   const config = options(tokens);
   const {
     record: task,
     history: { entries }
   } = await reader.read(id);
-  if (config.last) return lastResponse(id, task.state, entries);
-  const common = { task_id: id, state: task.state, usage: usage(entries) };
+  if (config.last) return lastResponse(runFields(id, task), entries);
+  const common = { ...runFields(id, task), usage: usage(entries) };
 
   const start =
     config.since === undefined ? -1 : entries.findIndex((entry) => entry.id === config.since);

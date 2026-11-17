@@ -84,3 +84,20 @@ test.for(cases)(
     expect(await readFile(file)).toEqual(bytes);
   }
 );
+
+test("reads a file whose unfinished final record ends inside a UTF-8 character without changing it", async (context) => {
+  const directory = await createValidationWorkspace("pi-subagents-history-");
+  context.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const file = join(directory, "work", "child.jsonl");
+  // The writer has appended the first byte of "é" and not the record's newline.
+  const bytes = Buffer.concat([
+    Buffer.from(`${valid}{"type":"custom","id":"partial","parentId":"marker","data":"`),
+    Buffer.from([0xc3])
+  ]);
+  await writeFile(file, bytes);
+
+  await expect(
+    checkSession({ task_id: "task", session_file: file, session_id: "recorded" }, header.cwd)
+  ).resolves.toBeUndefined();
+  expect(await readFile(file)).toEqual(bytes);
+});

@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-import { wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 
 import type { JobRecord } from "../details.ts";
@@ -136,7 +136,7 @@ export function contextLabel(task: TaskRecord): string {
 }
 
 /**
- * Status label with the latest run's duration, the current tool of a direct child, the context use of an active task or the tokens of an inactive one, and the cost. Missing and zero values are left out.
+ * Status label with the latest run's duration, the current tool of a direct child, the context use of an active task or the tokens of an inactive one, and the cost. Missing values, zero tokens, and a zero cost are left out.
  */
 function taskMetadata(tasks: Tasks, task: TaskRecord): string[] {
   const { label } = status(task);
@@ -146,7 +146,7 @@ function taskMetadata(tasks: Tasks, task: TaskRecord): string[] {
   else if (task.ended_at !== null) time = elapsed(task.started_at, task.ended_at);
   const activity = task.state === "active" ? tasks.activity(task.task_id) : "";
   const live = task.state === "active" ? contextLabel(task) : "";
-  const cost = task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(2)}` : "";
+  const cost = task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(3)}` : "";
 
   return [
     [label, time].filter(Boolean).join(" "),
@@ -230,10 +230,11 @@ export function renderBoard(
       entry.kind === "task"
         ? compactDisplayText(`${entry.task.model}:${entry.task.thinking}`)
         : "job";
-    const metadata = theme.fg(
-      "muted",
-      (entry.kind === "task" ? taskMetadata(tasks, entry.task) : jobMetadata(entry.job)).join(" · ")
-    );
+    const details = (
+      entry.kind === "task" ? taskMetadata(tasks, entry.task) : jobMetadata(entry.job)
+    ).map((part) => theme.fg("muted", part));
+    const separator = theme.fg("muted", " · ");
+    const metadata = details.join(separator);
     const first = `${cursor}${theme.fg("dim", lead)}${theme.fg(color, glyph)} `;
     const rest = `  ${theme.fg("dim", guides)}`;
     const title = isSelected ? theme.fg("accent", description) : description;
@@ -249,7 +250,7 @@ export function renderBoard(
         : [
             ...wrapRows(title, room),
             ...wrapRows(theme.fg("muted", model), room),
-            ...(gap ? wrapRows(metadata, room).map((row) => alignRight(row)) : [])
+            ...pack(details, separator, room).map((row) => alignRight(row))
           ];
 
     rows.forEach((row, line) => {

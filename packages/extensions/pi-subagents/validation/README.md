@@ -24,5 +24,5 @@ This guide is for maintainers who write or change the e2e tests in this director
 - Hold a child with a loop that polls a barrier file in `work/`, as `hold-start.ts` does. A child that waits on a promise that never settles during its session start can exit with code 0.
 - The provider counts only background results after the current scenario prompt. A user-started run resets its busy-result and retry flags; custom-message continuations keep them.
 - `results()` returns only `subagent` tool results. For `subagent_abort` and other tools, filter `entries()`.
-- `command()` returns the notification of a `/subagents` command. pi-subagents drops the notification of a session binding that is no longer current, and `command()` then fails at once.
+- `command()` returns the notification of a `/subagents` command.
 - Race tests hold their windows with prototype spies. [ADR 0004](../docs/adr/0004-no-child-transport-seam.md) lists the seams; move a spy with its seam.

@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY.md#tasks-and-processes): a separate Pi process in RPC mode. A child is a full Pi session, not a sandbox. It starts with a fresh conversation, so the `prompt` must supply the context that it needs.
+Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY.md#tasks-and-processes): a separate Pi process in RPC mode. A child is a full Pi session, not a sandbox. A new task starts with a fresh conversation, so its `prompt` must supply the context that it needs; a resume continues the task's conversation.
 
 ## What a child inherits
 
