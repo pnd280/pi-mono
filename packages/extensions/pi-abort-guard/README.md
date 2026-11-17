@@ -8,9 +8,9 @@ escape again to interrupt
 
 ## Controls
 
-| Control                                                        | Effect                                                                                                                                                                           |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Escape**, or any key bound to `app.interrupt`, in the editor | While Pi works on an agent run, a retry, a compaction, or a branch summary, the first press shows the hint and does not interrupt. A second press within 1.5 seconds interrupts. |
+| Control                                                        | Effect                                                                                                                                                        |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Escape**, or any key bound to `app.interrupt`, in the editor | While Pi works on an agent run, a retry, a compaction, or a branch summary, the first press does not interrupt. A second press within 1.5 seconds interrupts. |
 
 ## Usage
 

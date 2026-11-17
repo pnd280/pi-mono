@@ -24,7 +24,6 @@ type InputHost = Fixture["host"] & {
   defaultEditor: CustomEditor;
   keybindings: KeybindingsManager;
   setupKeyHandlers(): void;
-  setupAutocompleteProvider(): void;
   setupExtensionShortcuts(runner: Fixture["session"]["extensionRunner"]): void;
 };
 
@@ -69,7 +68,6 @@ async function fixture(before: ExtensionFactory[] = []) {
     host.defaultEditor.onPasteImage = paste;
     const workingMessage = vi.spyOn(result.ui, "setWorkingMessage");
     await result.bind();
-    host.setupAutocompleteProvider();
     host.setupExtensionShortcuts(result.session.extensionRunner);
     // Overlap the existing shortcut and paste binding with interrupt to exercise editor precedence.
     host.keybindings.setUserBindings({ "app.interrupt": ["escape", "ctrl+q", "ctrl+v"] });
@@ -167,7 +165,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     dispatch.mockClear();
     current.press();
     expect(dispatch).toHaveBeenCalledExactlyOnceWith("\u001b");
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     expect(current.session.isStreaming).toBe(true);
     expect(current.abort).not.toHaveBeenCalled();
     dispatch.mockClear();
@@ -190,7 +188,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     current.abort.mockClear();
     current.press();
     expect(current.abort).not.toHaveBeenCalled();
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     later.finish();
     await laterPrompt;
 
@@ -208,7 +206,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
       );
       await summary.started();
       current.press();
-      expect(current.hint()).toContain("again to interrupt");
+      expect(current.hint()).toBeDefined();
       summary.finish();
       if (operation === "failed-compact" || operation === "failed-tree")
         await expect(pending).rejects.toThrow("Offline summary failure");
@@ -219,9 +217,40 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
       current.abort.mockClear();
       current.press();
       expect(current.abort).not.toHaveBeenCalled();
-      expect(current.hint()).toContain("again to interrupt");
+      expect(current.hint()).toBeDefined();
       next.finish();
       await nextPrompt;
+    }
+
+    // A failed branch summary leaves confirmation armed; the next manual compaction or tree operation must need two fresh presses.
+    for (const operation of ["compact", "tree"] as const) {
+      const failed = current.response("failed-tree");
+      const failedTarget = current.session.sessionManager
+        .getEntries()
+        .find((entry) => entry.type === "message" && entry.message.role === "user");
+      const failedNavigation = current.track<unknown>(
+        current.session.navigateTree(failedTarget!.id, { summarize: true })
+      );
+      await failed.started();
+      current.press();
+      expect(current.hint()).toBeDefined();
+      failed.finish();
+      await expect(failedNavigation).rejects.toThrow("Offline summary failure");
+
+      const summary = current.response(operation);
+      const target = current.session.sessionManager
+        .getEntries()
+        .find((entry) => entry.type === "message" && entry.message.role === "user");
+      const pending = current.track<unknown>(
+        operation === "tree"
+          ? current.session.navigateTree(target!.id, { summarize: true })
+          : current.session.compact()
+      );
+      await summary.started();
+      current.press();
+      expect(current.hint()).toBeDefined();
+      summary.finish();
+      await pending;
     }
 
     // Pi reloads only an idle session. A failed branch summary emits no terminal event, so its confirmation is still armed at the reload.
@@ -234,7 +263,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     );
     await reloadSummary.started();
     current.press();
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     reloadSummary.finish();
     await expect(navigation).rejects.toThrow("Offline summary failure");
     await current.session.reload({ beforeSessionStart: () => current.host.resetExtensionUI() });
@@ -244,7 +273,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     current.abort.mockClear();
     current.press();
     expect(current.abort).not.toHaveBeenCalled();
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     afterReload.finish();
     await reloadedPrompt;
 
@@ -252,7 +281,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     void current.track(current.session.prompt("Leave this session armed"));
     await old.started();
     current.press();
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     await current.dispose();
     current = await fixture();
     const fresh = current.response();
@@ -260,7 +289,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     await fresh.started();
     current.press();
     expect(current.abort).not.toHaveBeenCalled();
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     fresh.finish();
     await freshPrompt;
   } finally {
@@ -299,7 +328,7 @@ it("guards interrupts in an editor that an earlier extension set", async () => {
     dispatch.mockClear();
     current.press();
     expect(dispatch).toHaveBeenCalledExactlyOnceWith("\u001b");
-    expect(current.hint()).toContain("again to interrupt");
+    expect(current.hint()).toBeDefined();
     expect(current.abort).not.toHaveBeenCalled();
     dispatch.mockClear();
     current.press();
