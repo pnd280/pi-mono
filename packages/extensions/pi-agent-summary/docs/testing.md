@@ -21,7 +21,6 @@ The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events for a 
 ## Not tested
 
 - Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, [milestone](../GLOSSARY.md) limits and deduplication, counter limits and merging, and rendering are below the severity bar. Isolation scenarios use representative accumulated state only to check that it does not carry into another run.
-- Libs owns the shared [tree-row layout](../../../libs/src/tui/components/tree/README.md).
 
 ## Manual checks
 
