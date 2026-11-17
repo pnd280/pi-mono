@@ -10,7 +10,7 @@ import {
   type AgentSession,
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { expect, vi } from "vite-plus/test";
 
 export async function sdkSessionServices({
@@ -24,7 +24,7 @@ export async function sdkSessionServices({
   factories: ((pi: ExtensionAPI) => void)[];
   settingsManager: SettingsManager;
 }) {
-  return createAgentSessionServices({
+  const services = await createAgentSessionServices({
     cwd,
     agentDir,
     modelRuntime: await ModelRuntime.create({
@@ -44,6 +44,14 @@ export async function sdkSessionServices({
       extensionFactories: factories
     }
   });
+  const { errors } = services.resourceLoader.getExtensions();
+  if (errors.length)
+    throw new AggregateError(
+      errors.map(({ path, error }) => `${path}: ${error}`),
+      "Extensions failed to load."
+    );
+
+  return services;
 }
 
 /** Real SDK session for routing and tool policy, without an interactive host. */
@@ -51,8 +59,7 @@ export async function sdkSessionFixture(factories: ((pi: ExtensionAPI) => void)[
   const directory = await createValidationWorkspace("pi-smart-compact-sdk-");
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
   let session: AgentSession | undefined;
   const errors: unknown[] = [];
 

@@ -2,7 +2,7 @@
 
 Keep long tasks going before they reach the context limit. pi-smart-compact lets the model check its context usage and compact its own context mid-task, and you can configure a summary model for each conversation model, apply it to `/compact` and automatic compaction, add an instruction file of extra focus, add docs that tell the model when to compact, and report context usage to the model each time it grows by a set number of tokens.
 
-_Compaction_ replaces older conversation history with a summary that a model writes. Pi does the compaction itself. For example, after a large refactor the model can call `compact({ instructions: "Preserve modified files and remaining tests." })` and then carry on. When [pi-tool-display](../pi-tool-display/README.md) is loaded, the call shows as a "Requested compaction" card.
+_Compaction_ replaces older conversation history with a summary that a model writes. Pi does the compaction itself. For example, after a large refactor the model can call `compact({ instructions: "Preserve modified files and remaining tests." })` and then carry on.
 
 ## Controls
 
@@ -48,12 +48,12 @@ The JSON is what `context_window` returns, so your [docs](docs/configuration.md#
 
 ### What you see
 
-- When [pi-tool-display](../pi-tool-display/README.md) is loaded, `compact` calls show as a "Requested compaction" card with the focus and summary model, and context usage shows as readable totals, both for `context_window` calls and for each context status. Without it, a context status shows as its message text. The model never sees the summary-model selection.
+- When [pi-tool-display](../pi-tool-display/README.md) is loaded, `compact` calls show as a "Requested compaction" card with the call's focus and, when a rule sets `model`, the summary model, and context usage shows as readable totals, both for `context_window` calls and for each context status. Without it, a context status shows as its message text. The model never sees the summary-model selection.
 - The interactive terminal footer shows `compacted N×`, which counts the successful compactions on the active branch, including those from other extensions. Print, JSON, and RPC modes do not publish this decorative status.
 
 ## Configuration
 
-Without settings, compaction uses the session's current model and Pi's native thinking behaviour, called _native selection_. Put the `ext.pi-smart-compact` key at the top level of global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), or of `<cwd>/.pi/settings.json` in a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). A trusted project's fields override the global fields. Run `/reload` after you change settings, instruction files, or docs files.
+Without settings, compaction uses the session's current model and Pi's native thinking behaviour, called _native selection_. Put the `ext.pi-smart-compact` key at the top level of global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), or of `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). A trusted project's fields override the global fields. Run `/reload` after you change settings, instruction files, or docs files.
 
 This example shows every field. Remove the comments before you copy it, because Pi reads `settings.json` as plain JSON:
 
@@ -71,8 +71,7 @@ This example shows every field. Remove the comments before you copy it, because 
         "model": "anthropic/claude-haiku-4-5",
         // Optional. off, minimal, low, medium, high, xhigh, or max. Default: Pi's native thinking behaviour. A level that the model does not support is rejected, not adjusted.
         "thinkingLevel": "off"
-      },
-      { "match": "", "model": "provider/model-id" }
+      }
     ],
     // Optional. Also use the matching rule for /compact, including manual compaction through RPC and the SDK. Default: false.
     "applyToManual": true,
@@ -88,7 +87,7 @@ This example shows every field. Remove the comments before you copy it, because 
 }
 ```
 
-For the example `compactionInstructionsFile`, create `compaction-instructions.txt` beside the settings file, with the focus that you want, such as `Preserve outstanding decisions and remaining tests.` Its text comes before any `/compact <instructions>` or tool instructions.
+Create the example's `compaction-instructions.txt` and `context-window.md` beside the settings file. Put the focus that you want in the first, such as `Preserve outstanding decisions and remaining tests.`, and guidance on when to compact in the second.
 
 Invalid settings, or a missing instruction or docs file, make `compact` unavailable until you fix the problem and run `/reload`. A failed summary model never falls back silently to another model.
 

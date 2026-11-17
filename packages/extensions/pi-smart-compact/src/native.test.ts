@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { AgentSession } from "@earendil-works/pi-coding-agent";
-import { it } from "vite-plus/test";
+import { it, vi } from "vite-plus/test";
 
 import { bindNativeCompaction } from "./native.ts";
 
@@ -134,6 +134,31 @@ it.each([
     assert.equal(Reflect.get(prototype, method), unknown);
   } finally {
     Reflect.set(prototype, method, original);
+  }
+});
+
+it.each([
+  ["an unsupported Pi version", { VERSION: "1.5.3" }],
+  ["an unknown standalone compact export", { compact: async () => context }]
+])("rejects %s", async (_name, replacement) => {
+  vi.resetModules();
+  vi.doMock("@earendil-works/pi-coding-agent", async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    ...replacement
+  }));
+
+  let binding: ReturnType<typeof bindNativeCompaction> | undefined;
+
+  try {
+    const { bindNativeCompaction: bind } = await import("./native.ts");
+    assert.throws(
+      () => (binding = bind({}, unexpectedSummary)),
+      /unsupported version or conflicting runtime patch/
+    );
+  } finally {
+    binding?.dispose();
+    vi.doUnmock("@earendil-works/pi-coding-agent");
+    vi.resetModules();
   }
 });
 
