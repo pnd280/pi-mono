@@ -1,10 +1,12 @@
+import type { SourceInfo } from "@earendil-works/pi-coding-agent";
+
 const INSTALLED = "/node_modules/";
 
 /**
- * Whether an extension package registered the tool: installed from npm, or loaded from its entry point (`<package>/index.ts` or `<package>/src/index.ts`). An npm source must name the package, and under `node_modules` the package must be the installed one, so `@other/<package>` does not match. Package names are literal constants without regular-expression syntax.
+ * Whether an extension package registered the tool: installed from npm, or loaded from its entry point (`index` at the package root or under `src/`, with a `.js`, `.ts`, `.cjs`, `.cts`, `.mjs`, or `.mts` extension). An npm source must name the package, and under `node_modules` the package must be the installed one, so `@other/<package>` does not match. Package names are literal constants without regular-expression syntax.
  */
 export function registeredBy(
-  tool: { sourceInfo: { source: string; path: string } },
+  tool: { sourceInfo: Pick<SourceInfo, "source" | "path"> },
   packageName: string
 ): boolean {
   const { source, path } = tool.sourceInfo;

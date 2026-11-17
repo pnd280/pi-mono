@@ -9,7 +9,7 @@ Cards show tool targets and results in Pi. The [mode overview](../README.md#usag
 Each visible assistant text block starts with `•`, and continuation rows are indented two columns. This replaces Pi's outer prose padding in every output mode, both while streaming and on replay.
 
 - Markdown, code blocks, links, and registered transformers stay native. Source messages are unchanged.
-- User messages, thinking, and generated diagnostics keep their existing presentation.
+- User messages and generated diagnostics keep their existing presentation. Collapsed thinking follows the [thinking rules](#thinking).
 
 ## Card layout
 
@@ -68,8 +68,8 @@ Shell status, operation rows, script times, nested calls, and progress cards use
 Preview rules:
 
 - Consecutive text blocks in one result share a single preview, so output split across blocks shows one omission.
-- Ordinary output previews keep the first and last rows. Previews preserve whole graphemes and ANSI styling. Exceeding the [formatting limits](#resource-limits) adds `… more output`.
-- Progress result previews keep the first logical lines, following the [subagent preview rule](tools.md#results-and-expansion). Failed or cancelled subagent cards show recorded errors instead of reply previews.
+- Ordinary output previews keep the first and last rows. Previews preserve whole graphemes. Shell output keeps its colours and text styles; other results drop source styling. Exceeding the [formatting limits](#resource-limits) adds `… more output`.
+- Progress result previews follow the [subagent preview rules](tools.md#results-and-expansion).
 - Shell cards drop trailing blank output rows. Internal blank lines and stored output are unchanged.
 - Expansion shows summaries and retained output, within the live and saved retention limits.
 
@@ -146,13 +146,13 @@ A [run](../GLOSSARY.md#transcript-structure) is the longest sequence of this ext
 - An unrelated visible message, notice, or custom entry splits a run.
 - A call that uses its original renderer splits a run.
 
-Thinking separates exploration groups, but never splits or ends a run. A single call is a run of one. Exploration groups are counted inside their run.
+Visible thinking separates exploration groups, but never splits or ends a run. A single call is a run of one. Exploration groups are counted inside their run.
 
 ### Notices and todo calls in runs
 
 [Nested-instruction notices](tools.md#nested-instructions) join the preceding run without splitting or ending it, but they still separate groups. They hide with the run, and return to their original positions when it opens. A notice with no preceding run stays standalone.
 
-Todo calls stay in their run but are left out of the line, including incompatible calls shown with generic fallback. They don't affect counts. A run of only todo calls, with no counted notices, shows no line.
+Todo calls stay in their run but add no items to the line, including incompatible calls shown with generic fallback. The run's call count includes them. A run of only todo calls, with no counted notices, shows no line.
 
 ### When a run collapses
 
@@ -160,6 +160,8 @@ A run collapses only when both are true:
 
 1. No member is streaming, queued, or executing.
 2. A non-thinking boundary or the agent's end prevents more calls from joining.
+
+The agent's end is not a permanent cut. If the next turn starts from a hidden message and calls a tool before any visible boundary, that call joins the collapsed run, which shows compact cards again until it next collapses.
 
 History is always ended. Until a run collapses, it shows compact cards, so its line only ever describes finished calls. Clicking a card before the run ends keeps the run open afterwards, as if you had clicked its line.
 
@@ -216,7 +218,7 @@ A closed summary line lists the files that the run created or edited, one row fo
 - The marker is `A` in `success` for a file that the run created, and `M` in `warning` for any other file.
 - The path follows the [target path rules](#target-paths), with the directory in `muted` and the file name in bold `text`.
 - Line counts follow the path: `+n` in `toolDiffAdded`, then `-n` in `toolDiffRemoved` when lines were removed. They are the sum over the run's successful calls on the file, so repeated edits of the same lines count each time.
-- A file has no line counts when none of its successful calls has a readable patch, as for a write with no recorded change or an [unavailable patch](#unavailable-patches).
+- A file has no line counts when any of its successful calls lacks a readable patch, as for a write with no recorded change or an [unavailable patch](#unavailable-patches).
 - A file whose latest call failed shows `✗` and `failed` in `error`, and a cancelled one shows `⊘` and `cancelled`. An unknown historical outcome shows the marker and `unavailable` in `muted`. Line counts from earlier successful calls stay.
 - A file with more than one successful call shows their number in `dim`, such as `3 edits`.
 
@@ -232,11 +234,11 @@ A closed summary line lists the files that the run created or edited, one row fo
 
 Use fullscreen summary mode with an ended run.
 
-| Do                                                    | Expect                                                                 |
-| ----------------------------------------------------- | ---------------------------------------------------------------------- |
-| Left-click the summary line.                          | The run opens as compact cards.                                        |
-| Click a group or card in the opened run.              | It expands or collapses as usual.                                      |
-| Click the run's summary line or its `▴ collapse` bar. | The summary line returns; individual cards keep their expansion state. |
+| Do                                                    | Expect                                                                                                                                 |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Left-click the summary line.                          | The run opens as compact cards.                                                                                                        |
+| Click a group or card in the opened run.              | It responds as the [controls](../README.md#controls) describe: most expand or collapse; subagent and job cards open their task or job. |
+| Click the run's summary line or its `▴ collapse` bar. | The summary line returns; individual cards keep their expansion state.                                                                 |
 
 An opened, ended run keeps its summary line as a header above its first card, with the `▾` marker. A `▴ collapse` bar follows its last card or trailing instruction notice, including any images. The end bar uses the same `toolPendingBg` surface, with the marker in `muted` and the label in `dim`. One blank row separates the content from each bar. Only the bar rows collapse the run.
 
@@ -244,11 +246,11 @@ Single-card runs have both bars too. Runs whose line would be empty, such as tod
 
 ## Thinking
 
-With collapsed thinking (default **Ctrl+T**), a placeholder is hidden as soon as every block in its consecutive thinking run has emitted `thinking_end`. This happens even while the assistant message is still streaming text or tool calls.
+With collapsed thinking (default **Ctrl+T**), a placeholder is hidden once all of its consecutive thinking blocks have finished. This happens even while the assistant message is still streaming text or tool calls.
 
 - Active thinking stays visible.
 - Message completion also hides any remaining collapsed placeholders, including in history.
-- Revealing thinking restores rows and group boundaries, without changing run membership, settlement, or which runs you opened.
+- Revealing thinking restores its rows and group boundaries, without changing which calls a run holds, whether it has ended, or which runs you opened.
 - A sequence of tools, then thinking, then more tools stays compact until a non-thinking boundary or the agent's end, whether thinking is visible or not.
 - Live indicators, assistant text, and diagnostics stay. Recorded messages never change.
 
@@ -306,7 +308,7 @@ Edit and write cards show retained patches below their headings.
 
 ## Saved-output previews
 
-Expanding a completed shell card loads a bounded preview of Pi's temporary output file.
+Expanding a completed shell card loads a preview of Pi's temporary output file: at most 256 KiB, the first and last 128 KiB of a larger file, and at most 4,000 lines after that.
 
 ### Output paths
 
@@ -340,7 +342,10 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 ### What is kept
 
 - Collapsed output previews follow the [preview rules](#results). Source-code previews keep the first rows. Nested-call lists keep the latest calls.
-- Expansion restores only what Pi retained or what the bounded observation captured.
+- Collapsed output previews format at most 16,384 characters. Longer output shows rows from its first and last 8,192 characters around `… more output`.
+- Compact headings format at most 16,384 characters of invocation text, such as commands, values, parameters, and source code. Longer text ends with a `… more details` hint.
+- A collapsed target keeps at most 16,384 characters, including its range and annotations, which keep at most 4,096 characters each. A longer part keeps its start and end around `…`.
+- Expansion restores only what Pi retained or what the bounded observation captured. Live shell output keeps up to 1 MiB; beyond that, the first and last 50 lines and the current line, each cut to 10,280 bytes.
 - Exceeded limits make a patch unavailable; they never make an edit or write unsuccessful.
 - A saved call fact that exceeds the [record size limit](recording.md#record-size-limits) is not saved and cannot be replayed.
 
@@ -350,4 +355,4 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 - Compact invocation values, patterns, source-code previews, and progress result previews are bounded before terminal normalisation.
 - Generic parameter previews bound JSON serialisation by text size, values visited, and nesting depth. An incomplete preview shows a "more details" notice. Expansion serialises all retained arguments.
 
-Renderer authors can find the current budgets and argument sources in [renderer integration](renderers.md#display-budgets).
+Change observation and patch limits are under [record size limits](recording.md#record-size-limits). Renderer authors can find the current budgets and argument sources in [renderer integration](renderers.md#display-budgets).

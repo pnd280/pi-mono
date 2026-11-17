@@ -83,12 +83,14 @@ describe("tool display renderers", () => {
     const current = context({ args: { query: "needle" } });
     const header = renderer.renderCall(current.args, theme, { ...current, isPartial: true });
     expect(header.render(100).join("\n")).toContain("Calling docs.pending");
-    let output = renderer.renderResult(
-      { ...result("flattened"), details: "search" },
-      current,
-      theme,
-      current
-    );
+    const first = { ...result("flattened"), details: "search" };
+    const borrowed = [
+      {
+        value: { supplied: first, args: current.args },
+        before: structuredClone({ supplied: first, args: current.args })
+      }
+    ];
+    let output = renderer.renderResult(first, current, theme, current);
 
     for (const [details, isError, isPartial, action] of [
       ["search", false, false, "Called"],
@@ -99,7 +101,10 @@ describe("tool display renderers", () => {
       ["list", false, false, "Called"]
     ] as const) {
       const supplied = { ...result("flattened"), details };
-      const before = structuredClone({ supplied, args: current.args });
+      borrowed.push({
+        value: { supplied, args: current.args },
+        before: structuredClone({ supplied, args: current.args })
+      });
       output = renderer.renderResult(supplied, { expanded: false, isPartial }, theme, {
         ...current,
         isError,
@@ -114,7 +119,7 @@ describe("tool display renderers", () => {
       header.invalidate();
       expect(header.render(100).join("\n")).toContain(`${action} docs.${details}`);
       expect(output.render(100).join("\n")).toContain(`typed ${details}`);
-      expect({ supplied, args: current.args }).toEqual(before);
+      expect(borrowed.map(({ value }) => value)).toEqual(borrowed.map(({ before }) => before));
     }
 
     expect(cliOnly).not.toHaveBeenCalled();

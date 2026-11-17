@@ -26,7 +26,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
-import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { isolateEnvironment, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { useStepPatchDeadline } from "../../validation/bounded-diff/index.ts";
@@ -200,8 +200,7 @@ async function withSession(
 ): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "pi-tool-display-"));
   const agentDir = join(directory, "agent");
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
   const registrations: ReturnType<typeof vi.spyOn>[] = [];
   const extensionFactories = [
     (pi: ExtensionAPI) => {
@@ -210,6 +209,7 @@ async function withSession(
     }
   ];
   let session: AgentSession | undefined;
+  let replaced: AgentSession | undefined;
 
   // Card contracts use compact mode unless a test selects another collapsed mode.
   const display: Record<string, unknown> = {
@@ -277,7 +277,7 @@ async function withSession(
     session = created.session;
 
     if (baseToolsOverride) {
-      created.session.dispose();
+      replaced = created.session;
       session = new AgentSession({
         agent: created.session.agent,
         sessionManager: created.session.sessionManager,
@@ -305,6 +305,7 @@ async function withSession(
     } finally {
       try {
         session?.dispose();
+        replaced?.dispose();
       } finally {
         vi.unstubAllEnvs();
         await rm(directory, { recursive: true, force: true });
@@ -1487,17 +1488,41 @@ it.each([
 );
 
 it.each([
-  { renderer: "auto", finalization: "in a new object" },
-  { renderer: "auto", finalization: "modified in place" },
-  { renderer: "auto", finalization: "moved and renamed to write" },
-  { renderer: "generic", finalization: "renamed to write with unchanged arguments" }
+  {
+    renderer: "auto",
+    finalization: "in a new object",
+    inPlace: false,
+    renamed: false,
+    moved: false,
+    unchanged: false
+  },
+  {
+    renderer: "auto",
+    finalization: "modified in place",
+    inPlace: true,
+    renamed: false,
+    moved: false,
+    unchanged: false
+  },
+  {
+    renderer: "auto",
+    finalization: "moved and renamed to write",
+    inPlace: false,
+    renamed: true,
+    moved: true,
+    unchanged: false
+  },
+  {
+    renderer: "generic",
+    finalization: "renamed to write with unchanged arguments",
+    inPlace: false,
+    renamed: true,
+    moved: false,
+    unchanged: true
+  }
 ])(
   "uses finalized calls $finalization in $renderer live summaries, expanded parameters, and saved facts",
-  async ({ renderer, finalization }) => {
-    const inPlace = finalization === "modified in place";
-    const renamed = finalization.includes("renamed");
-    const moved = finalization.startsWith("moved");
-    const unchanged = finalization.endsWith("unchanged arguments");
+  async ({ renderer, inPlace, renamed, moved, unchanged }) => {
     // Only the specialised write adapter observes the creation and shows its diff.
     const observed = renamed && renderer === "auto";
     const args = { path: "after.ts", ...(renamed ? { content: "AFTER_TARGET" } : {}) };
@@ -1970,15 +1995,36 @@ it("keeps resolver renderers of registered tools and upgrades earlier generic ca
   );
 });
 
-it.each(["missing", "non-writable"])(
-  "reports a %s lookup without registering tools",
-  async (availability) => {
-    const descriptor = Object.getOwnPropertyDescriptor(host, "getRegisteredToolDefinition");
-    if (!descriptor) throw new Error("Expected Pi lookup");
-    Object.defineProperty(host, "getRegisteredToolDefinition", {
+/** The values of a prototype's own string-keyed properties. */
+function ownValues(target: object): [string, unknown][] {
+  return Object.getOwnPropertyNames(target).map((name): [string, unknown] => [
+    name,
+    Object.getOwnPropertyDescriptor(target, name)?.value
+  ]);
+}
+
+// The first host hook, the last host hook, and the second native hook.
+it.each([
+  { key: "getRegisteredToolDefinition", availability: "missing", warning: "original rendering" },
+  {
+    key: "getRegisteredToolDefinition",
+    availability: "non-writable",
+    warning: "original rendering"
+  },
+  { key: "handleEvent", availability: "non-writable", warning: "original rendering" },
+  { key: "_refreshToolRegistry", availability: "non-writable", warning: "native observation" }
+] as const)(
+  "reports a $availability $key without registering tools or leaving partial hooks",
+  async ({ key, availability, warning }) => {
+    const target: object =
+      key === "_refreshToolRegistry" ? AgentSession.prototype : InteractiveMode.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    if (!descriptor) throw new Error(`Expected Pi's ${key}`);
+    Object.defineProperty(target, key, {
       ...descriptor,
       ...(availability === "missing" ? { value: undefined } : { writable: false })
     });
+    const original = ownValues(target);
 
     try {
       await withSession(async ({ session, assertNoRegistration }) => {
@@ -1987,14 +2033,11 @@ it.each(["missing", "non-writable"])(
           mode: "tui",
           uiContext: { ...session.extensionRunner.createContext().ui, notify }
         });
-        expect(notify).toHaveBeenCalledWith(
-          expect.stringContaining("keeping original rendering"),
-          "warning"
-        );
+        expect(notify).toHaveBeenCalledWith(expect.stringContaining(warning), "warning");
         assertNoRegistration();
-        expect(host.getRegisteredToolDefinition).toBe(
-          availability === "missing" ? undefined : descriptor.value
-        );
+        expect(ownValues(target)).toEqual(original);
+        if (target === InteractiveMode.prototype)
+          expect(interactivePrototype()[hostHook]).toBeUndefined();
         // Pi needs its lookup for tool rows, so a text turn shows that the session stays usable.
         const tui = interactiveHost(session);
 
@@ -2009,7 +2052,7 @@ it.each(["missing", "non-writable"])(
         }
       });
     } finally {
-      Object.defineProperty(host, "getRegisteredToolDefinition", descriptor);
+      Object.defineProperty(target, key, descriptor);
     }
   }
 );
@@ -2279,7 +2322,7 @@ it("keeps summary rendering and toggles verbose when Pi's expansion methods diff
         try {
           tui.renderSessionItems(summaryHistory(session));
           expect(notify).toHaveBeenCalledWith(
-            "pi-tool-display: mode cycling unavailable; ctrl+o toggles summary ↔ verbose.",
+            "pi-tool-display: mode cycling unavailable; ctrl+o toggles collapsed ↔ verbose.",
             "warning"
           );
           expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
@@ -2328,7 +2371,7 @@ it("keeps Pi's row chrome and disables summaries when Pi's row contract differs"
         try {
           tui.renderSessionItems(summaryHistory(session));
           expect(notify).toHaveBeenCalledWith(
-            "pi-tool-display: row contract unavailable; summaries disabled.",
+            "pi-tool-display: row contract unavailable; summaries, card actions, and click modifiers disabled.",
             "warning"
           );
           expect(transcriptText(tui)).not.toContain("Read 2 files");

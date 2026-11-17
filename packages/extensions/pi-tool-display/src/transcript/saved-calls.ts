@@ -32,14 +32,13 @@ function recordedChange(
   const supplied = outcome === "success" ? record(result.details).patch : undefined;
 
   if (call.adapter.family === "edit" && typeof supplied === "string") {
-    const replaced =
-      change.change === "unavailable"
-        ? parseRetainedPatch(supplied) !== undefined
-        : sameRetainedHunks(supplied, change.patch);
+    const replaced = change.unavailable
+      ? parseRetainedPatch(supplied) !== undefined
+      : sameRetainedHunks(supplied, change.patch);
     if (replaced) return undefined;
   }
 
-  if (change.change === "unavailable") return { kind: "unavailable", reason: change.reason };
+  if (change.unavailable) return { kind: change.change, unavailable: change.unavailable };
   const content = contentArgument(call.args);
   if (
     call.adapter.family === "write" &&
@@ -138,8 +137,8 @@ function recordedFacts(
 
 function replayedChange(call: DisplayCall, change: RecordedChange): ChangeFact | undefined {
   if (!change) return undefined;
-  if (change.kind === "unavailable")
-    return { kind: "change", change: "unavailable", reason: change.reason };
+  if (change.unavailable)
+    return { kind: "change", change: change.kind, unavailable: change.unavailable };
   const content = contentArgument(call.args);
   const patch = change.patch ?? (content === undefined ? undefined : creationPatch(content));
 

@@ -1,5 +1,5 @@
 import type { AssistantMessageEvent } from "@earendil-works/pi-ai";
-import type { AssistantMessageComponent } from "@earendil-works/pi-coding-agent";
+import { AssistantMessageComponent } from "@earendil-works/pi-coding-agent";
 import {
   Container,
   Markdown,
@@ -19,6 +19,12 @@ const updateHashes = new Set([
   "459e35194d5d6a0c57f2014f286adf578e3c846b63472bf3b2f394c89d8817fb",
   "1360563a5ebd3ce35aa4c13b83ede21eb80b8ce0bde448e31e22c55824223a2c"
 ]);
+
+/** Whether Pi's assistant layout matches the reviewed one, so rows can take its presentation. */
+export function assistantPresentationCompatible(): boolean {
+  // oxlint-disable-next-line typescript/unbound-method
+  return inspectedSource(AssistantMessageComponent.prototype.updateContent, updateHashes);
+}
 
 const presented = new WeakMap<AssistantMessageComponent, Set<number>>();
 

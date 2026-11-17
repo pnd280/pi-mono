@@ -80,7 +80,7 @@ export type ChangedFile = {
   readonly outcome: Outcome;
   /** Successful calls on the file. */
   readonly changes: number;
-  /** Summed over the successful calls on the file that have a readable patch; undefined when there is none. */
+  /** Summed over the successful calls on the file; undefined when none succeeded or any lacks a readable patch. */
   readonly lines: { readonly added: number; readonly removed: number } | undefined;
 };
 
@@ -112,13 +112,27 @@ function resolveCategory(
   };
 }
 
-function counts(states: readonly Outcome[]): SummaryCounts {
+export function counts(states: readonly Outcome[]): SummaryCounts {
   const count = (state: Outcome) => states.filter((value) => value === state).length;
 
   return {
     failed: count("failure"),
     cancelled: count("cancelled"),
     unavailable: count("unavailable")
+  };
+}
+
+/** Line counts after one more successful call: undefined once any successful call on the file has none. */
+function addedLines(
+  previous: ChangedFile | undefined,
+  lines: ChangedFile["lines"]
+): ChangedFile["lines"] {
+  if (!previous || previous.changes === 0) return lines;
+  if (!lines || !previous.lines) return undefined;
+
+  return {
+    added: previous.lines.added + lines.added,
+    removed: previous.lines.removed + lines.removed
   };
 }
 
@@ -145,17 +159,13 @@ function changedFiles(
 
     for (const { path, created } of changed) {
       const previous = files.get(path);
-      const total = previous?.lines;
 
       files.set(path, {
         path: relativeDisplayPath(path, cwd),
         created: created || previous?.created === true,
         outcome,
         changes: (previous?.changes ?? 0) + (succeeded ? 1 : 0),
-        lines:
-          lines && total
-            ? { added: total.added + lines.added, removed: total.removed + lines.removed }
-            : (lines ?? total)
+        lines: succeeded ? addedLines(previous, lines) : previous?.lines
       });
     }
   }

@@ -74,7 +74,7 @@ it.each(['{"toString":"generic"}', '[{"toString":null}]'])(
       collapsedMode: "summary",
       rendererOverrides: {},
       warnings: [
-        "global/settings.json: invalid ext.pi-tool-display.rendererOverrides.read; keeping original rendering and disabling display observation."
+        "global/settings.json: invalid ext.pi-tool-display.rendererOverrides.read; keeping original rendering and disabling display observation. Fix the setting, then run /reload."
       ]
     });
     expect(sources).toEqual(supplied);
@@ -86,12 +86,13 @@ it("treats prototype-like renderer names as exact keys and validates their value
   );
   const settings = loadDisplaySettings([source(overrides)]);
   expect(settings.valid).toBe(true);
-  expect(Object.keys(settings.rendererOverrides).sort()).toEqual([
-    "__proto__",
-    "constructor",
-    "toString"
-  ]);
-  expect(settings.rendererOverrides.__proto__).toBe("generic");
+  expect(Object.entries(settings.rendererOverrides).sort(([a], [b]) => a.localeCompare(b))).toEqual(
+    [
+      ["__proto__", "generic"],
+      ["constructor", "original"],
+      ["toString", "auto"]
+    ]
+  );
   const invalid: unknown = JSON.parse('{"__proto__":false}');
   expect(loadDisplaySettings([source(invalid)])).toMatchObject({
     valid: false,

@@ -54,22 +54,26 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
       entries.flatMap((entry) =>
         entry.type === "custom" && entry.customType === type ? [entry.data] : []
       );
-    // Each observed operation is saved. Replay derives the creation patch from content, and Pi's edit patches replace the observed ones. The write's diff has a wall-clock budget in the Pi process, which suite load can exceed.
+    // Each observed operation is saved. Replay derives the creation patch from content. An edit may omit its change when Pi's patch can replace it. The write's diff has a wall-clock budget in the Pi process, which suite load can exceed.
     const operation = {
       entry: expect.any(String) as unknown,
       toolCallId: expect.any(String) as unknown,
       operation: true
     };
+    const edit = expect.toBeOneOf([
+      operation,
+      { ...operation, change: expect.objectContaining({ kind: "modification" }) as unknown }
+    ]) as unknown;
     expect(custom(CALL_TYPE)).toEqual([
       {
         ...operation,
         change: expect.toBeOneOf([
           { kind: "creation" },
-          { kind: "unavailable", reason: "budget-exceeded" }
+          { kind: "creation", unavailable: "budget-exceeded" }
         ]) as unknown
       },
-      operation,
-      operation
+      edit,
+      edit
     ]);
     expect(
       manager

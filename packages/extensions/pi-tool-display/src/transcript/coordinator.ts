@@ -92,6 +92,19 @@ type MutableRun = {
 };
 
 /** A live call's row identity: its source message and tool-call ID. Pi keeps the row by tool-call ID when middleware moves or renames the call. */
+/** Inclusive sequence ranges, sorted, with overlapping and adjacent ranges merged. */
+function mergeRanges(ranges: readonly (readonly [number, number])[]): [number, number][] {
+  const merged: [number, number][] = [];
+
+  for (const [start, end] of [...ranges].sort((left, right) => left[0] - right[0])) {
+    const current = merged.at(-1);
+    if (current && start <= current[1] + 1) current[1] = Math.max(current[1], end);
+    else merged.push([start, end]);
+  }
+
+  return merged;
+}
+
 function liveIdentity(reference: DisplayCall["reference"]): string {
   return JSON.stringify([reference.messageTimestamp, reference.toolCallId]);
 }
@@ -621,13 +634,17 @@ export class TranscriptCoordinator implements TranscriptView {
 
     this.schedule();
   }
-  private summarized(run: MutableRun): boolean {
-    return this.mode === "summary" && this.summaries && run.ended && !run.opened;
+  /** The run shows a summary line, or a header once opened. */
+  private headed(run: MutableRun): boolean {
+    return this.mode === "summary" && this.summaries && run.ended;
   }
-  /** A member change alters its run's summary line, rendered by the leader. */
+  private summarized(run: MutableRun): boolean {
+    return this.headed(run) && !run.opened;
+  }
+  /** A member change alters its run's summary line or header, rendered by the leader. */
   private invalidateLeader(run: MutableRun | undefined, except?: MutableCall): void {
     const leader = run?.members[0];
-    if (run && leader && leader !== except && this.summarized(run)) this.invalidate(leader);
+    if (run && leader && leader !== except && this.headed(run)) this.invalidate(leader);
   }
   private newRun(): MutableRun {
     return { members: [], liveMembers: 0, opened: false, closed: false, ended: false };
@@ -682,16 +699,7 @@ export class TranscriptCoordinator implements TranscriptView {
       ranges.push([this.position(first.key), this.position(last.key)]);
     }
 
-    ranges.sort((left, right) => left[0] - right[0]);
-    const merged: [number, number][] = [];
-
-    for (const range of ranges) {
-      const current = merged.at(-1);
-      if (current && range[0] <= current[1] + 1) current[1] = Math.max(current[1], range[1]);
-      else merged.push([...range]);
-    }
-
-    for (const [start, end] of merged) this.rebuildRuns(start, end);
+    for (const [start, end] of mergeRanges(ranges)) this.rebuildRuns(start, end);
   }
   /** The calls at sequence positions `start` to `end`, inclusive. */
   private callsBetween(start: number, end: number): MutableCall[] {
@@ -867,19 +875,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     this.regroupPending = false;
     // Moving a boundary can affect overlapping groups. Reconcile their final partition together so expansion never propagates through a temporary merge.
-    ranges.sort((left, right) => left[0] - right[0]);
-    let current = ranges[0];
-    if (!current) return;
-
-    for (const range of ranges.slice(1)) {
-      if (range[0] <= current[1] + 1) current[1] = Math.max(current[1], range[1]);
-      else {
-        this.rebuildGroups(...current);
-        current = range;
-      }
-    }
-
-    this.rebuildGroups(...current);
+    for (const [start, end] of mergeRanges(ranges)) this.rebuildGroups(start, end);
   }
   private rebuildGroups(start: number, end: number): void {
     const previous = new Map<string, MutableGroup>();

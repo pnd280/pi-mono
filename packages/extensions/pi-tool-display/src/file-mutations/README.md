@@ -40,9 +40,7 @@ pi.on("session_start", (_event, ctx) => mutations.bind(ctx.sessionManager));
 pi.on("session_shutdown", () => mutations.dispose());
 ```
 
-## Subscriber responsibilities
-
-### Must not break
+## Must not break
 
 - Treat mutations and sources as read-only.
 - Do not keep `patch` after the completion callback. It holds the source and the cached patches.
@@ -50,14 +48,14 @@ pi.on("session_shutdown", () => mutations.dispose());
 - Persist the facts that you need, not raw mutations.
 - Check lifecycle before you publish work that can outlive sessions.
 
-### Setup
+## Setup
 
 1. Subscribe with `observeFileMutations()` during extension loading, before Pi builds the runtime. Choose eligible sessions and return a `MutationSink` for each call to observe.
 2. Once the session is eligible, call `bind(sessionManager)`.
 3. Await `patch(limits)` inside the completion callback, and return the callback's promise.
 4. Dispose the subscription on shutdown. Disposal stops callbacks to that subscriber, including eligibility and `begin`, without disabling other subscriptions.
 
-### Limits and ordering
+## Limits and ordering
 
 - Supply a nonnegative safe integer `maxSourceBytes`. The module does not observe a sink with any other value.
 - Capture uses the largest subscriber request, so enforce your own retention and patch limits.

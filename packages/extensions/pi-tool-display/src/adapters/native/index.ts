@@ -84,7 +84,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
         preserveOutput: true
       };
     },
-    notices: (result) => nativeResultNotices(result.details),
+    notices: (result, expanded) => nativeResultNotices(result.details, expanded),
     textParts: (text, args, context) => nativeResultParts(name, text, args, context),
     ...(family === "search" || family === "list"
       ? {

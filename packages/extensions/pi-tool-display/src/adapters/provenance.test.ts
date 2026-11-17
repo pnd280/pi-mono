@@ -12,4 +12,8 @@ it("recognises npm and entry-point provenance while rejecting lookalikes and SDK
   for (const source of ["builtin", "sdk", "npm:@fake/pkg", "npm:@scope/pkg-lookalike"])
     expect(registeredBy(tool(source, "/fixture/index.ts"), "@scope/pkg")).toBe(false);
   expect(registeredBy(tool("sdk", "/@scope/pkg/src/index.ts"), "@scope/pkg")).toBe(false);
+  expect(registeredBy(tool("cli", "/store/node_modules/pi-read/index.ts"), "pi-read")).toBe(true);
+  expect(registeredBy(tool("cli", "/store/node_modules/@other/pi-read/index.ts"), "pi-read")).toBe(
+    false
+  );
 });

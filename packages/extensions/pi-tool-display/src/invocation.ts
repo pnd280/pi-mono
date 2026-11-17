@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { formatReadLineRange } from "@earendil-works/pi-coding-agent";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
+import { expandHomePath, relativeDisplayPath, windowsDrivePath } from "@pi-mono/utils/paths";
 
 import type { ToolFamily, InvocationPart } from "./contracts.ts";
 import { record } from "./values.ts";
@@ -139,7 +139,9 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
     return { text, truncated };
   } catch {
     // Match expanded serialization for invalid borrowed values, including cycles.
-    return { text: UNAVAILABLE_PARAMETERS, truncated: false };
+    const marker = sliceTerminalText(UNAVAILABLE_PARAMETERS, 0, maximum).text;
+
+    return { text: marker, truncated: marker.length < UNAVAILABLE_PARAMETERS.length };
   }
 }
 
@@ -151,10 +153,10 @@ export function parametersText(
   maximum: number
 ): { text: string; truncated: boolean } {
   const open = part.separated ? " (" : "(";
-  const preview = parameterPreview(part.value, Math.max(0, maximum - open.length));
+  const preview = parameterPreview(part.value, Math.max(0, maximum - open.length - 1));
 
   return {
-    text: preview.truncated ? open + preview.text : `${open}${preview.text})`,
+    text: preview.truncated ? (open + preview.text).slice(0, maximum) : `${open}${preview.text})`,
     truncated: preview.truncated
   };
 }
@@ -163,6 +165,8 @@ export function parametersText(
 export function resolveInvocationPath(value: string, cwd: string): string | undefined {
   if (!value) return undefined;
   let path = expandHomePath(value.startsWith("@") ? value.slice(1) : value, homedir());
+  // Pi resolves Git Bash, MSYS, Cygwin, and WSL drive aliases on Windows.
+  if (process.platform === "win32") path = windowsDrivePath(path);
 
   if (path.startsWith("file://")) {
     try {

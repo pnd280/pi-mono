@@ -14,9 +14,9 @@ Setup: complete [workspace setup](../../../../README.md#setup). The offline fixt
    vpr 'pi-tool-display#validate:terminal' regular
    ```
 
-2. Work only in the printed `Fixture directory`. It contains isolated files, settings, history, and an offline provider. Never point the launcher at real agent or project directories.
+2. Work only in the printed `Fixture directory`. It contains isolated files, settings, history, and an offline provider.
 3. The fixture starts in summary mode, which renders compact cards in regular mode. In fullscreen, stay in summary mode for summary checks, and press **Ctrl+O** once for the compact cards the other prompts describe.
-4. Enter a prompt from the table below. Except for skipped prompts and `cancel`, wait for `Fixture finished: <prompt>` before inspecting. Some calls fail on purpose.
+4. Enter a prompt from the table below. Do streaming checks while the prompt runs. For other checks, wait for `Fixture finished: <prompt>`, except for skipped prompts and `cancel`. Some calls fail on purpose.
 5. Exit with **Ctrl+D** in an empty editor. Repeat in fullscreen with a fresh workspace:
 
    ```sh
@@ -48,12 +48,11 @@ Reopen a printed fixture without resetting its files:
 vpr 'pi-tool-display#validate:terminal' fullscreen --reuse /tmp/pi-tool-display-terminal-EXAMPLE
 ```
 
-| Option              | Use                                           |
-| ------------------- | --------------------------------------------- |
-| `--reuse <dir>`     | Reopen an existing fixture for replay checks. |
-| `--use-theme light` | Appearance checks in the light theme.         |
-| `--print explore`   | Create a non-TUI history to replay.           |
-| `--help`            | Full argument syntax.                         |
+| Option              | Use                                   |
+| ------------------- | ------------------------------------- |
+| `--use-theme light` | Appearance checks in the light theme. |
+| `--print explore`   | Create a non-TUI history to replay.   |
+| `--help`            | Full argument syntax.                 |
 
 Keep the fixture directory until replay checks are done. After all fixture sessions exit, remove only that directory.
 
@@ -68,7 +67,7 @@ Setup: fullscreen fixture, compact mode.
 | Do                                                                                                             | Expect                                                                                                                    |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Click cards and groups, before and after scrolling and resizing.                                               | Only the clicked card or group expands.                                                                                   |
-| Click cards, groups, summary lines, run rules, and notice headers with Shift, Alt, or Ctrl held.               | Nothing expands, collapses, or opens.                                                                                     |
+| Click cards, groups, summary lines, `▴ collapse` bars, and notice headers with Shift, Alt, or Ctrl held.       | Nothing expands, collapses, or opens.                                                                                     |
 | Scroll with the wheel in each mode.                                                                            | The transcript scrolls.                                                                                                   |
 | In regular mode, use the terminal's mouse selection.                                                           | The terminal keeps mouse control.                                                                                         |
 | Check MCP and generic [card layout](presentation.md#card-layout) in dark and light, wide and narrow.           | Arguments stay visible.                                                                                                   |
@@ -104,35 +103,35 @@ Setup: launch the [subagent fixture](../../pi-subagents/docs/validation.md#launc
 
 Setup: fullscreen fixture in summary mode unless a row says otherwise.
 
-| Do                                                                                                | Expect                                                                                                                           |
-| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Run `summary` once per fresh workspace and inspect its first line.                                | `Read 2 files · ran 2 commands (1 failed) · created 1 file · edited 1 file` (the check command runs twice, and both runs count). |
-| Inspect the row below its first line.                                                             | `└ A summary.txt  +2 -1  2 edits`, as the [changed files](presentation.md#changed-files) describe.                               |
-| Inspect its second line.                                                                          | `Read 1 file · listed 1 dir`, with no row below it.                                                                              |
-| Watch the tail shell while it runs.                                                               | Its run keeps compact cards.                                                                                                     |
-| Wait for the agent to finish.                                                                     | The tail run collapses to one summary line.                                                                                      |
-| Repeat, clicking the shell card while it runs, then wait for the agent to finish.                 | The run stays open with the [documented collapse controls](presentation.md#opening-and-closing-a-run).                           |
-| Click the run's summary line or its `▴ collapse` bar.                                             | The run returns to its [summary line](presentation.md#line-layout).                                                              |
-| Inspect summary lines in the dark and light themes, at full width and at a width that wraps them. | They follow the [line layout](presentation.md#line-layout): one full-width bar, call count at the right.                         |
-| Open the run again.                                                                               | Individual cards keep their expansion state.                                                                                     |
-| Repeat with a single-card run and a run ending in an image, after resize and group expansion.     | The bottom control stays below all output and images.                                                                            |
-| Click the image.                                                                                  | The run stays open.                                                                                                              |
-| Click a summary line.                                                                             | The run opens to compact cards, where group and card clicks work as usual.                                                       |
-| Click the `summary.txt` row of the closed first run, then close the run.                          | The run opens without the row below its line, and the row returns when the run closes.                                           |
-| Run `diff` in a fresh workspace and inspect the rows below its line.                              | `A created.ts  +1`, `M a.ts  +1 -1`, and `M b.ts  +2 -2`, with the counts in one column.                                         |
-| Press **Ctrl+O** with a run open.                                                                 | The run closes.                                                                                                                  |
-| Press **Ctrl+O** repeatedly.                                                                      | Status reads "Tool output: compact", "verbose", then "summary".                                                                  |
-| Inspect Pi's header and loaded resources in each mode.                                            | They expand only in verbose mode.                                                                                                |
-| Change the mode, then `/reload`, rebuild history, and switch sessions in the same process.        | The selected mode stays.                                                                                                         |
-| Inspect settings and history after those mode changes.                                            | Mode changes wrote neither file.                                                                                                 |
-| Start a new process.                                                                              | Its mode follows `collapsedMode` or `--verbose`.                                                                                 |
-| Change `collapsedMode` and press **Ctrl+O** repeatedly.                                           | The cycle stays compact, verbose, summary.                                                                                       |
-| Switch `/settings` TUI mode between fullscreen and regular.                                       | Ended runs collapse and expand to match.                                                                                         |
-| Run `exceptions` and inspect the summary.                                                         | The image read counts as a file without showing the image.                                                                       |
-| Inspect the mid-run failure in that summary.                                                      | It appears only as `(1 failed)`.                                                                                                 |
-| Run `cancel` and press **Esc** while the shell runs.                                              | The final cancellation appears as `(1 cancelled)`, with no extra row.                                                            |
-| Inspect failed and cancelled counts.                                                              | They use the [summary outcome colours](presentation.md#line-layout).                                                             |
-| Set `collapsedMode: "compact"` in `agent/settings.json`, reopen with `--reuse`.                   | The session starts in compact mode.                                                                                              |
+| Do                                                                                                                         | Expect                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Run `summary` once per fresh workspace and inspect its first line.                                                         | `Read 2 files · ran 2 commands (1 failed) · created 1 file · edited 1 file` (the check command runs twice, and both runs count). |
+| Inspect the row below its first line.                                                                                      | `└ A summary.txt  +2 -1  2 edits`, as the [changed files](presentation.md#changed-files) describe.                               |
+| Inspect its second line.                                                                                                   | `Read 1 file · listed 1 dir`, with no row below it.                                                                              |
+| Watch the tail shell while it runs.                                                                                        | Its run keeps compact cards.                                                                                                     |
+| Wait for the agent to finish.                                                                                              | The tail run collapses to one summary line.                                                                                      |
+| Repeat, clicking the shell card while it runs, then wait for the agent to finish.                                          | The run stays open with the [documented collapse controls](presentation.md#opening-and-closing-a-run).                           |
+| Click the run's summary line or its `▴ collapse` bar.                                                                      | The run returns to its [summary line](presentation.md#line-layout).                                                              |
+| Inspect summary lines in the dark and light themes, at full width and at a width that wraps them.                          | They follow the [line layout](presentation.md#line-layout): one full-width bar, call count at the right.                         |
+| Open the run again.                                                                                                        | Individual cards keep their expansion state.                                                                                     |
+| Repeat with a single-card run and a run ending in an image, after resize and group expansion.                              | The bottom control stays below all output and images.                                                                            |
+| Click the image.                                                                                                           | The run stays open.                                                                                                              |
+| Click a summary line.                                                                                                      | The run opens to compact cards, where group and card clicks work as usual.                                                       |
+| Click the `summary.txt` row of the closed first run, then close the run.                                                   | The run opens without the row below its line, and the row returns when the run closes.                                           |
+| Run `diff` in a fresh workspace and inspect the rows below its line.                                                       | `A created.ts  +1`, `M a.ts  +1 -1`, and `M b.ts  +2 -2`, with the counts in one column.                                         |
+| Press **Ctrl+O** with a run open.                                                                                          | The status reads "Tool output: compact". After two more presses, back in summary mode, the run shows only its summary line.      |
+| Press **Ctrl+O** repeatedly.                                                                                               | Status reads "Tool output: compact", "verbose", then "summary".                                                                  |
+| Inspect Pi's header and loaded resources in each mode.                                                                     | They expand only in verbose mode.                                                                                                |
+| Change the mode, then `/reload`, rebuild history, and switch sessions in the same process.                                 | The selected mode stays.                                                                                                         |
+| Inspect settings and history after those mode changes.                                                                     | Mode changes wrote neither file.                                                                                                 |
+| Start a new process.                                                                                                       | Its mode follows `collapsedMode` or `--verbose`.                                                                                 |
+| Set `collapsedMode` to `"compact"` in the fixture's `agent/settings.json`, run `/reload`, and press **Ctrl+O** repeatedly. | The cycle stays compact, verbose, summary.                                                                                       |
+| Switch `/settings` TUI mode between fullscreen and regular.                                                                | Ended runs collapse and expand to match.                                                                                         |
+| Run `exceptions` and inspect the summary.                                                                                  | The image read counts as a file without showing the image.                                                                       |
+| Inspect the mid-run failure in that summary.                                                                               | It appears only as `(1 failed)`.                                                                                                 |
+| Run `cancel` and press **Esc** while the shell runs.                                                                       | The final cancellation appears as `(1 cancelled)`, with no extra row.                                                            |
+| Inspect failed and cancelled counts.                                                                                       | They use the [summary outcome colours](presentation.md#line-layout).                                                             |
+| Set `collapsedMode: "compact"` in `agent/settings.json`, reopen with `--reuse`.                                            | The session starts in compact mode.                                                                                              |
 
 #### Regular mode
 
@@ -172,28 +171,28 @@ Setup: load `pi-nested-instructions` and put a nested instruction file in the di
 
 Setup: fullscreen fixture, compact mode.
 
-| Do                                                                              | Expect                                                                                                            |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Run `scopes` and use the global expansion action.                               | All groups expand.                                                                                                |
-| Reopen with `--reuse`.                                                          | Reconstructed cards match the live cards.                                                                         |
-| Run `native-mixed`, `normalization`, and `exceptions`.                          | Group membership matches the prompt table.                                                                        |
-| Inspect directory headings.                                                     | They follow the [Exploring/Explored heading rules](presentation.md#headings-and-members).                         |
-| In `exceptions`, inspect the failure heading.                                   | The failure count sits beside "Explored".                                                                         |
-| Inspect that failure's body, collapsed and expanded.                            | The diagnostic uses `error`.                                                                                      |
-| Run `filenames` at narrow and wide widths.                                      | Scope headings remain complete.                                                                                   |
-| Inspect member filenames at each width.                                         | They follow the [group-relative target rules](presentation.md#headings-and-members), with ranges intact in `dim`. |
-| Expand descendants at each width and include an outside target.                 | Targets follow the [working-directory path rules](presentation.md#target-paths).                                  |
-| In `thinking`, toggle **Ctrl+T** during streaming.                              | Collapsed placeholders disappear at `thinking_end`, before later prose and tools finish.                          |
-| Inspect active indicators, the explanation, and diagnostics.                    | They remain visible under the [thinking visibility rules](presentation.md#thinking).                              |
-| Toggle **Ctrl+T** after streaming and force a redraw.                           | Ended placeholders stay hidden.                                                                                   |
-| Run `thinking` in summary mode.                                                 | The first two reads stay compact through thinking, then collapse at the explanation.                              |
-| Wait for the agent to finish.                                                   | The remaining reads collapse.                                                                                     |
-| Toggle thinking and click thinking rows, including beside a run opened by hand. | Run state stays unchanged.                                                                                        |
-| Reopen with `--reuse`.                                                          | Replay matches the live run state.                                                                                |
-| Run `buffered` collapsed, then expand, toggle thinking, and replay.             | The two-read group stays between `shell two` and `shell three`.                                                   |
-| Inspect each call in those views.                                               | Each row keeps its own command, target, and result.                                                               |
-| Run `explore`, then `images`, and replay.                                       | Notices and images stay beneath their call, before the next tool.                                                 |
-| Inspect the boundary at assistant completion.                                   | It separates the groups.                                                                                          |
+| Do                                                                              | Expect                                                                                                                                              |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run `scopes` and use the global expansion action.                               | All groups expand.                                                                                                                                  |
+| Reopen with `--reuse`.                                                          | Reconstructed cards match the live cards.                                                                                                           |
+| Run `native-mixed`, `normalization`, and `exceptions`.                          | Group membership matches the prompt table.                                                                                                          |
+| Inspect directory headings.                                                     | They follow the [Exploring/Explored heading rules](presentation.md#headings-and-members).                                                           |
+| In `exceptions`, inspect the failure heading.                                   | The failure count sits beside "Explored".                                                                                                           |
+| Inspect that failure's body, collapsed and expanded.                            | The diagnostic uses `error`.                                                                                                                        |
+| Run `filenames` at narrow and wide widths.                                      | Scope headings remain complete.                                                                                                                     |
+| Inspect member filenames at each width.                                         | They follow the [group-relative target rules](presentation.md#headings-and-members), with ranges intact in `dim`.                                   |
+| Expand descendants at each width and include an outside target.                 | Targets follow the [working-directory path rules](presentation.md#target-paths).                                                                    |
+| In `thinking`, toggle **Ctrl+T** during streaming.                              | Collapsed placeholders disappear at `thinking_end`, before later prose and tools finish.                                                            |
+| Inspect active indicators, the explanation, and diagnostics.                    | They remain visible under the [thinking visibility rules](presentation.md#thinking).                                                                |
+| Toggle **Ctrl+T** after streaming and force a redraw.                           | Ended placeholders stay hidden.                                                                                                                     |
+| Run `thinking` in summary mode.                                                 | The first two reads stay compact through thinking, then collapse at the explanation.                                                                |
+| Wait for the agent to finish.                                                   | The remaining reads collapse.                                                                                                                       |
+| Toggle thinking and click thinking rows, including beside a run opened by hand. | Run state stays unchanged.                                                                                                                          |
+| Reopen with `--reuse`.                                                          | Saved calls and run boundaries match the live session. In summary mode, ended runs start closed; open the same runs by hand before comparing cards. |
+| Run `buffered` collapsed, then expand, toggle thinking, and replay.             | The two-read group stays between `shell two` and `shell three`.                                                                                     |
+| Inspect each call in those views.                                               | Each row keeps its own command, target, and result.                                                                                                 |
+| Run `explore`, then `images`, and replay.                                       | Notices and images stay beneath their call, before the next tool.                                                                                   |
+| Inspect the boundary at assistant completion.                                   | It separates the groups.                                                                                                                            |
 
 #### Images
 
@@ -226,21 +225,21 @@ Setup: `output` prompt.
 
 Run these when you change the matching integration.
 
-| Do                                                                                                                                 | Expect                                                                                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reload twice, then run `explore`.                                                                                                  | The `explore` cards and groups look as they do in a fresh session.                                                                                                    |
-| Use new and resumed sessions, forks, tree navigation, and compaction, including boundary-generated compaction and custom messages. | Retained groups keep expansion ownership.                                                                                                                             |
-| Inspect boundaries in those sessions, including after a context edit.                                                              | Context edits do not split groups; other boundaries follow the [visible-message boundary rules](presentation.md#what-separates-groups).                               |
-| Reconstruct the transcript.                                                                                                        | No call executes again.                                                                                                                                               |
-| Inspect a reconstructed call with a missing outcome.                                                                               | Its marker stays still.                                                                                                                                               |
-| Add `"offset": null` to a `read` call in a disposable fixture session, then reopen with `--reuse` in both modes.                   | The card is the same as before the edit, because validation removes optional nulls that the schema rejects. See [callback arguments](adapters.md#callback-arguments). |
-| Replay a print-created history.                                                                                                    | Calls keep their [saved facts](../GLOSSARY.md#interpretation) and Pi's durations.                                                                                     |
-| Inspect mutation observation during replay.                                                                                        | Replay observes no mutations.                                                                                                                                         |
-| Make new interactive calls.                                                                                                        | New calls collect fresh facts.                                                                                                                                        |
-| Insert `ctx.ui.notify` calls between matching tool calls at each severity.                                                         | Visible notifications split groups and runs.                                                                                                                          |
-| Repeat with a no-op notification and a thinking-toggle status message.                                                             | Neither creates a boundary.                                                                                                                                           |
-| Run user `!` and `!!` commands.                                                                                                    | Pi renders these shell cards itself, outside exploration groups and display observation.                                                                              |
-| Run a user `!` command while the agent is running.                                                                                 | Pi moves the shell card below the run's last row when the run settles. The run ends as it does without the command.                                                   |
+| Do                                                                                                                                 | Expect                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Reload twice, then run `explore`.                                                                                                  | The `explore` cards and groups look as they do in a fresh session.                                                                      |
+| Use new and resumed sessions, forks, tree navigation, and compaction, including boundary-generated compaction and custom messages. | Retained groups keep expansion ownership.                                                                                               |
+| Inspect boundaries in those sessions, including after a context edit.                                                              | Context edits do not split groups; other boundaries follow the [visible-message boundary rules](presentation.md#what-separates-groups). |
+| Reconstruct the transcript.                                                                                                        | No call executes again.                                                                                                                 |
+| Inspect a reconstructed call with a missing outcome.                                                                               | Its marker stays still.                                                                                                                 |
+| Add `"offset": null` to a `read` call in a disposable fixture session, then reopen with `--reuse` in both modes.                   | The card is the same as before the edit; see [callback arguments](adapters.md#callback-arguments).                                      |
+| Replay a print-created history.                                                                                                    | Calls keep their [saved facts](../GLOSSARY.md#interpretation) and Pi's durations.                                                       |
+| Inspect mutation observation during replay.                                                                                        | Replay observes no mutations.                                                                                                           |
+| Make new interactive calls.                                                                                                        | New calls collect fresh facts.                                                                                                          |
+| Insert `ctx.ui.notify` calls between matching tool calls at each severity.                                                         | Visible notifications split groups and runs.                                                                                            |
+| Repeat with a no-op notification and a thinking-toggle status message.                                                             | Neither creates a boundary.                                                                                                             |
+| Run user `!` and `!!` commands.                                                                                                    | Pi renders these shell cards itself, outside exploration groups and display observation.                                                |
+| Run a user `!` command while the agent is running.                                                                                 | Pi moves the shell card below the run's last row when the run settles. The run ends as it does without the command.                     |
 
 ### Finalised-message middleware
 
@@ -257,10 +256,10 @@ Run these checks after changing the matching adapter. Each adapter's README and 
 
 Setup: a TUI session with Pi's built-in `codemode` enabled.
 
-| Do                                                         | Expect                                                                                  |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Run a short script, then a script that throws an error.    | Each finished card shows `Took` with Pi's time in `dim`, and no `Wall time` header.     |
-| Run `/reload`, then compare both cards with the live ones. | The replayed cards show the same times, because they come from Pi's saved `durationMs`. |
+| Do                                                         | Expect                                                                              |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Run a short script, then a script that throws an error.    | Each finished card shows `Took` with Pi's time in `dim`, and no `Wall time` header. |
+| Run `/reload`, then compare both cards with the live ones. | The replayed cards show the same times.                                             |
 
 ### pi-mcp-adapter
 
@@ -299,8 +298,8 @@ Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency.
      --tools 'mcp,mcpScript,mcp__display,direct_echo'
    ```
 
-4. The regular-mode fixture starts with compact cards. Enter `mcp` and wait for `Fixture finished: mcp`. Check collapsed and expanded cards against the expectations below, then run `/reload`.
-5. Exit, then repeat the command with `fullscreen` instead of `regular` to check replay. Keep the `--reuse`, `-e`, and `--tools` arguments. Press **Ctrl+O** for compact cards.
+4. Enter `mcp` and wait for `Fixture finished: mcp`. Check collapsed and expanded cards against the expectations below, then run `/reload`.
+5. Exit, then repeat the command with `fullscreen` instead of `regular` to check replay. Keep the `--reuse`, `-e`, and `--tools` arguments.
 
 | Do                                                                                                          | Expect                                                        |
 | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -311,8 +310,6 @@ Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency.
 | Omit [`showParameters`](../README.md#configuration), then try `false` and `true`, with `/reload` each time. | Arguments and script code stay visible in each configuration. |
 | Expand a card with long parameters.                                                                         | The compact preview expands to the full parameters.           |
 | Set an exact-name [`original` override](../README.md#configuration).                                        | The card uses the tool owner's renderer.                      |
-
-These checks inspect retained output; the display adapter never reads the saved file.
 
 ### Nested-instruction notices
 
@@ -368,4 +365,4 @@ Setup: load pi-tool-display and `pi-todo` in a disposable project, and use compa
 - Inline images need a native protocol that works in fullscreen, such as Kitty. Pi disables iTerm2 images in fullscreen (observed in Pi 0.99.2).
 - When finalised-message middleware adds or removes result images, Pi does not update the live native image row; reconstructed rows use the finalised images. This reproduces with and without the extension, including Kitty output (observed in Pi 0.87.0).
 - Check Kitty and iTerm images, links, drag selection, and the clipboard in terminals that support them.
-- The launcher uses Unix Bash. Windows and PowerShell need separate `pwsh` and platform launch checks.
+- No terminal check covers Windows or the `powershell` tool.

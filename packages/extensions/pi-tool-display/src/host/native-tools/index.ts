@@ -49,22 +49,11 @@ class NativeTools {
     const build = prototype._buildRuntime;
     const refresh = prototype._refreshToolRegistry;
     const registry = this;
-    this.hooks.replace(prototype, "_buildRuntime", function (this: AgentSession, options) {
-      if (registry.active)
-        registry.building.set(this, {
-          cwd: nativeSession(this)._cwd,
-          shellPath: this.settingsManager.getShellPath(),
-          commandPrefix: this.settingsManager.getShellCommandPrefix()
-        });
 
-      try {
-        return build.call(this, options);
-      } finally {
-        registry.building.delete(this);
-      }
-    });
-
-    this.installedRefresh = function (this: AgentSession, options) {
+    const installedRefresh: SessionInternals["_refreshToolRegistry"] = function (
+      this: AgentSession,
+      options
+    ) {
       if (registry.active) registry.safely(() => registry.refresh(this));
       const result = refresh.call(this, options);
       if (registry.active)
@@ -74,7 +63,26 @@ class NativeTools {
       return result;
     };
 
-    this.hooks.replace(prototype, "_refreshToolRegistry", this.installedRefresh);
+    try {
+      this.hooks.replace(prototype, "_buildRuntime", function (this: AgentSession, options) {
+        if (registry.active)
+          registry.building.set(this, {
+            cwd: nativeSession(this)._cwd,
+            shellPath: this.settingsManager.getShellPath(),
+            commandPrefix: this.settingsManager.getShellCommandPrefix()
+          });
+
+        try {
+          return build.call(this, options);
+        } finally {
+          registry.building.delete(this);
+        }
+      });
+      this.hooks.replace(prototype, "_refreshToolRegistry", installedRefresh);
+      this.installedRefresh = installedRefresh;
+    } catch {
+      this.hooks.restore();
+    }
   }
 
   private safely<T>(action: () => T): T | undefined {
@@ -83,7 +91,7 @@ class NativeTools {
     } catch {
       for (const { observer } of this.observers)
         try {
-          observer.warning?.("Native observation unavailable; keeping original execution.");
+          observer.warning?.("native observation unavailable; keeping original execution.");
         } catch {
           // Diagnostics cannot change tool execution.
         }
@@ -97,7 +105,9 @@ class NativeTools {
     this.observers.add(subscriber);
     if (!this.installedRefresh)
       this.safely(() =>
-        observer.warning?.("Native construction contract unavailable; keeping original execution.")
+        observer.warning?.(
+          "native observation unavailable; operation and change facts are not recorded."
+        )
       );
     for (const session of this.knownSessions()) this.bind(session);
     let subscribed = true;

@@ -144,7 +144,11 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
         )
       );
     if (retained.length < progress.prompt.length || prompt.length > 10)
-      rows.push(`${indent}  ${theme.fg("dim", "… (prompt truncated)")}`);
+      rows.push(
+        ...wrapRows(theme.fg("dim", "… (prompt truncated)"), Math.max(1, p.width - 6)).map(
+          (row) => `${indent}  ${row}`
+        )
+      );
   }
 
   if (p.result) rows.push(`${indent}${theme.fg("dim", "Result:")}`);

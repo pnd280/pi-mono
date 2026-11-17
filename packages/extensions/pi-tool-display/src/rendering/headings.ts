@@ -26,6 +26,7 @@ import {
   parametersText,
   serializeParameters
 } from "../invocation.ts";
+import { counts } from "../run-summary.ts";
 import { bodyWidth, expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
 import { targetRows } from "./target-layout.ts";
 import type { PreparedCard, PreparedGroup } from "./types.ts";
@@ -116,30 +117,24 @@ function titleRows(
   p: PreparedCard,
   hasChildren?: boolean
 ): string[] {
-  if (
+  const width = bodyWidth(p.width);
+  const [line = "", ...lines] = detail.text.split("\n");
+  const [first = "", ...rest] =
     p.adapter.family === "invocation" &&
     visibleWidth(title) + 1 + visibleWidth(detail.text) > p.width
-  )
+      ? []
+      : wrapHangingRows(line, p.width - visibleWidth(title) - 1, width);
+  if (line && !visibleWidth(first))
     return [
       truncateToWidth(title, p.width, "…"),
-      ...headingContinuation(
-        previewRows(wrapRows(detail.text, bodyWidth(p.width)), p, detail),
-        p,
-        hasChildren
-      )
+      ...headingContinuation(previewRows(wrapRows(detail.text, width), p, detail), p, hasChildren)
     ];
-  const source = detail.text.split("\n");
-  const first = wrapRows(source[0] ?? "", Math.max(1, p.width - visibleWidth(title) - 1));
-  const rest = [
-    ...first.slice(1),
-    ...source.slice(1).flatMap((line) => wrapRows(line, bodyWidth(p.width)))
-  ];
-  const rows = [truncateToWidth(`${title}${first.length ? ` ${first[0]}` : ""}`, p.width, "")];
-  rows.push(
-    ...headingContinuation(previewRows(rest, p, detail, COMPACT_HEADING_ROWS - 1), p, hasChildren)
-  );
+  rest.push(...lines.flatMap((source) => wrapRows(source, width)));
 
-  return rows;
+  return [
+    truncateToWidth(`${title}${first ? ` ${first}` : ""}`, p.width, ""),
+    ...headingContinuation(previewRows(rest, p, detail, COMPACT_HEADING_ROWS - 1), p, hasChildren)
+  ];
 }
 
 function targetTitleRows(
@@ -315,13 +310,11 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
     const outcomes = group.members
       .filter((call) => !isLive(call))
       .map((call) => group.interpret(call).outcome);
-    const failed = outcomes.filter((outcome) => outcome === "failure").length;
-    const cancelled = outcomes.filter((outcome) => outcome === "cancelled").length;
-    const unavailable = outcomes.filter((outcome) => outcome === "unavailable").length;
+    const { failed, cancelled, unavailable } = counts(outcomes);
     const summary = [
       failed ? p.theme.fg("error", `${failed} failed`) : "",
       cancelled ? p.theme.fg("error", `${cancelled} cancelled`) : "",
-      unavailable ? p.theme.fg("muted", `${unavailable} outcome unavailable`) : ""
+      unavailable ? p.theme.fg("muted", `${unavailable} unavailable`) : ""
     ]
       .filter(Boolean)
       .join(p.theme.fg("dim", ", "));

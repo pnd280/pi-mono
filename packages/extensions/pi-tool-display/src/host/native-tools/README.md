@@ -18,7 +18,7 @@ Observation excludes SDK overrides, custom tools, and changed definitions. It pr
 
 ### Failures
 
-If Pi's construction contract is not recognised, or an observer callback throws, tools keep their original execution and subscribers receive `warning()`.
+If Pi's construction contract is not recognised, or `eligible()`, `wrap()`, or `refreshed()` throws, tools keep their original execution and subscribers receive `warning()`. Errors thrown by the `execute()` of a wrapped definition reach Pi.
 
 ## Usage
 
@@ -47,6 +47,7 @@ pi.on("session_shutdown", () => native.dispose());
 
 ### Must not break
 
+- Make the wrapped `execute()` forward its arguments to `original.execute()` and return its result or error unchanged; observation work in it must not throw.
 - Do not mutate borrowed definitions or published results.
 - Do not register additional tools or change active tool selection for observation.
 
@@ -60,8 +61,6 @@ pi.on("session_shutdown", () => native.dispose());
 
 - Use `isNative(session, name, tool?)` to check whether the current definition is verified, including shared replacements. Pass `tool` when you already hold the name's `ToolInfo`. Otherwise the check reads `session.getAllTools()`, which builds info for every tool.
 - Keep policy, warnings, and persistence in the consumer.
-
-Related: the [display collectors](../collection.ts) observe `bash` and `powershell` through this module, and wrap `edit` and `write` through [file mutation observation](../../file-mutations/README.md).
 
 ## Validation
 

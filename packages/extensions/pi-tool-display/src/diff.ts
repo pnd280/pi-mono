@@ -1,4 +1,5 @@
 import { parsePatch } from "@pi-mono/utils/patch";
+import { createPatch, OMIT_HEADERS } from "diff";
 
 import { PATCH_QUEUE_BYTES, type PatchLimits } from "./bounded-diff/index.ts";
 import type { ChangeFact, ChangeUnavailableReason } from "./contracts.ts";
@@ -32,9 +33,7 @@ export function changedLines(
   published: unknown,
   change: ChangeFact | undefined
 ): { added: number; removed: number } | undefined {
-  const observed = change && change.change !== "unavailable" ? change.patch : undefined;
-
-  for (const patch of [published, observed]) {
+  for (const patch of [published, change?.patch]) {
     const parsed = typeof patch === "string" ? parseRetainedPatch(patch) : undefined;
     if (parsed) return { added: parsed.added, removed: parsed.removed };
   }
@@ -76,17 +75,9 @@ export function creationPatch(content: string): string | undefined {
   if (content.length > PATCH_BYTES * 2) return undefined;
   const text = Buffer.from(content, "utf8").toString("utf8").replaceAll("\r\n", "\n");
   if (Buffer.byteLength(text) > PATCH_BYTES) return undefined;
+  // A hunk-only patch of empty content would be empty, which is no valid patch.
   if (!text) return "--- a\n+++ b\n";
-  const lines = text.split("\n");
-  const terminated = lines.at(-1) === "";
-  if (terminated) lines.pop();
-
-  const patch = [
-    `@@ -0,0 +1,${lines.length} @@`,
-    ...lines.map((line) => `+${line}`),
-    ...(terminated ? [] : ["\\ No newline at end of file"]),
-    ""
-  ].join("\n");
+  const patch = createPatch("", "", text, undefined, undefined, { headerOptions: OMIT_HEADERS });
 
   return Buffer.byteLength(patch) > PATCH_BYTES ? undefined : patch;
 }
@@ -111,12 +102,9 @@ export function changeReasonText(reason: ChangeUnavailableReason): string {
 
 export async function mutationChange(mutation: FileMutation): Promise<ChangeFact> {
   const result = await mutation.patch(PATCH_LIMITS);
-  if (result.status === "ready")
-    return {
-      kind: "change",
-      change: mutation.before.status === "missing" ? "creation" : "modification",
-      patch: result.patch
-    };
+  const change = mutation.before.status === "missing" ? "creation" : "modification";
 
-  return { kind: "change", change: "unavailable", reason: result.status };
+  return result.status === "ready"
+    ? { kind: "change", change, patch: result.patch }
+    : { kind: "change", change, unavailable: result.status };
 }

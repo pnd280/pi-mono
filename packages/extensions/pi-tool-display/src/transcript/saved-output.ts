@@ -32,14 +32,19 @@ export class SavedOutputs {
   /** The coordinator's hook: the call's saved path, expansion, or completion changed. */
   refresh(call: DisplayCall): void {
     const path = call.savedPath;
-    if (
-      this.disposed ||
-      !path ||
-      !call.expanded ||
-      call.lifecycle !== "complete" ||
-      (call.savedOutput?.path === path && !call.savedOutput.retryable)
-    )
+    if (this.disposed || !path || !call.expanded || call.lifecycle !== "complete") return;
+
+    if (call.savedOutput?.path === path && !call.savedOutput.retryable) {
+      const cached = this.cache.get(path);
+
+      if (cached) {
+        this.cache.delete(path);
+        this.cache.set(path, cached);
+      }
+
       return;
+    }
+
     this.coordinator.setSavedOutput(call, undefined);
     void this.load(path)
       .then((output) => {

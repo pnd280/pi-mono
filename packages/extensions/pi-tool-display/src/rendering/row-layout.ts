@@ -88,14 +88,18 @@ function collapseControls(
   };
 }
 
+type RowChromeOptions = {
+  width: number;
+  theme: DisplayTheme | undefined;
+  summaryLine: (open: boolean) => readonly string[];
+  notice: boolean;
+  tail: boolean;
+};
+
 export function rowChrome(
   call: DisplayCall,
   coordinator: RowView,
-  width: number,
-  theme: DisplayTheme | undefined,
-  summaryLine: (open: boolean) => readonly string[],
-  notice: boolean,
-  tail: boolean
+  { width, theme, summaryLine, notice, tail }: RowChromeOptions
 ): RowChrome {
   const role = coordinator.summaryRole(call);
   if (role && (notice || role.kind === "hidden")) return { kind: "hidden" };

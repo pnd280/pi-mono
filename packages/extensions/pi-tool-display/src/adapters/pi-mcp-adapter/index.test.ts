@@ -14,6 +14,7 @@ it("retains ordered published media without copying bytes or inferring flattened
     ],
     details: { mode: "call", server: "docs", tool: "search" }
   };
+  const before = structuredClone(supplied);
   expect(adapter.mcp?.({}, supplied)).toEqual({
     server: "docs",
     tool: "search",
@@ -29,4 +30,5 @@ it("retains ordered published media without copying bytes or inferring flattened
     mimeType: "image/png",
     data: "PRIVATE_IMAGE_BYTES"
   });
+  expect(supplied).toEqual(before);
 });

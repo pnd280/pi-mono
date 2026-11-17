@@ -1,10 +1,8 @@
 # [pi-tool-display](README.md) development
 
-| When you…                        | Read                                           |
-| -------------------------------- | ---------------------------------------------- |
-| Add or change an adapter         | [Adapters](docs/adapters.md)                   |
-| Change what is saved or replayed | [Recorded data and replay](docs/recording.md)  |
-| Change the diff panel            | [Diff view](src/rendering/diff-view/README.md) |
+| When you…             | Read                                           |
+| --------------------- | ---------------------------------------------- |
+| Change the diff panel | [Diff view](src/rendering/diff-view/README.md) |
 
 ## Constraints
 

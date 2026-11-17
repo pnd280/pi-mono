@@ -32,7 +32,10 @@ export function readExploration(parts: InvocationPart[], path: string): Explorat
 
 /** Detail notices. Collapsed cards also keep the diagnostics of the retained text. */
 export function readNotices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[] {
-  return [...nativeResultNotices(result.details), ...(expanded ? [] : textDiagnostics(result))];
+  return [
+    ...nativeResultNotices(result.details, expanded),
+    ...(expanded ? [] : textDiagnostics(result))
+  ];
 }
 
 /**

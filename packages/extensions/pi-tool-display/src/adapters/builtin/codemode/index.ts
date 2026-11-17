@@ -12,7 +12,7 @@ import { truncationNotices } from "../../truncation.ts";
 
 const TOOL_NAME = "codemode";
 const SOURCE_PATH = "builtin:codemode";
-// Pi writes this header as the first text block of every script result.
+// Pi writes this header as the first text block of a script result; rejected options have no header.
 const SCRIPT_HEADER = /^Script (completed|failed)\nWall time [\d.]+ seconds\nOutput:\n$/;
 
 const argsSchema = z.strictObject({ code: z.string() });

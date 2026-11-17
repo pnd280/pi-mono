@@ -25,7 +25,7 @@ type HostContext = Parameters<NonNullable<ToolDefinition["renderCall"]>>[2];
 
 export type DisplayContext = Omit<HostContext, "args" | "state"> & {
   args: unknown;
-  state: unknown;
+  state: object;
 };
 
 export type ToolDisplayRenderers = {

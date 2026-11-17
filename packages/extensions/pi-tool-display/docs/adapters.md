@@ -20,9 +20,9 @@ Adapters must not enable or run tools, access files, persist data, modify borrow
 2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognise-tool-contracts), not names alone. [`registeredBy`](../src/adapters/provenance.ts) checks only that an extension package registered the tool, from its npm source or entry-point path. It does not check schemas or apply policy. Return `undefined` for unsupported definitions.
 3. Keep the adapter's schemas and presentation in that directory. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Reject input as described in [invalid and partial input](renderers.md#invalid-and-partial-input).
 4. Describe what users see in the tool's section of [supported tool cards](tools.md). Write the adapter's `README.md` for its maintainers, and keep it short:
-   - Open with one sentence on what users of the adapted extension see, linked to its section in supported tool cards.
+   - Open with what users of the adapted extension see, at the length of a [README summary](../../../../docs/documentation.md#writing-for-scanning), linked to its section in supported tool cards.
    - "Compatibility and selection" states the provenance and schema that the resolver checks, and what does not qualify. Session-message adapters use "Compatibility and registration".
-   - "Validation" names the automated coverage in one or two sentences and links the manual check.
+   - "Validation" names the automated coverage at the same length and links the manual check.
 
    Put argument and result validation, the data behind the display, and limitations in a `contract.md` next to the README, under "Arguments and results", "Display", and "Limitations", and omit any section that has no content. Put manual procedures under [adapter validation](validation.md#adapter-validation).
 
@@ -63,13 +63,11 @@ The [pi-smart-compact adapter](../src/adapters/pi-smart-compact/README.md#compat
 
 Match verified provenance and the parameter structure the renderer needs: types, required fields, and object strictness where relevant. Do not fingerprint complete schemas or require numeric bounds, descriptions, or other details that provider-facing projection can omit or rewrite. Removing `minimum` from an integer coordinate, for example, must not disable its display adapter. Validate argument values and result shapes separately before specialised rendering.
 
-Build schema fixtures through the registered tool's projection, and retain integration coverage that loads the extension. Projection changes also affect schema-inspecting consumers: run their adapter and installed-CLI checks, not just the producing tool's tests.
+Build required schema fixtures through the registered tool's projection. Choose automated coverage through the [package testing guide](testing.md), and follow the matching [adapter validation](validation.md#adapter-validation) procedure. Projection changes also affect schema-inspecting consumers: include their adapter and installed-CLI checks when you check the affected invariants.
 
 ## Progress cards and actions
 
-`progress(args, result)` supplies structured task status, identity, non-default expanded fields, and the collapsed result-preview choice to the shared progress card. Omit `status` until the task reports one; the renderer then shows the host call phase and owns colours, elapsed time, and wrapping. A final failure, cancellation, or unavailable outcome overrides a conflicting reported status. Like every callback, it follows the [callback input rules](renderers.md#callback-inputs).
-
-`action(args, result)` supplies a pure event descriptor; the mounting host owns dispatch and authorisation. Neither callback performs effects. Progress cards also work with standalone adapters. Actions need the automatic host; the standalone factory does not dispatch them.
+Use the [progress and action callback contracts](renderers.md#progress-cards-and-actions) when adding task cards or host-dispatched actions.
 
 ## Summary items
 

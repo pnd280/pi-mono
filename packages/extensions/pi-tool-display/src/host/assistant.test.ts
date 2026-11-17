@@ -51,9 +51,11 @@ it("preserves later wrappers and makes retained callbacks inert on disposal", ()
   changed.mockClear();
   component.updateContent(message, false);
   expect(component.updateContent === later).toBe(true);
-  expect(lines(component)).toEqual(["", " Retained prose"]);
+  expect(lines(component).join("\n")).not.toContain("•");
+  expect(lines(component).join("\n")).toContain("Retained prose");
   expect(changed).not.toHaveBeenCalled();
   // Unknown update implementations must keep their own presentation.
   expect(bindAssistantPresentation(component, changed)).toBeUndefined();
-  expect(lines(component)).toEqual(["", " Retained prose"]);
+  expect(lines(component).join("\n")).not.toContain("•");
+  expect(lines(component).join("\n")).toContain("Retained prose");
 });

@@ -1,10 +1,22 @@
-import { mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdtemp,
+  open,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { observeTextFile } from "./source.ts";
+
+vi.mock("node:fs/promises", { spy: true });
 
 let directory: string;
 beforeEach(async () => {
@@ -36,4 +48,25 @@ it("distinguishes empty, missing, invalid UTF-8, and nonregular files without cl
   await writeFile(path, Buffer.from([0xff]));
   expect(await observeTextFile(path, 1)).toEqual({ status: "invalid-utf8" });
   expect(await observeTextFile(directory, 1)).toEqual({ status: "not-file" });
+});
+
+it.each([
+  { case: "grows", change: (path: string) => appendFile(path, "-") },
+  { case: "changes only its mtime", change: (path: string) => utimes(path, 0, 0) }
+])("refuses a source that $case during the read", async ({ change }) => {
+  const path = join(directory, "source");
+  await writeFile(path, "before\n");
+  vi.mocked(open).mockImplementationOnce(async (file, flags) => {
+    const handle = await open(file, flags);
+    const initial = await handle.stat();
+    // The file changes after its first stat, as a concurrent writer would.
+    vi.spyOn(handle, "stat").mockImplementationOnce(async () => {
+      await change(path);
+
+      return initial;
+    });
+
+    return handle;
+  });
+  expect(await observeTextFile(path, 100)).toEqual({ status: "changed" });
 });

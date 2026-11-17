@@ -5,7 +5,7 @@ import type { DisplayAction, DisplayMode } from "../contracts.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { TranscriptMessages } from "../transcript/messages.ts";
 import type { DisplaySession } from "../transcript/session.ts";
-import { trackThinkingCompletion } from "./assistant.ts";
+import { assistantPresentationCompatible, trackThinkingCompletion } from "./assistant.ts";
 import type { DisplayCollector, DisplayCollectors } from "./collection.ts";
 import {
   hostHook,
@@ -65,9 +65,7 @@ export function installHostIntegration(
   const originalSetExpanded = prototype.setToolsExpanded;
   const modeHooks = modeHooksCompatible(prototype);
   const rowChrome = rowContractCompatible();
-  let modeWarning = false;
-  let rowWarning = false;
-  const rowFailures = new Set<RowFailureStage>();
+  const assistantPresentation = assistantPresentationCompatible();
   let active = true;
 
   function rowsFor(host: Host): TranscriptRows {
@@ -77,10 +75,8 @@ export function installHostIntegration(
     return rows;
   }
 
-  /** Row failures leave the session usable, so each stage warns once. */
+  /** Row failures leave the session usable. */
   function rowFailure(stage: RowFailureStage): void {
-    if (rowFailures.has(stage)) return;
-    rowFailures.add(stage);
     collection.warning(
       stage === "bind"
         ? "row hooks unavailable; affected rows stand alone, outside groups and summaries."
@@ -114,20 +110,24 @@ export function installHostIntegration(
     if (!collector) return;
     const configuration = collector.settings;
 
-    if (!modeHooks && configuration.valid && !modeWarning) {
-      modeWarning = true;
+    if (!modeHooks && configuration.valid) {
       const expand = keyText("app.tools.expand");
       collection.warning(
         expand
-          ? `mode cycling unavailable; ${expand} toggles ${configuration.collapsedMode} ↔ verbose.`
+          ? `mode cycling unavailable; ${expand} toggles collapsed ↔ verbose.`
           : "mode cycling unavailable; app.tools.expand has no key."
       );
     }
 
-    if (!rowChrome && !rowWarning) {
-      rowWarning = true;
-      collection.warning("row contract unavailable; summaries disabled.");
-    }
+    if (!rowChrome && configuration.valid)
+      collection.warning(
+        "row contract unavailable; summaries, card actions, and click modifiers disabled."
+      );
+
+    if (!assistantPresentation && configuration.valid)
+      collection.warning(
+        "assistant presentation unavailable; prose markers and early thinking hiding disabled."
+      );
 
     const display = reset ? collector.reconstruct() : collector.display;
     display.coordinator.setMode(initialMode(host, configuration));

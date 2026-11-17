@@ -105,6 +105,8 @@ export function observeMutationDefinition(
       const performWrite = async (path: string, content: string) => {
         if (original.name === "write") before = await observeTextFile(path, maxBytes);
         const identity = await canonicalPath(path).catch(() => path);
+        // Pi checks for an abort after each await; a cancelled capture must not write.
+        if (signal?.aborted) throw new Error("Operation aborted");
         // Node replaces unpaired surrogates when writing UTF-8. Observe those bytes, not a JS string that cannot be read back; a native patch may describe the latter.
         const after: FileObservation =
           Buffer.byteLength(content) <= maxBytes
@@ -125,34 +127,36 @@ export function observeMutationDefinition(
             after,
             outcome,
             patch(limits) {
-              if (!patchLimitsSchema.safeParse(limits).success)
+              const parsed = patchLimitsSchema.safeParse(limits);
+              if (!parsed.success)
                 throw new RangeError(
                   "Patch limits must be nonnegative finite values, with integer sizes."
                 );
+              const { data } = parsed;
               const key = JSON.stringify([
-                limits.maxSourceBytes,
-                limits.maxPatchBytes,
-                limits.maxEditLength,
-                limits.timeoutMs,
-                limits.contextLines
+                data.maxSourceBytes,
+                data.maxPatchBytes,
+                data.maxEditLength,
+                data.timeoutMs,
+                data.contextLines
               ]);
               const cached = patches.get(key);
               if (cached) return cached;
               let result: MutationPatch | Promise<MutationPatch>;
               const previous = observedSource(before);
               const next = observedSource(after);
-              if (nativePatch && Buffer.byteLength(nativePatch) > limits.maxPatchBytes)
+              if (nativePatch && Buffer.byteLength(nativePatch) > data.maxPatchBytes)
                 result = { status: "patch-too-large" };
-              else if (nativePatch && parsePatch(nativePatch, limits.maxPatchBytes))
+              else if (nativePatch && parsePatch(nativePatch, data.maxPatchBytes))
                 result = { status: "ready", patch: nativePatch };
               else if (previous === undefined || next === undefined)
                 result = { status: "source-unavailable" };
               else
                 result = createBoundedPatch({
+                  ...data,
                   path: identity,
                   before: previous,
-                  after: next,
-                  ...limits
+                  after: next
                 });
               const pending = Promise.resolve(result);
               patches.set(key, pending);

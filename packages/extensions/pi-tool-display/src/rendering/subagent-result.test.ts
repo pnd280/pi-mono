@@ -3,8 +3,11 @@ import {
   initTheme,
   type MessageRenderer
 } from "@earendil-works/pi-coding-agent";
+import { noticeEntry } from "pi-nested-instructions/notices";
 import { expect, it } from "vite-plus/test";
 
+import { keybindingHints, plainTheme } from "../test-fixture.ts";
+import { createNoticeRenderer } from "./notice.ts";
 import { createSubagentResultRenderer } from "./subagent-result.ts";
 
 it("preserves borrowed background messages through expansion and redraw", () => {
@@ -50,4 +53,41 @@ it("preserves borrowed background messages through expansion and redraw", () => 
 
     expect(message).toEqual(before);
   }
+});
+
+it("preserves borrowed instruction notices through expansion, clicks, and redraw", () => {
+  initTheme("dark", false);
+  const render = createNoticeRenderer();
+  const { customType, content, display, details } = noticeEntry(
+    "/repo/src",
+    { action: "updated", path: "/repo/src/AGENTS.md", content: "# Rules\n\u001b[31mKeep\n" },
+    "/repo"
+  );
+  const message = { role: "custom" as const, customType, content, display, details, timestamp: 0 };
+  const before = structuredClone(message);
+
+  for (const expanded of [false, true, false]) {
+    const component = render(message, { expanded, outputPad: 1, ...keybindingHints }, plainTheme);
+
+    for (const width of [80, 10]) {
+      component.render(width);
+      component.handleMouse({
+        type: "click",
+        button: "left",
+        x: 0,
+        y: 0,
+        screenX: 0,
+        screenY: 0,
+        width,
+        height: 1,
+        shift: false,
+        alt: false,
+        ctrl: false
+      });
+      component.invalidate();
+      component.render(width);
+    }
+  }
+
+  expect(message).toEqual(before);
 });
