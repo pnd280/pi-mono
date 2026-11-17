@@ -211,7 +211,6 @@ class CardRow {
   }
 
   private renderSlot(slot: Slot, width: number): string[] {
-    if (width < 1) return [];
     const { binding } = this.options;
     const current = this.preparedFor(width);
 

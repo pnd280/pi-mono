@@ -583,12 +583,12 @@ function trimShellTrailingRows(text: string, p: Projection): string {
     const newline = text.lastIndexOf("\n", end - 1);
     const row = text.slice(newline + 1, end);
     if (stripTerminalSequences(row).trim()) break;
-    if (newline < 0) return "";
+    if (newline <= 0) return "";
     trailingStyles.push(row.replace(/\s/g, ""));
     end = newline;
   }
 
-  return end === 0 ? "" : text.slice(0, end) + trailingStyles.reverse().join("");
+  return text.slice(0, end) + trailingStyles.reverse().join("");
 }
 
 function resultPartRows(

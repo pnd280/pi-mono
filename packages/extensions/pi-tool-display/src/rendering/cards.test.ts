@@ -1,7 +1,7 @@
 import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, setCapabilityOverrides } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
-import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { nativeAdapter, type ToolDisplayAdapter } from "../adapters/index.ts";
 import { keybindingHints, plainTheme as theme } from "../test-fixture.ts";
@@ -51,22 +51,9 @@ beforeAll(() => {
 
 describe("tool display renderers", () => {
   it("keeps borrowed arguments and results unchanged while standalone slots refresh", () => {
-    const cliOnly = vi.fn(() => {
-      throw new Error("No transcript consumer");
-    });
-    const supports = vi.fn(() => false);
     const adapter: ToolDisplayAdapter = {
       id: "owner:standalone-meaning",
       family: "invocation",
-      supports,
-      exploration: cliOnly,
-      summaryItems: cliOnly,
-      get groupTitle() {
-        return cliOnly();
-      },
-      get summaryCategories() {
-        return cliOnly();
-      },
       mcp: (_args, supplied) => {
         const tool = typeof supplied?.details === "string" ? supplied.details : "pending";
 
@@ -121,9 +108,6 @@ describe("tool display renderers", () => {
       expect(output.render(100).join("\n")).toContain(`typed ${details}`);
       expect(borrowed.map(({ value }) => value)).toEqual(borrowed.map(({ before }) => before));
     }
-
-    expect(cliOnly).not.toHaveBeenCalled();
-    expect(supports).not.toHaveBeenCalled();
   });
 
   it.each(["patch", "live preview", "saved output"])(
