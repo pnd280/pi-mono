@@ -8,7 +8,8 @@ import {
   fauxToolCall,
   getCurrentTools,
   type JsonObject,
-  type ProviderStreams
+  type ProviderStreams,
+  type StreamOptions
 } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/validation/provider";
@@ -259,7 +260,7 @@ function pendingCalls(
 function createDisplayFixtureStream(cwd: string): ProviderStreams["stream"] {
   const plans = scenarios(cwd);
 
-  return (model, context, { signal } = {}) =>
+  return (model, context, { signal }: StreamOptions = {}) =>
     createFixtureStream({
       model,
       signal,

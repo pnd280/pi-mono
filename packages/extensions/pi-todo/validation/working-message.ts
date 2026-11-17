@@ -5,7 +5,8 @@ import {
   contentText,
   createProvider,
   fauxToolCall,
-  type ProviderStreams
+  type ProviderStreams,
+  type StreamOptions
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream } from "@pi-mono/libs/validation/provider";
@@ -61,7 +62,7 @@ export default function workingMessageFixture(pi: ExtensionAPI): void {
     },
     { action: "update", id: 1, status: "in_progress" }
   ];
-  const stream: ProviderStreams["stream"] = (model, context, { signal } = {}) =>
+  const stream: ProviderStreams["stream"] = (model, context, { signal }: StreamOptions = {}) =>
     createFixtureStream({
       model,
       signal,
