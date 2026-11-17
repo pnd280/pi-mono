@@ -61,9 +61,9 @@ This example shows every field with its default, except `docs` and `templates`, 
 ```jsonc
 {
   "ext.pi-subagents": {
-    // Optional. A non-negative integer. 0 disables launches; 2 permits children and grandchildren. Default: 2.
+    // Optional. An integer from 0 to 100. 0 disables launches; 2 permits children and grandchildren. Default: 2.
     "maxDepth": 2,
-    // Optional. A positive integer that limits the whole live task tree, including reserved launches and stopping processes. Default: 8.
+    // Optional. An integer from 1 to 100 that limits the whole live task tree, including reserved launches and stopping processes. Default: 8.
     "maxConcurrent": 8,
     // Optional. A non-negative integer that limits the launches that wait for capacity in FIFO order. 0 rejects a launch when all slots are occupied. Default: 8.
     "maxQueued": 8,
