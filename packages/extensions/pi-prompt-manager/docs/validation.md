@@ -6,8 +6,6 @@
 
 Tests cover prompt policy, storage, editor effects, and SDK integration without visuals. They use temporary directories and captured clipboard input, never your settings, collections, or clipboard.
 
-Run the shared [browser, sizing, and remount tests](../../../libs/src/tui/README.md#validation) with `vpr '@pi-mono/libs#test' src/tui/`.
-
 ## Terminal launcher
 
 From the repository root:
@@ -26,13 +24,11 @@ Work only in the printed `Fixture:` directory.
 
 ### Reuse a fixture
 
-For reload, reopening, or concurrency checks, reuse only fixtures the launcher created, never a real agent directory. Replace the example path with the fixture's printed directory:
+For reload, reopening, or concurrency checks, reuse a fixture. Replace the example path with the fixture's printed directory:
 
 ```sh
 vpr 'pi-prompt-manager#validate:terminal' regular --reuse /tmp/pi-prompt-manager-terminal-EXAMPLE
 ```
-
-For the full syntax, pass `--help` instead of a mode.
 
 ### Basic scenario
 

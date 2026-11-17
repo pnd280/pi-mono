@@ -4,18 +4,13 @@
 
 > Last verified against Pi 1.5.2 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised comparison of search scores with the installed `fuzzyMatch` and the interaction measurement, which both last ran on Pi 1.5.0; all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline or overlay browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
 
-## Upgrade procedure
-
-1. Run the [package, API, CLI, terminal, and platform checks](validation.md). Shared mounting and interaction coverage belongs to [libs TUI](../../../libs/src/tui/README.md#validation).
-2. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
-Each item is a Pi contract that the extension relies on, with its expected result.
+Each item is a Pi contract that the extension relies on, with its expected result. Besides the checklist, run the [package, API, CLI, terminal, and platform checks](validation.md).
 
 ### Lifecycle and capture
 
-The extension starts in [`index.ts`](../src/index.ts). It must not touch settings or storage outside the TUI.
+The extension starts in [`index.ts`](../src/index.ts).
 
 - [ ] Pi emits `session_start` with `ctx.mode` set to `"tui"` only in the interactive TUI, after TUI startup.
 - [ ] Print, JSON, and RPC modes emit `session_start` with a different `ctx.mode`, so the extension reads neither settings nor storage.
@@ -65,8 +60,4 @@ Pi 1.5.2 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps
 
 ### Restoring
 
-[Restoring may normalise tabs and line endings](../README.md#restore-text). Revisit lossless editor APIs, as long as terminal safety and the exact stored and copied source are kept.
-
-### New APIs
-
-Compare any new history, browser, clipboard, and storage APIs with the checklist.
+[Restoring may normalise tabs and line endings](../README.md#restore-text). A lossless editor API can replace it only if terminal safety and the exact stored and copied source are kept.
