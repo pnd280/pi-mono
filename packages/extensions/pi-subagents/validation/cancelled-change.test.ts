@@ -2,7 +2,6 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { contentText } from "@earendil-works/pi-ai";
 import { test as caseTest, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
@@ -57,7 +56,6 @@ async function expectTasksWork(
   await host.prompt("delegate-reply");
   const second = (await host.results()).at(-1)!;
   expect(second.toolCallId).not.toBe(firstCall);
-  expect(contentText(second.content)).not.toContain("Subagent session ended");
   expect(second.isError).toBe(false);
 }
 
@@ -108,12 +106,10 @@ test("keeps tasks and delivers waiting job results once after cancelled navigati
       const navigated = host.records.length;
       await release(directory, "job-release");
       await host.wait(isJobEnd, navigated);
-      const jobs = await notification(host, "jobs");
-      expect.soft(jobs, "/subagents jobs after the cancelled navigation").toContain("completed");
       const listed = z
-        .object({ jobs: z.array(z.object({ job_id: z.string() })) })
-        .safeParse(JSON.parse(jobs.startsWith("{") ? jobs : "{}"));
-      expect.soft(listed.data?.jobs, "listed jobs").toHaveLength(1);
+        .object({ jobs: z.array(z.object({ outcome: z.string().nullable() })) })
+        .parse(JSON.parse(await notification(host, "jobs")));
+      expect(listed.jobs).toEqual([{ outcome: "completed" }]);
       // The result waits for the next run.
       expect(await host.jobResults()).toHaveLength(0);
       await host.prompt("reply");

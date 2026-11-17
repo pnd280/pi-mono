@@ -24,8 +24,6 @@ import {
 } from "@pi-mono/libs/validation/provider";
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
-import { assertFixtureWorkspace } from "./workspace.ts";
-
 export const FIXTURE_PROVIDER = "subagents-fixture";
 
 export const FIXTURE_MODEL = `${FIXTURE_PROVIDER}/scripted`;
@@ -619,8 +617,8 @@ function nextPromptCommand(): Promise<void> {
     resolve();
   };
 
-  const onData = (chunk: Buffer | string) => {
-    buffer += typeof chunk === "string" ? chunk : decoder.write(chunk);
+  const onData = (chunk: Buffer) => {
+    buffer += decoder.write(chunk);
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
     if (
@@ -967,8 +965,7 @@ function createStream(
   };
 }
 
-export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> {
-  await assertFixtureWorkspace(process.cwd());
+export default function subagentsFixture(pi: ExtensionAPI): void {
   pi.registerFlag(LAUNCH_FLAG, { description: "A fixture launch argument", type: "string" });
   pi.registerCommand("fixture-reload", {
     description: "Reload the fixture extensions",
@@ -986,6 +983,13 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     description: "Fork a fixture parent entry",
     handler: async (id, ctx) => {
       await ctx.fork(id.trim(), { position: "at" });
+    }
+  });
+  // Pi's custom entries can have no data.
+  pi.registerCommand("fixture-no-data-entry", {
+    description: "Append a custom entry without data",
+    handler: async () => {
+      pi.appendEntry("pi-subagents-fixture.no-data");
     }
   });
   let commandStarted: (() => void) | undefined;

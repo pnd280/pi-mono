@@ -405,7 +405,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         expect((await stat(`${directory}/work/interrupted-effect`)).mtimeMs).toBe(effect.mtimeMs);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
 
-        // A label that the tool accepts above the record limit leaves a run record that recovery keeps, so a rebuilt binding lists the task and resumes it in its child file.
+        // A label that the tool accepts above the record limit leaves a run record that recovery keeps, so a rebuilt binding lists the task and resumes it in its child file. A later custom entry without data does not stop the recovery.
         await host.prompt("delegate-long-label");
         const labelled = detailsSchema.parse((await host.results()).at(-1)!.details).task_id!;
         const labelledRun = (await host.entries())
@@ -417,6 +417,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           RECORD_MAX_BYTES
         );
         const live = (await taskList(host)).find((task) => task.task_id === labelled)!;
+        await host.request({ type: "prompt", message: "/fixture-no-data-entry" });
         await host.request({
           type: "prompt",
           message: `/fixture-parent-fork ${(await host.entries()).at(-1)!.id}`
@@ -934,13 +935,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         .toBe(true);
       await rejected();
 
-      for (const { pid } of await others()) {
-        try {
-          process.kill(pid, "SIGKILL");
-        } catch {
-          /* It exited after the listing. */
-        }
-      }
+      for (const { pid } of await others()) process.kill(pid, "SIGKILL");
 
       await expect.poll(others, { timeout: STEP_TIMEOUT_MS }).toEqual([]);
       await second.prompt(`history-id ${task.task_id}`);

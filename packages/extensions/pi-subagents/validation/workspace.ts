@@ -6,12 +6,6 @@ import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validat
 
 const marker = ".pi-subagents-fixture";
 
-export async function assertFixtureWorkspace(cwd: string): Promise<void> {
-  if ((await readFile(join(cwd, marker), "utf8")) !== "disposable subagents workspace\n") {
-    throw new Error("Create a disposable subagents fixture workspace first.");
-  }
-}
-
 export async function createFixtureWorkspace(
   options: {
     settings?: Record<string, unknown>;
@@ -55,13 +49,16 @@ export async function createFixtureWorkspace(
 export async function createFixtureDirectory(directory: string, name: string): Promise<string> {
   const path = join(directory, name);
   await mkdir(path);
-  await writeFile(join(path, marker), "disposable subagents workspace\n");
 
   return path;
 }
 
 export async function fixtureLaunch(directory: string) {
-  await assertFixtureWorkspace(join(directory, "work"));
+  // The launcher's `--reuse` takes any directory; start Pi only in a fixture workspace.
+  if (
+    (await readFile(join(directory, "work", marker), "utf8")) !== "disposable subagents workspace\n"
+  )
+    throw new Error("Create a disposable subagents fixture workspace first.");
 
   return createPiLaunch({
     directory,

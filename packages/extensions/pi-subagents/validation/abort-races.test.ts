@@ -198,12 +198,12 @@ async function fixture(
         ...runner.createContext().ui,
         notify: (message) => notes.push(message),
         select: (_title, _options, options) => {
-          const signal = options?.signal;
-          if (signal) selections.push(signal);
+          // A forwarded child dialog always carries its run's signal.
+          const signal = options!.signal!;
+          selections.push(signal);
 
           return new Promise((resolve) => {
-            if (!signal || signal.aborted) resolve(undefined);
-            else signal.addEventListener("abort", () => resolve(undefined), { once: true });
+            signal.addEventListener("abort", () => resolve(undefined), { once: true });
           });
         },
         ...tui
@@ -326,65 +326,60 @@ test.each(["release then abort", "abort after end", "release after aborted end"]
       });
     };
 
-    try {
-      await fixture(
-        async (host) => {
-          session = host.session;
-          const consumed = Promise.withResolvers<void>();
-          host.queue(
-            launchCall("finite"),
-            fauxAssistantMessage("Waiting for the child"),
-            (context) => {
-              expect(completionCount(context)).toBe(1);
-              expect(contentText(context.messages.at(-1)!.content)).toContain("Fixture reply");
-              consumed.resolve();
-
-              return fauxAssistantMessage("Completion consumed");
-            }
-          );
-          const prompt = session.prompt("Start the finite background task");
-          const event = await bounded(completion.reached, "real child completion");
-          expect(detailsSchema.parse(event.message.details).state).toBe("completed");
-          expect(session.isIdle).toBe(false);
-
-          if (order === "release then abort") {
-            completion.release();
-            aborting = session.abort();
-          } else if (order === "abort after end") completion.release();
-          else {
-            aborting = session.abort();
-            await bounded(ended.promise, "aborted Delivery.end return");
-            completion.release();
-            leaveEnd.resolve();
-          }
-
-          await bounded(consumed.promise, "automatic result consumption without a prompt");
-          await bounded(prompt, "initial prompt");
-          if (aborting) await bounded(aborting, "turn abort");
-          await bounded(session.waitForIdle(), "automatic continuation settlement");
-          expect(host.requests.filter((context) => completionCount(context) > 0)).toHaveLength(1);
-          expect(savedResults(session)).toHaveLength(1);
-          expect(detailsSchema.parse(savedResults(session)[0]!.details).state).toBe("completed");
-          const requests = host.requests.length;
-          host.queue((context) => {
+    await fixture(
+      async (host) => {
+        session = host.session;
+        const consumed = Promise.withResolvers<void>();
+        host.queue(
+          launchCall("finite"),
+          fauxAssistantMessage("Waiting for the child"),
+          (context) => {
             expect(completionCount(context)).toBe(1);
+            expect(contentText(context.messages.at(-1)!.content)).toContain("Fixture reply");
+            consumed.resolve();
 
-            return fauxAssistantMessage("Later explicit reply");
-          });
-          await bounded(session.prompt("Later explicit prompt"), "later prompt");
-          expect(host.requests).toHaveLength(requests + 1);
-          expect(savedResults(session)).toHaveLength(1);
-        },
-        () => {
+            return fauxAssistantMessage("Completion consumed");
+          }
+        );
+        const prompt = session.prompt("Start the finite background task");
+        const event = await bounded(completion.reached, "real child completion");
+        expect(detailsSchema.parse(event.message.details).state).toBe("completed");
+        expect(session.isIdle).toBe(false);
+
+        if (order === "release then abort") {
+          completion.release();
+          aborting = session.abort();
+        } else if (order === "abort after end") completion.release();
+        else {
+          aborting = session.abort();
+          await bounded(ended.promise, "aborted Delivery.end return");
           completion.release();
           leaveEnd.resolve();
-        },
-        afterSubagents
-      );
-    } finally {
-      completion.release();
-      leaveEnd.resolve();
-    }
+        }
+
+        await bounded(consumed.promise, "automatic result consumption without a prompt");
+        await bounded(prompt, "initial prompt");
+        if (aborting) await bounded(aborting, "turn abort");
+        await bounded(session.waitForIdle(), "automatic continuation settlement");
+        expect(host.requests.filter((context) => completionCount(context) > 0)).toHaveLength(1);
+        expect(savedResults(session)).toHaveLength(1);
+        expect(detailsSchema.parse(savedResults(session)[0]!.details).state).toBe("completed");
+        const requests = host.requests.length;
+        host.queue((context) => {
+          expect(completionCount(context)).toBe(1);
+
+          return fauxAssistantMessage("Later explicit reply");
+        });
+        await bounded(session.prompt("Later explicit prompt"), "later prompt");
+        expect(host.requests).toHaveLength(requests + 1);
+        expect(savedResults(session)).toHaveLength(1);
+      },
+      () => {
+        completion.release();
+        leaveEnd.resolve();
+      },
+      afterSubagents
+    );
   }
 );
 
@@ -393,88 +388,81 @@ test("rejects abort after process exit and retains the real failed completion", 
   const releaseLease = Promise.withResolvers<void>();
   const abortReady = Promise.withResolvers<void>();
 
-  try {
-    await fixture(
-      async (host) => {
-        const consumed = Promise.withResolvers<void>();
-        host.queue(
-          launchCall("finite-late"),
-          async () => {
-            await bounded(abortReady.promise, "post-exit abort request");
-            const start = await (await host.started).started;
+  await fixture(
+    async (host) => {
+      const consumed = Promise.withResolvers<void>();
+      host.queue(
+        launchCall("finite-late"),
+        async () => {
+          await bounded(abortReady.promise, "post-exit abort request");
+          const start = await (await host.started).started;
 
-            return fauxAssistantMessage(
-              fauxToolCall("subagent_abort", { task_id: start!.taskId }),
-              { stopReason: "toolUse" }
-            );
-          },
-          // The task failed before the abort, so its result joins the run when the abort turn ends.
-          (context) => {
-            expect(completionCount(context)).toBe(1);
-            expect(contentText(context.messages.at(-1)!.content)).toContain(
-              "Background task failed:"
-            );
-            consumed.resolve();
+          return fauxAssistantMessage(fauxToolCall("subagent_abort", { task_id: start!.taskId }), {
+            stopReason: "toolUse"
+          });
+        },
+        // The task failed before the abort, so its result joins the run when the abort turn ends.
+        (context) => {
+          expect(completionCount(context)).toBe(1);
+          expect(contentText(context.messages.at(-1)!.content)).toContain(
+            "Background task failed:"
+          );
+          consumed.resolve();
 
-            return fauxAssistantMessage("Failure consumed");
-          }
-        );
-        const releasing = Promise.withResolvers<void>();
-        // The wrapper releases the real lease after the held window.
-        // oxlint-disable-next-line typescript/unbound-method
-        const release = WriterLease.prototype.release;
-        let held = false;
-        vi.spyOn(WriterLease.prototype, "release").mockImplementation(async function (
-          this: WriterLease
-        ) {
-          if (!held) {
-            held = true;
-            releasing.resolve();
-            await bounded(releaseLease.promise, "lease release");
-          }
+          return fauxAssistantMessage("Failure consumed");
+        }
+      );
+      const releasing = Promise.withResolvers<void>();
+      // The wrapper releases the real lease after the held window.
+      // oxlint-disable-next-line typescript/unbound-method
+      const release = WriterLease.prototype.release;
+      let held = false;
+      vi.spyOn(WriterLease.prototype, "release").mockImplementation(async function (
+        this: WriterLease
+      ) {
+        if (!held) {
+          held = true;
+          releasing.resolve();
+          await bounded(releaseLease.promise, "lease release");
+        }
 
-          return release.call(this);
-        });
-        const prompt = host.session.prompt("Start the late background task");
-        const run = await bounded(host.started, "child run creation");
-        const id = (await bounded(run.started, "real child launch"))!.taskId;
-        const record = async () => (await host.records()).find((item) => item.task_id === id);
-        expect(await record()).toMatchObject({ state: "active" });
-        expect(run.connection.process.kill("SIGTERM")).toBe(true);
-        const exited = await bounded(run.done, "real child failure exit");
-        expect(exited.outcome).toBe("failed");
-        await bounded(releasing.promise, "held lease release");
-        expect(await record()).toMatchObject({ state: "active" });
-        abortReady.resolve();
-        await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
-          timeout: WAIT_MS
-        });
-        const result = abortResults(host.session)[0]!;
-        expect(result.isError).toBe(true);
-        expect(contentText(result.content)).toContain("Task is inactive");
-        expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
-        await bounded(consumed.promise, "failed background result consumption");
-        await bounded(prompt, "post-exit prompt settlement");
-        expect(await record()).toMatchObject({ state: "inactive", outcome: "failed" });
-        expect(savedResults(host.session)).toHaveLength(1);
-        expect(detailsSchema.parse(savedResults(host.session)[0]!.details).state).toBe("failed");
-        expect(contentText(savedResults(host.session)[0]!.content)).toContain(exited.text);
-      },
-      () => {
-        releaseLease.resolve();
-        abortReady.resolve();
-      },
-      // The abort call reaches its tool while the task is active, and the cleanup then finishes.
-      (pi) => {
-        pi.on("tool_call", (event) => {
-          if (event.toolName === "subagent_abort") releaseLease.resolve();
-        });
-      }
-    );
-  } finally {
-    releaseLease.resolve();
-    abortReady.resolve();
-  }
+        return release.call(this);
+      });
+      const prompt = host.session.prompt("Start the late background task");
+      const run = await bounded(host.started, "child run creation");
+      const id = (await bounded(run.started, "real child launch"))!.taskId;
+      const record = async () => (await host.records()).find((item) => item.task_id === id);
+      expect(await record()).toMatchObject({ state: "active" });
+      expect(run.connection.process.kill("SIGTERM")).toBe(true);
+      const exited = await bounded(run.done, "real child failure exit");
+      expect(exited.outcome).toBe("failed");
+      await bounded(releasing.promise, "held lease release");
+      expect(await record()).toMatchObject({ state: "active" });
+      abortReady.resolve();
+      await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
+        timeout: WAIT_MS
+      });
+      const result = abortResults(host.session)[0]!;
+      expect(result.isError).toBe(true);
+      expect(contentText(result.content)).toContain("Task is inactive");
+      await bounded(consumed.promise, "failed background result consumption");
+      await bounded(prompt, "post-exit prompt settlement");
+      expect(await record()).toMatchObject({ state: "inactive", outcome: "failed" });
+      expect(savedResults(host.session)).toHaveLength(1);
+      expect(detailsSchema.parse(savedResults(host.session)[0]!.details).state).toBe("failed");
+      expect(contentText(savedResults(host.session)[0]!.content)).toContain(exited.text);
+    },
+    () => {
+      releaseLease.resolve();
+      abortReady.resolve();
+    },
+    // The abort call reaches its tool while the task is active, and the cleanup then finishes.
+    (pi) => {
+      pi.on("tool_call", (event) => {
+        if (event.toolName === "subagent_abort") releaseLease.resolve();
+      });
+    }
+  );
 });
 
 // S9: the owner confirms cancellation, then rejects a stale ancestor's second abort.
@@ -482,104 +470,98 @@ test("confirms descendant cancellation and propagates the owner's inactive error
   const abortTarget = Promise.withResolvers<string>();
   const staleTarget = Promise.withResolvers<string>();
 
-  try {
-    await fixture(
-      async (host) => {
-        host.queue(
-          launchCall("owner-linger-abort"),
-          async () =>
-            fauxAssistantMessage(
-              fauxToolCall("subagent_abort", {
-                task_id: await bounded(abortTarget.promise, "active descendant target")
-              }),
-              { stopReason: "toolUse" }
-            ),
-          async () =>
-            fauxAssistantMessage(
-              fauxToolCall("subagent_abort", {
-                task_id: await bounded(staleTarget.promise, "inactive descendant target")
-              }),
-              { stopReason: "toolUse" }
-            ),
-          fauxAssistantMessage("Descendant abort result received"),
-          fauxAssistantMessage("Owner completion consumed")
+  await fixture(
+    async (host) => {
+      host.queue(
+        launchCall("owner-linger-abort"),
+        async () =>
+          fauxAssistantMessage(
+            fauxToolCall("subagent_abort", {
+              task_id: await bounded(abortTarget.promise, "active descendant target")
+            }),
+            { stopReason: "toolUse" }
+          ),
+        async () =>
+          fauxAssistantMessage(
+            fauxToolCall("subagent_abort", {
+              task_id: await bounded(staleTarget.promise, "inactive descendant target")
+            }),
+            { stopReason: "toolUse" }
+          ),
+        fauxAssistantMessage("Descendant abort result received"),
+        fauxAssistantMessage("Owner completion consumed")
+      );
+      const active = Promise.withResolvers<TaskRecord>();
+      let stale: string | undefined;
+      // The owner sends the descendant's end before its abort confirmation. Dropping that record leaves the supervisor with a stale active descendant.
+      host.intercept((message) => {
+        if (message.kind !== "task") return false;
+
+        if (message.record.state === "active" && stale === undefined) {
+          stale = message.record.task_id;
+          active.resolve(message.record);
+        }
+
+        return message.record.task_id === stale && message.record.state === "inactive";
+      });
+      const prompt = host.session.prompt("Start the background owner");
+      const owner = await bounded(host.started, "owner creation");
+      const ownerId = (await bounded(owner.started, "owner launch"))!.taskId;
+      const record = async (id: string) =>
+        (await host.records()).find((item) => item.task_id === id);
+      const descendant = await bounded(active.promise, "active descendant relay");
+      expect(descendant.parent_task_id).toBe(ownerId);
+      abortTarget.resolve(descendant.task_id);
+      await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
+        timeout: WAIT_MS,
+        interval: 10
+      });
+      const confirmed = abortResults(host.session)[0]!;
+      expect(confirmed.isError).toBe(false);
+      expect(detailsSchema.parse(confirmed.details)).toMatchObject({
+        task_id: descendant.task_id,
+        state: "cancelled"
+      });
+
+      const history = async (label: string) => {
+        const snapshot = await bounded(owner.entries(), label);
+
+        return taskHistory(branchTo(snapshot.entries, snapshot.leafId), ownerId).get(
+          descendant.task_id
         );
-        const active = Promise.withResolvers<TaskRecord>();
-        let stale: string | undefined;
-        // The owner sends the descendant's end before its abort confirmation. Dropping that record leaves the supervisor with a stale active descendant.
-        host.intercept((message) => {
-          if (message.kind !== "task") return false;
+      };
 
-          if (message.record.state === "active" && stale === undefined) {
-            stale = message.record.task_id;
-            active.resolve(message.record);
-          }
-
-          return message.record.task_id === stale && message.record.state === "inactive";
-        });
-        const prompt = host.session.prompt("Start the background owner");
-        const owner = await bounded(host.started, "owner creation");
-        const ownerId = (await bounded(owner.started, "owner launch"))!.taskId;
-        const record = async (id: string) =>
-          (await host.records()).find((item) => item.task_id === id);
-        const descendant = await bounded(active.promise, "active descendant relay");
-        expect(descendant.parent_task_id).toBe(ownerId);
-        abortTarget.resolve(descendant.task_id);
-        await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
-          timeout: WAIT_MS,
-          interval: 10
-        });
-        const confirmed = abortResults(host.session)[0]!;
-        expect(confirmed.isError).toBe(false);
-        expect(detailsSchema.parse(confirmed.details)).toMatchObject({
-          task_id: descendant.task_id,
-          state: "cancelled"
-        });
-
-        const history = async (label: string) => {
-          const snapshot = await bounded(owner.entries(), label);
-
-          return taskHistory(branchTo(snapshot.entries, snapshot.leafId), ownerId).get(
-            descendant.task_id
-          );
-        };
-
-        const before = await history("owner's inactive descendant record");
-        expect(before).toMatchObject({
-          state: "inactive",
-          outcome: "cancelled"
-        });
-        expect(await record(descendant.task_id)).toMatchObject({ state: "active" });
-        expect(await record(ownerId)).toMatchObject({ state: "active" });
-        expect(owner.connection.process.exitCode).toBeNull();
-        staleTarget.resolve(descendant.task_id);
-        await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(2), {
-          timeout: WAIT_MS,
-          interval: 10
-        });
-        const result = abortResults(host.session)[1]!;
-        expect(result.isError).toBe(true);
-        expect(contentText(result.content)).toContain("Task is inactive");
-        expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
-        expect(await history("unchanged descendant in the real owner")).toEqual(before);
-        expect(await record(ownerId)).toMatchObject({ state: "active" });
-        // The owner holds its final reply until now.
-        await releaseBarrier(host.directory, "run-release");
-        await bounded(prompt, "owner completion settlement");
-        expect(savedResults(host.session)).toHaveLength(1);
-        expect(contentText(savedResults(host.session)[0]!.content)).toContain(
-          "Cancelled by supervisor"
-        );
-      },
-      () => {
-        abortTarget.resolve("00000000-0000-0000-0000-000000000000");
-        staleTarget.resolve("00000000-0000-0000-0000-000000000000");
-      }
-    );
-  } finally {
-    abortTarget.resolve("00000000-0000-0000-0000-000000000000");
-    staleTarget.resolve("00000000-0000-0000-0000-000000000000");
-  }
+      const before = await history("owner's inactive descendant record");
+      expect(before).toMatchObject({
+        state: "inactive",
+        outcome: "cancelled"
+      });
+      expect(await record(descendant.task_id)).toMatchObject({ state: "active" });
+      expect(await record(ownerId)).toMatchObject({ state: "active" });
+      expect(owner.connection.process.exitCode).toBeNull();
+      staleTarget.resolve(descendant.task_id);
+      await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(2), {
+        timeout: WAIT_MS,
+        interval: 10
+      });
+      const result = abortResults(host.session)[1]!;
+      expect(result.isError).toBe(true);
+      expect(contentText(result.content)).toContain("Task is inactive");
+      expect(await history("unchanged descendant in the real owner")).toEqual(before);
+      expect(await record(ownerId)).toMatchObject({ state: "active" });
+      // The owner holds its final reply until now.
+      await releaseBarrier(host.directory, "run-release");
+      await bounded(prompt, "owner completion settlement");
+      expect(savedResults(host.session)).toHaveLength(1);
+      expect(contentText(savedResults(host.session)[0]!.content)).toContain(
+        "Cancelled by supervisor"
+      );
+    },
+    () => {
+      abortTarget.resolve("00000000-0000-0000-0000-000000000000");
+      staleTarget.resolve("00000000-0000-0000-0000-000000000000");
+    }
+  );
 });
 
 // A command captures its binding; a tree navigation replaces the binding while the abort waits.

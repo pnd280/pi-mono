@@ -57,13 +57,9 @@ export class Supervisor {
     try {
       await host.state();
     } catch (error) {
-      const stopped = await host.stop().then(
-        () => undefined,
-        (stopError: unknown) => stopError
-      );
-      throw stopped === undefined
-        ? error
-        : new AggregateError([error, stopped], "The supervisor failed to start and to stop");
+      // The caller never receives this supervisor, so its teardown cannot stop it.
+      await host.stop().catch(() => undefined);
+      throw error;
     }
 
     return host;
@@ -216,15 +212,12 @@ export class Supervisor {
       clearTimeout(timer);
     }
 
-    const exited = child.exitCode !== null || child.signalCode !== null;
     child.kill("SIGKILL");
     child.stdout.destroy();
     child.stderr.destroy();
     await this.connection.closed;
     throw new Error(
-      exited
-        ? "Another process held the supervisor's output pipes after the supervisor exited"
-        : `The supervisor did not exit after its input closed; stderr: ${this.connection.stderrTail}`
+      `The supervisor or a holder of its output pipes outlived its closed input; stderr: ${this.connection.stderrTail}`
     );
   }
 }
