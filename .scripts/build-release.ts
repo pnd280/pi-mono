@@ -1,5 +1,5 @@
 // Build the tree of the `release` branch: one Pi package that holds every extension and that `pi install git:…` can install with npm, pnpm, or Bun. Then install a copy as Pi does and start the Pi CLI with every extension.
-// Usage: node .scripts/build-release.ts [output-directory]   (default: .tmp/release)
+// Usage: node .scripts/build-release.ts   (writes .tmp/release)
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
@@ -8,29 +8,18 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
-  realpathSync,
   rmSync,
   writeFileSync
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, posix, relative, resolve } from "node:path";
+import { join, posix, resolve } from "node:path";
 
 import { z } from "zod";
 
 const root = resolve(import.meta.dirname, "..");
-const scratch = join(root, ".tmp");
-const output = resolve(process.argv[2] ?? join(scratch, "release"));
+const output = join(root, ".tmp/release");
 
-// Only clear an existing directory inside .tmp/, so a mistyped argument cannot delete other work. Resolve both paths first, so a symlink in the output path cannot lead outside .tmp/.
-if (existsSync(output)) {
-  const local = existsSync(scratch) ? relative(realpathSync(scratch), realpathSync(output)) : "..";
-
-  if (local === "" || local.startsWith("..") || isAbsolute(local)) {
-    throw new Error(`${output} exists; remove it or choose another directory`);
-  }
-
-  rmSync(output, { recursive: true });
-}
+rmSync(output, { recursive: true, force: true });
 
 function packageNames(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true })

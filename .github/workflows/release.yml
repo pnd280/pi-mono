@@ -26,7 +26,7 @@ jobs:
           node-version-file: .node-version
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: node .scripts/build-release.ts "$RUNNER_TEMP/release"
+      - run: node .scripts/build-release.ts
       - name: Commit the build to the release branch and tag its version
         env:
           GIT_AUTHOR_NAME: github-actions[bot]
@@ -43,26 +43,19 @@ jobs:
           fi
           # A separate index stages the build tree; its .gitignore leaves out node_modules.
           export GIT_INDEX_FILE="$RUNNER_TEMP/release-index"
-          git --work-tree="$RUNNER_TEMP/release" add --all
+          git --work-tree=.tmp/release add --all
           tree=$(git write-tree)
-          commit=""
-          parent=()
           refs=()
-          # No parent on the first run. If the fetch fails for another reason, the push below is not a fast-forward and fails.
-          if git fetch --depth=1 origin release; then
-            if [ "$tree" = "$(git rev-parse 'FETCH_HEAD^{tree}')" ]; then
-              echo "The release branch already has this build."
-              commit=$(git rev-parse FETCH_HEAD)
-            else
-              parent=(-p FETCH_HEAD)
-            fi
-          fi
-          if [ -z "$commit" ]; then
-            commit=$(git commit-tree "$tree" "${parent[@]}" -m "chore(release): build $GITHUB_SHA")
+          git fetch --depth=1 origin release
+          if [ "$tree" = "$(git rev-parse 'FETCH_HEAD^{tree}')" ]; then
+            echo "The release branch already has this build."
+            commit=$(git rev-parse FETCH_HEAD)
+          else
+            commit=$(git commit-tree "$tree" -p FETCH_HEAD -m "chore(release): build $GITHUB_SHA")
             refs+=("$commit:refs/heads/release")
           fi
           # Tag the first build of each version. One atomic push publishes the branch and the tag together, so a failed tag push cannot leave that build untagged. Tags never move: the push without --force fails instead of replacing a tag. An unchanged tree pushes only a missing tag, so a rerun adds a tag that an earlier run did not push.
-          tag="v$(node -p "require(process.env.RUNNER_TEMP + '/release/package.json').version")"
+          tag="v$(node -p "require('./.tmp/release/package.json').version")"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
             echo "Tag $tag already exists."
           else
