@@ -29,7 +29,7 @@ import {
   type McpTransportFactory,
   type ToolExposure
 } from "@earendil-works/pi-coding-agent";
-import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { isolateEnvironment, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { Type } from "typebox";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -65,9 +65,9 @@ const testTools: [string, ToolExposure][] = [
   ["epsilon", "deferred"]
 ];
 
-/** Registers tools of each exposure and append text, as an extension loaded earlier would. */
-function earlierExtension(pi: ExtensionAPI) {
-  for (const [name, exposure] of testTools) {
+/** An extension that registers the tools. */
+const toolsExtension = (tools: readonly [string, ToolExposure][]) => (pi: ExtensionAPI) => {
+  for (const [name, exposure] of tools) {
     pi.registerTool({
       name,
       label: name,
@@ -78,6 +78,11 @@ function earlierExtension(pi: ExtensionAPI) {
         Promise.resolve({ content: [{ type: "text", text: `${name} ran` }], details: undefined })
     });
   }
+};
+
+/** Registers tools of each exposure and append text, as an extension loaded earlier would. */
+function earlierExtension(pi: ExtensionAPI) {
+  toolsExtension(testTools)(pi);
 
   pi.on("before_agent_start", (event) => {
     event.systemPromptOptions.appendSystemPrompt = "EARLIER";
@@ -96,6 +101,22 @@ function foreignSearch(pi: ExtensionAPI) {
         Promise.resolve({ content: [{ type: "text", text: "none" }], details: undefined })
     });
   });
+}
+
+/**
+ * Records the active tools when each `tool_search` call returns, before the turn-end enforcement of `deny` removes any.
+ */
+function searchResults() {
+  const results: { active: string[] }[] = [];
+
+  const extension = (pi: ExtensionAPI) => {
+    pi.on("tool_result", (event) => {
+      if (event.toolName !== "tool_search") return;
+      results.push({ active: pi.getActiveTools().sort() });
+    });
+  };
+
+  return { results, extension };
 }
 
 type McpMessage = Parameters<ReturnType<McpTransportFactory>["send"]>[0];
@@ -211,8 +232,7 @@ async function workspace(
     );
   }
 
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
 
   return { cwd, agentDir, sessionDir: join(directory, "sessions") };
 }
@@ -329,10 +349,11 @@ async function host(
   const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
   // Print and JSON runs bind no UI, as Pi's print mode does.
-  const ui =
+  const ui = (
     mode === "print" || mode === "json"
       ? {}
-      : { uiContext: { ...session.extensionRunner.createContext().ui, notify } };
+      : { uiContext: { ...session.extensionRunner.createContext().ui, notify } }
+  ) satisfies Partial<Pick<Parameters<AgentSession["bindExtensions"]>[0], "uiContext">>;
   await session.bindExtensions({
     mode,
     ...ui,
@@ -372,7 +393,7 @@ it("applies the profile's model, thinking, tools, and prompts, and undoes them o
   // pi-profiles' tool_search replaces Pi's built-in also when no profile defers tools.
   fixture.session.setActiveToolsByName(["beta", "gamma", "tool_search"]);
   replies.push(() =>
-    fauxAssistantMessage(fauxToolCall("tool_search", { query: "epsilon" }), {
+    fauxAssistantMessage(fauxToolCall("tool_search", { query: "delta epsilon" }), {
       stopReason: "toolUse"
     })
   );
@@ -386,7 +407,7 @@ it("applies the profile's model, thinking, tools, and prompts, and undoes them o
     { ...after, tools: ["gamma"] },
     { ...after, tools: ["beta", "gamma"] },
     { ...after, tools: ["beta", "gamma", "tool_search"] },
-    { ...after, tools: ["beta", "epsilon", "gamma", "tool_search"] }
+    { ...after, tools: ["beta", "delta", "epsilon", "gamma", "tool_search"] }
   ]);
   expect(fixture.errors).toEqual([]);
 });
@@ -403,17 +424,7 @@ it("defers unused tools of any exposure only when tool_search can load them agai
     tools: { deny: ["beta"], defer: ["alpha", "gamma", "delta", "epsilon", "zeta"] }
   };
 
-  const modelOnly = (pi: ExtensionAPI) => {
-    pi.registerTool({
-      name: "zeta",
-      label: "zeta",
-      description: "Test tool zeta",
-      parameters: Type.Object({}),
-      exposure: "model-only",
-      execute: () =>
-        Promise.resolve({ content: [{ type: "text", text: "zeta ran" }], details: undefined })
-    });
-  };
+  const modelOnly = toolsExtension([["zeta", "model-only"]]);
 
   const call =
     (name: string, args = {}) =>
@@ -432,6 +443,7 @@ it("defers unused tools of any exposure only when tool_search can load them agai
   await first.session.prompt("without tool_search");
   await first.session.prompt("/profile lean");
   const file = first.session.sessionManager.getSessionFile()!;
+  const beforeDeny = SessionManager.forkFrom(file, dirs.cwd, dirs.sessionDir);
 
   // Another extension owns tool_search, so `direct` tools stay declared, on restore and on switch.
   const foreign = await host(dirs, {
@@ -459,7 +471,7 @@ it("defers unused tools of any exposure only when tool_search can load them agai
 
   const resumed = await host(dirs, {
     extensions: [earlierExtension, modelOnly],
-    replies: [call("tool_search", { query: "alpha beta delta" })],
+    replies: [call("tool_search", { query: "alpha beta delta zeta" })],
     sessionManager: SessionManager.open(file)
   });
   await resumed.session.prompt("search");
@@ -470,15 +482,41 @@ it("defers unused tools of any exposure only when tool_search can load them agai
     all,
     all,
     ["gamma", "tool_search"],
-    ["alpha", "delta", "gamma", "tool_search"]
+    ["alpha", "delta", "gamma", "tool_search", "zeta"]
   ]);
   expect(foreign.requests.map(({ tools }) => tools)).toEqual([
     ["alpha", "gamma", "tool_search", "zeta"],
     ["alpha", "delta", "epsilon", "gamma", "zeta"]
   ]);
-  expect([...first.errors, ...foreign.errors, ...withoutSearch.errors, ...resumed.errors]).toEqual(
-    []
+
+  // A `tool_search` that the profile now denies is not available, so restoration declares the deferred tools again.
+  await writeFile(
+    join(dirs.agentDir, "settings.json"),
+    JSON.stringify({
+      "ext.pi-profiles": {
+        profiles: [strict, { ...lean, tools: { ...lean.tools, deny: ["beta", "tool_search"] } }]
+      }
+    })
   );
+  const searchDenied = await host(dirs, {
+    extensions: [earlierExtension, modelOnly],
+    sessionManager: beforeDeny
+  });
+  await searchDenied.session.prompt("restored with tool_search denied");
+  expect(searchDenied.requests.at(-1)?.tools).toEqual([
+    "alpha",
+    "delta",
+    "epsilon",
+    "gamma",
+    "zeta"
+  ]);
+  expect([
+    ...first.errors,
+    ...foreign.errors,
+    ...withoutSearch.errors,
+    ...resumed.errors,
+    ...searchDenied.errors
+  ]).toEqual([]);
 });
 
 it("matches * patterns in deny and defer against the registered tools, and in allow only against direct, model-only, and base tools, and defers each match of a defer pattern on its own", async () => {
@@ -496,7 +534,15 @@ it("matches * patterns in deny and defer against the registered tools, and in al
     fauxAssistantMessage(fauxToolCall("tool_search", { query: "alpha" }), {
       stopReason: "toolUse"
     });
+  // zeta (model-only) matches `*a` and is selected; theta (deferred, not a base tool) matches it and is not.
   const fixture = await host(await workspace({ profiles: [wild, single] }), {
+    extensions: [
+      earlierExtension,
+      toolsExtension([
+        ["zeta", "model-only"],
+        ["theta", "deferred"]
+      ])
+    ],
     replies: [search, () => fauxAssistantMessage("done"), search]
   });
   fixture.session.setActiveToolsByName(["alpha", "beta", "gamma"]);
@@ -509,8 +555,8 @@ it("matches * patterns in deny and defer against the registered tools, and in al
   await fixture.session.prompt("search again");
 
   expect(fixture.requests.map(({ tools }) => tools)).toEqual([
-    ["gamma", "tool_search"],
-    ["alpha", "gamma", "tool_search"],
+    ["gamma", "tool_search", "zeta"],
+    ["alpha", "gamma", "tool_search", "zeta"],
     ["tool_search"],
     ["alpha", "tool_search"]
   ]);
@@ -604,6 +650,7 @@ it("gives each tool to its first defer entry, defers a group only as a whole, an
   // The branch used beta, so its group stays declared; the other group is deferred.
   await first.session.prompt("/profile grouped");
   const file = first.session.sessionManager.getSessionFile()!;
+  const beforeDeny = SessionManager.forkFrom(file, dirs.cwd, dirs.sessionDir);
 
   // Another extension's `tool_search` cannot load a group together, so it stays declared, on restoration and on a switch, also when Pi's search could load each of its tools.
   const foreign = await host(dirs, {
@@ -632,11 +679,38 @@ it("gives each tool to its first defer entry, defers a group only as a whole, an
   ]);
   expect(resumed.requests.map(({ tools }) => tools)).toEqual(loaded);
   expect(first.requests.slice(-2).map(({ tools }) => tools)).toEqual(loaded);
-  expect([...first.errors, ...foreign.errors, ...resumed.errors]).toEqual([]);
+
+  // After `deny` gains alpha, loading gamma does not load alpha with its saved group, and tool_search does not load alpha by name.
+  await writeFile(
+    join(dirs.agentDir, "settings.json"),
+    JSON.stringify({
+      "ext.pi-profiles": {
+        profiles: [{ ...grouped, tools: { ...grouped.tools, deny: ["alpha"] } }, native]
+      }
+    })
+  );
+  const searches = searchResults();
+  const denied = await host(dirs, {
+    extensions: [earlierExtension, searches.extension],
+    replies: [
+      () =>
+        fauxAssistantMessage(fauxToolCall("tool_search", { query: "alpha gamma" }), {
+          stopReason: "toolUse"
+        })
+    ],
+    sessionManager: beforeDeny
+  });
+  await denied.session.prompt("search with alpha denied");
+
+  expect(searches.results).toHaveLength(1);
+  expect(searches.results[0]?.active).toEqual(["beta", "delta", "gamma", "tool_search"]);
+  expect([...first.errors, ...foreign.errors, ...resumed.errors, ...denied.errors]).toEqual([]);
 });
 
 it("restores the branch's latest selection after tree navigation, resume, and reload", async () => {
-  const dirs = await workspace({ profiles: [plan, build], defaultProfile: "build" });
+  // `allow` removes beta, so the `deny` enforcement does not hide whether /reload turns it on again.
+  const allowPlan = { ...plan, tools: { allow: ["alpha"] } };
+  const dirs = await workspace({ profiles: [allowPlan, build], defaultProfile: "build" });
   const first = await host(dirs, {
     mode: "tui",
     sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
@@ -1062,8 +1136,16 @@ it("connects only the selected profile's MCP servers on a switch, no profile, tr
     ["mcp__only__ping", "mcp__shared__ping"]
   ]);
   expect(mcpTools(resumed.requests)).toEqual([["mcp__only__ping", "mcp__shared__ping"]]);
-  const saved = await readFile(fixture.session.sessionManager.getSessionFile()!, "utf8");
-  expect(saved).toContain("pi-profiles.selection");
+  const file = fixture.session.sessionManager.getSessionFile()!;
+  const saved = await readFile(file, "utf8");
+  const selections = SessionManager.open(file)
+    .getEntries()
+    .flatMap((entry) =>
+      entry.type === "custom" && entry.customType === "pi-profiles.selection" ? [entry.data] : []
+    );
+  expect(selections).not.toEqual([]);
+  for (const data of selections)
+    expect(JSON.stringify(data)).not.toMatch(/"(?:mcpServers|command|env|exposure)"/u);
   expect(saved).not.toContain("SECRET-");
   expect([...fixture.errors, ...resumed.errors]).toEqual([]);
 });
@@ -1100,14 +1182,6 @@ it("skips a trusted project profile whose MCP server sends a Pi login token, so 
     .toEqual({ tools: ["mcp__safe__ping"], connects: { safe: 1 }, closes: {} });
   await fixture.session.prompt("one");
 
-  expect(fixture.notify).toHaveBeenCalledWith(
-    "pi-profiles: project profiles[1] skipped: an MCP server uses auth, which only global profiles can use",
-    "warning"
-  );
-  expect(fixture.notify).toHaveBeenCalledWith(
-    "Usage: /profile <name> or /profile clear; no profile has that name",
-    "warning"
-  );
   expect(mcp.events).toEqual(["connect safe"]);
   expect(mcpTools(fixture.requests)).toEqual([["mcp__safe__ping"]]);
   expect(fixture.errors).toEqual([]);

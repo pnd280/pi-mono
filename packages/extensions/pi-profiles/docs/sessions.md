@@ -16,7 +16,7 @@ pi-profiles saves each switch in the session, so a resumed, forked, or reloaded 
 - `/reload` keeps the selection and the declared tools.
 - On `/reload`, Pi turns on again the `direct` and `model-only` extension tools that are active by default, as it does without profiles. pi-profiles then turns off again the tools that the selection turned off, unless a request after the switch declared them. So if you turn on such a tool after the last request, it turns off again, as on resume.
 - Pi restores the model and the thinking level of the branch on resume and `/fork`, but not on `/tree`. After `/tree`, switch again to use the profile's model.
-- After `/tree`, your next prompt saves the current thinking level in the branch when the branch's saved level differs. A later resume or `/fork` then restores the current level.
+- After `/tree`, your next prompt saves the current thinking level when the branch already has a saved level and that level, as the current model supports it, differs from the current one. A later resume or `/fork` then restores the current level.
 
 When pi-profiles no longer owns `tool_search`, restoration declares deferred tools again; see [tool search](tools.md#tool-search). When an MCP server still connects during restoration, the model can lose tools that it loaded from that server; see [MCP tools](tools.md#mcp-tools).
 
@@ -28,8 +28,8 @@ When pi-profiles no longer owns `tool_search`, restoration declares deferred too
 - No profile is a selection, so after `/profile clear` the default profile does not apply to that branch.
 - At session start, pi-profiles applies the selection, `--profile`, or `defaultProfile` after the startup work of [pi-nested-instructions](../../pi-nested-instructions/README.md). So the selection entry follows its startup messages in every load order.
 - When Pi starts, the servers of the profile from `--profile` or `defaultProfile` register, or else those of the restored selection.
-- A profile from `--profile` or `defaultProfile` replaces `--model` and `--thinking` choices for that session.
-- Print, JSON, and RPC modes, including subagents, never apply `defaultProfile`. Without `--profile`, they keep the model and tools that they were given.
+- A profile from `--profile` or `defaultProfile` replaces `--model` when it sets `model`, and `--thinking` when it sets `thinking` or changes the model; see [model and thinking level](switching.md#model-and-thinking-level).
+- Print, JSON, and RPC modes, including subagents, never apply `defaultProfile`. Without `--profile`, they keep the model they were given, and a resumed session's saved selection still [restores its tools](#restoration).
 
 ### With a `--tools` list
 

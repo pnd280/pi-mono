@@ -25,18 +25,18 @@ The [adapter](../src/index.ts) relies on these contracts.
 - [ ] Pi awaits `session_shutdown` handlers before it ends a session.
 - [ ] `pi.setModel()` applies the thinking level that settings set for the model, or the default level, or else keeps the current level.
 - [ ] `pi.setActiveTools()` ignores unknown and `hidden` names.
-- [ ] `pi.getActiveTools()` returns the declared tools.
+- [ ] `pi.getActiveTools()` returns the active tools, including those whose declarations a `prepareLoadout` hook hides.
 - [ ] After the `before_agent_start` handlers, the active tools decide the run's first request unless a handler edits `systemPromptOptions.selectedTools` (`_prepareRun()` in `agent-session.js`).
 - [ ] Pi declares the first request's tools before `agent_start` (`runAgentLoop()` in pi-agent-core's `agent-loop.js`).
 - [ ] Pi takes the tools of a run's later request in `prepareNextTurnWithContext()` (`agent-session.js`), after the `turn_end` handlers (`finishTurn`) and before `turn_start`.
 - [ ] A request declares only the tools of the transcript's system messages (`streamAssistantResponse()` in `agent-loop.js`), so a `turn_start` change reaches only the request after.
-- [ ] With a `--tools` list, a tool registration turns on again every listed tool that can be declared (`_refreshToolRegistry()` in `agent-session.js`).
+- [ ] With a `--tools` list that replaces the defaults (no `+`/`-` modifiers), a tool registration turns on again every listed tool that can be declared (`_refreshToolRegistry()` in `agent-session.js`).
 - [ ] `pi.getAllTools()` reports each tool's `exposure`.
 - [ ] Tools with `codemode` or `deferred` exposure stay reachable through `tool_search` and codemode while undeclared.
 - [ ] Extension commands and shortcuts still run while the agent streams, and `ctx.isIdle()` is `false` then.
 - [ ] `ctx.mode` is `"tui"` only in the interactive terminal.
 
-Each awaited handler lets the extension wait for a switch in progress. The extension sets the profile's thinking level after the model, because `pi.setModel()` changes the level. It enforces `deny` in `turn_end`, because a `turn_start` change comes too late for the next request. After a `--tools` registration, the extension turns off the `deny` tools again.
+Each awaited handler lets the extension wait for a switch in progress. The extension sets the profile's thinking level after the model, because `pi.setModel()` changes the level. It enforces `deny` in `turn_end`, because a `turn_start` change comes too late for the next request. After a registration with a `--tools` list that replaces the defaults, the extension turns off the `deny` tools again.
 
 ### Tool search
 
@@ -53,7 +53,7 @@ The [adapter](../src/index.ts) builds the extension's `tool_search` from Pi's co
 - [ ] `pi.getAllTools()` returns each tool's `reachesTools` function as registered.
 - [ ] `pi.setActiveTools()` turns on registered `direct` and `model-only` tools.
 - [ ] The MCP extension activates a replacement `tool_search` that declares `reachesTools`.
-- [ ] With `codemode.mode` set to `"only"`, Pi hides the declarations of active `direct` tools and lists them in the codemode description (`prepareCodemodeLoadout` in `extensions/codemode/tool.js`).
+- [ ] With `codemode.mode` set to `"only"`, Pi hides the request declarations of active `direct` tools and lists those that fit `codemode.inlineBudget` in the codemode description (`prepareCodemodeLoadout` in `extensions/codemode/tool.js`).
 
 The extension adds the rest of a deferred group in the same `setActiveTools()` call. If `createToolSearchExtension()` builds a different tool, the copy changes the search for users who defer no tools. The extension recognises its own `tool_search` by `reachesTools`. The [codemode-only mode](tools.md#codemode-only-mode) section describes what users see.
 
@@ -118,10 +118,10 @@ The [selection](../src/selection.ts) module relies on these contracts.
 - [ ] Tool results in the branch carry `toolName`.
 - [ ] Nested calls from codemode scripts do not appear as tool results.
 - [ ] On resume and `/fork`, Pi restores the model and thinking level from `model_change` and `thinking_level_change` entries, which `setModel()` and `setThinkingLevel()` append.
-- [ ] When a run starts on a branch whose latest `thinking_level_change` entry differs from the current level, Pi appends an entry with the current level (`_recordThinkingLevel` in `agent-session.js`).
+- [ ] When a run starts on a branch that has a `thinking_level_change` entry whose level, clamped to the current model, differs from the current level, Pi appends an entry with the current level (`_recordThinkingLevel` in `agent-session.js`).
 - [ ] `pi.appendEntry()` entries appear in `getBranch()` as `custom` entries and are not sent to the model.
 
-When the destination branch has neither a selection nor a system message, the extension undoes the outgoing selection's changes. The host tests set `defaultTools: []` instead of `noTools`, so that Pi restores the tools. After `/reload`, the extension turns off again the tools that the selection turned off, unless the last request declared them (`getCurrentSystemMessage()`). After resume, `/fork`, and `/tree`, the extension turns off again the tools that the selection knew and the last request did not declare, because Pi turns on extension tools that the branch never recorded. The extension sets restored tools only when they change, so that Pi keeps its pending tools. It counts a later system or assistant message as a request, so a switch with no request after it is not recorded. A compaction checkpoint does not record a switch.
+The host tests set `defaultTools: []` instead of `noTools`, so that Pi restores the tools. The extension's restoration rules are in [internals](internals.md#restoration); what users see is in [sessions](sessions.md#restoration).
 
 ### Lifecycle
 
@@ -160,8 +160,7 @@ A new `CustomEditor` with `embedWorkingStatus: true` draws the working status in
 
 ## Limitations
 
-- In Pi 1.5.0 to 1.5.2, `pi.setActiveTools()` keeps the current order of the tools that stay active (`_applyToolLoadout()` in `agent-session.js`), so the extension no longer orders the declared tools. They keep Pi's activation order, which follows the load order. Only a call that turns tools off could reorder them, and that call drops Pi's pending tools.
-- In Pi 1.4.0, an offline tmux session of the installed CLI with isolated settings showed that a `deny` tool stayed off after the switch, after `/tree` to a branch with and without a recorded request, after `/fork`, and after resume. This session was not repeated on Pi 1.5.0, whose tool restoration in `agent-session.js` changed only in the tool order, or on Pi 1.5.1 and 1.5.2, which did not change it.
+- In Pi 1.5.0 to 1.5.2, `pi.setActiveTools()` keeps the current order of the tools that stay active (`_applyToolLoadout()` in `agent-session.js`), so the extension no longer orders the declared tools. Tools that stay active keep their order, and newly active tools follow the order of the requested names. Only a call that turns tools off could reorder them, and that call drops Pi's pending tools.
 - Pi 1.3.0 to 1.5.2 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
 - In Pi 1.3.0 to 1.5.2, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. Pi warns when it replaces the enabled built-in `tool-search`; the README's [side effects](../README.md#side-effects) section tells how to stop the warning. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.
