@@ -28,8 +28,7 @@ type Call = { id: string; args: JsonObject };
 type Execute = ReturnType<typeof createReadToolDefinition>["execute"];
 
 /**
- * Registers pi-read around a spied native read, writes the files into the session directory, and lets a faux model send the calls in one turn.
- * Each spied native execution sends one progress update, so update forwarding is observable.
+ * Registers pi-read around a spied native read, writes the files into the session directory, and lets a faux model send the calls in one turn. Each spied native execution sends one progress update, so update forwarding is observable.
  */
 async function readCalls(
   files: Record<string, string | Buffer>,
