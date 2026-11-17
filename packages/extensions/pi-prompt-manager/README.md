@@ -66,7 +66,7 @@ This example shows every field with its default. Remove the comments before you 
 ```jsonc
 {
   "ext.pi-prompt-manager": {
-    // Optional. How many history entries to keep. Default: 250. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it prunes on the next captured prompt.
+    // Optional. How many history entries to keep. Default: 250. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it takes effect on the next committed capture; reads and skipped consecutive duplicates do not prune.
     "historyRetention": 250,
     // Optional. Keys in Pi key syntax for each action. An empty list disables the action, and an invalid list uses the default.
     "shortcuts": {
@@ -98,7 +98,7 @@ The extension writes only to its own per-directory storage, and to the system cl
 
 ### Clipboard
 
-Copying replaces the system clipboard with the complete text, including whitespace and control characters. It times out after five seconds, and is cancelled if the session ends.
+Copying sends the stored text, including whitespace and control characters, to the native clipboard helper. On WSL, the Windows clipboard ends the text at the first NUL character. On macOS, `pbcopy` stores text that begins with an RTF or EPS file header as that format, not as plain text. Copying times out after five seconds, and is cancelled if the session ends.
 
 Requires macOS `pbcopy`, Wayland `wl-copy`, X11 `xclip` or `xsel`, or WSL `powershell.exe` with Windows Forms clipboard support. SSH and native Windows aren't supported, and there's no OSC 52 fallback, even when Pi's `PI_CLIPBOARD_OSC52` is set.
 

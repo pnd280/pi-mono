@@ -19,12 +19,8 @@ export function prepareSearchQuery(query: string): SearchQuery {
   return { phrase, terms: phrase ? phrase.split(" ") : [] };
 }
 
-/** KMP keeps even pasted multi-megabyte queries bounded without repeated overlap scans. */
-function* findLong(
-  text: string,
-  query: string,
-  accept: (start: number) => boolean
-): Steps<boolean> {
+/** Passes each start of a nonempty `query` in `text` to `accept`, in order, until it returns true. KMP keeps overlapping matches and pasted multi-megabyte queries linear, without repeated overlap scans. */
+function* find(text: string, query: string, accept: (start: number) => boolean): Steps<boolean> {
   const prefixes = new Uint32Array(query.length);
   let matched = 0;
 
@@ -51,31 +47,18 @@ function* findLong(
   return false;
 }
 
-/** Passes each start of a nonempty `query` in `text` to `accept`, in order, until it returns true. */
-function* find(text: string, query: string, accept: (start: number) => boolean): Steps<boolean> {
+function* contains(text: string, query: string): Steps<boolean> {
+  if (!query) return true;
   if (query.length > text.length) return false;
-  if (query.length > chunkSize) return yield* findLong(text, query, accept);
+  if (query.length > chunkSize) return yield* find(text, query, () => true);
 
   for (let start = 0; start < text.length; start += chunkSize) {
     if (start > 0) yield;
-    // Overlap retains matches spanning chunk boundaries; the next chunk owns later starts.
-    const window = text.slice(start, start + chunkSize + query.length - 1);
-
-    for (
-      let found = window.indexOf(query);
-      found !== -1 && found < chunkSize;
-      found = window.indexOf(query, found + 1)
-    )
-      if (accept(start + found)) return true;
+    // Overlap retains matches spanning chunk boundaries.
+    if (text.slice(start, start + chunkSize + query.length - 1).includes(query)) return true;
   }
 
   return false;
-}
-
-function* contains(text: string, query: string): Steps<boolean> {
-  if (!query) return true;
-
-  return yield* find(text, query, () => true);
 }
 
 function isBoundary(text: string, index: number): boolean {

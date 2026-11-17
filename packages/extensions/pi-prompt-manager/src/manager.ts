@@ -55,6 +55,7 @@ export class PromptManager {
   private queueBytes = 0;
   private pumping = false;
   private warned = false;
+  private warnedCleanup = false;
   private saving = false;
   private copying = false;
   private restorationRevision = 0;
@@ -130,11 +131,11 @@ export class PromptManager {
             recordedAt: entry.recordedAt
           });
 
-          if (
-            result.status === "failed" ||
-            (result.status === "committed" && result.warnings.length)
-          )
-            this.automaticWarning();
+          if (result.status === "failed") this.automaticWarning();
+          else if (result.status === "committed" && result.warnings.length && !this.warnedCleanup) {
+            this.warnedCleanup = true;
+            this.reportMutation(result, "pi-prompt-manager: prompt history recorded.");
+          }
         } catch {
           this.automaticWarning();
         }

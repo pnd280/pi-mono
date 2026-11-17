@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import {
   chmod,
   link,
+  mkdir,
   mkdtemp,
   open,
   readFile,
@@ -105,17 +106,22 @@ it.runIf(process.platform === "linux")(
   }
 );
 
-posixIt("checks descriptor ownership before permission repair", async () => {
-  const path = join(directory, "owner-check");
-  await writeFile(path, "untouched", { mode: 0o644 });
-  const handle = await open(path, "r");
+posixIt.for([false, true])(
+  "checks descriptor ownership before permission repair (directory: %s)",
+  async (isDirectory) => {
+    const path = join(directory, "owner-check");
+    if (isDirectory) await mkdir(path, { mode: 0o755 });
+    else await writeFile(path, "untouched", { mode: 0o644 });
+    const mode = (await stat(path)).mode & 0o777;
+    const handle = await open(path, "r");
 
-  try {
-    const uid = (await handle.stat()).uid;
-    vi.spyOn(process, "getuid").mockReturnValue(uid + 1);
-    await expect(checkHandle(handle)).rejects.toBeInstanceOf(PrivateFileError);
-    expect((await handle.stat()).mode & 0o777).toBe(0o644);
-  } finally {
-    await handle.close();
+    try {
+      const uid = (await handle.stat()).uid;
+      vi.spyOn(process, "getuid").mockReturnValue(uid + 1);
+      await expect(checkHandle(handle, isDirectory)).rejects.toBeInstanceOf(PrivateFileError);
+      expect((await handle.stat()).mode & 0o777).toBe(mode);
+    } finally {
+      await handle.close();
+    }
   }
-});
+);

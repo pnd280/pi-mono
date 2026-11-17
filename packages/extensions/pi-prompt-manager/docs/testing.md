@@ -48,8 +48,10 @@ This package tests collection formats, retention and recovery, activation, clipb
 
 ## Not tested
 
-- History deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover them. The live-input scenario also checks capture ordering as part of the capture invariant.
+- History deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover browser rows, command syntax, and editor restoration; history deduplication and ranking order have no dedicated check. The live-input scenario also checks capture ordering as part of the capture invariant.
 - Settings parsing and fallback are below the severity bar.
+- Unlocked reads during an atomic replacement on POSIX are not tested, because the race shows only under many concurrent replacements. The [storage permissions and writes check](validation.md#storage-permissions-and-writes) covers it.
+- Input typed or restored while a draft save is pending is not tested, because exposing it needs an SDK editor scenario that holds the locked draft write open while the editor changes, and the maintainers declined that scenario. `saveEditor` clears the editor only when the editor text and the restore revision still match what it saved; review changes to that check by hand.
 - Event-loop responsiveness during large collection processing is below the severity bar. The [interaction measurement](validation.md#interaction-measurement) covers it.
 - Libs owns the shared browser geometry.
 - Pi owns native editor history.

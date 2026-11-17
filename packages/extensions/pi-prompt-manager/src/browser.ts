@@ -167,7 +167,7 @@ export async function openBrowser(
           }
         }),
     cancelError: new PromptError(
-      "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy and reload."
+      "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy, then /reload."
     )
   };
 

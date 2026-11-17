@@ -44,7 +44,7 @@ function parseSettings(value: unknown): { settings: Settings; warnings: string[]
   const bindings = (action: ShortcutAction) => {
     const parsed = shortcutsSchema.shape[action].safeParse(shortcuts[action]);
     if (parsed.success) return parsed.data;
-    warnings.push("invalid launch shortcut list; using that action's default.");
+    warnings.push(`invalid shortcuts.${action}; using its default.`);
 
     return shortcutsSchema.shape[action].parse(undefined);
   };

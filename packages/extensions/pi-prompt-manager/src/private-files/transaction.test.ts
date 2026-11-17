@@ -111,14 +111,14 @@ it("drains a started commit and its lock cleanup while refusing queued writes", 
   const next = transactions.run("data", options);
   const disposed = vi.fn();
   const finishing = scope.dispose().then(disposed);
-  await Promise.resolve();
+  await new Promise(setImmediate);
   expect(disposed).not.toHaveBeenCalled();
   proceed.resolve();
   await finishing;
-  expect(await first).toMatchObject({ status: "committed", warnings: [], cleanupErrors: [] });
-  expect((await next).status).toBe("failed");
   expect(await readFile(path, "utf8")).toBe("1");
   expect(await readdir(directory)).toEqual(["data"]);
+  expect(await first).toMatchObject({ status: "committed", warnings: [], cleanupErrors: [] });
+  expect((await next).status).toBe("failed");
 });
 
 it("reports post-commit and lock-release failures without reclassifying a committed write", async () => {

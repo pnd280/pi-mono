@@ -143,7 +143,7 @@ export async function privateDirectory(path: string): Promise<void> {
 export async function privateOpen(path: string, flags = constants.O_RDONLY): Promise<FileHandle> {
   // Preflight avoids even opening devices; descriptor checks below remain authoritative.
   const entry = await lstat(path, { bigint: true });
-  if (!entry.isFile() || entry.nlink !== 1n)
+  if (!entry.isFile() || entry.nlink > 1n)
     throw new PrivateFileError(
       "Storage file is a symlink, hard link, or nonregular file; access refused."
     );

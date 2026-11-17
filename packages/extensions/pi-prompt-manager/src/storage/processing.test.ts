@@ -6,12 +6,17 @@ import { entry, recordedAt } from "../test-fixture.ts";
 import { readCollectionAsync, updateCollectionAsync } from "./processing.ts";
 
 const options = { collection: "drafts", cwd: "/fixture", retention: 250 } as const;
+const metadata = "x".repeat(2 * 1024 * 1024);
+const retainedId = "00000000-0000-4000-8000-000000000001";
 const raw = () =>
   Buffer.from(
     JSON.stringify({
       version: 1,
       cwd: options.cwd,
-      entries: [entry("exact\ttext", { metadata: "x".repeat(2 * 1024 * 1024) }), entry("keep")],
+      entries: [
+        { id: retainedId, text: "exact\ttext", recordedAt, metadata },
+        { id: "00000000-0000-4000-8000-000000000002", text: "plain", recordedAt }
+      ],
       ["__proto__"]: { preserved: true },
       extra: { preserved: true }
     })
@@ -33,14 +38,34 @@ it("processes collections without detaching borrowed bytes or rewriting retained
   expect(actual).toMatchObject({
     status: "ready",
     access: "writable",
-    entries: [{ source: { text: "exact\ttext" } }, { source: { text: "keep" } }]
+    entries: [{ source: { text: "exact\ttext" } }, { source: { text: "plain" } }]
   });
   expect(bytes.toString("utf8")).toContain("exact\\ttext");
-  const operation = { kind: "delete", target: actual.entries[0]! } as const;
-  expect(await updateCollectionAsync({ ...options, raw: bytes, operation })).toMatchObject({
-    status: "replace",
-    value: { entries: [{ source: { text: "keep" } }] }
-  });
+  const operation = { kind: "delete", target: actual.entries[1]! } as const;
+  const update = await updateCollectionAsync({ ...options, raw: bytes, operation });
+  expect(update.status === "replace" && update.content).toBe(
+    [
+      "{",
+      '  "version": 1,',
+      '  "cwd": "/fixture",',
+      '  "entries": [',
+      "    {",
+      `      "id": "${retainedId}",`,
+      '      "text": "exact\\ttext",',
+      `      "recordedAt": "${recordedAt}",`,
+      `      "metadata": "${metadata}"`,
+      "    }",
+      "  ],",
+      '  "__proto__": {',
+      '    "preserved": true',
+      "  },",
+      '  "extra": {',
+      '    "preserved": true',
+      "  }",
+      "}",
+      ""
+    ].join("\n")
+  );
 
   // In process and through the worker, a write would turn the retained number into null.
   for (const padding of [0, 2 * 1024 * 1024]) {
@@ -88,16 +113,21 @@ it("cancels active and queued processing, then accepts another operation", async
   expect(await readCollectionAsync({ ...options, raw: bytes })).toMatchObject({ status: "ready" });
 });
 
-it("rejects malformed input with safe storage diagnostics", async () => {
-  const bytes = Buffer.from("private malformed source" + " ".repeat(1024 * 1024));
-  await expect(readCollectionAsync({ ...options, raw: bytes })).rejects.toThrow(
-    "invalid UTF-8 or JSON"
-  );
-  await expect(
-    updateCollectionAsync({
-      ...options,
-      raw: bytes,
-      operation: { kind: "add", text: "new", recordedAt }
-    })
-  ).rejects.toThrow("invalid UTF-8 or JSON");
-});
+it.for([0, 1024 * 1024])(
+  "rejects malformed input with safe storage diagnostics (padding: %i)",
+  async (padding) => {
+    const bytes = Buffer.from("private malformed source" + " ".repeat(padding));
+
+    for (const operation of [
+      readCollectionAsync({ ...options, raw: bytes }),
+      updateCollectionAsync({
+        ...options,
+        raw: bytes,
+        operation: { kind: "add", text: "new", recordedAt }
+      })
+    ]) {
+      await expect(operation).rejects.toThrow("invalid UTF-8 or JSON");
+      await expect(operation).rejects.not.toThrow("private malformed source");
+    }
+  }
+);

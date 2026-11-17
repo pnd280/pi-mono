@@ -41,15 +41,15 @@ Use a trusted local Linux, macOS, or WSL filesystem with POSIX owner checks and 
 
 Setup: stop all sessions using the real working directory, including through symlink aliases, before editing collections or removing locks. Keep backups and diagnostics that contain prompts private.
 
-| Do                                                                                                                                                                         | Expect                                                                     |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Find the hash directory from the document's `cwd`. If the document is unreadable, run the hash command below and look under the [storage location](#location-and-privacy). | The directory identifies the real working directory's collections.         |
-| Set the absolute collection path, check that `$collection.backup` doesn't exist yet, and run the backup commands below.                                                    | A private backup preserves the original file.                              |
-| Repair the [document](#document-format), keeping `version: 1`, the canonical `cwd`, and `entries` in newest-first order.                                                   | The document still identifies the same working directory and record order. |
-| Keep each `text` exactly, the original `recordedAt`, and unknown fields on records and at the top level.                                                                   | The retained source data is unchanged.                                     |
-| Give invalid or duplicate IDs new unique UUIDs.                                                                                                                            | Each ID is valid and unique.                                               |
-| Remove whole records to meet the [limits](#limits); never shorten text you keep.                                                                                           | The removed records remain in the backup.                                  |
-| Keep the [permissions](#location-and-privacy) and ACL restrictions, then restart or reopen the browser.                                                                    | The collection is accessible.                                              |
+| Do                                                                                                                                                                         | Expect                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Find the hash directory from the document's `cwd`. If the document is unreadable, run the hash command below and look under the [storage location](#location-and-privacy). | The directory identifies the real working directory's collections.                 |
+| Set the absolute collection path, check that `$collection.backup` doesn't exist yet, and run the backup commands below.                                                    | A private backup preserves the original file.                                      |
+| Repair the [document](#document-format), keeping `version: 1`, the canonical `cwd`, and `entries` in newest-first order.                                                   | The document still identifies the same working directory and record order.         |
+| Keep each `text` exactly, the original `recordedAt`, and unknown fields on records and at the top level.                                                                   | The retained source data is unchanged; numbers keep their JavaScript double value. |
+| Give invalid or duplicate IDs new unique UUIDs.                                                                                                                            | Each ID is valid and unique.                                                       |
+| Remove whole records to meet the [limits](#limits); never shorten text you keep.                                                                                           | The removed records remain in the backup.                                          |
+| Keep the [permissions](#location-and-privacy) and ACL restrictions, then restart or reopen the browser.                                                                    | The collection is accessible.                                                      |
 
 Hash command:
 
@@ -98,6 +98,7 @@ Collections are UTF-8 JSON with the canonical `cwd` and entries in newest-first 
 
 - Text must not be blank.
 - Readers keep unknown fields and original timestamps. Entries with invalid timestamps can still be inspected.
+- Numbers keep their JavaScript double value, so a write rounds an integer beyond 2^53 or a decimal with more digits than a double holds.
 - A document with a number that JavaScript parses as non-finite can be inspected but is read-only, because writing it would turn that number into `null`.
 - IDs are compared without regard to case. Invalid or duplicate IDs lead to [recovery states](#recovery-states).
 
@@ -135,7 +136,7 @@ Collections are UTF-8 JSON with the canonical `cwd` and entries in newest-first 
 
 When drafts exceed the normal count, text, or file-size limits, only recovery deletion is allowed. Additions are refused, even if reformatting would make them fit.
 
-- A deletion must remove the selected occurrence, keep all other records, and make the committed file smaller. The limits may still be exceeded afterwards.
+- A deletion must remove the selected occurrence, keep all other usable records (unusable records may be dropped, see [recovery states](#recovery-states)), and make the committed file smaller. The limits may still be exceeded afterwards.
 - If pretty-printing would make the file larger, deletion isn't possible.
 - During recovery, both collections accept at most 64 MiB and 5,000 records, and each draft record at most 8 MiB as compact JSON. Repair larger files by hand.
 
