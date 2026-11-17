@@ -25,9 +25,12 @@ import {
   managerFixture,
   recordedAt,
   session,
-  workspace
+  workspace,
+  failTemporaryClose
 } from "../test-fixture.ts";
 import { FileRepository } from "./repository.ts";
+
+vi.mock("node:fs/promises", { spy: true });
 
 // These tests check POSIX modes or symlinks, which native Windows lacks or restricts.
 const posixIt = it.runIf(process.platform !== "win32");
@@ -156,7 +159,7 @@ it("rejects additions to recovery based on original bytes, permits strictly redu
   expect((await drafts()).access).toBe("delete-only");
 });
 
-it("preserves old snapshots before rename and reports post-commit cleanup separately", async () => {
+it("preserves old snapshots before rename and reports cleanup after a commit separately", async () => {
   await fixture.repository.mutate("drafts", add("original"), session());
   const failing = await FileRepository.create({
     cwd: fixture.cwd,
@@ -170,23 +173,25 @@ it("preserves old snapshots before rename and reports post-commit cleanup separa
   });
   expect((await failing.mutate("drafts", add("failed"), session())).status).toBe("failed");
   expect((await drafts()).entries.map((item) => item.source.text)).toEqual(["original"]);
+  expect((await readdir(fixture.storage)).filter((name) => /\.(tmp|lock)$/.test(name))).toEqual([]);
   const cleanupFault = await FileRepository.create({
     cwd: fixture.cwd,
     agentDir: fixture.agentDir,
     retention: 250,
     hooks: {
-      afterRename: async () => {
-        throw new Error("fault");
+      // Another owner's token makes lock release fail after the rename commits.
+      beforeRename: async () => {
+        await writeFile(join(fixture.storage, "drafts.json.lock"), "another owner");
       }
     }
   });
+  await failTemporaryClose();
   const result = await cleanupFault.mutate("drafts", add("committed"), session());
   expect(result).toMatchObject({
     status: "committed",
-    warnings: [expect.stringContaining("committed")]
+    warnings: [expect.stringContaining("descriptor"), expect.stringContaining("lock cleanup")]
   });
   expect((await drafts()).entries[0]?.source.text).toBe("committed");
-  expect((await readdir(fixture.storage)).filter((name) => /\.(tmp|lock)$/.test(name))).toEqual([]);
 });
 
 it("expires queued and processing work but waits for started atomic writes and owned lock cleanup", async () => {

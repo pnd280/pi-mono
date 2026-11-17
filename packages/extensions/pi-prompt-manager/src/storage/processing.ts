@@ -100,17 +100,13 @@ class CollectionWorker {
       worker.once("error", failed);
       worker.once("exit", exited);
 
-      try {
-        // Never transfer a borrowed Buffer's backing store (which may also be pooled).
-        const raw =
-          request.options.raw === undefined ? undefined : Uint8Array.from(request.options.raw);
-        worker.postMessage(
-          { ...request, options: { ...request.options, raw } },
-          raw ? [raw.buffer] : []
-        );
-      } catch (error) {
-        finish(error);
-      }
+      // Never transfer a borrowed Buffer's backing store (which may also be pooled).
+      const raw =
+        request.options.raw === undefined ? undefined : Uint8Array.from(request.options.raw);
+      worker.postMessage(
+        { ...request, options: { ...request.options, raw } },
+        raw ? [raw.buffer] : []
+      );
     });
   }
 }

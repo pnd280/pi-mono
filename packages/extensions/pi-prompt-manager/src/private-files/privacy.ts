@@ -38,16 +38,10 @@ function removeMacAcl(handle: FileHandle): Promise<void> {
     const child = spawn("/bin/chmod", ["-N", "/dev/fd/3"], {
       stdio: ["ignore", "ignore", "ignore", handle.fd]
     });
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new PrivateFileError("ACL repair timed out."));
-    }, 2000);
-    child.once("error", () => {
-      clearTimeout(timer);
-      reject(new PrivateFileError("Cannot establish private ACL restrictions."));
-    });
+    child.once("error", () =>
+      reject(new PrivateFileError("Cannot establish private ACL restrictions."))
+    );
     child.once("close", (code) => {
-      clearTimeout(timer);
       if (code === 0) resolve();
       else reject(new PrivateFileError("Cannot establish private ACL restrictions."));
     });

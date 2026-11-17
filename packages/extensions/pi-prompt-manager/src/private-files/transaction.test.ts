@@ -5,8 +5,11 @@ import { join } from "node:path";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
+import { failTemporaryClose } from "../test-fixture.ts";
 import { WriteLifetime } from "./lifetime.ts";
 import { PrivateFileTransactions, type PrivateTransactionOptions } from "./transaction.ts";
+
+vi.mock("node:fs/promises", { spy: true });
 
 let directory: string;
 beforeEach(async () => {
@@ -121,21 +124,21 @@ it("drains a started commit and its lock cleanup while refusing queued writes", 
   expect((await next).status).toBe("failed");
 });
 
-it("reports post-commit and lock-release failures without reclassifying a committed write", async () => {
+it("reports descriptor-close and lock-release failures without reclassifying a committed write", async () => {
   const { path, scope, transactions, options } = fixture();
+  await failTemporaryClose();
   const result = await transactions.run("data", {
     ...options,
     hooks: {
-      afterRename: async () => {
+      beforeRename: async () => {
         await writeFile(`${path}.lock`, "another owner");
-        throw new Error("cleanup fault");
       }
     }
   });
   expect(result).toMatchObject({
     status: "committed",
     value: 1,
-    warnings: ["post-commit"],
+    warnings: ["close"],
     cleanupErrors: [expect.any(Error)]
   });
   expect(await readFile(path, "utf8")).toBe("1");

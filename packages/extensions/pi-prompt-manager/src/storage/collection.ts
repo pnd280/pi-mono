@@ -4,7 +4,6 @@ import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 
 import {
-  captureText,
   documentSchema,
   draftTextSchema,
   historyTextSchema,
@@ -143,8 +142,6 @@ export function readCollection({
 }): Snapshot {
   if (raw === undefined)
     return snapshot({ collection, document: { version: 1, cwd, entries: [] }, bytes: 0 });
-  if (raw.length > limits.read)
-    throw new PromptError(`Collection exceeds the 64 MiB read bound. ${reductionGuidance}`);
   const value = decode(raw);
 
   if (!validDocument(value) || value.cwd !== cwd)
@@ -228,8 +225,6 @@ function addDraft(current: Snapshot, incoming: StoredEntry): Document {
     throw new PromptError(
       "Drafts are in recovery or read-only; additions are disabled. Back up and repair with sessions stopped, or delete recoverable occurrences."
     );
-  if (!storedEntrySchema.shape.text.safeParse(incoming.text).success)
-    throw new PromptError("Draft text is blank.");
   if (!draftTextSchema.safeParse(incoming.text).success)
     throw new PromptError("Draft exceeds 256 KiB; nothing was saved.");
   if (current.document.entries.length >= limits.draftCount) throw draftCapacityError();
@@ -278,10 +273,7 @@ function apply(current: Snapshot, operation: Mutation, retention: number): Docum
     throw new PromptError("Collection is read-only. Back up and repair with sessions stopped.");
   if (operation.kind === "delete")
     return { ...current.document, entries: deleteTarget(current, operation.target) };
-  const text = current.collection === "history" ? captureText(operation.text) : operation.text;
-
-  if (text === undefined) return undefined;
-  const entry = { id: randomUUID(), text, recordedAt: operation.recordedAt };
+  const entry = { id: randomUUID(), text: operation.text, recordedAt: operation.recordedAt };
 
   return current.collection === "history"
     ? retainHistory(current.document, entry, retention)

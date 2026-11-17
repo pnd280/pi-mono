@@ -1,7 +1,10 @@
 import { randomUUID, createHash } from "node:crypto";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import type * as fs from "node:fs/promises";
+import { mkdir, mkdtemp, open, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { vi } from "vite-plus/test";
 
 import { PromptManager, type ManagerPorts } from "./manager.ts";
 import type { Collection, Document, Snapshot, StoredEntry } from "./model.ts";
@@ -18,6 +21,24 @@ export const documentedLimits = {
   draftFile: 16 * 1024 * 1024,
   read: 64 * 1024 * 1024
 } as const;
+
+/** Make the next atomic write's descriptor close fail after the descriptor closes, which is after its rename commits. The calling test file must declare `vi.mock("node:fs/promises", { spy: true })`. */
+export async function failTemporaryClose(): Promise<void> {
+  const { open: realOpen } = await vi.importActual<typeof fs>("node:fs/promises");
+  vi.mocked(open).mockImplementation(async (...args) => {
+    const handle = await realOpen(...args);
+    if (!String(args[0]).endsWith(".tmp")) return handle;
+    vi.mocked(open).mockImplementation(realOpen);
+    const close = handle.close.bind(handle);
+
+    handle.close = async () => {
+      await close();
+      throw new Error("close fault");
+    };
+
+    return handle;
+  });
+}
 
 export function entry(text: string, extra: Record<string, unknown> = {}): StoredEntry {
   return { id: randomUUID(), text, recordedAt, ...extra };

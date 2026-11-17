@@ -93,7 +93,6 @@ export async function openBrowser(
   ports: BrowserPorts,
   request: ViewRequest
 ): Promise<void> {
-  if (request.signal.aborted) return;
   let restoration: RestorationRequest | undefined;
 
   const requestRestoration = (item: PromptItem, deleteAfterRestore: boolean) => {

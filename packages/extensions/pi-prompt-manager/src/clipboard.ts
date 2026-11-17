@@ -56,8 +56,6 @@ function nativeHelpers(
 }
 
 function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
-
   return new Promise((resolve, reject) => {
     // Clipboard owners such as wl-copy can stay as daemons; their own process group keeps them running when Ctrl+Z suspends Pi, so pastes elsewhere do not wait. Like Pi, start from /: helpers ignore it, WSL cannot start powershell.exe from a path over MAX_PATH, and daemons do not hold Pi's directory.
     const child = spawn(helper.command, helper.args, {
