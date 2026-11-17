@@ -102,9 +102,8 @@ function taskSubject(
   id: number | undefined
 ): string | undefined {
   if (id === undefined) return undefined;
-  const subject = parseDetails(result)?.tasks?.find((task) => task.id === id)?.subject;
 
-  return subject === undefined || subject === "" ? undefined : subject;
+  return parseDetails(result)?.tasks?.find((task) => task.id === id)?.subject;
 }
 
 function changeSummary(args: z.infer<typeof argsSchema>): string {
@@ -116,10 +115,10 @@ function changeSummary(args: z.infer<typeof argsSchema>): string {
   if (args.owner !== undefined) changes.push("owner");
   if (args.parentId !== undefined)
     changes.push(args.parentId === null ? "detached" : `parent → #${args.parentId}`);
-  if ((args.addBlockedBy?.length ?? 0) > 0)
-    changes.push(`blocked by +${args.addBlockedBy?.length ?? 0}`);
-  if ((args.removeBlockedBy?.length ?? 0) > 0)
-    changes.push(`blocked by -${args.removeBlockedBy?.length ?? 0}`);
+  if (args.addBlockedBy !== undefined && args.addBlockedBy.length > 0)
+    changes.push(`blocked by +${args.addBlockedBy.length}`);
+  if (args.removeBlockedBy !== undefined && args.removeBlockedBy.length > 0)
+    changes.push(`blocked by -${args.removeBlockedBy.length}`);
 
   return changes.join(" · ");
 }
@@ -218,7 +217,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     if (outcome !== "success") return undefined;
     const details = parseDetails(result);
     const parsed = parseArgs(args);
-    if (!parsed || !details?.tasks || details.error) return undefined;
+    if (!parsed || !details?.tasks) return undefined;
     const tasks = details.tasks;
     const progress = formatTodosSummary(tasks);
     const id =

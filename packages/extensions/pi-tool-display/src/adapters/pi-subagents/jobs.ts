@@ -246,14 +246,12 @@ export function jobResultCard(
     : undefined;
 }
 
-/** Expects a tool already verified as registered by pi-subagents. */
+/** Expects a `job` or `job_abort` tool already verified as registered by pi-subagents. */
 export function jobAdapter(tool: ToolInfo): ToolDisplayAdapter | undefined {
   if (tool.name === "job")
     return parametersSchema.safeParse(tool.parameters).success ? jobDisplayAdapter : undefined;
-  if (tool.name === "job_abort")
-    return abortParametersSchema.safeParse(tool.parameters).success
-      ? jobAbortDisplayAdapter
-      : undefined;
 
-  return undefined;
+  return abortParametersSchema.safeParse(tool.parameters).success
+    ? jobAbortDisplayAdapter
+    : undefined;
 }

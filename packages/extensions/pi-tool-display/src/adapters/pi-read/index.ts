@@ -103,11 +103,11 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
 
     return readSummaryItems(path === undefined ? undefined : normalizeNativePathSpaces(path), cwd);
   },
-  exploration(args, result) {
-    const input = argsSchema.safeParse(args);
-    if (!input.success || (result && !supports(args, result))) return undefined;
+  exploration(args) {
+    const path = argsSchema.safeParse(args).data?.path;
+    if (path === undefined) return undefined;
 
-    return readExploration(invocation(args), normalizeNativePathSpaces(input.data.path));
+    return readExploration(invocation(args), normalizeNativePathSpaces(path));
   },
   notices(result, expanded) {
     const interpreted = interpretReadResult(result);

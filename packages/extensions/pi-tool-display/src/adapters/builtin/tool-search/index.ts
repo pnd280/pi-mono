@@ -42,9 +42,9 @@ export const toolSearchDisplayAdapter: ToolDisplayAdapter = {
 
     return parts;
   },
-  summary(result, { args, outcome, expanded }) {
+  summary(result, { outcome, expanded }) {
     // Expanded cards show the original text, which already lists every loaded tool.
-    if (expanded || outcome !== "success" || !argsSchema.safeParse(args).success) return undefined;
+    if (expanded || outcome !== "success") return undefined;
     const loaded = detailsSchema.safeParse(result.details).data?.loaded;
     if (!loaded) return undefined;
     if (loaded.length === 0) return { text: "No matching tools" };

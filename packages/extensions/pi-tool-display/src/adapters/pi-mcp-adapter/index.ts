@@ -101,11 +101,7 @@ function invocation(
     }
   }
 
-  return [
-    { kind: "value", text: title },
-    ...parts,
-    { kind: "parameters", value: parameters ?? {} }
-  ];
+  return [{ kind: "value", text: title }, ...parts, { kind: "parameters", value: parameters }];
 }
 
 function toolKind(tool: ToolInfo): ToolKind | undefined {

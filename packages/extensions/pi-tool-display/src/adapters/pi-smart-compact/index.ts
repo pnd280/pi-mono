@@ -11,7 +11,7 @@ import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
 import { registeredBy } from "../provenance.ts";
 
-const compactArgsSchema = z.strictObject({ instructions: z.string().nullish() });
+const compactArgsSchema = z.strictObject({ instructions: z.string().optional() });
 const compactParametersSchema = z.object({
   type: z.literal("object"),
   required: z.tuple([]).optional(),
