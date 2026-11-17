@@ -20,7 +20,7 @@ export class RunThroughput {
   end(outputTokens: number, durationMs: number | undefined): void {
     this.visible = undefined;
     // Zero usage can mean the provider did not report it, especially on cancellation.
-    if (!Number.isSafeInteger(outputTokens) || outputTokens <= 0) return;
+    if (outputTokens <= 0) return;
     if (durationMs === undefined || durationMs <= 0) return;
     this.outputTokens += outputTokens;
     this.durationMs += durationMs;
