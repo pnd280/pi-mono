@@ -103,5 +103,6 @@ Here `~/.pi/agent/profiles/plan.md` contains the instructions for the `plan` pro
 | Define MCP servers in a profile                                         | [Profile MCP servers](docs/tools.md#profile-mcp-servers) |
 | Use the `/profile` menu and its tool states                             | [Profile menu](docs/menu.md)                             |
 | Resume, fork, use `/tree` or `/reload`, or start with a profile         | [Profiles across sessions](docs/sessions.md)             |
+| Change how a selection resolves, searches, or restores tools            | [Profiles internals](docs/internals.md)                  |
 | Check what the tests protect                                            | [Testing](docs/testing.md)                               |
 | Upgrade Pi                                                              | [Pi compatibility](docs/pi-compatibility.md)             |
