@@ -2,7 +2,7 @@
 
 Extensions in this workspace share code for work that touches files, processes, Pi hooks, or the terminal. For example, `settings-file` lets an extension update one key in `settings.json` under Pi's lock without losing unrelated keys.
 
-For pure helpers with no side effects, use [utils](../utils/README.md). Import each library through its entry point, such as `@pi-mono/libs/settings-file` or `@pi-mono/libs/tui/open-browser`. The [manifest](package.json) lists the supported imports.
+For pure helpers with no side effects, use [utils](../utils/README.md). The [manifest](package.json) lists the supported entry points, such as `@pi-mono/libs/settings-file` or `@pi-mono/libs/tui/open-browser`.
 
 ## Usage
 
@@ -26,8 +26,6 @@ The input-chain, prompt-parts, lifecycle, and working-message coordinators follo
 
 ### Offline validation
 
-Use these entry points only in validation code:
-
 | Library                                                                    | Responsibility                                                                          |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | [validation/interactive-host](src/validation/interactive-host/README.md)   | Installed interactive host for isolated in-process tests                                |
@@ -49,7 +47,6 @@ Each library has its own effects; none makes network requests.
 
 ## Validation
 
-| When you…                             | Read                                                            |
-| ------------------------------------- | --------------------------------------------------------------- |
-| Change a library or its tests         | [Shared-library test coverage for maintainers](docs/testing.md) |
-| Upgrade Pi or check a host assumption | [Pi compatibility for maintainers](docs/pi-compatibility.md)    |
+| When you…                             | Read                                                         |
+| ------------------------------------- | ------------------------------------------------------------ |
+| Upgrade Pi or check a host assumption | [Pi compatibility for maintainers](docs/pi-compatibility.md) |

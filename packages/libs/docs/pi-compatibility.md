@@ -6,8 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../docs/development.md#focused-validation) and the component scenarios in the [shared TUI validation](../src/tui/README.md#validation).
-2. Work through the checklist below, then update the "Last verified" line.
+Run the presentation scenarios that the [shared TUI validation](../src/tui/README.md#validation) lists.
 
 ## Checklist
 
@@ -28,7 +27,7 @@ After an upgrade, these [tool schema](../src/tool-schema/README.md) results hold
 The [shared TUI](../src/tui/README.md) depends on these Pi host contracts:
 
 - [ ] The pi-tui public exports that the shared TUI imports still exist.
-- [ ] Shared TUI layout, keybindings, images, and invalidation render as the component scenarios expect in the current Pi host.
+- [ ] Shared TUI layout, keybindings, images, and invalidation render as the presentation scenarios expect in the current Pi host.
 - [ ] Responsive remounts keep the logical view.
 - [ ] Closing an inline custom component removes only its own dialog, then shows the previous dialog or the editor and focuses it.
 - [ ] An inline custom mount that closes before Pi shows it changes no focus.
@@ -41,8 +40,6 @@ The [shared TUI](../src/tui/README.md) depends on these Pi host contracts:
 - [ ] While Pi has a pending overlay focus restore, the adapter does not take input from the overlay.
 - [ ] Teardown removes only the adapter's dispatcher, and unrelated listeners stay in `inputListeners`.
 - [ ] Unsupported routing is reported once per opening, without closing the view.
-
-Recheck the shortcut item before you change shortcut validation or resolution.
 
 ### Coordinators
 
@@ -94,7 +91,7 @@ The installed Pi 1.5.2 has these host behaviours:
 - Pi validates tool arguments with `@earendil-works/pi-schema` after it coerces them. It converts strings to numbers, wraps a single value in an array, and drops `null` in an optional property that rejects `null`. Validation messages name the field, as in `- path: missing`. Projected schemas keep working, and a nullable optional field keeps an explicit `null`.
 - Pi 1.5.2 can replace the editor while an extension dialog is open, and shows the new editor when the last dialog closes. `ctx.ui.custom()` accepts a `blocked` option for the waiting status, for inline components and for overlays. The [responsive custom UI](../src/tui/responsive-custom-ui/README.md) does not pass it.
 - Text wrapping closes strikethrough before padding and keeps style-closing codes on the preceding row when it discards whitespace. Active styling still continues on the next row. Text preview layout still gives the same rows as `wrapTextWithAnsi`.
-- An inline custom mount that closes before Pi shows it changes no focus. A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before. The input-enabled `inputHostFixture` focuses the editor at startup, as Pi does.
+- A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before.
 - A UI reset at `/reload` or session replacement does not settle the `ctx.ui.custom()` promise of a component that it disposes. The responsive custom UI calls `done()` from that `dispose()`, so its view closes in either presentation.
 - On quit, Pi aborts an active run and waits for it to settle before it emits `session_shutdown`, as it does on session replacement. The run's `agent_settled` handlers, which receive `aborted: true`, therefore run before the [shutdown revoke](../src/lifecycle/phases.md#shutdown-phase).
 

@@ -25,7 +25,3 @@ const result = await tool.execute("call-1", params, undefined, undefined, contex
 ## Caller responsibilities
 
 Own filesystem fixtures and assertions. The helper requires no terminal or disposal.
-
-## Validation
-
-Run the affected native-tool consumer suites after changing it.
