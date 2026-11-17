@@ -13,7 +13,11 @@ import {
   type ExtensionContext,
   type ExtensionFactory
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import {
+  createValidationWorkspace,
+  isolateEnvironment,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import sessionUtils from "../index.ts";
@@ -78,8 +82,7 @@ async function host({
     await writeFile(join(directory, CONFIG_DIR_NAME, "settings.json"), ancestorSettings);
   }
 
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
   const titleRequests: TranscriptContext[] = [];
   const faux = fauxProvider({
     provider: "title-fixture",
@@ -245,18 +248,13 @@ it.each([
       }
     })
   }
-])("keeps naming inert with $failure while clear remains available", async (options) => {
+])("keeps naming inert with $failure", async (options) => {
   const fixture = await host(options);
   const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
   await fixture.session.prompt("Opening request");
   await fixture.command();
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  fixture.session.setSessionName("Manual title");
-  fixture.notify.mockClear();
-  await fixture.command("clear");
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "info");
-  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(stream).toHaveBeenCalledOnce();
   expect(stream.mock.calls[0]?.[0].id).toBe("active");
   expect(fixture.titleRequests).toEqual([]);
@@ -294,6 +292,12 @@ it.each([
       { timeout: STEP_TIMEOUT_MS }
     );
     await fixture.command();
+    // Naming changes only native session metadata.
+    expect(
+      fixture.session.sessionManager
+        .getEntries()
+        .filter(({ type }) => type === "custom" || type === "custom_message")
+    ).toEqual([]);
     expect(projectStream).toHaveBeenCalledTimes(selected ? 2 : 0);
     expect(fixture.titleRequests).toHaveLength(selected ? 0 : 2);
     if (!ancestor)

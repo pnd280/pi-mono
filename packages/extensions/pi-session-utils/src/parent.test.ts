@@ -47,19 +47,21 @@ it("resolves paths and exact IDs without reading or migrating conversation histo
   expect(() => resolveParentSession(id.slice(0, 8), { cwd })).toThrow(Error);
 });
 
+it("rejects IDs that match more than one session file", () => {
+  const custom = join(directory, "custom");
+  mkdirSync(custom);
+  copyFileSync(parent, join(custom, "copy.jsonl"));
+  expect(() => resolveParentSession(id, { cwd, sessionDir: custom })).toThrow(Error);
+  expect(resolveParentSession(parent, { cwd, sessionDir: custom })).toBe(parent);
+});
+
 // Creating symlinks on Windows needs Developer Mode or administrator rights.
-it.skipIf(process.platform === "win32")(
-  "rejects ambiguous IDs and deduplicates symlinks to the same parent",
-  () => {
-    const custom = join(directory, "custom");
-    mkdirSync(custom);
-    symlinkSync(parent, join(custom, "link.jsonl"));
-    expect(resolveParentSession(id, { cwd, sessionDir: custom })).toBe(parent);
-    copyFileSync(parent, join(custom, "copy.jsonl"));
-    expect(() => resolveParentSession(id, { cwd, sessionDir: custom })).toThrow(Error);
-    expect(resolveParentSession(parent, { cwd, sessionDir: custom })).toBe(parent);
-  }
-);
+it.skipIf(process.platform === "win32")("deduplicates symlinks to the same parent", () => {
+  const custom = join(directory, "custom");
+  mkdirSync(custom);
+  symlinkSync(parent, join(custom, "link.jsonl"));
+  expect(resolveParentSession(id, { cwd, sessionDir: custom })).toBe(parent);
+});
 
 it("rejects missing, malformed, oversized, and non-file parents without leaking contents", () => {
   const invalid = join(directory, "invalid.jsonl");

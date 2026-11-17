@@ -41,7 +41,7 @@ Naming stays independent of idle checks and session-operation locking.
 
 - [ ] Pi and extension imports share the `SessionManager` prototype.
 - [ ] CLI flag values aren't available while extension factories run.
-- [ ] The first `buildSessionContext()` runs after flags are filled in, but before JSON headers, extension binding, or prompts.
+- [ ] Pi calls `buildSessionContext()` on the startup session after it fills in CLI flags, and before JSON headers, extension binding, or prompts. Earlier calls from extension factories on scratch managers come before flag values exist, and the hook ignores them.
 - [ ] `getHeader()` returns the live, writable header before a new session file is written.
 - [ ] Pi turns failures while building the startup context into nonzero exits.
 - [ ] Reload and replacement don't apply the CLI flag again.
@@ -89,6 +89,8 @@ The [naming guide](naming.md#cancellation-and-retries) states what users see.
 - [ ] Results of a superseded or cancelled generation are discarded.
 - [ ] Naming events and metadata-only name updates work in TUI, print, JSON, and RPC modes, with no conversation messages or custom stdout.
 - [ ] Persistence and child creation replace sessions without leaking old naming callbacks.
+- [ ] `buildSessionProjection().messages` applies the latest `context_edit` for each target, so naming sends model context.
+- [ ] `switchSession()` awaits `session_before_switch` handlers before it opens the target file, so text and names that change during that wait stay in the replaced session.
 
 Naming holds a generated automatic title until its run settles, because Pi reports a late abort only in `agent_settled`. If a run never settles, its automatic title is never saved.
 

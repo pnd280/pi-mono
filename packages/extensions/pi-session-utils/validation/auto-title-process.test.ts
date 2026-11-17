@@ -88,7 +88,12 @@ it.concurrent.for([
         );
       }
 
-      expect(SessionManager.open(sessionPath).getSessionName()).toBe(name);
+      const saved = SessionManager.open(sessionPath);
+      expect(saved.getSessionName()).toBe(name);
+      // Naming changes only native session metadata.
+      expect(
+        saved.getEntries().filter(({ type }) => type === "custom" || type === "custom_message")
+      ).toEqual([]);
       // Host cancellation, not the title deadline, released the stalled request.
       if (state === "pending")
         expect(JSON.parse(await readFile(join(directory, "work", stallAbortFile), "utf8"))).toEqual(
