@@ -35,6 +35,7 @@ Reads never write. These functions read at most 1 MiB for each file.
 - `save(scope, value)` refuses a project save in an untrusted project, then throws `invalidValue` for a value that fails the schema. Neither case touches the file.
 - A save replaces only its field, including an invalid old value, and keeps the rest of the section. It refuses a section that is not an object instead of repairing it.
 - A failed update throws `Check access, JSON, size and locks.`, followed by a line with `File: ` and the terminal-safe file path.
+- The schema's output must serialise to JSON and pass the schema again, because `save` re-parses a loaded value.
 - `paths` and `projectTrusted` expose the destinations and the trust decision, for example to label menu scopes.
 
 ## Locked updates

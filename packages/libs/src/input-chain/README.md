@@ -8,7 +8,7 @@ Pi passes input through `input` handlers in extension load order, so an extensio
 
 1. Observers run first, in participant ID order. Each one receives the input as it reached the chain, and Pi waits for it.
 2. Transforms run next, in ascending rank. Each one receives the text and images from the previous transform.
-3. A `transform` result replaces the text, and its images replace the images when it has any. A `handled` result ends the chain at once, as Pi's own chain does.
+3. A `transform` result replaces the text, and its `images`, when present, replace the images, so an empty array clears them. A `handled` result ends the chain at once, as Pi's own chain does.
 4. The chain returns `transform` when the text or images changed, otherwise `continue`. Pi then passes that result to later extensions.
 
 Each callback receives a fresh event object and the context of the emission. An error in an observer or transform is [reported](../coordination/README.md#errors), and the chain continues with the previous text.

@@ -4,7 +4,7 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 const codemodeNotice = "Call this tool directly. It is not available inside codemode.";
 
 /**
- * Returns `definition` with a `prepareLoadout` hook that adds {@link codemodeNotice} to its model-facing description while a tool named `codemode` is declared to the model.
+ * Returns `definition` with a `prepareLoadout` hook that adds {@link codemodeNotice} to its model-facing description while a tool named `codemode` is declared to the model. The hook replaces any existing `prepareLoadout` hook; the previous hook is not called.
  */
 export function withCodemodeNotice<T extends Pick<ToolDefinition, "name" | "description">>(
   definition: T

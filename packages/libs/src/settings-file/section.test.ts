@@ -112,7 +112,9 @@ it.runIf(process.platform !== "win32")(
     const { section, write } = fixture(true, "agent\x1b[2J\x07");
     const path = section.paths.global;
     write("global", { "ext.test": { order: 123 } });
+    const before = readFileSync(path, "utf8");
     expect(section.load().warnings).toEqual([expect.stringContaining("agent/settings.json.")]);
+    expect(readFileSync(path, "utf8")).toBe(before);
     write("global", { "ext.test": null });
     expect(() => section.save("global", ["a"])).toThrow("File: " + path.replace("\x1b[2J\x07", ""));
     write("global", {});

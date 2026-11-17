@@ -64,6 +64,7 @@ it("preserves unrelated JSON keys, including names inherited by ordinary objects
 it.each([
   ["malformed input", "{broken"],
   ["invalid UTF-8 input", Buffer.from('{"unused":"\xff"}', "latin1")],
+  ["a non-object JSON root", "[]"],
   // This row covers the output limit only: the input and the compact output with the change fit the limit, and only the formatted output does not.
   ["output above 1 MiB after formatting", JSON.stringify({ unused: "x".repeat(1024 * 1024 - 64) })]
 ])("refuses %s without replacing the file", (_case, content) => {

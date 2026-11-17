@@ -56,10 +56,11 @@ export function settingsSection<Value>(
       for (const scoped of readScopedSections(scopes, key)) {
         // A missing section loads as undefined; an unreadable file warns like a malformed section.
         if (scoped.status === "read" && scoped.value === undefined) continue;
-        const parsed =
-          scoped.status === "read" && isSettingsRecord(scoped.value)
-            ? schema.optional().safeParse(scoped.value[field])
-            : undefined;
+        const record =
+          scoped.status === "read" && isSettingsRecord(scoped.value) ? scoped.value : undefined;
+        // A missing field loads as undefined, without a schema default.
+        if (record && record[field] === undefined) continue;
+        const parsed = record ? schema.safeParse(record[field]) : undefined;
         if (parsed?.success) values[scoped.scope] = parsed.data;
         else values.warnings.push(options.loadWarning(compactDisplayText(scoped.path)));
       }

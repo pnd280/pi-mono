@@ -9,6 +9,7 @@ Confirm the same target twice before its deadline passes, for example a second k
 - `confirm(target)` returns `true` when the same (`===`) target is armed and its deadline has not passed.
 - Otherwise it arms the new target and returns `false`.
 - Expiry disarms the target and calls `expired`.
+- A successful confirmation, `cancel()`, and `dispose()` disarm the target without calling `expired`.
 
 ## Usage
 
@@ -20,8 +21,10 @@ const pending = new TimedConfirmation<string>({
   expired: () => hint.setText()
 });
 
-if (pending.confirm("interrupt")) stopRun();
-else hint.setText("Press again to stop");
+if (pending.confirm("interrupt")) {
+  hint.setText();
+  stopRun();
+} else hint.setText("Press again to stop");
 ```
 
 ## Caller responsibilities

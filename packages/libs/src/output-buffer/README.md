@@ -6,7 +6,7 @@ A tool that shows process output must keep memory bounded while the output arriv
 
 ## Behaviour
 
-The buffer retains full output through `maxBytes` raw bytes. Beyond that, it keeps `edgeLines` completed lines at each end and clips each line to `lineBytes`, split between its head and tail.
+The buffer retains full output through `maxBytes` raw bytes. Beyond that, it keeps up to `edgeLines` completed lines at each end, plus the current unfinished line, and clips each retained line to `lineBytes`, split between its head and tail.
 
 - Excerpt limits are independent of `maxBytes`.
 - Generated notices add to source limits.
@@ -40,6 +40,6 @@ child.stderr.on("end", () => {
 - Append new chunks, never replacement snapshots.
 - End with `finish()`, then `snapshot()`.
 - Mark each omission message with `outputOmission`, so that the returned ranges cover the notice. Unmarked text reads as process output.
-- Supply positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`. Other limits throw `RangeError`.
+- Supply positive integer `maxBytes`, `edgeLines`, and `lineBytes`.
 
 Related: tool display's [native observation](../../../extensions/pi-tool-display/src/observation/native.ts) supplies stream limits and omission messages, and [pi-subagents](../../../extensions/pi-subagents/src/child/connection.ts) bounds child stderr with the library.

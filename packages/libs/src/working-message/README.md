@@ -16,7 +16,7 @@ Pi shows one working message while the agent runs, so extensions that each set i
 - When more than one live extension registers a component ID, none of those components shows, and one warning names the ID.
 - Nonparticipants can overwrite the message without interception. The indicator's content and visibility are unchanged.
 - `setText()` or `setText("")` clears only that component, and `dispose()` unregisters it. Stale or disposed handles cannot mutate replacements.
-- The extension whose component has the lowest `ownerRank` hosts `/working-message`.
+- The extension whose component has the lowest `ownerRank` hosts `/working-message`; see the [command owner](command-owner.md#command-owner) rules.
 
 | When you…                                         | Read                                                                |
 | ------------------------------------------------- | ------------------------------------------------------------------- |
@@ -54,8 +54,8 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Caller responsibilities
 
-- Register once during the extension factory, before installing handlers that publish text.
-- Pass the required `ownerRank` from the [recommended owner ranks](command-owner.md#recommended-owner-ranks).
+- Register each component once during the extension factory, before installing handlers that publish its text.
+- Pass the required numeric `ownerRank`; the [recommended owner ranks](command-owner.md#recommended-owner-ranks) list the ranks in use.
 - Use a globally unique, stable ID such as `extension-name.component-name`. The [component schema](coordinator.ts) sets the character and length limits. Invalid components, an `ownerRank` that is not a number, an ID that the extension already registered, and registration after shutdown throw.
 - Register overrides in the extension factory too. Use them only for short, urgent text that must hide all contributions.
 - Keep handles runtime-local. Publish restored state in `session_start` and update it on state changes. Text stays when Pi emits `session_start` again in the same runtime.

@@ -6,6 +6,11 @@ import { joinInputChain } from "./index.ts";
 it.each(loadOrders)(
   "observes typed input, transforms in ascending rank, and stops at handled when %s loads before %s",
   async (...order) => {
+    const image = {
+      type: "image" as const,
+      data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      mimeType: "image/png"
+    };
     const observed: Record<"a" | "b", string[]> = { a: [], b: [] };
     const transformed: string[] = [];
     const { session, requests, errors } = await coordinationHost(
@@ -19,9 +24,11 @@ it.each(loadOrders)(
           chain.transform(ranks[id], (event) => {
             transformed.push(`${id}: ${event.text}`);
 
-            return id === "b" && event.text === "stop"
+            if (id === "a") return { action: "transform", text: `${event.text} +a` };
+
+            return event.text === "stop"
               ? { action: "handled" }
-              : { action: "transform", text: `${event.text} +${id}` };
+              : { action: "transform", text: `${event.text} +b`, images: [image] };
           });
         }
       }))
@@ -31,6 +38,7 @@ it.each(loadOrders)(
     await session.prompt("stop");
 
     expect(requests.map((request) => request.userText)).toEqual(["hello +b +a"]);
+    expect(requests.map((request) => request.images)).toEqual([[image]]);
     expect(observed).toEqual({ a: ["hello", "stop"], b: ["hello", "stop"] });
     expect(transformed).toEqual(["b: hello", "a: hello +b", "b: stop"]);
     expect(errors).toEqual([]);
