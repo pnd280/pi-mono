@@ -33,9 +33,7 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-t3-skills": {
-    // Optional. What each chip becomes. Default: "[{command}](<{path}>)".
-    // Must contain {path}, the skill file's path. Can contain {command}, which becomes /skill:<name>.
-    // Up to 512 Unicode code points. An invalid format is ignored.
+    // Optional. What each chip becomes. Default: "[{command}](<{path}>)". Must contain {path}, the skill file's path. Can contain {command}, which becomes /skill:<name>. Up to 512 Unicode code points. An invalid format is ignored.
     "expansionFormat": "[{command}](<{path}>)"
   }
 }
