@@ -16,7 +16,7 @@ Fix implementation diagnostics without weakening shared checks; explain narrow e
 
 ## Focused validation
 
-Run checks from the repository root. Tests require Bash and Git. FIFO tests on Unix also require `mkfifo`, and Linux ACL tests require `getfacl` and `setfacl`.
+Run checks from the repository root.
 
 Use `vpr` (`vp run`) with the package's `package.json` name. The [verification workflow](agents/verification.md) gives the `#check` and `#test` commands to run for each changed package. Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
 
@@ -24,19 +24,17 @@ To run one-off TypeScript against workspace source, put a `*.test.ts` file in a 
 
 Workspace commands:
 
-| Command                  | Scope                                                                                                                                                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vpr check`              | Formatting, linting, type checking, `docs:check`, `fingerprints:check`, and `lockfile:check`                                                                                                                  |
-| `vpr docs:check`         | Markdown links and anchors, inline prototype member names, "Last verified" lines, bold bullet labels, testing-guide sections, extension README `jsonc` blocks, and the extension count in the README and hero |
-| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods                                                                                   |
-| `vpr lockfile:check`     | One lockfile snapshot for each Pi host package                                                                                                                                                                |
-| `vpr test`               | All tests in one Vitest invocation                                                                                                                                                                            |
-| `vpr test:count`         | The number of tests and test files in each package, without running them                                                                                                                                      |
-| `vpr lint`               | Linting and type checking                                                                                                                                                                                     |
-| `vp fmt --check`         | Formatting without writes                                                                                                                                                                                     |
-| `vp fmt`                 | Apply formatting                                                                                                                                                                                              |
-
-Use `vpr check` for the repository's `stylish` lint format; the built-in `vp check` does not support custom output formats.
+| Command                  | Scope                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `vpr check`              | Formatting, linting, type checking, `docs:check`, `fingerprints:check`, and `lockfile:check`                                |
+| `vpr docs:check`         | Markdown links, anchors, and the conventions that [check-docs.ts](../.scripts/check-docs.ts) lists in its header            |
+| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods |
+| `vpr lockfile:check`     | One lockfile snapshot for each Pi host package                                                                              |
+| `vpr test`               | All tests in one Vitest invocation                                                                                          |
+| `vpr test:count`         | The number of tests in each package, without running them                                                                   |
+| `vpr lint`               | Linting and type checking                                                                                                   |
+| `vp fmt --check`         | Formatting without writes                                                                                                   |
+| `vp fmt`                 | Apply formatting                                                                                                            |
 
 ### Test caching
 
@@ -45,10 +43,6 @@ Package tests are uncached by default. To investigate cache misses, run `vpr -r 
 ## Packages and dependencies
 
 Each package declares its supported imports and dependencies; shared versions come from the workspace catalog.
-
-### Package structure
-
-Keep runtime code independent of package-local `validation/` fixtures. Across packages, import declared package names and subpaths rather than relative paths. See the boundary rules in [vite.config.ts](../vite.config.ts).
 
 ### Dependencies
 
@@ -60,7 +54,7 @@ Runtime code can import only the host entry points that Pi supplies to installed
 - the roots of `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `@earendil-works/pi-coding-agent`
 - `typebox` with `/compile` and `/value`
 
-Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker files get none of these entry points, because Node loads them without Pi's loader, so lint rejects value imports of them in the worker entries that `vite.config.ts` lists. Lint does not follow the modules that a worker entry imports; the [release check](#release-branch) finds those failures.
+Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker entries get none of these entry points. Lint checks only the entry files, not the modules that they import; the [release check](#release-branch) finds those failures.
 
 Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 

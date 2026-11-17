@@ -19,11 +19,11 @@ Use one H1, sentence-case headings, consecutive heading levels, numbered procedu
 - Write manual procedures as a setup line followed by a Do / Expect table. Each Expect cell names what the tester sees, such as "The footer shows two rows", never "It works". Merge a row into the row before when it repeats that row's action or result.
 - State each rule in one place and link to it elsewhere. User-visible behaviour belongs in the README or the user guide that it links; maintainer and tool-author docs link there. A callback contract belongs only in the tool-author reference.
 - A README section that summarises a guide gives the user-visible outcome in one or two sentences and links the guide for the conditions. A glossary entry defines the term and links the guide that owns its behaviour, without restating rules or limits.
-- Keep version-specific validation logs out of reference docs and ADRs. Start the compatibility doc with one "Last verified against Pi x.y.z" line: the method in one clause, then "Not covered:" and the gaps. Put the line directly under the title and intro, in the form `> Last verified against Pi x.y.z with <method>. Not covered: <gap>, <gap>, and <gap>.`, and separate gaps that contain commas with semicolons. Put source-diff results and host quirks under `## Limitations`, labelled with the Pi version they were observed in. An ADR keeps the evidence for its decision; record later upgrade checks in the compatibility doc.
+- Keep version-specific validation logs out of reference docs and ADRs. A compatibility doc records its last check in one quote line directly under the title and intro, in the form `> Last verified against Pi x.y.z with <method>. Not covered: <gaps>.` Put source-diff results and host quirks under `## Limitations`, labelled with the Pi version they were observed in. An ADR keeps the evidence for its decision; record later upgrade checks in the compatibility doc.
 - Use British spelling in prose. Preserve spelling in API names, settings, commands, and literal output.
 - Replace stock assurances with observable behaviour. Omit sentences that only announce what a section will explain.
 
-Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and values (`summary`), and quotes for on-screen labels ("Explored"). Do not bold versions or mode names. Use headings or lookup tables instead of bold labels at the start of bullets. The one exception is the severity and layer label, such as `**Critical, e2e:**`, that starts each invariant in a "Must not regress" list of the [testing policy](agents/testing.md#coverage).
+Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and values (`summary`), and quotes for on-screen labels ("Explored"). Do not bold versions or mode names. Use headings or lookup tables instead of bold labels at the start of bullets. The one exception is the severity and layer label, such as `**Critical, e2e:**`, that starts each invariant in a "Must not regress" list of the [testing policy](agents/testing.md#package-testing-guide).
 
 ## Package READMEs
 
@@ -62,7 +62,7 @@ A shared-module README opens with the caller's problem, then names the entry poi
 
 Follow the [Pi link policy](agents/pi-docs.md#linking-pi-documentation): published pages for users, installed references for agents checking pinned contracts. Fetch new external targets and check their anchors. Update incoming fragment links when renaming or removing headings.
 
-When revising docs, compare inline-code tokens and numbers with the previous text, check that moved facts keep their conditions, and run link and formatting checks. Preserve verified example output and distinguish placeholders in templates from commands readers can run as written.
+When revising docs, compare inline-code tokens and numbers with the previous text, and check that moved facts keep their conditions. Preserve verified example output and distinguish placeholders in templates from commands readers can run as written.
 
 ## Code comments
 
