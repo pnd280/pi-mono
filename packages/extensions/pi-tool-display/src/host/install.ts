@@ -89,7 +89,7 @@ export function installHostIntegration(
     binding.detach();
     bindings.delete(binding);
     hosts.delete(binding.host);
-    if (sessions.get(binding.host.session) === binding) sessions.delete(binding.host.session);
+    sessions.delete(binding.host.session);
   }
 
   function ensure(host: Host, reset = false): Binding | undefined {
@@ -153,7 +153,7 @@ export function installHostIntegration(
       collector,
       messages: new TranscriptMessages(configuration.valid && rowChrome),
       rows,
-      detach: collector.attach(() => host.toolOutputExpanded ?? false)
+      detach: collector.attach(() => host.toolOutputExpanded)
     };
     hosts.set(host, current);
     sessions.set(host.session, current);
@@ -258,7 +258,7 @@ export function installHostIntegration(
 
     if (modeHooks && originalToggle && originalSetExpanded) {
       hooks.replace(prototype, "toggleToolOutputExpansion", function (this: Host) {
-        const binding = active ? hosts.get(this) : undefined;
+        const binding = hosts.get(this);
         // Invalid settings keep original rendering, where summary and compact are identical.
         if (!binding?.collector.settings.valid) return originalToggle.call(this);
         transition(
@@ -268,7 +268,7 @@ export function installHostIntegration(
         );
       });
       hooks.replace(prototype, "setToolsExpanded", function (this: Host, expanded: boolean) {
-        const binding = active ? hosts.get(this) : undefined;
+        const binding = hosts.get(this);
         if (!binding?.collector.settings.valid) return originalSetExpanded.call(this, expanded);
         const mode = binding.display.coordinator.mode;
         if (expanded) transition(this, binding, "verbose");
@@ -282,15 +282,14 @@ export function installHostIntegration(
     const switchMode = prototype.switchTuiMode;
     hooks.replace(prototype, "switchTuiMode", function (this: Host, ...args: unknown[]) {
       const result = switchMode.apply(this, args);
-      const binding = active ? hosts.get(this) : undefined;
-      binding?.display.coordinator.setSummaries(summaries(this, rowChrome));
+      hosts.get(this)?.display.coordinator.setSummaries(summaries(this, rowChrome));
 
       return result;
     });
 
     const thinkingVisibility = prototype.updateThinkingBlockVisibility;
     hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
-      const binding = active ? hosts.get(this) : undefined;
+      const binding = hosts.get(this);
       // A global toggle visits every assistant row. Reconcile only after all boundaries reflect final visibility, never through intermediate merges.
       if (binding) return binding.display.coordinator.batch(() => thinkingVisibility.call(this));
 
@@ -306,7 +305,7 @@ export function installHostIntegration(
     // Pi 1.5.2 passes (items, messageMeta, options); forward every argument so footer, editor history, and saved-message metadata reach Pi's rows.
     hooks.replace(prototype, "renderSessionItems", function (this: Host, items, ...rest) {
       // Pi appends replay slices around a boundary compaction summary. Retain earlier rows and their ownership until the host clears the transcript.
-      const binding = active ? ensure(this, this.chatContainer.children.length === 0) : undefined;
+      const binding = ensure(this, this.chatContainer.children.length === 0);
       if (!binding) return reconstruct.call(this, items, ...rest);
       const result = binding.display.reconstruct(() => {
         for (const item of items)

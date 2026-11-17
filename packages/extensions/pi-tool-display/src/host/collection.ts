@@ -13,12 +13,7 @@ import { observeFileMutations } from "../file-mutations/index.ts";
 import type { DisplayFailure } from "../interpretation.ts";
 import { displayMutationSink, observeNativeDefinition } from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
-import {
-  executionOutcome,
-  hostToolResult,
-  TranscriptMessages,
-  validDuration
-} from "../transcript/messages.ts";
+import { executionOutcome, hostToolResult, TranscriptMessages } from "../transcript/messages.ts";
 import { DisplaySession, type ToolSnapshot } from "../transcript/session.ts";
 import { displaySettings } from "./configuration.ts";
 import { observeNativeTools } from "./native-tools/index.ts";
@@ -106,7 +101,7 @@ export class DisplayCollector {
       if (event.type === "tool_execution_end")
         display.result(event.toolCallId, hostToolResult(event.result), {
           outcome: executionOutcome(event.isError, this.session.agent.signal),
-          durationMs: validDuration(event.durationMs) ? event.durationMs : undefined
+          durationMs: event.durationMs
         });
       if (event.type === "agent_end") display.coordinator.settle();
     } catch {
