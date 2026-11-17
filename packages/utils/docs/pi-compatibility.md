@@ -4,12 +4,6 @@
 
 > Last verified against Pi 1.5.2 with package checks, all helper tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised probe that parses native `edit` patches with `parsePatch`, which last ran on Pi 1.5.1.
 
-## Upgrade procedure
-
-1. Run the [focused checks](../../../docs/development.md#focused-validation) for `@pi-mono/utils`.
-2. Run the checks of the libs modules and extensions whose input or output assumptions changed. Find the consumers of a module with `rg -l '@pi-mono/utils/<module>' packages apps`. This package needs no standalone terminal scenario.
-3. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
 - [ ] Pi tool results still carry text that the [output-text](../src/output-text.ts) consumers transform with omission ranges as UTF-16 offsets.
