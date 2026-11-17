@@ -2,7 +2,7 @@
 
 [pi-prompt-cloak](../README.md)
 
-> Last verified against Pi 1.5.2 with package checks and a source review of the Pi 1.5.1 to 1.5.2 changes, which leave the system prompt unchanged and change Anthropic requests only in the Claude Code version that OAuth requests report. Not covered: the offline SDK request that compares the docs section with and without the extension, which last ran on Pi 1.5.0; the other manual offline host checks; and live Anthropic acceptance, including requests that continue a message thread.
+> Last verified against Pi 1.5.2 with package checks and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the offline SDK request that compares the docs section with and without the extension, which last ran on Pi 1.5.0; the other manual offline host checks; and live Anthropic acceptance, including requests that continue a message thread.
 
 ## Upgrade procedure
 
@@ -23,4 +23,5 @@
 
 - In Pi 1.5.0, the "Tightened system prompt" change reworded both lines that the table matches. Pi 1.5.1 and 1.5.2 keep that wording. The table matches no earlier wording, so on Pi 1.4.0 the extension rewrites nothing.
 - In Pi 1.5.0, the preamble, the last line of the tools section, and the last line of the docs section also changed. The table does not rewrite them, so they reach the provider in Pi's wording.
-- In Pi 1.5.1 and 1.5.2, a request to Anthropic's own endpoint can continue a message thread, and then it leaves out the system prompt. Pi starts a new thread, with the complete system prompt, when the rewritten prompt differs from the previous request's. The rewritten wording therefore reaches the provider only in the requests that start a thread.
+- In Pi 1.5.1 and 1.5.2, a request to Anthropic's own endpoint can continue a message thread, and then it leaves out the system prompt. Pi starts a new thread, with the complete system prompt, when the rewritten prompt differs from the previous request's. Only thread continuations leave out the system prompt; every other request, including one that starts a thread, carries it.
+- In Pi 1.5.2, the source review of the Pi 1.5.1 to 1.5.2 changes found the system prompt unchanged, and Anthropic requests changed only in the Claude Code version that OAuth requests report.
