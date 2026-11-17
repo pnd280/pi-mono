@@ -73,7 +73,6 @@ async function completeTitle({ settings, registry, source, signal }: GenerationR
       sessionId: uuidv7()
     })
     .result();
-  signal.throwIfAborted();
   if (response.stopReason !== "stop")
     throw new TitleError(
       "The title model did not return a complete title. Check Pi's provider setup."
