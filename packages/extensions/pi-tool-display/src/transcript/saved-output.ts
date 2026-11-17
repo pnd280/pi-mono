@@ -16,9 +16,8 @@ const readSavedOutput = async (path: string) => (await loadReader()).readSavedOu
  */
 export class SavedOutputs {
   private cache = new Map<string, SavedOutput>();
-  private pending = new Map<string, Promise<SavedOutput | undefined>>();
+  private pending = new Map<string, Promise<SavedOutput>>();
   private evicted = new WeakSet<SavedOutput>();
-  private disposed = false;
 
   constructor(private coordinator: TranscriptCoordinator) {}
 
@@ -32,7 +31,7 @@ export class SavedOutputs {
   /** The coordinator's hook: the call's saved path, expansion, or completion changed. */
   refresh(call: DisplayCall): void {
     const path = call.savedPath;
-    if (this.disposed || !path || !call.expanded || call.lifecycle !== "complete") return;
+    if (!path || !call.expanded || call.lifecycle !== "complete") return;
 
     if (call.savedOutput?.path === path && !call.savedOutput.retryable) {
       const cached = this.cache.get(path);
@@ -48,13 +47,14 @@ export class SavedOutputs {
     this.coordinator.setSavedOutput(call, undefined);
     void this.load(path)
       .then((output) => {
-        if (this.disposed || !output || call.savedPath !== path || this.evicted.has(output)) return;
+        // A disposed coordinator ignores the update.
+        if (call.savedPath !== path || this.evicted.has(output)) return;
         this.coordinator.setSavedOutput(call, output);
       })
       .catch(() => {});
   }
 
-  private load(path: string): Promise<SavedOutput | undefined> {
+  private load(path: string): Promise<SavedOutput> {
     const cached = this.cache.get(path);
 
     if (cached) {
@@ -79,13 +79,10 @@ export class SavedOutputs {
     return promise;
   }
 
-  /** Resolved previews, including read-failure notices, are cached. Disposal discards late results. */
-  private async loadOutput(path: string): Promise<SavedOutput | undefined> {
+  /** Resolved previews, including read-failure notices, are cached. */
+  private async loadOutput(path: string): Promise<SavedOutput> {
     const output = await readSavedOutput(path);
-    // Disposal clears the cache, so a disposed owner evicts nothing.
     if (this.cache.size >= CACHE_ENTRIES) this.evictOldest();
-    // Eviction may dispose the owner.
-    if (this.disposed) return undefined;
     this.cache.set(path, output);
 
     return output;
@@ -103,7 +100,6 @@ export class SavedOutputs {
   }
 
   dispose(): void {
-    this.disposed = true;
     this.cache.clear();
     this.pending.clear();
   }

@@ -35,7 +35,6 @@ function fixture(
     coordinator,
     saved,
     dispose() {
-      saved.dispose();
       coordinator.dispose();
     }
   };

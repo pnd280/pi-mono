@@ -117,10 +117,7 @@ export class TranscriptMessages {
     const same = continued && timestamp === this.timestamp;
     if (!same) this.source = sources.get(value) ?? {};
     sources.set(value, this.source);
-    const start =
-      updatedContentIndex === undefined || !same || content.length < this.indexedContent
-        ? 0
-        : this.indexedContent;
+    const start = updatedContentIndex === undefined || !same ? 0 : this.indexedContent;
     const calls: AssistantCall[] = [];
 
     if (updatedContentIndex !== undefined && updatedContentIndex < start) {
