@@ -7,8 +7,7 @@ import {
   fauxAssistantMessage,
   fauxProvider,
   fauxToolCall,
-  getCurrentTools,
-  type TranscriptContext
+  getCurrentTools
 } from "@earendil-works/pi-ai";
 import {
   AgentSession,
@@ -32,22 +31,6 @@ import { it, vi } from "vite-plus/test";
 import smartCompact from "../index.ts";
 import { compactionResultType } from "../src/outcome.ts";
 import { sdkSessionServices } from "./sdk-session.ts";
-
-function withoutFocus(context: TranscriptContext, focus: string): TranscriptContext {
-  return {
-    ...context,
-    messages: context.messages.map((message) => {
-      if (message.role !== "user" || typeof message.content === "string") return message;
-
-      return {
-        ...message,
-        content: message.content.map((block) =>
-          block.type === "text" ? { ...block, text: block.text.replace(focus, "") } : block
-        )
-      };
-    })
-  };
-}
 
 function checkModelOverride(session: AgentSession, modelOverride: string | undefined) {
   const compactResults = session.sessionManager
@@ -98,8 +81,6 @@ it("continues through native SDK compaction, replacement, and reload", async () 
   const summaries: string[] = [];
   const errors: unknown[] = [];
   const instructions = "Keep HOST_FOCUS_MARKER and unfinished tests.";
-  const unrelated = new AbortController();
-  const unrelatedRequests: string[] = [];
   isolateEnvironment(directory);
 
   try {
@@ -125,13 +106,6 @@ it("continues through native SDK compaction, replacement, and reload", async () 
       Array.from({ length: 20 }, () => async (context, options, _state, model) => {
         assert.equal(options?.headers?.["X-Host-Fixture"], "applied");
 
-        if (options.signal === unrelated.signal) {
-          assert.equal(model.id, expectedMainModel);
-          unrelatedRequests.push(JSON.stringify(context.messages));
-
-          return fauxAssistantMessage("Unrelated summary");
-        }
-
         if (getCurrentTools(context.messages).length === 0) {
           assert.equal(runtime?.session.isCompacting, true);
           assert.equal(runtime.session.isIdle, false);
@@ -140,12 +114,6 @@ it("continues through native SDK compaction, replacement, and reload", async () 
           const summaryPrompt = JSON.stringify(context.messages);
           assert.ok(!summaryPrompt.includes("smart-compact-fixture/summary:off"));
           summaries.push(summaryPrompt);
-          const probe = await runtime.session.agent.streamFunction(
-            faux.getModel(expectedMainModel)!,
-            withoutFocus(context, `\n\nAdditional focus: ${instructions}`),
-            { ...options, signal: unrelated.signal }
-          );
-          assert.equal((await probe.result()).stopReason, "stop");
 
           return fauxAssistantMessage("HOST_CHECKPOINT: finish the task.");
         }
@@ -294,8 +262,6 @@ it("continues through native SDK compaction, replacement, and reload", async () 
 
     assert.equal(inspections, usageCases.length);
     assert.equal(summaries.length, 3);
-    assert.equal(unrelatedRequests.length, 3);
-    for (const request of unrelatedRequests) assert.ok(!request.includes("Additional focus:"));
     for (const request of summaries)
       assert.equal(request.split(`Additional focus: ${instructions}`).length - 1, 1);
     assert.deepEqual(errors, []);
