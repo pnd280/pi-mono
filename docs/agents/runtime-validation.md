@@ -2,7 +2,7 @@
 
 [Workspace development](../development.md)
 
-Use Zod for configuration, persisted JSON, external structured data, and option limits. Colocate schemas with their owner, derive owned types, and export shared contracts.
+Use Zod for configuration, persisted JSON, external structured data, and option limits that come from settings or another package. Colocate schemas with their owner, derive owned types, and export shared contracts.
 
 - Choose unknown-key and failure handling: settings may recover fields or reject everything; stored documents may retain unknown fields for recovery.
 - Use parsed output for normalisation, but validate without replacement when preserving borrowed data or exact stored source.
