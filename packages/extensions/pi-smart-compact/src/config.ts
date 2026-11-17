@@ -67,27 +67,22 @@ export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, refer
 }
 
 function readSection(section: ScopedSection): ParsedSettings {
-  try {
-    const parsed = section.status === "read" ? sectionSchema.safeParse(section.value) : undefined;
+  const parsed = section.status === "read" ? sectionSchema.safeParse(section.value) : undefined;
 
-    if (parsed?.success) {
-      const config = parsed.data ?? {};
-      // Relative paths belong to the scope that names them.
-      const scoped = (entry: string) =>
-        resolve(dirname(section.path), expandHomePath(entry, homedir()));
-      if (config.compactionInstructionsFile !== undefined)
-        config.compactionInstructionsFile = scoped(config.compactionInstructionsFile);
-      if (config.docs !== undefined) config.docs = config.docs.map(scoped);
+  if (!parsed?.success)
+    throw new Error(
+      "pi-smart-compact: invalid or unreadable settings. Check ext.pi-smart-compact in global and trusted project settings.json, then /reload."
+    );
 
-      return config;
-    }
-  } catch {
-    // Report only the redacted settings error below.
-  }
+  const config = parsed.data ?? {};
+  // Relative paths belong to the scope that names them.
+  const scoped = (entry: string) =>
+    resolve(dirname(section.path), expandHomePath(entry, homedir()));
+  if (config.compactionInstructionsFile !== undefined)
+    config.compactionInstructionsFile = scoped(config.compactionInstructionsFile);
+  if (config.docs !== undefined) config.docs = config.docs.map(scoped);
 
-  throw new Error(
-    "pi-smart-compact: invalid or unreadable settings. Check ext.pi-smart-compact in global and trusted project settings.json, then /reload."
-  );
+  return config;
 }
 
 /** Read a selected text file, trimmed; `setting` names it in the error. */

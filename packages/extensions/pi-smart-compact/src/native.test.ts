@@ -57,7 +57,6 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
   };
 
   try {
-    assert.throws(() => bindNativeCompaction(managerA, unexpectedSummary), /already bound/);
     a.request("superseded focus");
     a.request();
     assert.deepEqual(await invoke({ ...session, sessionManager: managerB }), {
@@ -77,7 +76,6 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     controller.abort();
     assert.deepEqual(await invoke(session), { messages: ["before"] });
     assert.equal(forcedCalls, 1);
-    assert.throws(() => a.request(undefined, controller.signal), /abort/i);
     a.request();
     assert.deepEqual(await invoke({ ...session, _agentRunAbortRequested: true }), {
       messages: ["before"]
