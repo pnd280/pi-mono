@@ -23,7 +23,6 @@ class PatchProcessor {
   private retainedBytes = 0;
 
   run(options: BoundedPatchOptions): Promise<BoundedPatchResult> {
-    if (options.timeoutMs === 0) return Promise.resolve({ status: "budget-exceeded" });
     const bytes =
       REQUEST_OVERHEAD_BYTES +
       2 * (options.before.length + options.after.length + options.path.length);
@@ -48,7 +47,7 @@ class PatchProcessor {
       clearTimeout(this.idle);
     }
 
-    await worker.terminate().catch(() => {});
+    await worker.terminate();
   }
 
   private receive(
@@ -58,7 +57,7 @@ class PatchProcessor {
   ): Promise<WorkerResponse | undefined> {
     return new Promise((resolve) => {
       const deadline = performance.now() + timeoutMs;
-      const timer = setTimeout(() => finish(), Math.min(timeoutMs, 2_147_483_647));
+      const timer = setTimeout(() => finish(), timeoutMs);
 
       const finish = (response?: WorkerResponse) => {
         clearTimeout(timer);
@@ -75,12 +74,7 @@ class PatchProcessor {
       worker.once("message", received);
       worker.once("error", failed);
       worker.once("exit", failed);
-
-      try {
-        if (options) worker.postMessage(options);
-      } catch {
-        failed();
-      }
+      if (options) worker.postMessage(options);
     });
   }
 

@@ -85,7 +85,6 @@ it("shares edit I/O and the native patch across consumers, with no observation r
   expect(await observations[0]!.patch({ ...limits, maxPatchBytes: 0 })).toEqual({
     status: "patch-too-large"
   });
-  expect(() => observations[0]!.patch({ ...limits, timeoutMs: NaN })).toThrow(RangeError);
 });
 
 it("shares one pre-write read, memoizes generated patches, and preserves alias mutation order", async () => {

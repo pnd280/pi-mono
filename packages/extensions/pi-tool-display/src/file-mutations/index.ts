@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import {
   createBoundedPatch,
-  patchLimitsSchema,
   type BoundedPatchResult,
   type PatchLimits
 } from "../bounded-diff/index.ts";
@@ -45,7 +44,6 @@ export type MutationObserver = {
   begin(session: AgentSession, name: string, id: string): MutationSink | undefined;
 };
 
-const sizeSchema = z.int().nonnegative();
 const patchSchema = z.object({ patch: z.string() });
 let sequence = 0;
 // Linux's limit on symlinks followed in one lookup; deeper chains and loops stay unresolved.
@@ -92,9 +90,7 @@ export function observeMutationDefinition(
   return {
     ...original,
     async execute(id, args, signal, onUpdate, context) {
-      const sinks = (safely(() => begin(id)) ?? []).filter(
-        (sink) => sizeSchema.safeParse(sink.maxSourceBytes).success
-      );
+      const sinks = begin(id);
       if (!sinks.length) return original.execute(id, args, signal, onUpdate, context);
       const maxBytes = Math.max(...sinks.map((sink) => sink.maxSourceBytes));
       let before: FileObservation = { status: "unavailable" };
@@ -104,7 +100,7 @@ export function observeMutationDefinition(
 
       const performWrite = async (path: string, content: string) => {
         if (original.name === "write") before = await observeTextFile(path, maxBytes);
-        const identity = await canonicalPath(path).catch(() => path);
+        const identity = await canonicalPath(path);
         // Pi checks for an abort after each await; a cancelled capture must not write.
         if (signal?.aborted) throw new Error("Operation aborted");
         // Node replaces unpaired surrogates when writing UTF-8. Observe those bytes, not a JS string that cannot be read back; a native patch may describe the latter.
@@ -126,13 +122,7 @@ export function observeMutationDefinition(
             before,
             after,
             outcome,
-            patch(limits) {
-              const parsed = patchLimitsSchema.safeParse(limits);
-              if (!parsed.success)
-                throw new RangeError(
-                  "Patch limits must be nonnegative finite values, with integer sizes."
-                );
-              const { data } = parsed;
+            patch(data) {
               const key = JSON.stringify([
                 data.maxSourceBytes,
                 data.maxPatchBytes,
@@ -215,8 +205,7 @@ class SharedMutations {
       [...this.observers].some(
         (subscription) =>
           this.observers.has(subscription) &&
-          safely(() => subscription.observer.eligible(session, name)) &&
-          this.observers.has(subscription)
+          safely(() => subscription.observer.eligible(session, name))
       ),
     wrap: (session, original, settings) =>
       observeMutationDefinition(original, settings.cwd, (id) =>
@@ -230,7 +219,7 @@ class SharedMutations {
               : undefined
           );
 
-          if (!sink || !this.observers.has(subscription)) return [];
+          if (!sink) return [];
 
           return [
             {
@@ -260,7 +249,7 @@ class SharedMutations {
         if (this.observers.size) return;
         this.native.dispose();
         const prototype: object & { [sharedKey]?: SharedMutations } = AgentSession.prototype;
-        if (prototype[sharedKey] === this) delete prototype[sharedKey];
+        delete prototype[sharedKey];
       }
     };
   }

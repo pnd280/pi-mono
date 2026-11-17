@@ -56,7 +56,7 @@ Supply one options object:
 | `contextLines`    | Context lines kept around each change.          |
 | `timeoutMs`       | Deadline for the request, excluding queue wait. |
 
-- Choose budget values. See [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
+- Choose budget values.
 - Classify the change and translate result statuses into diagnostics in the consumer.
 
 Related: patch parsing belongs to [`@pi-mono/utils/patch`](../../../../utils/src/patch.ts), and rendering belongs to the [diff view](../rendering/diff-view/README.md).

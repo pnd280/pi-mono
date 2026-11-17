@@ -21,8 +21,6 @@ const OBSERVATION_MIB = PATCH_LIMITS.maxSourceBytes / 1024 / 1024;
 
 /** Retained tool patches share the same bound in observation, rendering, and history. */
 export function parseRetainedPatch(patch: string) {
-  if (patch.length > PATCH_BYTES) return undefined;
-
   return parsePatch(patch, PATCH_BYTES);
 }
 
