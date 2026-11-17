@@ -44,9 +44,6 @@ pi.on("session_shutdown", () => mutations.dispose());
 
 - Treat mutations and sources as read-only.
 - Do not keep `patch` after the completion callback. It holds the source and the cached patches.
-- Check `outcome` before you treat `after` as written content.
-- Persist the facts that you need, not raw mutations.
-- Check lifecycle before you publish work that can outlive sessions.
 
 ## Setup
 
@@ -57,7 +54,6 @@ pi.on("session_shutdown", () => mutations.dispose());
 
 ## Limits and ordering
 
-- Supply a nonnegative safe integer `maxSourceBytes`. The module does not observe a sink with any other value.
 - Capture uses the largest subscriber request, so enforce your own retention and patch limits.
 - Source observations require complete, valid UTF-8. Distinguish missing files from unavailable snapshots.
 - Use `sequence`, which is assigned just before each disk write, instead of callback order for net comparisons.

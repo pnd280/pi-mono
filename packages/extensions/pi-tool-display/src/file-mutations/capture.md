@@ -20,7 +20,7 @@ A successful disk write keeps its success outcome even if Pi cancellation or mid
 
 ## Patches
 
-- `patch(limits)` accepts `PatchLimits` from [bounded patch generation](../bounded-diff/README.md) and throws `RangeError` for invalid limits.
+- `patch(limits)` accepts `PatchLimits` from [bounded patch generation](../bounded-diff/README.md).
 - A valid native edit patch can be reused without applying the source or generation limits, but it must fit the requested patch limit.
 - Without a native patch, `patch()` returns `source-unavailable` when either observation is neither `ready` nor `missing`.
 

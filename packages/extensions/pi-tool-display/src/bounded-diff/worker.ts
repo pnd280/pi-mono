@@ -29,16 +29,6 @@ function generate(options: BoundedPatchOptions): BoundedPatchResult {
   return { status: "ready", patch };
 }
 
-// Options are validated by the parent. Nothing here imports Pi or session state.
-port.on("message", (options: BoundedPatchOptions) => {
-  let result: BoundedPatchResult;
-
-  try {
-    result = generate(options);
-  } catch {
-    result = { status: "worker-failed" };
-  }
-
-  port.postMessage(result);
-});
+// Nothing here imports Pi or session state. A throw reaches the parent as a worker error.
+port.on("message", (options: BoundedPatchOptions) => port.postMessage(generate(options)));
 port.postMessage({ status: "online" });
