@@ -6,9 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [offline terminal checks](testing.md#manual-checks). Real-editor acceptance and installed-host input tests cover behaviour that provider-only fixtures can't.
-2. Run the workspace [fingerprint check](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints).
-3. Work through the checklist below, then update the "Last verified" line.
+Run the [offline terminal checks](testing.md#manual-checks).
 
 ## Checklist
 

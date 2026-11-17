@@ -38,8 +38,7 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-skills": {
-    // Optional. What each token becomes. Must contain {path}, and can contain {command}.
-    // Up to 512 Unicode code points. Default: "[{command}](<{path}>)".
+    // Optional. What each token becomes. Must contain {path}, and can contain {command}. Up to 512 Unicode code points. Default: "[{command}](<{path}>)".
     "expansionFormat": "[{command}](<{path}>)"
   }
 }
