@@ -4,11 +4,6 @@
 
 > Last verified against Pi 1.5.2 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.5.1 to 1.5.2 changes to session management, startup, the session runtime, `/resume`, and `/import`. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, `/sesh persist` after its working directory is removed, and manual checks of the session picker.
 
-## Upgrade procedure
-
-1. Run the [package checks](../../../../docs/development.md#focused-validation). Model requests use offline fixture providers. The [coverage specification](testing.md) lists the unit, runtime, and installed-process checks for startup hooks, session replacement, naming, and clean protocol output.
-2. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
 Session replacement must preserve saved data and parent links while giving naming callbacks a fresh context.
@@ -96,7 +91,7 @@ Naming holds a generated automatic title until its run settles, because Pi repor
 
 ## Limitations
 
-These limits come from Pi behaviour. Recheck each one when Pi changes the behaviour it describes.
+These limits come from Pi behaviour.
 
 ### Startup parent
 
@@ -128,7 +123,7 @@ If Pi adds a public API to save in-memory sessions, use it instead of copying JS
 
 ### Cancellation
 
-Authentication and providers can ignore cancellation of a [title request](../src/auto-title/generate.ts). Revisit request cancellation before simplifying the outer deadline, and keep bounded waiting and stale-result protection.
+Authentication and providers can ignore cancellation of a [title request](../src/auto-title/generate.ts).
 
 ### Naming APIs
 

@@ -35,7 +35,7 @@ Edge cases: Pi runs other extensions' `session_before_switch` handlers after the
 
 - Paths resolve from the launch directory, and `~/` is supported.
 - IDs must be exact, not prefixes. The extension looks them up in Pi's default session directories and the active custom session directory.
-- A missing or ambiguous ID stops startup. For a parent elsewhere, pass its path.
+- A missing ID stops startup. So does an ID that several session files share, as after Pi's `/import` copies a session file without changing its ID. Pi's own `--session` takes the first match instead. For a parent elsewhere, or to pick one of several files, pass its path.
 - Lookup never modifies parent files.
 - The child starts empty, in the launch directory, even when the parent belongs to another project.
 - With `--no-session` the child is ephemeral. Saving it later with `/sesh persist` keeps its parent link.
