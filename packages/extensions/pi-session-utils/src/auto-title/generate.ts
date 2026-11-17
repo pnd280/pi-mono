@@ -9,7 +9,7 @@ import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text"
 import { splitModelReference } from "@pi-mono/utils/model-reference";
 
 import { raceWithAbortSignal } from "./abort-race.ts";
-import type { TitleConfig } from "./config.ts";
+import type { TitleSettings } from "./config.ts";
 
 const timeoutMs = 15_000;
 const maxOutputTokens = 1024;
@@ -37,17 +37,15 @@ function cleanTitle(text: string): string {
 }
 
 type GenerationRequest = {
-  config: TitleConfig | undefined;
+  settings: TitleSettings;
   registry: TitleRegistry;
   source: string;
   signal: AbortSignal;
 };
 
-async function completeTitle({ config, registry, source, signal }: GenerationRequest) {
-  if (!config)
-    throw new TitleError(
-      "Configure model and thinkingLevel under ext.pi-session-utils.auto-title in global or trusted project settings.json, then /reload."
-    );
+async function completeTitle({ settings, registry, source, signal }: GenerationRequest) {
+  if ("problem" in settings) throw new TitleError(settings.problem);
+  const { config } = settings;
   if (!source.trim()) throw new TitleError("No conversation text to name.");
   const { provider, id } = splitModelReference(config.model);
   const model = registry.find(provider, id);

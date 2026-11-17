@@ -1,7 +1,12 @@
 import { existsSync, unlinkSync } from "node:fs";
 
 import type { ExtensionCommandContext, RegisteredCommand } from "@earendil-works/pi-coding-agent";
-import { compactDisplayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
+import {
+  compactDisplayText,
+  displayText,
+  hasUnsafeTerminalControls
+} from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
 import { saveActiveBranch } from "./persist.ts";
@@ -21,7 +26,10 @@ type SessionCommandHost = {
   ): void;
 };
 
-async function persistSession(ctx: SessionCommandContext): Promise<void> {
+/** Title naming, which `/sesh` drives through `auto-name` and cancels before persisting. */
+export type Naming = { command(args: string): Promise<void>; cancel(): void };
+
+async function persistSession(ctx: SessionCommandContext, naming: Naming): Promise<void> {
   if (!ctx.isIdle()) {
     ctx.ui.notify("The agent is running. Wait until idle, then retry /sesh persist.", "warning");
 
@@ -34,12 +42,22 @@ async function persistSession(ctx: SessionCommandContext): Promise<void> {
     return;
   }
 
+  // A title that lands after the snapshot would change only the session being replaced.
+  naming.cancel();
   const path = saveActiveBranch(ctx.cwd, ctx.sessionManager);
-  const result = await ctx.switchSession(path, {
-    withSession: async (replacementCtx) => {
-      replacementCtx.ui.notify(`Session saved to ${compactDisplayText(path)}`, "info");
-    }
-  });
+  const result = await ctx
+    .switchSession(path, {
+      withSession: async (replacementCtx) => {
+        replacementCtx.ui.notify(`Session saved to ${compactDisplayText(path)}`, "info");
+      }
+    })
+    .catch((error: unknown) => {
+      // Pi reports the command's error. The captured ctx may already be stale, so it cannot notify.
+      throw new Error(
+        `Session saved to ${compactDisplayText(path)}, but switching to it failed: ${displayText(errorMessage(error))}. Open it with /resume.`,
+        { cause: error }
+      );
+    });
 
   if (result.cancelled) {
     unlinkSync(path);
@@ -112,10 +130,7 @@ const subcommands = [
 ];
 const titleSubcommands = [{ value: "auto-name clear", description: "Clear the session title" }];
 
-export function registerSessionCommand(
-  pi: SessionCommandHost,
-  autoName: (args: string) => Promise<void>
-): void {
+export function registerSessionCommand(pi: SessionCommandHost, naming: Naming): void {
   let running = false;
   pi.registerCommand("sesh", {
     description:
@@ -133,7 +148,7 @@ export function registerSessionCommand(
 
       // Naming can supersede or clear pending generation, even during a session operation.
       if (/^auto-name(?:\s|$)/u.test(action)) {
-        await autoName(action.slice("auto-name".length).trim());
+        await naming.command(action.slice("auto-name".length).trim());
 
         return;
       }
@@ -149,7 +164,7 @@ export function registerSessionCommand(
       try {
         switch (action) {
           case "persist":
-            await persistSession(ctx);
+            await persistSession(ctx, naming);
             break;
           case "create-empty-child":
             await createEmptyChild(ctx);

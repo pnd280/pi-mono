@@ -9,6 +9,9 @@
 - It copies the active branch into a new file, with a new session ID.
 - It keeps the branch's parent link, the session-wide name, and the labels of the copied entries, including a cleared name or label.
 - It does nothing for sessions that are already saved.
+- It cancels pending title generation before it copies the branch. If the switch is cancelled, run `/sesh auto-name` to generate a title.
+
+Edge cases: Pi runs other extensions' `session_before_switch` handlers after the copy, and one that waits delays the switch. Prompts, replies, and `/sesh auto-name` titles from that delay change only the session being replaced, so the saved session lacks them.
 
 ## Create an empty child
 

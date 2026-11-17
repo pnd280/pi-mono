@@ -14,12 +14,12 @@ Naming needs the `auto-title` [configuration](../README.md#configuration); savin
 
 ## What is sent
 
-| Trigger           | Text from the current branch sent to the model                                  |
+| Trigger           | Text from the current branch's model context sent to the model                  |
 | ----------------- | ------------------------------------------------------------------------------- |
 | Automatic         | The first 4,000 characters of the first non-empty user request.                 |
 | `/sesh auto-name` | The newest 4,000 characters of user and assistant text, in chronological order. |
 
-Images, tool output, and thinking are never sent. Titles are at most 80 characters.
+Text that a context edit omitted or replaced is not sent, nor is text that a compaction replaced. Images, tool output, and thinking are never sent. Titles are at most 80 characters.
 
 ## Cancellation and retries
 

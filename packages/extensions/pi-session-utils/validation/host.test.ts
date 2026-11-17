@@ -11,7 +11,11 @@ import {
   SessionManager,
   SettingsManager
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import {
+  createValidationWorkspace,
+  isolateEnvironment,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import piSessionUtils from "../index.ts";
@@ -33,8 +37,7 @@ async function host(settings: string, { fileBacked = false } = {}) {
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
   writeFileSync(join(agentDir, "settings.json"), settings);
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
   const state = { cancelNew: false };
   const faux = fauxProvider({
     provider: "title-fixture",

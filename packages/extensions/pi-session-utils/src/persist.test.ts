@@ -158,23 +158,25 @@ it.each(["before", "after"])(
     let current = source;
     let path: string | undefined;
 
-    await expect(
-      registerSesh()("persist", {
-        cwd,
-        get sessionManager() {
-          return current;
-        },
-        isIdle: () => true,
-        newSession: vi.fn(),
-        switchSession: async (sessionPath) => {
-          path = sessionPath;
-          if (stage === "after") current = SessionManager.open(sessionPath);
-          throw new Error("switch failed");
-        },
-        ui: { notify: vi.fn() }
-      })
-    ).rejects.toThrow("switch failed");
+    const failure = await registerSesh()("persist", {
+      cwd,
+      get sessionManager() {
+        return current;
+      },
+      isIdle: () => true,
+      newSession: vi.fn(),
+      switchSession: async (sessionPath) => {
+        path = sessionPath;
+        if (stage === "after") current = SessionManager.open(sessionPath);
+        throw new Error("switch failed");
+      },
+      ui: { notify: vi.fn() }
+    }).catch((error: unknown) => error);
 
+    expect(failure).toHaveProperty(
+      "message",
+      `Session saved to ${path}, but switching to it failed: switch failed. Open it with /resume.`
+    );
     expect(current.getSessionFile()).toBe(stage === "after" ? path : undefined);
     expect(path).toBeDefined();
     expect(SessionManager.open(path!).buildSessionContext().messages).toEqual([

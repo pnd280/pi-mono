@@ -17,8 +17,7 @@ In a conversation started with `pi --no-session`, wait until the agent is idle, 
 | `/sesh auto-name`                | Generate a new session title from the current branch. Needs [configuration](#configuration).                 |
 | `/sesh auto-name clear`          | Clear the title, even when naming isn't configured.                                                          |
 | `pi --parent-session <path\|id>` | Start an empty child of a session file or an exact session ID, for example `pi --parent-session SESSION_ID`. |
-
-To name a session by hand, use Pi's native `/name My session`.
+| `/name My session`               | Pi's command. Also cancels pending naming and stops automatic naming until the session is loaded again.      |
 
 ## Usage
 
@@ -44,11 +43,11 @@ The child starts empty, in the launch directory. With `--no-session` the child i
 
 Naming needs [configuration](#configuration); saving and child sessions don't. An unnamed session then gets one silent naming attempt per load, when a user message with non-empty text arrives. `/sesh auto-name` generates a new title at any time, even while the agent is running. Setting or clearing a name yourself stops automatic naming.
 
-Naming sends at most 4,000 characters of user and assistant text from the current branch to the chosen model, and titles are at most 80 characters. Images, tool output, and thinking are never sent.
+Naming sends at most 4,000 characters of user and assistant text from the current branch's model context to the chosen model, and titles are at most 80 characters. Images, tool output, and thinking are never sent.
 
 ## Configuration
 
-Automatic naming is off until you add the `auto-title` section under the `ext.pi-session-utils` key in Pi's [settings.json](https://pi.dev/docs/latest/settings). Saving and child sessions need no settings. Put the key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched. Run `/reload` to apply changes.
+Automatic naming is off until you add the `auto-title` section under the `ext.pi-session-utils` key in Pi's [settings.json](https://pi.dev/docs/latest/settings). Saving and child sessions need no settings. Put the key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched. Run `/reload` to apply changes.
 
 - A trusted project's fields override the global fields.
 - Fields that a project leaves out are inherited from the global settings.

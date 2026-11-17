@@ -1,16 +1,17 @@
 import { contentText, type UserMessage } from "@earendil-works/pi-ai";
-import type {
-  ExtensionAPI,
-  ExtensionUIContext,
-  SessionEntry
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 
 import { raceWithAbortSignal } from "./abort-race.ts";
 import { TitleError } from "./generate.ts";
-import { conversationSource, firstRequestSource, requestSource } from "./source.ts";
+import {
+  conversationSource,
+  firstRequestSource,
+  requestSource,
+  type ModelContext
+} from "./source.ts";
 
 export type TitleHost = Pick<ExtensionAPI, "getSessionName" | "setSessionName"> & {
-  getBranch(): readonly SessionEntry[];
+  getContext(): ModelContext;
   generate(source: string, signal: AbortSignal): Promise<string | undefined>;
   notify: ExtensionUIContext["notify"];
 };
@@ -31,7 +32,7 @@ export class SessionTitle {
     if (this.disposed || this.attempted || this.host.getSessionName()) return;
     const source = requestSource(contentText(message.content));
     if (!source) return;
-    await this.run(firstRequestSource(this.host.getBranch()) || source, false, run);
+    await this.run(firstRequestSource(this.host.getContext()) || source, false, run);
   }
 
   async command(args: string): Promise<void> {
@@ -43,7 +44,7 @@ export class SessionTitle {
       this.host.setSessionName("");
       this.host.notify("Session title cleared.", "info");
     } else if (action === "") {
-      await this.run(conversationSource(this.host.getBranch()), true);
+      await this.run(conversationSource(this.host.getContext()), true);
     } else {
       this.host.notify("Usage: /sesh auto-name [clear]", "error");
     }
