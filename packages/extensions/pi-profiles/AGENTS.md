@@ -1,9 +1,8 @@
 # [pi-profiles](README.md) development
 
-## Startup and shutdown
+## Constraints
 
 - Claim the shortcut through the lifecycle, not `pi.registerShortcut()`.
-- Old sessions keep their selection entries. The extension skips entries that fail the schema, so a schema change loses those selections without an error.
 
 ## References
 

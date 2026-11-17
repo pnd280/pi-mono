@@ -20,7 +20,7 @@ A switch with **Alt+I**, `/profile`, or `--profile` applies a profile's fields t
 
 - Only the selected profile's servers are registered. A switch registers the profile's servers and unregisters the servers of the previous profile. No profile (`/profile clear`) unregisters all of them. Unregistering a server closes its connection, and its tools become unreachable.
 - A server whose name and entry stay the same across a switch keeps its connection. A server with a changed entry reconnects.
-- pi-profiles does not check the rest of an entry when settings load. Pi checks it when pi-profiles registers the server at a switch. If Pi refuses a server (an invalid entry, or a name that another extension registered), pi-profiles shows an error (or writes it to stderr in modes without a UI), and the switch applies without that server.
+- When settings load, pi-profiles checks only that each entry is an object. Pi checks the name and the entry when pi-profiles registers the server at a switch. If Pi refuses a server (an invalid entry, or a name that another extension registered), pi-profiles shows an error (or writes it to stderr in modes without a UI), and the switch applies without that server.
 - The switch notice does not change; the [`/profile` menu](menu.md#profiles-view) shows each profile's servers. For how registered servers connect and how their tools work with `tools` and `mcp.json`, read [profile MCP servers](tools.md#profile-mcp-servers).
 
 ## Repeated switches and no profile
