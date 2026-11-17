@@ -35,7 +35,7 @@ Each task keeps one child session file for its whole life. A run is one child pr
 6. The supervisor reads the usage baseline, appends `run`, and sends the work prompt. Only the work prompt arms completion; administrative subcommands never do.
 7. At completion, the supervisor reads the final text and statistics, checks that no accepted input made them stale, closes stdin, and waits for the exit. Then it appends `end` and releases the lease and the capacity slot.
 
-The resume target is the final leaf of that latest run, as defined under [History](#history). The child finds it in the file that Pi has already loaded. Pi's tree navigation moves the leaf to the parent of a user or custom message, but only when that entry is not already the current leaf. To give one result in both cases, the child walks up from the target past unanswered user and custom messages and trailing model, thinking-level, session-info, and label entries ([`resumePoint`](../../src/history/sessions.ts)). The walk stops at the run's marker at the latest, because a marker is a custom entry, not a custom message. The child navigates only when the effective leaf differs from the current leaf, and it confirms the new leaf before it acknowledges. Navigation without a summary appends no entry.
+The resume target is the final leaf of that latest run, as defined under [History](#history). The child finds it in the file that Pi has already loaded. Pi's tree navigation moves the leaf to the parent of a user or custom message, but only when that entry is not already the current leaf. To give one result in both cases, the child walks up from the target past unanswered user and custom messages and trailing model, thinking-level, session-info, and label entries ([`resumePoint`](../../src/history/sessions.ts)). The walk stops at the run's marker at the latest, because a marker is a custom entry, not a custom message. The child navigates only when the effective leaf differs from the current leaf. Navigation without a summary appends no entry.
 
 For a new task, Pi keeps the marker in memory until the work prompt is persisted. If the child stops before that, the file does not exist, and the run cannot be resumed.
 
@@ -109,15 +109,6 @@ The README must state these contract changes:
 - A trailing user or custom message of an interrupted run is not part of the resumed context.
 - Children load this package through `-e` when Pi reports an absolute source path for the supervisor's extension; otherwise, they rely on their settings. A child whose settings load another copy of the package fails to launch.
 - Restored rows show the model, thinking level, and background state from `end`, or the launch values when the run has no `end`.
-
-Maintainers must also make these changes:
-
-- Remove `checkpoints.ts`, task records, transfers, receipts, adoption locks, persisted relay and control replies, and the matching rules in `AGENTS.md`.
-- In `child/run.ts`, separate administrative subcommands from work prompts.
-- Bind readers to the task, run, and leaf, and drop asynchronous results for any other run. The session ID no longer changes between runs.
-- Treat custom-message targets like user-message targets in the supervisor's `session_before_tree` handler.
-- Parse child files in memory. Pi's own loader appends a newline to a file that ends with a partial line.
-- Update the README, `docs/testing.md`, `docs/pi-compatibility.md`, and the live-record note in ADR 0002.
 
 For the measured session, the supervisor would store 32 small entries instead of 2,244. Nothing would remain under `<agentDir>/pi-subagents/`, and lease directories would exist only while runs are live.
 
