@@ -15,7 +15,7 @@ import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/va
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
-import { assertFixtureWorkspace, UNPACED_ENV } from "./workspace.ts";
+import { UNPACED_ENV } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: JsonObject };
 
@@ -326,9 +326,8 @@ function createDisplayFixtureStream(cwd: string): ProviderStreams["stream"] {
     });
 }
 
-export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
+export default function displayFixture(pi: ExtensionAPI): void {
   const cwd = process.cwd();
-  await assertFixtureWorkspace(cwd);
   const stream = createDisplayFixtureStream(cwd);
 
   pi.registerProvider(
