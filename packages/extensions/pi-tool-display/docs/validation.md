@@ -54,8 +54,6 @@ vpr 'pi-tool-display#validate:terminal' fullscreen --reuse /tmp/pi-tool-display-
 | `--print explore`   | Create a non-TUI history to replay.   |
 | `--help`            | Full argument syntax.                 |
 
-Keep the fixture directory until replay checks are done. After all fixture sessions exit, remove only that directory.
-
 ## Host interaction checks
 
 Use the fixture to compare live output with saved-session replay after expansion, scrolling, and resizing.
@@ -131,7 +129,6 @@ Setup: fullscreen fixture in summary mode unless a row says otherwise.
 | Inspect the mid-run failure in that summary.                                                                               | It appears only as `(1 failed)`.                                                                                                 |
 | Run `cancel` and press **Esc** while the shell runs.                                                                       | The final cancellation appears as `(1 cancelled)`, with no extra row.                                                            |
 | Inspect failed and cancelled counts.                                                                                       | They use the [summary outcome colours](presentation.md#line-layout).                                                             |
-| Set `collapsedMode: "compact"` in `agent/settings.json`, reopen with `--reuse`.                                            | The session starts in compact mode.                                                                                              |
 
 #### Regular mode
 
@@ -230,7 +227,6 @@ Run these when you change the matching integration.
 | Reload twice, then run `explore`.                                                                                                  | The `explore` cards and groups look as they do in a fresh session.                                                                      |
 | Use new and resumed sessions, forks, tree navigation, and compaction, including boundary-generated compaction and custom messages. | Retained groups keep expansion ownership.                                                                                               |
 | Inspect boundaries in those sessions, including after a context edit.                                                              | Context edits do not split groups; other boundaries follow the [visible-message boundary rules](presentation.md#what-separates-groups). |
-| Reconstruct the transcript.                                                                                                        | No call executes again.                                                                                                                 |
 | Inspect a reconstructed call with a missing outcome.                                                                               | Its marker stays still.                                                                                                                 |
 | Add `"offset": null` to a `read` call in a disposable fixture session, then reopen with `--reuse` in both modes.                   | The card is the same as before the edit; see [callback arguments](adapters.md#callback-arguments).                                      |
 | Replay a print-created history.                                                                                                    | Calls keep their [saved facts](../GLOSSARY.md#interpretation) and Pi's durations.                                                       |

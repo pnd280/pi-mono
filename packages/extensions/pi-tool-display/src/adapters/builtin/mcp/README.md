@@ -16,4 +16,4 @@ The [adapter contract](contract.md) lists the accepted result details and the da
 
 ## Validation
 
-The [colocated fixture](index.test.ts) mirrors Pi 1.5.2's private `createMcpToolDefinition` projection without opening a connection, and checks that rendering leaves arguments and results unchanged. No automated test covers discovery through codemode or selection for normalised, collision-suffixed names. Recheck them and the fixture's projection with the [nested-execution contracts](../../../../docs/pi-compatibility.md#nested-execution) when upgrading Pi. These checks do not establish external-service compatibility.
+The [colocated fixture](index.test.ts) mirrors Pi 1.5.2's private `createMcpToolDefinition` projection without opening a connection, and checks that rendering leaves arguments and results unchanged. No automated test covers discovery through codemode or selection for normalised, collision-suffixed names. Pi upgrades recheck them and the fixture's projection with the [nested-execution contracts](../../../../docs/pi-compatibility.md#nested-execution). These checks do not establish external-service compatibility.

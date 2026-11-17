@@ -42,10 +42,7 @@ const rows =
 
 ## Caller responsibilities
 
-- Pass the `ParsedPatch` from `parsePatch(source, maxBytes)` to `renderDiffPanel`.
-- Choose the source byte limit before parsing.
-- Handle an `undefined` parse result as an unavailable patch.
-- Supply the width, expansion state, an expansion hint, a [`DiffViewTheme`](index.ts), and trusted syntax highlighting.
+- Supply trusted syntax highlighting.
 - Own labels, totals, empty and unavailable messages, outcomes, expansion keys, loading, and retention.
 - Pass totals and notes as styled header and footer rows.
 
