@@ -4,11 +4,6 @@
 
 > Last verified against Pi 1.5.2 with the package checks, the offline host tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: live providers, including Anthropic requests that continue a message thread; and manual terminal checks.
 
-## Upgrade procedure
-
-1. Run the [workspace checks](../../../../docs/development.md#focused-validation). The host suite runs the installed Pi offline.
-2. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
 The extension adds to the public `before_agent_start` prompt options of Pi 1.5.2. It leaves `APPEND_SYSTEM.md` discovery to Pi.
@@ -29,7 +24,7 @@ The [prompt adapter](../src/index.ts) supplies the rank `100` part and relies on
 - [ ] `session_start` fires on startup and `/reload`.
 - [ ] `getAgentDir()` honours `PI_CODING_AGENT_DIR`.
 
-The settings and file reads run in `session_start`, and the agent directory comes from `getAgentDir()`.
+The settings and file reads run in `session_start`.
 
 ## Limitations
 

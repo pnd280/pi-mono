@@ -23,16 +23,12 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-model-prompt": {
-    // Optional. Up to 100 rules. The first matching rule that sets "append" wins.
-    // Omit it, or leave it empty, to keep Pi's append text unchanged.
+    // Optional. Up to 100 rules. The first matching rule that sets "append" wins. Omit it, or leave it empty, to keep Pi's append text unchanged.
     "rules": [
       {
-        // Required. A JavaScript regular expression, 1 to 512 characters, tested against provider/modelId.
-        // The match is unanchored and case-sensitive; add ^ or $ as needed.
+        // Required. A JavaScript regular expression, 1 to 512 characters, tested against provider/modelId. The match is unanchored and case-sensitive; add ^ or $ as needed.
         "match": "claude",
-        // Optional. Up to 32 file paths, each 1 to 4096 characters, added in list order.
-        // A relative path resolves against the settings file's directory; a leading ~ expands to the home directory.
-        // Omit it to let later rules match. An empty list adds nothing and stops later rules.
+        // Optional. Up to 32 file paths, each 1 to 4096 characters, added in list order. A relative path resolves against the settings file's directory; a leading ~ expands to the home directory. Omit it to let later rules match. An empty list adds nothing and stops later rules.
         "append": ["prompts/ant.md"]
       },
       {
