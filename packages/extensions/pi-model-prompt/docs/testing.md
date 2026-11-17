@@ -12,7 +12,7 @@ This package tests global-only settings, preservation of other append text, and 
 - **High, e2e:** The extension does not add `APPEND_SYSTEM.md` text that Pi didn't load.
 - **High, e2e:** The selected model uses its first matching append rule.
 - **High, e2e:** Model switches do not retain previous-model instructions.
-- **High, e2e:** Reload refreshes the configured snapshot.
+- **High, e2e:** After `/reload`, the next prompt uses the edited rules and prompt-file contents.
 - **High, integration:** A failed selected file leaves append text unchanged, because the rule adds none of its files.
 - **High, integration:** After a failed selected file, later rules are not tried.
 - **High, integration:** Settings-validation warnings do not echo supplied keys or values.

@@ -10,7 +10,7 @@ With the configuration below, Claude models get `~/.pi/agent/prompts/ant.md` and
 2. List them for each model in the [settings](#configuration).
 3. Switch models as usual. The matching files apply from the next prompt.
 
-Only the first matching rule that sets `append` adds its files. The files come before the text of [pi-profiles](../pi-profiles/README.md), and models with no matching rule get only Pi's append text. To give each model its own instructions instead of a shared `APPEND_SYSTEM.md`, follow [replace shared instructions](docs/rules.md#replace-shared-instructions).
+Only the first matching rule that sets `append` adds its files. The files come before the text of [pi-profiles](../pi-profiles/README.md). With no matching rule, pi-model-prompt adds nothing; Pi's append text and other extensions' additions still apply. To give each model its own instructions instead of a shared `APPEND_SYSTEM.md`, follow [replace shared instructions](docs/rules.md#replace-shared-instructions).
 
 ## Configuration
 

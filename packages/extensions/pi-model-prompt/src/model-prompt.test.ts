@@ -36,6 +36,7 @@ it("does not echo supplied settings keys or values in validation warnings", asyn
 
   for (const settings of [
     withRules([{ match: "claude", [privateKey]: privateValue }]),
+    withRules([{ match: `(${privateValue}` }]),
     JSON.stringify({ "ext.pi-model-prompt": { [privateKey]: privateValue } })
   ]) {
     const { agentDir } = await fixture({ "settings.json": settings });
