@@ -31,7 +31,11 @@ export function renderWindowedList<Item>(options: WindowedListOptions<Item>): {
   const selected = Math.max(0, Math.min(items.length - 1, selectedIndex));
   const start = Math.max(0, Math.min(selected - Math.floor(count / 2), items.length - count));
   const formatted = format(items.slice(start, start + count));
-  const list = new SelectList(formatted.items, count, theme, formatted.layout);
+  const list = new SelectList(formatted.items, count, theme, {
+    // Pi's default truncation adds no omission marker.
+    truncatePrimary: ({ text, maxWidth }) => truncateToWidth(text, maxWidth),
+    ...formatted.layout
+  });
   list.setSelectedIndex(selected - start);
 
   // Pi's selection prefix can exceed a one-column viewport.

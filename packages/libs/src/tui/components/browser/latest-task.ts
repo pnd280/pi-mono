@@ -1,4 +1,4 @@
-/** A replaceable async query. Only the current task may commit or clear its pending state. */
+/** A replaceable async query. Only the current task may commit, fail, or clear its pending state. */
 export class LatestTask {
   private generation = 0;
   private disposed = false;
@@ -12,7 +12,8 @@ export class LatestTask {
 
   async run<Value>(
     work: (current: () => boolean) => Promise<Value>,
-    commit: (value: Value) => void
+    commit: (value: Value) => void,
+    fail: (error: unknown) => void
   ): Promise<void> {
     if (this.disposed) return;
     const generation = ++this.generation;
@@ -24,7 +25,7 @@ export class LatestTask {
       const value = await work(current);
       if (current()) commit(value);
     } catch (error) {
-      if (current()) throw error;
+      if (current()) fail(error);
     } finally {
       if (current()) {
         this.running = false;

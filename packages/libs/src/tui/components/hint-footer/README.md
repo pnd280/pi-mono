@@ -6,7 +6,7 @@ A footer must show available hints and transient feedback in a fixed height. [`r
 
 ## Behaviour
 
-- Messages replace hints at the same height.
+- The packed hints set the height, capped at `maxRows`. Messages replace hints at that height, so with no hints a message shows no rows.
 - If a message overflows, `overflowText` replaces the final row.
 - A width or row limit of zero returns no rows.
 - The footer sends no notifications and starts no timers.

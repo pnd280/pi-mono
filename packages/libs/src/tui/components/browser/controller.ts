@@ -181,49 +181,48 @@ export class BrowserController<Item> {
     const state = this.state;
     this.showSearchNotice(edited && this.settled);
 
-    try {
-      await this.searchTask.run(
-        (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
-        (results) => {
-          this.hideSearchNotice();
-          this.settled = true;
-          this.results = results;
+    await this.searchTask.run(
+      (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
+      (results) => {
+        this.hideSearchNotice();
+        this.settled = true;
+        this.results = results;
 
-          if (this.snapshot) {
-            this.status = "ready";
-            this.error = "";
-          }
-
-          if (edited || !results.some((item) => this.options.key(item) === state.selected)) {
-            const selected = results[Math.min(nearby, results.length - 1)];
-            state.selected = selected === undefined ? undefined : this.options.key(selected);
-          }
-
-          if (!results.length) this.preview = false;
+        if (this.snapshot) {
+          this.status = "ready";
+          this.error = "";
         }
-      );
-    } catch (error) {
-      this.hideSearchNotice();
-      this.settled = false;
-      this.results = [];
-      state.selected = undefined;
-      this.preview = false;
 
-      if (this.snapshot) {
-        this.status = "unavailable";
-        this.error = "Could not search items.";
+        if (edited || !results.some((item) => this.options.key(item) === state.selected)) {
+          const selected = results[Math.min(nearby, results.length - 1)];
+          state.selected = selected === undefined ? undefined : this.options.key(selected);
+        }
+
+        if (!results.length) this.preview = false;
+      },
+      (error) => {
+        this.hideSearchNotice();
+        this.settled = false;
+        this.results = [];
+        state.selected = undefined;
+        this.preview = false;
+
+        if (this.snapshot) {
+          this.status = "unavailable";
+          this.error = "Could not search items.";
+        }
+
+        this.ports.changed();
+        this.reportError(error);
       }
-
-      this.ports.changed();
-      throw error;
-    }
+    );
   }
 
   setQuery(query: string): void {
     if (this.isClosed() || this.busy || this.preview || this.options.inspection) return;
     this.cancelConfirmation();
     this.state.query = query;
-    void this.filter({ edited: true }).catch((error: unknown) => this.reportError(error));
+    void this.filter({ edited: true });
   }
 
   cancelConfirmation(): void {

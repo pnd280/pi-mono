@@ -17,14 +17,16 @@ export function wrapRows(text: string, width: number): string[] {
 }
 
 /**
- * Puts styled items on rows of `width`, broken only between items, so no row ends with `separator`. An item wider than `width` wraps on its own rows.
+ * Puts styled items on rows of `width`, broken only between items, so no row ends with `separator`. An oversized item wraps, and a following item can share its final row.
  */
 export function pack(items: readonly string[], separator: string, width: number): string[] {
   const rows: string[] = [];
   let row = "";
 
   for (const item of items) {
-    if (row && visibleWidth(row + separator + item) <= width) {
+    if (item === "") continue;
+
+    if (row && !item.includes("\n") && visibleWidth(row + separator + item) <= width) {
       row += separator + item;
       continue;
     }
@@ -48,7 +50,7 @@ export function wrapHangingRows(text: string, firstWidth: number, restWidth: num
   if (restWidth === firstWidth) return [first, ...wrapped];
   if (!wrapped.length || restWidth < 1) return [first];
   // Consume discarded break spaces or one source newline, keeping SGR state.
-  const remainder = sliceByColumn(text, visibleWidth(first), visibleWidth(text)).replace(
+  const remainder = sliceByColumn(text, visibleWidth(first), Number.POSITIVE_INFINITY).replace(
     // oxlint-disable-next-line no-control-regex
     /^(?:\x1b\[[0-9;:]*m|[^\S\n])*(?:\n)?/,
     (gap) => gap.replace(/\s/g, "")

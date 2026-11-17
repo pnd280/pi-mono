@@ -223,9 +223,12 @@ it.each(["remove", "reorder", "copy"] as const)(
       host.presentation?.render(80);
       await Promise.resolve();
       expect(view.unavailable).toHaveBeenCalledOnce();
-      host.presentation?.render(80);
+      host.render();
+      host.transcript.scrollTo(40);
+      host.render();
       host.send("\x1b[6~");
       expect(view.handleInput).not.toHaveBeenCalled();
+      expect(host.transcript.scrollTop).toBeGreaterThan(40); // Pi's own paging still runs.
       expect(dispatch("\x1b[6~")).toBeUndefined();
       expect(view.unavailable).toHaveBeenCalledOnce();
     } finally {
@@ -264,6 +267,10 @@ it("shares one dispatcher and rebinds a stable reference without activating old-
     owns: (data: string) => matchesKey(data, "pageDown"),
     onUnavailable: unavailable
   };
+  const hosts = [oldHost.tui, newHost.tui, regular.tui];
+  // Count only routing listeners; hosts may hold unrelated ones.
+  const baseline = new Map(hosts.map((tui) => [tui, new Set(listeners(tui))]));
+  const added = (tui: (typeof hosts)[number]) => listeners(tui).size - baseline.get(tui)!.size;
   const first = fullscreenInputRouting(options);
   const second = fullscreenInputRouting({
     ...options,
@@ -276,28 +283,28 @@ it("shares one dispatcher and rebinds a stable reference without activating old-
     second.reconcile();
     await Promise.resolve();
     const oldDispatcher = listeners(oldHost.tui).values().next().value!;
-    expect(listeners(oldHost.tui).size).toBe(2);
+    expect(added(oldHost.tui)).toBe(1);
     oldHost.send("\x1b[6~");
     expect(input).toHaveBeenCalledOnce();
     second.dispose();
-    expect(listeners(oldHost.tui).size).toBe(2);
+    expect(added(oldHost.tui)).toBe(1);
     current = newHost.tui;
     current.setFocus(presentation);
     first.reconcile();
     expect(oldDispatcher("\x1b[6~")).toBeUndefined();
     await Promise.resolve();
-    expect(listeners(oldHost.tui).size).toBe(1);
+    expect(added(oldHost.tui)).toBe(0);
     newHost.send("\x1b[6~");
     expect(input).toHaveBeenCalledTimes(2);
     current = regular.tui;
     first.reconcile();
-    expect(listeners(newHost.tui).size).toBe(1);
-    expect(listeners(regular.tui).size).toBe(0);
+    expect(added(newHost.tui)).toBe(0);
+    expect(added(regular.tui)).toBe(0);
     current = newHost.tui;
     first.reconcile();
     first.dispose(); // Cancel the pending reinstall.
     await Promise.resolve();
-    expect(listeners(newHost.tui).size).toBe(1);
+    for (const tui of hosts) expect(listeners(tui)).toEqual(baseline.get(tui));
     expect(unavailable).not.toHaveBeenCalled();
   } finally {
     first.dispose();

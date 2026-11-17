@@ -15,7 +15,7 @@ This guide is for callers who tune search and action timing, remap browser keys,
 ## Details and preview
 
 - `details` show below the results for the selected item.
-- Details fill the rows that the results do not use. The results keep at least half of the rows, or all their rows if they need fewer. `…` marks detail rows that do not fit.
+- Details reserve at most half of the rows. The results take the rest, up to 10 rows, and details fill any rows that the results leave. `…` marks detail rows that do not fit.
 - The browser wraps `details` synchronously.
 - `preview` opens a separate scrollable view. Without it, **Ctrl+P** does not open a preview and has no preview hint.
 
@@ -51,7 +51,7 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 - Cancel returns from preview to the list, or closes from the list.
 - While loading or an action is pending, cancel closes immediately.
 - Closing does not undo effects already started by consumer callbacks.
-- The footer keeps the back or close hint first when space is limited.
+- The footer keeps the back or close hint first when space is limited. A feedback message, such as the deletion confirmation, replaces all hints, including that one.
 
 ## Host lifecycle
 

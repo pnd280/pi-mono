@@ -145,7 +145,7 @@ function legacyOverlap(a: KeyId, b: KeyId): boolean {
   );
 }
 
-/** True when Pi can dispatch one keypress to both canonical keys. */
+/** True for equal keys, keys that share a Pi input alias, and Shift-symbol pairs that can collide on some keyboard layout (conservative). */
 export function keysOverlap(a: KeyId, b: KeyId): boolean {
   return a === b || shiftOverlap(a, b) || legacyOverlap(a, b);
 }

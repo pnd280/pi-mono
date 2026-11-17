@@ -11,7 +11,7 @@ This internal component has no package entry. The [browser](../browser/README.md
 - Display selection clamps without mutating caller state.
 - Rows fit the requested width, including viewports narrower than Pi's selection marker.
 - `format` receives only visible items.
-- `format` can return custom Pi column options.
+- `format` can return custom Pi column options. Without a custom `truncatePrimary`, a cut label ends with Pi's omission marker.
 - The native list sees only the window, so it generates no full-collection counter.
 - The result has the rendered `lines` and the window's `start` index and item `count`.
 

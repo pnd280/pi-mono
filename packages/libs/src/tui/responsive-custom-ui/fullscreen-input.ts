@@ -6,6 +6,8 @@ import {
   type TuiInputListener
 } from "@earendil-works/pi-tui";
 
+import { inspectedSource } from "../../owned-hooks/index.ts";
+
 type ListenerCollection = Set<TuiInputListener>;
 
 type Registration = {
@@ -23,24 +25,29 @@ type Dispatcher = {
 const dispatchers = new WeakMap<ListenerCollection, Dispatcher>();
 const ownedDispatchers = new WeakSet<TuiInputListener>();
 
+// Pi's private overlay-restore query, reviewed against Pi 1.5.2's API build and bundled CLI. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with this method.
+const restoreFingerprints = new Set([
+  "8915acfd27b165b5265683a8097d2be2f182684a3768b1cf972568a61d5a15c4",
+  "57aad4c3b049665dbac2c1b6deeae4dc3b072b05f04e44550900a0cfec16df98"
+]);
+
 /** Read through the stable proxy; never use descriptor operations on it. */
 function capability(tui: TUI) {
-  if (
-    !("inputListeners" in tui) ||
-    !("getFocusedComponent" in tui) ||
-    !("getVisibleOverlayFocusRestore" in tui)
-  )
-    return;
+  if (!("inputListeners" in tui) || !("getFocusedComponent" in tui)) return;
   const listeners: unknown = tui.inputListeners;
   const getFocus = tui.getFocusedComponent;
-  const getRestore = tui.getVisibleOverlayFocusRestore;
+  // The proxy wraps methods in forwarding closures, so hash the renderer's own method and call that.
+  const getRestore: unknown = Reflect.get(
+    Reflect.getPrototypeOf(tui) ?? {},
+    "getVisibleOverlayFocusRestore"
+  );
   if (
     !(listeners instanceof Set) ||
     typeof getFocus !== "function" ||
-    typeof getRestore !== "function"
+    typeof getRestore !== "function" ||
+    !inspectedSource(getRestore, restoreFingerprints)
   )
     return;
-  if (![...listeners].every((listener: unknown) => typeof listener === "function")) return;
   const focus: unknown = getFocus.call(tui);
   if (
     focus !== null &&
@@ -53,7 +60,7 @@ function capability(tui: TUI) {
   const pendingOverlay = hasPendingOverlay(restore, focus);
   if (pendingOverlay === undefined) return;
 
-  // Every entry was checked above; keep this private collection cast at the boundary.
+  // Pi fills this private Set only through the typed addInputListener; keep the cast at the boundary.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return { listeners: listeners as ListenerCollection, focus: pendingOverlay ? null : focus };
 }
@@ -68,10 +75,7 @@ function hasPendingOverlay(restore: unknown, focus: unknown): boolean | undefine
 }
 
 function intact(dispatcher: Dispatcher): boolean {
-  return (
-    dispatcher.listeners.values().next().value === dispatcher.dispatch &&
-    [...dispatcher.listeners].every((listener) => typeof listener === "function")
-  );
+  return dispatcher.listeners.values().next().value === dispatcher.dispatch;
 }
 
 function fail(dispatcher: Dispatcher) {

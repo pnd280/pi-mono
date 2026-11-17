@@ -157,11 +157,9 @@ export class Browser<Item> implements Component, Focusable {
       primary.push(this.controls.hint("confirm", state.section.confirm.label));
     if (hasSelection && state.section.copy) primary.push(this.controls.hint("copy", "copy"));
 
-    if (!compact) {
-      if (hasSelection)
-        primary.unshift(...this.controls.navigationHints(state.preview ? "scroll" : "navigate"));
-      if (!state.preview && !inspection) primary.unshift("Type to search");
-    }
+    if (hasSelection)
+      primary.unshift(...this.controls.navigationHints(state.preview ? "scroll" : "navigate"));
+    if (!compact && !state.preview && !inspection) primary.unshift("Type to search");
 
     primary.unshift(this.controls.hint("cancel", state.canReturnToList ? "back" : "close"));
     const messageText = message && displayText(message.text);
@@ -217,12 +215,13 @@ export class Browser<Item> implements Component, Focusable {
     }
 
     const tabs = this.options.sections
-      .map((section) =>
-        theme.fg(
-          this.controller.section === section ? "accent" : "muted",
-          displayText(section.label)
-        )
-      )
+      .map((section) => {
+        const label = displayText(section.label);
+
+        return this.controller.section === section
+          ? theme.fg("accent", `[${label}]`)
+          : theme.fg("muted", label);
+      })
       .join(theme.fg("muted", " | "));
 
     return compact ? ` ${tabs} ` : theme.fg("muted", "View: ") + tabs;
@@ -380,7 +379,7 @@ export class Browser<Item> implements Component, Focusable {
       this.options.details && selected !== undefined
         ? this.detailRows(this.options.details(selected), width - 4)
         : [];
-    // The results keep at least half of the rows; details fill the rows that the results leave.
+    // Details reserve at most half of the rows. The results take the rest, up to 10 rows, and details fill any rows that the results leave.
     const half = Math.floor(available / 2);
     const space =
       available - (details.length > 0 && half >= 2 ? Math.min(details.length + 1, half) : 0);

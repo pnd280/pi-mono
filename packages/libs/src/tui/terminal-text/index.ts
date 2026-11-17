@@ -125,7 +125,7 @@ export function sliceTerminalText(
   let sgr = "";
   // Keep this parser aligned with styledOutput so hidden OSC/DCS payloads cannot affect SGR state.
   // oxlint-disable-next-line no-control-regex
-  const escapes = /[\x1b\x9b\x9d\x90]/g;
+  const escapes = /[\x1b\x9b\x9d\x90\x98\x9e\x9f]/g;
   const scannedText = end < text.length ? text.slice(0, end) : text;
   let startIsSequenceBoundary = start === 0;
   let endIsSequenceBoundary = end === text.length;
@@ -180,7 +180,7 @@ function literal(text: string): string {
 export function styledOutput(text: string): string {
   // Copy literal runs rather than building a character-by-character rope for every live snapshot. Escape parsing still sees the complete source.
   // oxlint-disable-next-line no-control-regex
-  const escapes = /[\x1b\x9b\x9d\x90]/g;
+  const escapes = /[\x1b\x9b\x9d\x90\x98\x9e\x9f]/g;
   let result = "",
     start = 0;
 
