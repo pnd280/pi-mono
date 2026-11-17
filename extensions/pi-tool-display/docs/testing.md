@@ -2,17 +2,18 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Glossary](../GLOSSARY.md)
 
-This package tests settings trust, delegated execution through its private Pi host access, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
+This package tests settings trust, delegated execution through its private Pi host access, native tool subscriptions, file mutation capture, bounded patch generation, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
 
 ## Must not regress
 
 ### Settings and selection
 
-- **Critical, unit:** Untrusted project settings are excluded before validation, so an invalid untrusted section cannot disable display.
+- **Critical, e2e:** Untrusted project settings are excluded before validation, so an invalid untrusted section cannot disable display.
 - **High, unit:** An invalid global or trusted project section keeps original tool renderers and disables [native observation](../GLOSSARY.md#interpretation), even if a later section overrides its values.
 - **High, unit:** Renderer overrides match exact tool names, including prototype-like names, before automatic adapter selection.
 - **High, e2e:** Under automatic selection, tools without a verified adapter keep a supplied renderer slot, from their definition or a `registerToolRenderer` resolver, and receive generic cards only when neither slot exists.
 - **High, e2e:** Under automatic selection, unregistered tools always receive generic cards, so late registration can upgrade them.
+- **High, unit:** Package provenance requires the named package as the npm source or entry point, not a lookalike name or an SDK label.
 
 ### Execution
 
@@ -26,13 +27,17 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, e2e:** Startup and the session remain usable when private host hooks are incompatible or non-writable.
 - **High, e2e:** Failed hook installation leaves no partial hooks, including on one row whose later hook fails after its first hook was installed.
 - **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results. When message-end middleware renames a call, its card, observation, and saved facts follow the final tool.
-- **High, integration:** File mutation observation uses the shared capture rather than rereading targets for display.
+- **High, integration:** Mutation observations preserve native write outcomes and queue order.
+- **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.
+- **High, integration:** Mutation observations add no post-write reads, and display uses their shared capture rather than rereading targets.
+- **High, integration:** Bounded patch requests refuse oversized inputs and results.
+- **High, integration:** Bounded patch requests recover after worker failure without blocking later requests or retaining unbounded queued source.
 
 ### Saved facts
 
 - **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, and change facts and bounded patches.
 - **Critical, unit:** Call records above the whole-record byte limit are rejected, including when unknown fields cause the excess.
-- **High, unit:** An `edit` change fact is saved only when the result cannot replace it: a non-successful or missing result, or a missing, invalid or different `details.patch`. Line endings, file headers, and a BOM do not count as differences.
+- **High, unit:** An `edit` change fact is saved when the result cannot replace it: a non-successful result, or a missing, invalid or different `details.patch`.
 - **High, unit:** A `write` creation entry without a patch replays the same diff as the observed patch. When they differ, the entry keeps the observed patch.
 - **High, e2e:** Call facts use custom session entries, not model-context messages.
 
@@ -45,6 +50,8 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **High, e2e:** Reload and removal restore only hooks and definitions still owned by this extension, and keep wrappers installed later.
 - **High, integration:** Retained observation callbacks cannot update calls or persist facts after their display session is disposed.
+- **High, e2e:** Disposing a native-tool subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
+- **High, e2e:** Disposing a file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
 - **High, e2e:** Disposal leaves other mutation subscribers and later wrappers active.
 - **High, e2e:** Disposed collectors cannot update or persist into replacement sessions.
 - **High, e2e:** Pending host-event continuations cannot reattach assistant decoration after disposal or take row ownership from a replacement transcript binding.
@@ -52,11 +59,12 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ## Not tested
 
-- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, and nested-instruction notice cards. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
-- Libs and utils own shared algorithms and budgets.
-- Live MCP and FFF search requests are not tested because they need paid or live services.
+- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, nested-instruction notice cards, and context status rows. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
+- Live MCP requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.
 - Pi owns native persistence internals.
+- A FIFO source that could block a native write, and a diff worker that misses the parent deadline, are not tested because no observed failure has made either reach a broken session.
+- The [release check](../../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks
 

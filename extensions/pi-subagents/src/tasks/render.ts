@@ -3,12 +3,12 @@ import { MouseRegion, truncateToWidth, type Component } from "@earendil-works/pi
 import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
-import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
+import { displayLine, pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
-import { detailsSchema, type ToolDetails } from "../details.ts";
+import { detailsSchema, launchArgItems, type ToolDetails } from "../details.ts";
+import { usageText } from "../text.ts";
 
 /** The task or job that a click on a card opens. */
 export type CardState = { id?: string | undefined; bindingId?: string | undefined };
@@ -48,6 +48,8 @@ type Facts = {
   color: Color;
   activity: string;
   identity: string;
+  /** Extra Pi arguments; only expanded cards show them. */
+  launchArgs: readonly string[];
   usage: string;
   /** A failure reason; a cancelled task uses `warning`. */
   error: { text: string; color: "error" | "warning" } | undefined;
@@ -67,6 +69,7 @@ const argsSchema = z.object({
   task_id: z.string().optional(),
   model: z.string().optional(),
   thinking: z.string().optional(),
+  launch_args: z.array(z.string()).optional(),
   background: z.boolean().optional(),
   delivery: z.string().optional()
 });
@@ -91,15 +94,13 @@ export function shortId(id: string, expanded: boolean): string {
 }
 
 /**
- * A dim label in a column of `labelWidth`, beside its wrapped value. Labels stack above their
- * values when the column would leave no room for a wide character.
+ * A dim label in a column of `labelWidth`, beside its wrapped value. Labels stack above their values when the column would leave no room for a wide character.
  */
 export function field(
   theme: Theme,
   label: string,
   value: string,
-  width: number,
-  labelWidth: number
+  { width, labelWidth }: { width: number; labelWidth: number }
 ): string[] {
   const column = width >= labelWidth + 2 ? labelWidth : 0;
   const rows = value ? wrapRows(value, width - column) : [""];
@@ -122,13 +123,6 @@ export function clickable(
 
     return { handled: true };
   });
-}
-
-/** Non-breaking spaces keep the group on one row when it fits. */
-function usage({ usage }: ToolDetails): string {
-  if (!Object.values(usage).some((value) => value > 0)) return "";
-
-  return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
 }
 
 /** A status phrase, with its time when the card has one. */
@@ -204,6 +198,7 @@ function pendingFacts(abort: boolean, view: View, args: Args, failed: boolean): 
     color: failed ? "error" : "dim",
     activity: "",
     identity: abort ? "" : [args.model, args.thinking].filter(Boolean).join(":"),
+    launchArgs: abort ? [] : (args.launch_args ?? []),
     usage: "",
     error: undefined,
     taskId: args.task_id,
@@ -219,7 +214,8 @@ function detailFacts(details: ToolDetails, failed: boolean) {
   return {
     description: details.description,
     identity: `${details.model}:${details.thinking}`,
-    usage: usage(details),
+    launchArgs: details.launch_args ?? [],
+    usage: usageText(details),
     taskId: details.task_id,
     failed
   };
@@ -301,7 +297,7 @@ class CardRow {
 
   render(slot: "call" | "result", width: number): string[] {
     const view = this.view;
-    if (!view || width < 1) return [];
+    if (!view) return [];
     const details = detailsSchema.safeParse(view.result?.details).data;
     // Only a running card's clock changes between renders, once a second.
     const time =
@@ -330,7 +326,7 @@ class CardRow {
     const valueWidth = width - labelWidth;
     const pad = " ".repeat(labelWidth);
     const labelled = (label: string, value: string) =>
-      field(theme, label, value, width, LABEL_WIDTH);
+      field(theme, label, value, { width, labelWidth: LABEL_WIDTH });
 
     const title = `${theme.fg("toolTitle", theme.bold(this.kind))} ${theme.fg("toolTitle", displayLine(card.description) || "…")}`;
     const activity = card.activity ? theme.fg("muted", ` · now ${displayLine(card.activity)}`) : "";
@@ -341,6 +337,15 @@ class CardRow {
     ];
     const identity = displayLine(card.identity);
     if (identity) rows.push(...labelled("model", theme.fg("muted", identity)));
+    if (view.expanded && card.launchArgs.length)
+      pack(launchArgItems(card.launchArgs).map(displayText), " ", valueWidth).forEach(
+        (row, index) =>
+          rows.push(
+            ...(index
+              ? [`${pad}${theme.fg("muted", row)}`]
+              : labelled("args", theme.fg("muted", row)))
+          )
+      );
     if (card.usage) rows.push(...labelled("usage", theme.fg("muted", card.usage)));
     if (card.error)
       rows.push(...labelled("error", theme.fg(card.error.color, displayLine(card.error.text))));
@@ -369,7 +374,11 @@ class CardRow {
             )
           );
         if (retained.length < card.prompt.length || lines.length > PROMPT_LINES)
-          rows.push(`${pad}${theme.fg("dim", "… (prompt truncated)")}`);
+          rows.push(
+            ...wrapRows(theme.fg("dim", "… (prompt truncated)"), valueWidth).map(
+              (row) => `${pad}${row}`
+            )
+          );
       }
     }
 
@@ -418,8 +427,11 @@ class CardRow {
         .map((line) => theme.fg(color, line));
       if (shown < lines.length)
         rows.push(
-          theme.fg("muted", `... (${lines.length - shown} more lines,`) +
-            ` ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`
+          ...wrapRows(
+            theme.fg("muted", `... (${lines.length - shown} more lines,`) +
+              ` ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`,
+            width
+          )
         );
     }
 

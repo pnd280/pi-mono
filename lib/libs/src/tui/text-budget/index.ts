@@ -4,21 +4,43 @@ import {
   visibleWidth,
   wrapTextWithAnsi
 } from "@earendil-works/pi-tui";
-import { z } from "zod";
 
 import { compactDisplayText, sliceTerminalText } from "../terminal-text/index.ts";
-
-const characterLimitSchema = z.int().min(2);
 
 export function wrapRows(text: string, width: number): string[] {
   if (width < 1 || text === "") return [];
 
-  // Wrapping normally fits already. Avoid re-segmenting every styled row just
-  // to return it unchanged, including rows a compact preview will discard.
-  // Still clamp wide graphemes that cannot fit in a one-column viewport.
+  // Wrapping normally fits already. Avoid re-segmenting every styled row just to return it unchanged, including rows a compact preview will discard. Still clamp wide graphemes that cannot fit in a one-column viewport.
   return wrapTextWithAnsi(text, width).map((row) =>
     visibleWidth(row) > width ? truncateToWidth(row, width, "") : row
   );
+}
+
+/**
+ * Puts styled items on rows of `width`, broken only between items, so no row ends with `separator`. An oversized item wraps, and a following item can share its final row.
+ */
+export function pack(items: readonly string[], separator: string, width: number): string[] {
+  const rows: string[] = [];
+  let row = "";
+
+  for (const item of items) {
+    if (item === "") continue;
+
+    if (row && !item.includes("\n") && visibleWidth(row + separator + item) <= width) {
+      row += separator + item;
+      continue;
+    }
+
+    if (row) rows.push(row);
+    const wrapped = wrapRows(item, width);
+    row = wrapped.pop() ?? "";
+    // A spread could exceed the argument limit for a long item in a narrow column.
+    for (const line of wrapped) rows.push(line);
+  }
+
+  if (row) rows.push(row);
+
+  return rows;
 }
 
 /** Wraps the first row at `firstWidth` and the remaining text at `restWidth`. */
@@ -28,7 +50,7 @@ export function wrapHangingRows(text: string, firstWidth: number, restWidth: num
   if (restWidth === firstWidth) return [first, ...wrapped];
   if (!wrapped.length || restWidth < 1) return [first];
   // Consume discarded break spaces or one source newline, keeping SGR state.
-  const remainder = sliceByColumn(text, visibleWidth(first), visibleWidth(text)).replace(
+  const remainder = sliceByColumn(text, visibleWidth(first), Number.POSITIVE_INFINITY).replace(
     // oxlint-disable-next-line no-control-regex
     /^(?:\x1b\[[0-9;:]*m|[^\S\n])*(?:\n)?/,
     (gap) => gap.replace(/\s/g, "")
@@ -37,7 +59,7 @@ export function wrapHangingRows(text: string, firstWidth: number, restWidth: num
   return [first, ...(remainder ? wrapRows(remainder, restWidth) : [""])];
 }
 
-export type RowBudgetOptions = {
+type RowBudgetOptions = {
   width: number;
   maxRows: number;
   notice: (omittedRows: number) => string;
@@ -67,7 +89,7 @@ export function displayLine(text: string, maxCharacters = 2048): string {
   return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");
 }
 
-export type TextBudgetOptions = {
+type TextBudgetOptions = {
   width: number;
   maxRows: number;
   /** Maximum UTF-16 code units formatted, divided between the head and tail. */
@@ -79,8 +101,6 @@ export type TextBudgetOptions = {
 /** Bound formatting, not retained output. Excerpts keep whole graphemes and escapes. */
 export function compactText(text: string, options: TextBudgetOptions): string[] {
   const { maxRows, width, maxCharacters, notice } = options;
-  if (!characterLimitSchema.safeParse(maxCharacters).success)
-    throw new RangeError("Text formatting limit must be a safe integer of at least two.");
   if (maxRows < 1 || width < 1) return [];
   if (text.length <= maxCharacters) return compactRows(wrapRows(text, width), options);
   const omission = truncateToWidth(notice(undefined), width, "…");

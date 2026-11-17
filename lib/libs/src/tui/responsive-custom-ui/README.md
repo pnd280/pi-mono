@@ -14,8 +14,6 @@ A component may provide synchronous, side-effect-free `ownsFullscreenInput(data)
 
 Regular mode, overlays, and components without ownership use ordinary host routing. Search overlays and other focused dialogs suspend the inline view's ownership. The working-message ordering menu does not opt in.
 
-Opening a component that opts in to input ownership throws when the caller supplies no `onInputRoutingUnavailable()`.
-
 ### Host compatibility
 
 Priority routing depends on internal Pi renderer properties, because public terminal listeners cannot preempt Pi's transcript listener. Missing capabilities or detected interference disable routing and call `onInputRoutingUnavailable` once per opening. The view stays open with ordinary host delivery. Arbitrary third-party input patches are unsupported.
@@ -44,7 +42,6 @@ await openResponsiveCustomUI({
 
 ## Caller responsibilities
 
-- Supply the [host options](index.ts).
 - Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
 - When a component opts in to input ownership, supply `onInputRoutingUnavailable()` with a consumer-specific warning and fallback controls.
 - Derive ownership from the same injected keybindings and action precedence as input dispatch.

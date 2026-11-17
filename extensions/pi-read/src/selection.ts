@@ -40,14 +40,12 @@ export type SelectedSource = {
   partial: boolean;
 };
 
-/** Coordinates address raw code points, before terminal sanitization or tab expansion. */
+/** Coordinates address raw code points, before terminal sanitisation or tab expansion. */
 export function selectSource(
   lines: readonly string[],
   firstLine: number,
   span: Selection
 ): SelectedSource {
-  if (!coordinate.safeParse(firstLine).success)
-    throw new RangeError("The source window first line must be a positive safe integer.");
   const selected: SelectedLine[] = [];
   const from = Math.max(0, span.startLine - firstLine);
   const to = Math.min(lines.length - 1, span.endLine - firstLine);

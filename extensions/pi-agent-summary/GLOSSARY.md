@@ -5,7 +5,7 @@ pi-agent-summary times agent runs and records a summary of each finished run tha
 ## Language
 
 **Run**:
-Everything from the user's prompt until the agent settles, including retries, follow-ups, and waits for user input.
+Agent activity from the prompt or extension message that starts the agent until the agent settles, including retries, follow-ups, and waits for user input. See [usage](README.md#usage).
 _Avoid_: turn, loop, agent loop
 
 **Summary**:
@@ -18,4 +18,4 @@ _Avoid_: important work, highlight, achievement, note
 
 **Counter**:
 A named count that another extension adds to during the active run, shown as one segment of the summary line.
-_Avoid_: statistic (file statistics), metric, stat
+_Avoid_: statistic, metric, stat

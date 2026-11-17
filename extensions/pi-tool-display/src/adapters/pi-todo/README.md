@@ -11,3 +11,7 @@ Todo calls from [`pi-todo`](../../../../pi-todo/README.md) appear as `Todos` car
 `pi-todo` has no renderers or display dependency. This extension imports only its pure `pi-todo/text` module, never its extension factory, and it selects, renders, and groups the todo cards. When display is inactive, or a `todo: original` [renderer override](../../../README.md#configuration) applies, Pi's default rendering is used.
 
 The [adapter contract](contract.md) covers argument and snapshot validation and the data behind each card.
+
+## Validation
+
+Todo presentation is outside automated coverage. Use the [todo terminal checks](../../../docs/validation.md#pi-todo) to compare the cards with the widget and browser.

@@ -1,10 +1,10 @@
 import path from "node:path";
 
+import { contentText } from "@earendil-works/pi-ai";
 import type { ExtensionContext, SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
-import { absolutePathSchema } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
-import { decodeNotice, digest, noticeSchema, noticeType } from "./notices.ts";
+import { absolutePathSchema, digest, noticeBody, noticeSchema, noticeType } from "./notices.ts";
 import type { Invocation } from "./scopes.ts";
 
 export const readType = "pi-nested-instructions.read";
@@ -13,7 +13,7 @@ const stampSchema = z.string().max(256).nullable();
 
 const readSchema = z.strictObject({
   version: z.literal(1),
-  path: absolutePathSchema.max(65536),
+  path: absolutePathSchema,
   toolCallId: z.string().max(1024),
   callEntryId: z.string().max(1024),
   callDigest: z.string().length(64),
@@ -44,7 +44,7 @@ type Ledger = {
   readUnchanged(file: string, stamp: string): boolean;
   /** A visible notice currently supplies this directory's instructions. */
   announced(directory: string): boolean;
-  /** Instructions for this directory reached the model by notice or a direct read of an existing file. */
+  /** Refresh treats this directory as delivered when a notice is visible or a surviving direct-read marker has a non-null stamp; the marker records an attempt, not a successful read. */
   delivered(directory: string): boolean;
   /** The visible notice already carries this instruction file and content. */
   current(directory: string, file: string, content: string): boolean;
@@ -98,17 +98,18 @@ export function ledger(session: SessionView): Ledger {
       if (!parsed.success) continue;
       const notice = parsed.data;
       // A context replacement retains details, but no longer contains these instructions.
-      const message = visible
+      const content = visible
         .get(entry.id)
-        ?.find(
-          (candidate): candidate is Extract<typeof candidate, { role: "custom" }> =>
-            candidate.role === "custom" &&
-            typeof candidate.content === "string" &&
-            digest(candidate.content) === notice.messageDigest
-        );
-      if (!message) continue;
-      const { body } = decodeNotice({ content: message.content, details: notice });
-      scopes.set(notice.directory, { path: notice.path, body });
+        ?.flatMap((candidate) =>
+          candidate.role === "custom" &&
+          (typeof candidate.content === "string" ||
+            (candidate.content.length === 1 && candidate.content[0]?.type === "text"))
+            ? [contentText(candidate.content)]
+            : []
+        )
+        .find((text) => digest(text) === notice.messageDigest);
+      if (content === undefined) continue;
+      scopes.set(notice.directory, { path: notice.path, body: noticeBody(content, notice) });
 
       if (notice.action !== "loaded") {
         for (const file of reads.keys())
@@ -127,17 +128,19 @@ export function ledger(session: SessionView): Ledger {
         JSON.stringify(origin.arguments) !== JSON.stringify(call.input)
       )
         return undefined;
-      const marker: ReadMarker = {
+      // Write only markers that the reader accepts.
+      const marker = readSchema.safeParse({
         version: 1,
         path: file,
         toolCallId: call.toolCallId,
         callEntryId: call.callEntryId,
         callDigest: callDigest(origin),
         stamp: stamp ?? null
-      };
-      reads.set(file, marker);
+      });
+      if (!marker.success) return undefined;
+      reads.set(file, marker.data);
 
-      return { type: "custom", customType: readType, data: marker };
+      return { type: "custom", customType: readType, data: marker.data };
     },
     wasRead: (file) => reads.has(file),
     readUnchanged: (file, stamp) => reads.get(file)?.stamp === stamp,

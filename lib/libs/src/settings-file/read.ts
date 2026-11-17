@@ -4,10 +4,7 @@ import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
 export const MAX_SETTINGS_FILE_BYTES = 1024 * 1024;
 
 /**
- * Read a complete regular settings file up to 1 MiB, following symlinks.
- * Missing/unreadable paths throw; callers own their fallback policy. Non-files,
- * oversized files, invalid UTF-8, and reads whose byte count differs from the initial size
- * return undefined.
+ * Read a complete regular settings file up to 1 MiB, following symlinks. Missing/unreadable paths throw; callers own their fallback policy. Non-files, oversized files, invalid UTF-8, and reads whose byte count differs from the initial size return undefined.
  */
 export function readSettingsFile(path: string): string | undefined {
   // A nonblocking open prevents a FIFO masquerading as settings from stalling startup.

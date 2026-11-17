@@ -30,10 +30,7 @@ function handled(component: DisplayRow, event: TuiMouseEvent) {
 }
 
 /**
- * Own a Pi row's chrome and click routing: summary lines, hidden members, joined
- * group margins, and collapse controls. Card clicks the transcript does not handle
- * reach Pi's own row handlers at their original coordinates. If a hook cannot be
- * installed, this restores the hooks it already installed and throws.
+ * Own a Pi row's chrome and click routing: summary lines, hidden members, joined group margins, and collapse controls. Card clicks the transcript does not handle reach Pi's own row handlers at their original coordinates. If a hook cannot be installed, this restores the hooks it already installed and throws.
  */
 export function bindRowChrome(
   row: DisplayRow,
@@ -59,8 +56,7 @@ export function bindRowChrome(
   let targets: RowLayout["targets"] = [];
   let summary: { revision: number; width: number; open: boolean; line: string[] } | undefined;
 
-  // The coordinator invalidates a leader when its run changes; Pi invalidates rows
-  // on theme changes.
+  // The coordinator invalidates a leader when its run changes; Pi invalidates rows on theme changes.
   const summaryLine = (width: number, theme: DisplayTheme | undefined, open: boolean) => {
     if (!theme) return [];
 
@@ -79,42 +75,38 @@ export function bindRowChrome(
   };
 
   const render: typeof row.render = function (this: DisplayRow, width) {
-    if (!options.active() || width < 1) {
+    if (!options.active()) {
       targets = [];
 
       return previousRender.call(this, width);
     }
 
     const theme = options.theme();
-    const chrome = rowChrome(
-      call,
-      coordinator,
+    const chrome = rowChrome(call, coordinator, {
       width,
       theme,
-      (open) => summaryLine(width, theme, open),
+      summaryLine: (open) => summaryLine(width, theme, open),
       notice,
-      options.tail?.() ?? true
-    );
-    // Summary chrome replaces the entire row. Do not prepare hidden cards or images.
-    // For visible cards, Pi updates selfRenderHeight while rendering.
+      tail: options.tail?.() ?? true
+    });
+    // Summary chrome replaces the entire row. Do not prepare hidden cards or images. For visible cards, Pi updates selfRenderHeight while rendering.
     const imageHooks = new OwnedHooks();
 
-    if (chrome.kind === "card") {
-      const indent = visibleWidth(chrome.imagePrefix);
-
-      // Pi renders these same public Image children after its card. Constrain only
-      // their width, keeping Pi's image IDs, conversion, caching, and reserved rows.
-      for (const child of this.children) {
-        if (!(child instanceof Image)) continue;
-        // oxlint-disable-next-line typescript/unbound-method
-        const previousImageRender = child.render;
-        imageHooks.replace(child, "render", function (this: Image, imageWidth) {
-          return previousImageRender.call(this, Math.max(1, imageWidth - indent));
-        });
-      }
-    }
-
     try {
+      if (chrome.kind === "card") {
+        const indent = visibleWidth(chrome.imagePrefix);
+
+        // Pi renders these same public Image children after its card. Constrain only their width, keeping Pi's image IDs, conversion, caching, and reserved rows.
+        for (const child of this.children) {
+          if (!(child instanceof Image)) continue;
+          // oxlint-disable-next-line typescript/unbound-method
+          const previousImageRender = child.render;
+          imageHooks.replace(child, "render", function (this: Image, imageWidth) {
+            return previousImageRender.call(this, Math.max(1, imageWidth - indent));
+          });
+        }
+      }
+
       const rows = chrome.kind === "card" ? previousRender.call(this, width) : [];
       // CustomMessageComponent is a one-row Spacer followed by our notice renderer.
       const height = notice ? Math.max(0, rows.length - 1) : record(this).selfRenderHeight;

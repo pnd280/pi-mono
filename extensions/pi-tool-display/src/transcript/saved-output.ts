@@ -12,21 +12,14 @@ const loadReader = () => (reader ??= import("../observation/saved-output.ts"));
 const readSavedOutput = async (path: string) => (await loadReader()).readSavedOutput(path);
 
 /**
- * The saved output of transcript calls. A complete, expanded call with a saved
- * path shows a bounded preview of that file. One session LRU cache shares previews
- * and in-flight reads between calls; an evicted preview leaves its calls, which
- * then show retained output. Renderers never initiate reads.
+ * The saved output of transcript calls. A complete, expanded call with a saved path shows a bounded preview of that file. One session LRU cache shares previews and in-flight reads between calls; an evicted preview leaves its calls, which then show retained output. Renderers never initiate reads.
  */
 export class SavedOutputs {
   private cache = new Map<string, SavedOutput>();
-  private pending = new Map<string, Promise<SavedOutput | undefined>>();
+  private pending = new Map<string, Promise<SavedOutput>>();
   private evicted = new WeakSet<SavedOutput>();
-  private disposed = false;
 
-  constructor(
-    private coordinator: TranscriptCoordinator,
-    private read: (path: string) => Promise<SavedOutput> = readSavedOutput
-  ) {}
+  constructor(private coordinator: TranscriptCoordinator) {}
 
   /** Keep the saved path from Pi's result details when the call's adapter shows saved output. */
   retain(call: DisplayCall, result: BorrowedToolResult): void {
@@ -38,24 +31,30 @@ export class SavedOutputs {
   /** The coordinator's hook: the call's saved path, expansion, or completion changed. */
   refresh(call: DisplayCall): void {
     const path = call.savedPath;
-    if (
-      this.disposed ||
-      !path ||
-      !call.expanded ||
-      call.lifecycle !== "complete" ||
-      (call.savedOutput?.path === path && !call.savedOutput.retryable)
-    )
+    if (!path || !call.expanded || call.lifecycle !== "complete") return;
+
+    if (call.savedOutput?.path === path && !call.savedOutput.retryable) {
+      const cached = this.cache.get(path);
+
+      if (cached) {
+        this.cache.delete(path);
+        this.cache.set(path, cached);
+      }
+
       return;
+    }
+
     this.coordinator.setSavedOutput(call, undefined);
     void this.load(path)
       .then((output) => {
-        if (this.disposed || !output || call.savedPath !== path || this.evicted.has(output)) return;
+        // A disposed coordinator ignores the update.
+        if (call.savedPath !== path || this.evicted.has(output)) return;
         this.coordinator.setSavedOutput(call, output);
       })
       .catch(() => {});
   }
 
-  private load(path: string): Promise<SavedOutput | undefined> {
+  private load(path: string): Promise<SavedOutput> {
     const cached = this.cache.get(path);
 
     if (cached) {
@@ -80,13 +79,10 @@ export class SavedOutputs {
     return promise;
   }
 
-  /** Failed reads are not cached. Disposal discards late results. */
-  private async loadOutput(path: string): Promise<SavedOutput | undefined> {
-    const output = await this.read(path);
-    // Disposal clears the cache, so a disposed owner evicts nothing.
+  /** Resolved previews, including read-failure notices, are cached. */
+  private async loadOutput(path: string): Promise<SavedOutput> {
+    const output = await readSavedOutput(path);
     if (this.cache.size >= CACHE_ENTRIES) this.evictOldest();
-    // Eviction may dispose the owner.
-    if (this.disposed) return undefined;
     this.cache.set(path, output);
 
     return output;
@@ -104,7 +100,6 @@ export class SavedOutputs {
   }
 
   dispose(): void {
-    this.disposed = true;
     this.cache.clear();
     this.pending.clear();
   }

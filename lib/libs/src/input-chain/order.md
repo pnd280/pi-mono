@@ -14,9 +14,11 @@ After a [version mismatch](../coordination/README.md#version-mismatch), each par
 
 ## Recommended ranks
 
-Leave gaps between ranks so that new participants can fit between existing ones. Each participant states its reasons in its own documentation.
+Leave gaps between ranks so that new participants can fit between existing ones. The pi-t3-skills reasons also place pi-skills.
 
-| Participant       | Registration       |
-| ----------------- | ------------------ |
-| pi-prompt-manager | Observer           |
-| pi-skills         | Transform at `100` |
+| Participant       | Registration                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| pi-prompt-manager | Observer                                                                                                       |
+| pi-t3-skills      | Transform at `90`, to remove T3 Code's skill blocks ([reasons](../../../extensions/pi-t3-skills/src/index.ts)) |
+| pi-skills         | Transform at `100`                                                                                             |
+| pi-t3-skills      | Transform at `110`, to rewrite skill chips ([reasons](../../../extensions/pi-t3-skills/src/index.ts))          |

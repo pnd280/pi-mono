@@ -36,7 +36,11 @@ const maxBytes = 1024 * 1024;
 const transactions = new PrivateFileTransactions();
 const lifetime = new WriteLifetime();
 const path = async () => {
-  const scope = await privateScopedDirectory({ root: agentDir, namespace: "prompt-manager", key });
+  const scope = await privateScopedDirectory({
+    root: agentDir,
+    namespace: "pi-prompt-manager",
+    key
+  });
   return join(scope, "records.json");
 };
 
@@ -52,21 +56,16 @@ const result = await transactions.run("records", {
   update: (current) => ({ status: "replace", content: addRecord(current), value: undefined })
 });
 
-// On shutdown: abort, then wait for started writes and lock cleanup.
+// On shutdown: abort, then wait for started atomic writes and their lock cleanup. Await outstanding run() promises to finish other lock cleanup.
 await lifetime.dispose();
 ```
 
 ## Caller responsibilities
 
-- Translate raw OS exceptions before you display them, because they can expose paths. Only the module's [PrivateFileError diagnostics](errors.ts) use fixed messages.
-- Define record schemas and storage policy outside this module. Prompt manager keeps them in its [model](../model.ts) and [collection rules](../storage/collection.ts).
-- Store records only in the locations that the [filesystem assumptions](transactions.md#filesystem-assumptions) allow.
+- Translate raw OS exceptions and cleanup errors before you display them, because they can expose paths. Only the module's [PrivateFileError diagnostics](errors.ts) use fixed messages.
+- Translate write warnings for display, and do not retry a `committed` result because it carries warnings or cleanup errors.
 
-### Mutation protocol
-
-Mutate records through [serialised transactions](transactions.md#serialised-transactions), which state when not to retry a write.
-
-Related: [storage and recovery](../../docs/storage.md) owns the saved-prompt schema, limits, and recovery on top of this module.
+Related: [storage and recovery](../../docs/storage.md) owns the saved-prompt schema, limits, and recovery on top of this module, which the [model](../model.ts) and [collection rules](../storage/collection.ts) implement.
 
 ## Validation
 

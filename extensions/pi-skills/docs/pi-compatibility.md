@@ -2,13 +2,11 @@
 
 [pi-skills](../README.md)
 
-> Last verified against Pi 1.5.0 with the package checks, the offline tests, the fingerprint check, and a source review of the Pi 1.4.0 to 1.5.0 changes to the editor, autocomplete, input handling, and editor replacement. Not covered: the manual terminal checks, including page keys in an open skill picker; and native slash completion after leading whitespace.
+> Last verified against Pi 1.5.2 with the package checks, the offline tests, the fingerprint check, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the manual terminal checks, including page keys in an open skill picker; and native slash completion after leading whitespace.
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [offline terminal checks](testing.md#manual-checks). Real-editor acceptance and installed-host input tests cover behaviour that provider-only fixtures can't.
-2. Run the workspace [fingerprint check](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). On a changed hash, review the new source of the method in both builds before you record the hash.
-3. Work through the checklist below, then update the "Last verified" line.
+Run the [offline terminal checks](testing.md#manual-checks).
 
 ## Checklist
 
@@ -16,14 +14,14 @@ Input expansion and completion must compose with Pi's existing providers and reg
 
 ### Input expansion
 
-[Input expansion](../src/tokens.ts) owns catalogue projection, substitution, and the native-insertion guard. [Input-hook wiring](../src/index.ts) passes the current commands.
+[Input expansion](../src/index.ts) matches `/skill:<name>` tokens. The shared [skill-reference module](../../../utils/src/skill-reference.ts) owns the format schema, catalogue projection, substitution, and the native-insertion guard.
 
-The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
+The input hook in the same file passes the current commands. The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
+
+Token matching and existing references follow the [matching rules](rules.md#matching).
 
 - [ ] Pi's `input` event runs before native skill insertion and prompt-template expansion.
 - [ ] `getCommands()` reports each skill with its registered file path, which expansion inserts exactly.
-- [ ] Only whole whitespace-separated tokens expand, also in fenced text.
-- [ ] References already in the configured format don't expand again.
 - [ ] Leading references don't trigger Pi's native `<skill>` insertion or prompt-template expansion.
 - [ ] Ordinary leading prompt-template commands still expand.
 - [ ] Image attachments on an expanded prompt reach the model.
@@ -31,15 +29,15 @@ The [input chain](../../../libs/src/input-chain/README.md) runs the transform at
 
 ### Settings and completion
 
-[Format settings](../src/config.ts) and [completion](../src/autocomplete.ts) own this behaviour.
+The [skill-reference settings library](../../../libs/src/skill-reference-settings/README.md) loads the format for the `ext.pi-skills` key, and [completion](../src/autocomplete.ts) owns suggestions.
 
 The user guide states the [format rules](rules.md#expansion-format) and the [completion rules](rules.md#completion) that users see.
 
 - [ ] Pi's settings files and project trust give the documented format, and `/reload` updates it, without UI or settings writes.
 - [ ] Skill suggestions come from Pi's current autocomplete provider, and Pi's `enableSkillCommands` setting turns them off.
-- [ ] Skill names that an extension command or prompt template also uses aren't suggested.
+- [ ] Skills whose full command name an extension command or prompt template also uses aren't suggested.
 - [ ] Accepting a suggestion replaces the token around the cursor.
-- [ ] **Tab** and **Enter** accept a suggestion without submitting the prompt.
+- [ ] **Tab** and **Enter** accept pi-skills suggestions without submitting the prompt; Pi's first-line picker keeps Enter-to-submit.
 - [ ] File, attachment, and other command completion keep working.
 
 ### Editor trigger
@@ -60,6 +58,7 @@ The provider closes skill suggestions when the token ends, because Pi would list
 
 ## Limitations
 
-- In Pi 1.4.0 and 1.5.0, native skill insertion runs only for prompts that begin exactly with `/skill:`, after the input hook. Prompt-template expansion also follows the input hook. The leading-reference checkboxes above cover both.
-- In Pi 1.4.0 and 1.5.0, the editor removes `/` from provider `triggerCharacters` and has no public method that opens completion. The `/` trigger depends on the fingerprinted private call above. If Pi adds a public way to open completion, replace the private call.
-- In Pi 1.4.0 and 1.5.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.
+- In Pi 1.5.2, the source review of the Pi 1.5.1 to 1.5.2 changes found pi-tui, autocomplete, input handling, and editor replacement unchanged.
+- In Pi 1.4.0 to 1.5.2, native skill insertion runs only for prompts that begin exactly with `/skill:`, after the input hook. Prompt-template expansion also follows the input hook. The leading-reference checkboxes above cover both.
+- In Pi 1.4.0 to 1.5.2, the editor removes `/` from provider `triggerCharacters` and has no public method that opens completion. The `/` trigger depends on the fingerprinted private call above. If Pi adds a public way to open completion, replace the private call.
+- In Pi 1.4.0 to 1.5.2, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.

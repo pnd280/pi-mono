@@ -33,8 +33,6 @@ import {
   type JobInput
 } from "./records.ts";
 
-type JobEvent = { kind: "changed"; jobId: string };
-
 /** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
 const JOB_LOG_PREFIX = "pi-job-";
 
@@ -59,17 +57,13 @@ type LiveJob = {
   done: Promise<JobRecord>;
 };
 
-type Ended = {
-  outcome: JobEndEntry["outcome"];
-  exit_code: number | null;
-  error?: string;
+type Ended = Pick<JobEndEntry, "outcome" | "exit_code" | "error"> & {
   /** Pi's text already states the error, so the result adds no `Error:` line. */
   stated?: true;
 };
 
 /**
- * Pi's raw `shellPath` and `shellCommandPrefix` settings, as Pi's settings manager resolves them:
- * the path expands `~` and `file://`; the prefix is unchanged.
+ * Pi's raw `shellPath` and `shellCommandPrefix` settings, as Pi's settings manager resolves them: the path expands `~` and `file://`; the prefix is unchanged.
  */
 export function shellOptions(
   settings: { shellPath?: unknown; shellCommandPrefix?: unknown },
@@ -137,16 +131,12 @@ function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
     };
   if (ABORTED.test(text))
     return { outcome: "cancelled", exit_code: null, error: "Cancelled", stated: true };
-  const line = firstLine(text);
 
-  return line
-    ? { outcome: "failed", exit_code: null, error: line, stated: true }
-    : { outcome: "failed", exit_code: null, error: "Job failed" };
+  return { outcome: "failed", exit_code: null, error: firstLine(text), stated: true };
 }
 
 /**
- * Background shell commands of one supervisor binding. Each live job owns its shell and group
- * through cleanup, as well as its abort controller, bounded log, entries, and outcome.
+ * Background shell commands of one supervisor binding. Each live job owns its shell and group through cleanup, as well as its abort controller, bounded log, entries, and outcome.
  */
 export class Jobs {
   private records: Map<string, JobRecord>;
@@ -163,7 +153,7 @@ export class Jobs {
   };
   /** Log streams that have not closed, including streams that never started a job. */
   private streams = new Set<Promise<void>>();
-  private listeners = new Set<(event: JobEvent) => void>();
+  private listeners = new Set<() => void>();
   private closed = false;
   /** The results of exited jobs. A live job started with `hold_run` holds the run; see ADR 0008. */
   readonly results = new ResultSource(
@@ -186,6 +176,8 @@ export class Jobs {
       warn?(message: string): void;
       /** A job was accepted: its log file is open and its entry is appended. */
       started?(): void;
+      /** Another extension owns `bash` now, so a new command would run outside it. */
+      foreignBash(): boolean;
     }
   ) {
     this.bindingId = options.sessionId;
@@ -209,7 +201,7 @@ export class Jobs {
     return { ...record, binding_id: this.bindingId };
   }
 
-  subscribe(listener: (event: JobEvent) => void): () => void {
+  subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
 
     return () => {
@@ -217,16 +209,10 @@ export class Jobs {
     };
   }
 
-  private emit(event: JobEvent): void {
+  private emit(): void {
     if (this.closed) return;
 
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch {
-        /* Observers cannot change process lifetime. */
-      }
-    }
+    for (const listener of this.listeners) listener();
   }
 
   /** Opens the job's log file, then starts the command without waiting for it. */
@@ -266,6 +252,12 @@ export class Jobs {
       throw new Error("Job session ended");
     }
 
+    // Checked at each start: an extension can register `bash` after the binding opened.
+    if (this.options.foreignBash()) {
+      log.end();
+      throw new Error("Job not started: another extension owns bash");
+    }
+
     const entry: JobEntry = {
       job_id,
       description: boundedText(input.description),
@@ -278,10 +270,10 @@ export class Jobs {
     try {
       this.options.append(JOB_ENTRY, entry);
     } catch (error) {
-      // Pi keeps the entry in memory, where it shows the job as cancelled; no command starts.
+      // Keep the cancelled job in this binding only; Pi rolled back the entry and no command starts.
       this.records.set(job_id, stoppedJob(entry));
       log.end();
-      this.emit({ kind: "changed", jobId: job_id });
+      this.emit();
       throw new Error(`Job entry could not be saved: ${errorMessage(error)}`);
     }
 
@@ -289,7 +281,7 @@ export class Jobs {
     this.options.started?.();
     // One object: `abort` marks the same job that `run` reads.
     this.live.set(job_id, Object.assign(live, { done: this.run(record, live, input, ctx) }));
-    this.emit({ kind: "changed", jobId: job_id });
+    this.emit();
 
     return this.details(record);
   }
@@ -307,10 +299,10 @@ export class Jobs {
 
   /** Keep output out of Pi's accumulator: it would create a second, unbounded disk log. */
   private operations(live: Omit<LiveJob, "done">): BashOperations {
-    return jobOperations(
-      this.options.shellPath,
-      (data) => {
-        if (live.writeError || live.log.destroyed || live.log.writableEnded) return;
+    return jobOperations({
+      shellPath: this.options.shellPath,
+      onData: (data) => {
+        if (live.writeError || live.log.destroyed) return;
 
         if (live.log.writableLength + data.length > MAX_PENDING_LOG_BYTES) {
           live.writeError = new Error("Pending log output exceeded 16 MiB");
@@ -326,9 +318,9 @@ export class Jobs {
         live.clipped ||= output.length > DEFAULT_MAX_BYTES;
         live.output = output.subarray(-DEFAULT_MAX_BYTES);
       },
-      (error) => (live.stopError ??= error),
-      (child) => this.trackProcess(child)
-    );
+      onStopError: (error) => (live.stopError ??= error),
+      onSpawn: (child) => this.trackProcess(child)
+    });
   }
 
   private async run(
@@ -397,8 +389,7 @@ export class Jobs {
       ended_at,
       ...(ended.error ? { error: ended.error } : {})
     };
-    // A session change gives the job no end entry and no result: it shows as cancelled. An earlier
-    // `session_tree` handler can run after the leaf moved and before this binding ends.
+    // A session change gives the job no end entry and no result: it shows as cancelled. An earlier `session_tree` handler can run after the leaf moved and before this binding ends.
     if (this.closed || !jobHistory(this.options.branch()).has(record.job_id)) return done;
     this.records.set(record.job_id, done);
     const end: JobEndEntry = {
@@ -418,22 +409,20 @@ export class Jobs {
       );
     }
 
-    // `job_abort` gave up a cancelled job's result. A job result waits during a pending session
-    // change, because a later extension can cancel the change; see ADR 0005.
+    // `job_abort` gave up a cancelled job's result. A job result waits during a pending session change, because a later extension can cancel the change; see ADR 0005.
     if (!live.drop || done.outcome !== "cancelled")
       this.results.publish({
         kind: "result",
         message: jobResultMessage(this.details(done), text, ended.stated === true),
         survivesChange: true
       });
-    this.emit({ kind: "changed", jobId: done.job_id });
+    this.emit();
 
     return done;
   }
 
   /**
-   * Cancel an active job. With `drop`, its cancellation result goes to nobody; a job that exited
-   * before the abort keeps its own outcome and result.
+   * Cancel an active job. With `drop`, its cancellation result goes to nobody; a job that exited before the abort keeps its own outcome and result.
    */
   async abort(jobId: string, { drop = false }: { drop?: boolean } = {}): Promise<JobRecord> {
     const record = this.owned(jobId);

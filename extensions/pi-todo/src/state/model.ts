@@ -36,8 +36,6 @@ export type TaskMutationParams = z.output<typeof mutationParamsSchema>;
 
 export type TaskDetails = {
   version: typeof TASK_DETAILS_VERSION;
-  action: TaskAction;
-  params: TaskMutationParams;
   tasks: Task[];
   nextId: number;
   error?: string;

@@ -1,12 +1,7 @@
 import { setImmediate } from "node:timers/promises";
 
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
-import {
-  truncateToWidth,
-  visibleWidth,
-  wrapTextWithAnsi,
-  type Component
-} from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 const SCAN_SIZE = 4096;
 
@@ -35,16 +30,13 @@ export async function layoutPreview(
     let end = newline < 0 ? -1 : offset + newline + 1;
     if (scanEnd === text.length) end = scanEnd;
     // Pi treats CRLF as one delimiter, including when it straddles a scan boundary.
-    if (end > 0 && text[end - 1] === "\r" && text[end] === "\n") end++;
+    if (text[end - 1] === "\r" && text[end] === "\n") end++;
     offset = Math.max(scanEnd, end);
     if (end < 0) continue;
 
-    // Only complete logical lines are independently wrappable. Pi's fast path
-    // preserves whitespace on lines that fit, and its wrapped rows are not
-    // resumable source fragments. A single long logical line stays atomic.
+    // Only complete logical lines are independently wrappable. Pi's fast path preserves whitespace on lines that fit, and its wrapped rows are not resumable source fragments. A single long logical line stays atomic.
     const wrapped = wrapTextWithAnsi(prefix + text.slice(start, end), wrapWidth);
-    // A nonfinal batch ends in a real newline. Its final empty logical line
-    // contains precisely Pi's active ANSI prefix for the following batch.
+    // A nonfinal batch ends in a real newline. Its final empty logical line contains precisely Pi's active ANSI prefix for the following batch.
     if (end < text.length) prefix = wrapped.pop() ?? "";
     for (const line of wrapped) lines.push(line);
     start = end;
@@ -53,13 +45,15 @@ export async function layoutPreview(
   return lines;
 }
 
+type PreviewLayout = { width: number; lines: string[] | undefined };
+
 /** A controlled viewport: consumers supply display-safe text and interpret navigation keys. */
-export class ScrollableTextPreview implements Component {
+export class ScrollableTextPreview {
   private text = "";
   private height = 1;
   private offset = 0;
   private disposed = false;
-  private layout: { width: number; lines: string[] | undefined } | undefined;
+  private layout: PreviewLayout | undefined;
 
   constructor(private readonly options: { changed(): void; current(): boolean }) {}
 
@@ -71,8 +65,8 @@ export class ScrollableTextPreview implements Component {
   }
 
   setViewport({ height, scroll }: { height: number; scroll: number }): void {
-    this.height = Math.max(0, Math.floor(height));
-    this.offset = Math.max(0, Math.floor(scroll));
+    this.height = height;
+    this.offset = scroll;
   }
 
   get loading(): boolean {
@@ -92,9 +86,6 @@ export class ScrollableTextPreview implements Component {
   }
 
   render(width: number): string[] {
-    if (this.disposed || !this.options.current()) return [];
-    width = Math.max(0, Math.floor(width));
-    if (!width || !this.height) return [];
     if (this.layout?.width !== width) this.prepare(width);
     const lines = this.layout?.lines;
     if (lines === undefined) return [];
@@ -106,7 +97,7 @@ export class ScrollableTextPreview implements Component {
   }
 
   private prepare(width: number): void {
-    const layout = { width, lines: undefined as string[] | undefined };
+    const layout: PreviewLayout = { width, lines: undefined };
     this.layout = layout;
     const current = () => !this.disposed && this.options.current() && this.layout === layout;
     void layoutPreview(this.text, width, current).then((lines) => {
@@ -114,10 +105,6 @@ export class ScrollableTextPreview implements Component {
       layout.lines = lines;
       this.options.changed();
     });
-  }
-
-  invalidate(): void {
-    // Layout contains no theme colors. Width and text changes invalidate it separately.
   }
 
   dispose(): void {

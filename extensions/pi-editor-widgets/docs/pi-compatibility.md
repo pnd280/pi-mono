@@ -2,21 +2,17 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.5.0 with a source review of the Pi 1.4.0 to 1.5.0 changes to statuses, regions, the footer, mode switching, the extension dialog stack, metrics, compaction thresholds, pi-tui mouse dispatch, list paging keys, exit restoration, and interactive mode, including both builds of `TuiMainScreen.doRender`, the fingerprint check, the offline package checks and host tests including reload, and an offline tmux run in fullscreen mode that opens and closes `/widgets` and exits Pi. Not covered: physical-terminal checks; regular mode in a terminal; `/reload` and a `SIGTERM` shutdown with `/widgets` open in a terminal; mouse clicks; and the other manual checks.
+> Last verified against Pi 1.5.2 with a source review of the Pi 1.5.1 to 1.5.2 changes, the fingerprint check, and the offline package checks and host tests including reload. Not covered: the offline tmux run in fullscreen mode that opens and closes `/widgets` and exits Pi, which last ran on Pi 1.5.0; physical-terminal checks; regular mode in a terminal; `/reload` and a `SIGTERM` shutdown with `/widgets` open in a terminal; mouse clicks; and the other manual checks.
 
-Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. The _coordinator_ ([`WidgetCoordinator`](../src/coordinator.ts)) installs the region, footer, mode, and renderer hooks and takes over the widget regions and the footer for a session.
+Pi's public footer data exposes other extensions' status text, but no public API exposes native widget instances, status changes, or row placement, so this extension uses narrowly scoped runtime hooks. The _coordinator_ ([`WidgetCoordinator`](../src/coordinator.ts)) installs the region, footer, mode, and renderer hooks and takes over the widget regions and the footer for a session.
 
 ## Upgrade checklist
 
-1. Run the [focused package checks](../../../../docs/development.md#focused-validation), including the shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md).
-2. Work through the host checks below, then run the workspace [fingerprint check](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). Update hashes and the version pin only after reviewing the contracts in both installed builds.
-3. Confirm that `/widgets` still mounts through the shared [responsive host](../../../libs/src/tui/responsive-custom-ui/README.md) in regular and fullscreen modes.
-4. Do the [terminal checks](validation.md).
-5. Update the "Last verified" line.
+Besides the host checks below, do the [terminal checks](validation.md).
 
 ### Fingerprint boundary
 
-The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.5.0"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
+The [host boundary](../src/host.ts) exports `inspectedPiVersion` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
 
 Each gate unwraps recorded hook predecessors.
 
@@ -25,11 +21,10 @@ Each gate unwraps recorded hook predecessors.
 | `setExtensionStatus`                                 | Discovery temporarily replaces it and intercepts the receiver before native status effects.             |
 | `renderWidgets`                                      | The coordinator replaces native region mounting.                                                        |
 | `setExtensionFooter`                                 | The coordinator replaces it to detect ownership changes and calls it to acquire and release the footer. |
-| `createExtensionUIContext`                           | This private call supplies the live theme getter used by the coordinator.                               |
 | `switchTuiMode`                                      | The coordinator rebinds renderer hooks and restores regular-mode usage displays after mode changes.     |
 | `TuiMainScreen.doRender` and `TuiAltScreen.doRender` | The coordinator replaces each renderer's frame boundary to invalidate layout measurements.              |
 
-A failed gate leaves the coordinator inactive and reports the existing unsupported-host warning. Public `requestRender`, container methods, footer-provider methods, and session metrics retain capability checks; they are not private implementation hooks.
+A failed gate leaves the coordinator inactive and reports the existing unsupported-host warning. The coordinator reads the theme from the public `ctx.ui.theme`, which Pi keeps as a live proxy over the current theme, so it needs no private call or gate. Public `requestRender`, container methods, footer-provider methods, and session metrics retain capability checks; they are not private implementation hooks.
 
 ### Status discovery
 
@@ -48,16 +43,17 @@ If a host property below is missing, the capability check fails with a diagnosti
 
 ### Renderer and mode switching
 
-Pi's stable UI reference is a forwarding proxy, so hook the real renderer and rebind on mode changes, rather than patching properties on the proxy. The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches. The `switchTuiMode` gate follows recorded predecessors, including tool-display's wrapper, so both extensions can compose across reload and restoration. Keyboard input can bypass `requestRender`, so the `doRender` hook clears cached measurements once per frame, and dynamic widget content stays current across all regions.
+The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches. The `switchTuiMode` gate follows recorded predecessors, including tool-display's wrapper, so both extensions can compose across reload and restoration. Keyboard input can bypass `requestRender`, so the `doRender` hook clears cached measurements once per frame, and dynamic widget content stays current across all regions.
 
-The compositor recognises image prefixes before text measurement and preserves complete output under the [image placement policy](settings.md#how-rows-render). Image geometry, identifiers, and terminal placement remain Pi-owned.
+The compositor detects Kitty and iTerm2 image markers anywhere in a line before text measurement and preserves complete output under the [image placement policy](settings.md#how-rows-render). Image geometry, identifiers, and terminal placement remain Pi-owned.
 
+- [ ] `ctx.ui.theme` still forwards to the current theme after a theme change.
 - [ ] The stable `ui` reference is still a forwarding proxy, and `renderer` still returns the real renderer behind it.
 - [ ] The real renderer still renders each frame through its protected `doRender` method, also when keyboard input bypasses `requestRender`.
 - [ ] `switchTuiMode` still performs every switch between regular and fullscreen modes.
 - [ ] The public `mode` property still reports the current mode, so the extension can gate fullscreen toggling of the usage widgets and restore the regular-mode displays.
 - [ ] Region invalidation still reaches borrowed native components.
-- [ ] Native `Image` output still starts with Kitty (`\x1b_G`) or iTerm2 (`\x1b]1337;File=`) sequences.
+- [ ] Native `Image` output still contains Kitty (`\x1b_G`) or iTerm2 (`\x1b]1337;File=`) markers, also after the blank rows and cursor movement of a multirow image.
 
 ### Custom footer
 
@@ -77,15 +73,24 @@ Translating coordinates must not focus otherwise passive components. Forward eac
 
 ### Session lifecycle
 
-Shutdown releases adapters but doesn't dispose borrowed widgets. A new start loads preferences and keeps no stale session components.
+Shutdown releases adapters but doesn't dispose borrowed widgets. A new start loads preferences and keeps no stale session components. Pi's reset leaves a custom-UI promise pending; the shared responsive host settles the menu promise when it is disposed.
 
 - [ ] On `/reload`, Pi still emits `session_shutdown` for the old extension instance before `session_start` for the new one.
 - [ ] Pi's native UI reset still disposes extension widgets on shutdown, new sessions, and reload.
-- [ ] Pi's native UI reset still disposes every stacked extension dialog, including an open inline `/widgets` menu, and the menu promise settles. Pi 1.4.0 added this dialog stack.
+- [ ] Pi's native UI reset still disposes every stacked extension dialog, including an open inline `/widgets` menu.
+
+### Git changes
+
+[`GitChanges`](../src/git-changes.ts) keeps to the [limits on when Git runs](settings.md#git-changes), runs `git` through `pi.exec()`, and learns that a `!` command finished from the session entry count, because Pi has no event for it.
+
+- [ ] Aborting the signal passed to `pi.exec()` still terminates the command and sets `killed`, including when `code` is 0.
+- [ ] A finished `!` command still appends a `bashExecution` entry, at once when Pi is idle or when the agent finishes if it is streaming, so `sessionManager.getEntryCount()` changes.
+- [ ] `tool_execution_end` still fires once for each finished tool call.
+- [ ] `agent_settled` still fires when a run ends.
 
 ### Metrics
 
-Never render an unknown context window as zero. The label shows the selected model, and, under a virtual selection, the routed model as `→ id:level`. The [built-in footer fields](../src/builtins.ts) copy the sources of Pi's native footer.
+The label shows the selected model, and, under a virtual selection, the routed model as `→ id:level`. The [built-in footer fields](../src/builtins.ts) copy the sources of Pi's native footer.
 
 - [ ] `getSessionStats()` includes usage, tool-result, compaction, and branch-summary entries.
 - [ ] The latest assistant message's prompt usage sets the cache-hit percentage.
@@ -104,28 +109,27 @@ Never render an unknown context window as zero. The label shows the selected mod
 ## Limitations
 
 - [Mouse input](../README.md#side-effects) works only in fullscreen mode. The usage widgets use `MouseRegion` to claim primary presses, and toggle on Pi's synthesised click without taking focus. Regular mode keeps the original non-interactive displays.
-- A custom footer is exclusive, not composable. Contribute through native widgets and statuses, or disable the competing footer extension.
-- Both installed renderer implementations and the current renderer are checked at acquisition. Recheck replacement renderers before rebinding their private frame hook; unrelated later host-method replacements are outside the acquisition check.
-- Copies share one native instance and render at the same terminal width. Mouse dispatch uses that width, not the compacted hit area. Drag capture after a later frame follows the component's most recent render geometry.
+- A custom footer is exclusive, not composable.
+- Both installed renderer implementations and the current renderer are checked at acquisition, and each replacement renderer before its frame hook is rebound. Unrelated later host-method replacements are outside these checks.
 - Components expose `render(width)`, not a preferred size. Each placement renders once at terminal width, and the output it occupies sets its row width. Whole widgets wrap in order without shrinking, and a full-width component takes its own row. Widgets control wrapping inside their own output.
 - While `/widgets` is open, the menu sizes itself from the unclipped region height, so tall regions still clip on short terminals.
 - Shared rows trim only literal trailing spaces known not to paint or carry metadata. Backgrounds, decorated spaces, and unknown escape sequences keep their width. Leading indentation and singleton padding are kept.
-- In Pi 1.4.0 and 1.5.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
-- In Pi 1.5.0, `TuiMainScreen.doRender` removes OSC 133 prompt markers only at the start of each rendered line, as the fullscreen renderer already did. The frame hook does not depend on this.
-- In Pi 1.5.0, replacing an extension editor while a dialog is open waits until the last dialog closes. While `/widgets` is open, `editorContainer` keeps the menu, so the region budget keeps measuring the menu. In Pi 1.4.0, the replacement editor took the slot.
-- In Pi 1.5.0, inline `ctx.ui.custom()` accepts a `blocked` option for the OSC 7501 waiting status. The shared responsive host does not pass it, so `/widgets` does not report Pi as blocked on input.
-- In Pi 1.5.0, `tui.select.pageUp` and `tui.select.pageDown` move many Pi lists. The `/widgets` menu has no paging controls and does not set `capturesViewportInput`, so in fullscreen mode **PageUp** and **PageDown** still scroll the transcript while the menu is open.
+- In Pi 1.4.0 to 1.5.2, the renderer already expands visible tabs to the three columns `visibleWidth()` uses.
+- In Pi 1.5.0 to 1.5.2, `TuiMainScreen.doRender` removes OSC 133 prompt markers only at the start of each rendered line, as the fullscreen renderer already did. The frame hook does not depend on this.
+- In Pi 1.5.1 and 1.5.2, on every terminal that uses the Kitty image protocol, `TuiAltScreen.doRender` also redraws images when a row under an image changes, and a frame that redraws images writes the image rows after all text rows. In Pi 1.5.0, it did both only in WezTerm. The frame hook does not depend on this.
+- Pi 1.5.2 leaves pi-tui and the hooked interactive-mode methods of 1.5.1 unchanged; interactive mode changes only in opening a session whose stored working directory is missing.
+- In Pi 1.5.2, fullscreen mode turns off iTerm2 images, so native `Image` widgets show their text fallback there.
+- In Pi 1.5.0 to 1.5.2, replacing an extension editor while a dialog is open waits until the last dialog closes. While `/widgets` is open, `editorContainer` keeps the menu, so the region budget keeps measuring the menu. In Pi 1.4.0, the replacement editor took the slot.
+- The shared responsive host does not pass the [`blocked` option](../../../libs/docs/pi-compatibility.md#limitations) of `ctx.ui.custom()`, so `/widgets` does not report Pi as blocked on input.
+- In Pi 1.5.0 to 1.5.2, `tui.select.pageUp` and `tui.select.pageDown` move many Pi lists. The `/widgets` menu has no paging controls and does not set `capturesViewportInput`, so in fullscreen mode **PageUp** and **PageDown** still scroll the transcript while the menu is open.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
 
-These private hooks have no complete public replacements in Pi 1.5.0:
+These private hooks have no complete public replacements in Pi 1.5.2:
 
-| Private hook                   | Parity                              | Public API that Pi would need                                |
-| ------------------------------ | ----------------------------------- | ------------------------------------------------------------ |
-| `setExtensionStatus` probe     | None                                | A read API for other extensions' widgets and statuses        |
-| `renderWidgets`                | None                                | A widget layout or placement provider                        |
-| `setExtensionFooter`           | Partial, through `ctx.ui.setFooter` | A footer-ownership change event                              |
-| `createExtensionUIContext`     | Partial, through `ctx.ui.theme`     | None, if the coordinator takes the theme from `ctx.ui.theme` |
-| `switchTuiMode`                | None                                | A TUI mode-change event                                      |
-| `doRender` and `requestRender` | None                                | A renderer frame or lifecycle hook                           |
-
-When Pi adds a public registry, layout, mode-change, or renderer-lifecycle API, use it instead of the matching private hook. Replace the boundary and its tests together, without transitional adapters.
+| Private hook                   | Parity                              | Public API that Pi would need                             |
+| ------------------------------ | ----------------------------------- | --------------------------------------------------------- |
+| `setExtensionStatus` probe     | None                                | A read API for native widget instances and status changes |
+| `renderWidgets`                | None                                | A widget layout or placement provider                     |
+| `setExtensionFooter`           | Partial, through `ctx.ui.setFooter` | A footer-ownership change event                           |
+| `switchTuiMode`                | None                                | A TUI mode-change event                                   |
+| `doRender` and `requestRender` | None                                | A renderer frame or lifecycle hook                        |

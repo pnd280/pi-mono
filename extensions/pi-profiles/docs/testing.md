@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests the trust boundary for project settings, what a switch declares and appends, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply. Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
+This package tests the trust boundary for project settings, what a switch declares and appends, which MCP servers a selection connects, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply. Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
 
 ## Must not regress
 
@@ -42,6 +42,12 @@ This package tests the trust boundary for project settings, what a switch declar
 - **High, e2e:** When the extension's `tool_search` loads one tool of a group, it loads the others too, also after resume.
 - **High, e2e:** With another extension's `tool_search`, a switch and a restoration declare all tools of a group that has two or more tools.
 
+### MCP servers
+
+- **Critical, e2e:** A trusted project profile whose MCP server uses `auth` is skipped, so none of its servers connect.
+- **Critical, e2e:** The session file keeps no MCP server entries, which can contain secrets.
+- **High, e2e:** A switch, no profile, tree navigation, and resume connect only the servers of the selected profile. A server whose entry stays the same keeps its connection, and a server with a changed entry connects again.
+
 ### Restoration
 
 - **High, e2e:** After tree navigation and resume, the branch's latest selection decides the added prompts.
@@ -55,19 +61,19 @@ This package tests the trust boundary for project settings, what a switch declar
 - **High, e2e:** When Pi starts, `--profile` applies in every mode and replaces a resumed branch's selection.
 - **High, e2e:** Without `--profile`, the default profile applies only when an interactive session starts on a branch without a selection.
 - **High, e2e:** A switch to no profile counts as a selection, so the default profile does not apply to that branch.
-- **High, e2e:** Without `--profile`, print, JSON, and RPC sessions keep the model and tools they were given.
+- **High, e2e:** Without `--profile`, print, JSON, and RPC sessions apply no default profile, so a branch without a selection keeps the model and tools it was given.
 
 ## Not tested
 
 - The shortcut, its cycle order, the `/profile` menu and its details, the profile name in the editor border, and notice wording are below the severity bar. The menu switches through the tested switch path.
 - Other settings recovery, limits, and warnings are below the severity bar. Warnings contain no supplied values.
 - The error for a profile whose model cannot be selected, and for a `--profile` that names no profile, is below the severity bar, because the user sees the refusal.
-- `--profile` in later sessions of the same run, such as after `/new`, is not tested because the tests cover startup, where `--profile` matters most.
+- `--profile` in later sessions of the same run, such as after `/new`, is below the severity bar: there it only stands in for the default profile on a branch without a selection, and the editor border shows the profile that applied.
 - The refusal of a switch while the agent runs, or while an earlier switch waits for its model, is below the severity bar, because a wrong switch would show in the switch notice; see the manual checks.
-- A request that waits for a switch is not tested because the test needs a slow model change.
+- A request started while a switch waits for its model is not tested. pi-profiles holds such a request until the switch completes, so a regression shows only for a prompt sent during the model change.
 - `/profile clear` after all profiles were removed from settings is below the severity bar.
 - Pi owns the [MCP tool cases](tools.md#mcp-tools), which depend on its MCP support and on server timing. The [compatibility checklist](pi-compatibility.md#mcp-tools) covers them.
-- The `deny` filter of the extension's `tool_search` list is below the severity bar.
+- Whether the extension's `tool_search` result lists a `deny` tool is below the severity bar, because the tests check that the search does not load it.
 - The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) and [lifecycle](../../../libs/src/lifecycle/README.md) coordinators own the rank order, the holds, the startup barrier, and the shortcut claims, which place the profile's prompts and selection entry relative to other extensions.
 - The `hidden` exposure cases are below the severity bar, because only an unusual configuration has them: `tool_search` does not offer a deferred tool that later became `hidden`, and a `hidden` `tool_search` does not count as declared or as the extension's.
 - A tool that the selection turned off and a later request declared stays declared on `/reload`. This case is not tested because the tests cover the more common case, in which `/reload` must not turn on a tool that the selection turned off.
@@ -82,7 +88,7 @@ Add two profiles to `~/.pi/agent/settings.json`, and run `pi` from the workspace
 | Press **Alt+I** three times, and look at the editor's top border after each press.                                                                                        | The presses select each profile, then no profile, and show the tool changes. The border's right end shows the profile name, and no name for no profile.   |
 | Start a response, and look at the editor's top border.                                                                                                                    | Pi's working status and the profile name both show.                                                                                                       |
 | Press **Alt+I** while a response streams.                                                                                                                                 | pi-profiles shows a warning, and the profile does not change.                                                                                             |
-| In a terminal with 26 rows, run `/profile`, press **Tab**, and select `tool_search`.                                                                                      | The list shows its rows, and the details below it end with `…`.                                                                                           |
+| In a terminal too short for the details, run `/profile`, press **Tab**, and select `tool_search`.                                                                         | The list shows its rows, and the details below it end with `…`.                                                                                           |
 | Run `/profile` and choose a profile, then `clear`.                                                                                                                        | The menu marks the current profile and lists `clear`. After each choice, the editor's top border shows the chosen profile's name, or no name for `clear`. |
 | In the `/profile` menu, select a profile that removes tools.                                                                                                              | The details below the list show the tool lists, the prompts, and the tool change of a switch.                                                             |
 | With `codemode.mode` set to `"only"`, open the Tools view and select an active direct tool.                                                                               | The tool is labelled `active`; the details explain that codemode can hide its declaration.                                                                |

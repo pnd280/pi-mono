@@ -1,11 +1,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { noticeType } from "pi-nested-instructions/notices";
+import { contextStatusType } from "pi-smart-compact/result";
 import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "pi-subagents/constants";
 
 import type { DisplayAction } from "./contracts.ts";
 import { DisplayCollectors } from "./host/collection.ts";
 import { installHostIntegration } from "./host/install.ts";
+import { renderContextStatus } from "./rendering/context-status.ts";
 import { createNoticeRenderer } from "./rendering/notice.ts";
 import {
   createJobResultRenderer,
@@ -17,6 +19,7 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   pi.registerMessageRenderer(noticeType, createNoticeRenderer());
   pi.registerMessageRenderer(RESULT_MESSAGE, createSubagentResultRenderer(emit));
   pi.registerMessageRenderer(JOB_RESULT_MESSAGE, createJobResultRenderer(emit));
+  pi.registerMessageRenderer(contextStatusType, renderContextStatus);
   const warnings: string[] = [];
   let notify: ((message: string) => void) | undefined;
   const stderr = (message: string) => process.stderr.write(`${message}\n`);
@@ -31,11 +34,10 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   let live: typeof notify;
   joinLifecycle(pi, { id: "pi-tool-display" }).onSessionShutdown(
     () => {
-      // Stops observation and appends before any participant awaits. Warnings wait for cleanup,
-      // which knows whether the terminal has stopped.
-      dispose?.();
+      // Stops observation before any participant awaits. Warnings wait for cleanup, which knows whether the terminal has stopped.
       live = notify;
       notify = undefined;
+      dispose?.();
       collection.dispose();
     },
     // The session context stays valid until the handler ends, so flush warnings still show.
@@ -55,7 +57,7 @@ export default function toolDisplay(pi: ExtensionAPI): void {
     if (context.mode !== "tui") dispose?.();
     else if (!dispose)
       warnings.push(
-        "pi-tool-display: private TUI display lookup unavailable; keeping original rendering."
+        "pi-tool-display: private TUI host hooks unavailable; keeping original rendering."
       );
     warnings.splice(0).forEach(notify);
   });

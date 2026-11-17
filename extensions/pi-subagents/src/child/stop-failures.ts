@@ -12,8 +12,7 @@ const FORWARD_MS = 1_000;
 
 /** Writes to stderr before the process exits. When no reader remains (EPIPE), nothing reports it. */
 function forwardStderr(text: string): Promise<void> {
-  // A failed write also emits an error after its callback; without a listener, it ends the process.
-  // Other errors keep that default: with no other listener, this one throws them again.
+  // A failed write also emits an error after its callback; without a listener, it ends the process. Other errors keep that default: with no other listener, this one throws them again.
   const onError = (error: NodeJS.ErrnoException) => {
     if (error.code !== "EPIPE" && process.stderr.listenerCount("error") === 1) throw error;
   };
@@ -32,16 +31,14 @@ function forwardStderr(text: string): Promise<void> {
 }
 
 /**
- * Forwards this child supervisor's failed process cleanups to its supervisor through stderr. Each
- * record starts a line, also after other output without a final newline.
+ * Forwards this child supervisor's failed process cleanups to its supervisor through stderr. Each record starts a line, also after other output without a final newline.
  */
 export function forwardStopFailures(messages: readonly string[]): Promise<void> {
   return forwardStderr(messages.map((message) => `\n${STOP_FAILURE_PREFIX}${message}\n`).join(""));
 }
 
 /**
- * Gives each failed process cleanup that a child supervisor writes to `stream`, one per line. It
- * reads the whole stream, so other output and the bounded stderr excerpt cannot hide them.
+ * Gives each failed process cleanup that a child supervisor writes to `stream`, one per line. It reads the whole stream, so other output and the bounded stderr excerpt cannot hide them.
  */
 export function observeStopFailures(stream: Readable, receive: (message: string) => void): void {
   const decoder = new StringDecoder("utf8");

@@ -4,7 +4,6 @@ import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 
 import {
-  captureText,
   documentSchema,
   draftTextSchema,
   historyTextSchema,
@@ -24,10 +23,7 @@ function encode(document: Document): string {
   return JSON.stringify(document, null, 2) + "\n";
 }
 
-// Recovery accepts UUID-shaped IDs without imposing a UUID version or variant.
-const idSchema = z
-  .string()
-  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+const idSchema = z.guid();
 const documentEnvelopeSchema = documentSchema.extend({ entries: z.array(z.unknown()) });
 
 function validId(value: unknown): value is string {
@@ -46,8 +42,7 @@ function decode(raw: Buffer): unknown {
 }
 
 /**
- * JSON.parse returns only JSON values, so a non-finite number is the only value that a write would
- * change (to null). Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
+ * A write would turn a non-finite number into null, so such a document must stay read-only. Every other parsed value is written back as the JavaScript value that `JSON.parse` produced, not always with the same text or JSON value: numbers beyond double precision are rounded, and negative zero is written as 0. Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
  */
 function finiteNumbers(value: unknown): boolean {
   const pending = [value];
@@ -71,13 +66,19 @@ function validDocument(value: unknown): value is z.infer<typeof documentEnvelope
   return documentEnvelopeSchema.safeParse(value).success;
 }
 
-function snapshot(
-  collection: Collection,
-  document: Document,
-  bytes: number,
-  warnings: string[] = [],
+function snapshot({
+  collection,
+  document,
+  bytes,
+  warnings = [],
   serializationSafe = true
-): Snapshot {
+}: {
+  collection: Collection;
+  document: Document;
+  bytes: number;
+  warnings?: string[];
+  serializationSafe?: boolean;
+}): Snapshot {
   const ids = new Map<string, number>();
 
   for (const entry of document.entries) {
@@ -130,10 +131,17 @@ function snapshot(
   };
 }
 
-export function readCollection(collection: Collection, cwd: string, raw?: Buffer): Snapshot {
-  if (raw === undefined) return snapshot(collection, { version: 1, cwd, entries: [] }, 0);
-  if (raw.length > limits.read)
-    throw new PromptError(`Collection exceeds the 64 MiB read bound. ${reductionGuidance}`);
+export function readCollection({
+  collection,
+  cwd,
+  raw
+}: {
+  collection: Collection;
+  cwd: string;
+  raw: Buffer | undefined;
+}): Snapshot {
+  if (raw === undefined)
+    return snapshot({ collection, document: { version: 1, cwd, entries: [] }, bytes: 0 });
   const value = decode(raw);
 
   if (!validDocument(value) || value.cwd !== cwd)
@@ -165,13 +173,13 @@ export function readCollection(collection: Collection, cwd: string, raw?: Buffer
     entries.push(entry);
   }
 
-  const result = snapshot(
+  const result = snapshot({
     collection,
-    { ...value, version: 1, cwd, entries },
-    raw.length,
+    document: { ...value, version: 1, cwd, entries },
+    bytes: raw.length,
     warnings,
     serializationSafe
-  );
+  });
 
   // Invalid/blank records still count against normal capacity until a deletion repairs the file.
   if (
@@ -217,8 +225,6 @@ function addDraft(current: Snapshot, incoming: StoredEntry): Document {
     throw new PromptError(
       "Drafts are in recovery or read-only; additions are disabled. Back up and repair with sessions stopped, or delete recoverable occurrences."
     );
-  if (!storedEntrySchema.shape.text.safeParse(incoming.text).success)
-    throw new PromptError("Draft text is blank.");
   if (!draftTextSchema.safeParse(incoming.text).success)
     throw new PromptError("Draft exceeds 256 KiB; nothing was saved.");
   if (current.document.entries.length >= limits.draftCount) throw draftCapacityError();
@@ -240,8 +246,7 @@ function retainHistory(
 ): Document | undefined {
   if (document.entries[0]?.text.trim() === incoming.text.trim()) return undefined;
   const candidates = [incoming, ...document.entries].slice(0, retention);
-  // Replacing [] with a nonempty array adds two bytes, plus each indented
-  // record and its comma/newline. JSON escapes source newlines before counting.
+  // Replacing [] with a nonempty array adds two bytes, plus each indented record and its comma/newline. JSON escapes source newlines before counting.
   let bytes = Buffer.byteLength(encode({ ...document, entries: [] })) + 2;
   let count = 0;
 
@@ -268,10 +273,7 @@ function apply(current: Snapshot, operation: Mutation, retention: number): Docum
     throw new PromptError("Collection is read-only. Back up and repair with sessions stopped.");
   if (operation.kind === "delete")
     return { ...current.document, entries: deleteTarget(current, operation.target) };
-  const text = current.collection === "history" ? captureText(operation.text) : operation.text;
-
-  if (text === undefined) return undefined;
-  const entry = { id: randomUUID(), text, recordedAt: operation.recordedAt };
+  const entry = { id: randomUUID(), text: operation.text, recordedAt: operation.recordedAt };
 
   return current.collection === "history"
     ? retainHistory(current.document, entry, retention)
@@ -292,7 +294,7 @@ export function updateCollection({
   operation: Mutation;
   retention: number;
 }): PrivateFileUpdate<Snapshot> {
-  const current = readCollection(collection, cwd, raw);
+  const current = readCollection({ collection, cwd, raw });
   const document = apply(current, operation, retention);
   if (document === undefined) return { status: "unchanged", value: current };
   const content = encode(document);
@@ -311,5 +313,5 @@ export function updateCollection({
     );
   }
 
-  return { status: "replace", content, value: snapshot(collection, document, bytes) };
+  return { status: "replace", content, value: snapshot({ collection, document, bytes }) };
 }

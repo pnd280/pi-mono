@@ -6,6 +6,7 @@ import type {
 import { formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
 
 import { forwardDialog } from "../child/dialogs.ts";
+import type { Template } from "../config.ts";
 import type { ToolDetails } from "../details.ts";
 import { taskResult } from "../result.ts";
 import { INTERRUPTED_WARNING, type Submission, type Tasks } from "./registry.ts";
@@ -13,6 +14,7 @@ import { createRenderers, type CardState } from "./render.ts";
 import {
   abortInputSchema,
   abortParameters,
+  checkLaunchArgs,
   toolInputSchema,
   toolParameters,
   type AbortInput,
@@ -24,15 +26,37 @@ const PROGRESS_INTERVAL_MS = 1_000;
 const ABORT_REASON = "Cancelled by supervisor";
 
 /**
- * The built-in guidance states only how tasks work. Configured `docs` follow it and hold the
- * policy, such as when to delegate, because docs can add to the guidance but cannot replace it.
+ * The configured templates with the values that they set; empty without templates. Launch arguments and prompt files are left out, because the model does not choose them.
  */
-function toolGuidance(docs: string): string {
+export function templateGuidance(templates: ReadonlyMap<string, Template>): string {
+  if (!templates.size) return "";
+
+  return [
+    "Templates:",
+    ...[...templates].map(([name, template]) => {
+      const values = [
+        template.model === undefined ? "" : `model: ${template.model}`,
+        template.thinking === undefined ? "" : `thinking: ${template.thinking}`,
+        template.background === undefined ? "" : `background: ${template.background}`
+      ].filter(Boolean);
+
+      return values.length
+        ? `- ${name}: ${template.description}\n  ${values.join(" · ")}`
+        : `- ${name}: ${template.description}`;
+    })
+  ].join("\n");
+}
+
+/**
+ * The built-in guidance states only how tasks work. The template list follows it. Configured `docs` come last and hold the policy, such as when to delegate or which template to use, because docs can add to the guidance but cannot replace it.
+ */
+function toolGuidance(docs: string, templates: string): string {
   return [
     "Launch an agent in a separate Pi process. You receive only its final message.",
     "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, and relevant verification commands.",
     "Children share your working directory, so parallel tasks must not edit the same files. Launch independent tasks concurrently with multiple tool calls.",
     "Use task_id to continue a task with its previous context, or to send input to an active task.",
+    ...(templates ? [templates] : []),
     ...(docs ? [docs] : [])
   ].join("\n\n");
 }
@@ -51,16 +75,38 @@ const BACKGROUND_UPDATED = [
   "Work on something else, or briefly tell the user what you sent and end your response."
 ].join("\n");
 
-function toolResult(result: Submission) {
+/** Input to a running task uses only `prompt` and `delivery`. */
+const INPUT_IGNORED = ["model", "thinking", "background", "launch_args", "template"] as const;
+
+/** One line that names the parameters the call set but the task did not use. */
+function ignoredWarning(request: ToolInput, result: Submission): string | undefined {
+  if (result.kind === "input") {
+    const ignored = INPUT_IGNORED.filter((name) => request[name] !== undefined);
+
+    return ignored.length
+      ? `Warning: ignored ${ignored.join(", ")}: the task is running`
+      : undefined;
+  }
+
+  return request.delivery === undefined
+    ? undefined
+    : "Warning: ignored delivery: the task was not running";
+}
+
+function toolResult(request: ToolInput, result: Submission) {
+  const ignored = ignoredWarning(request, result);
   if (result.kind === "input")
     return taskResult({
       details: result.details,
       body: result.details.background
         ? BACKGROUND_UPDATED
         : "Additional context sent to the running foreground task. Its original call will return the final result.",
-      summary: result.details.background ? "Background task updated" : "Foreground task updated"
+      summary: result.details.background ? "Background task updated" : "Foreground task updated",
+      notice: ignored
     });
-  const warning = result.interrupted ? INTERRUPTED_WARNING : undefined;
+  const warning =
+    [ignored, result.interrupted ? INTERRUPTED_WARNING : undefined].filter(Boolean).join("\n") ||
+    undefined;
 
   return result.kind === "background"
     ? taskResult({
@@ -79,18 +125,25 @@ function toolResult(result: Submission) {
 }
 
 /** `current` resolves the tasks of the current session binding at each call. */
-export function createSubagentTool(
-  current: () => Promise<Tasks>,
-  open: (id: string, binding?: string) => void,
-  delegated: () => void,
-  docs: string
-) {
+export function createSubagentTool({
+  current,
+  open,
+  delegated,
+  docs,
+  templates
+}: {
+  current: () => Promise<Tasks>;
+  open: (id: string, binding?: string) => void;
+  delegated: () => void;
+  docs: string;
+  templates: string;
+}) {
   return {
     name: "subagent",
     label: "Subagent",
     exposure: "model-only",
     executionMode: "parallel",
-    description: toolGuidance(docs),
+    description: toolGuidance(docs, templates),
     parameters: toolParameters,
     ...createRenderers(open),
     async execute(
@@ -102,6 +155,7 @@ export function createSubagentTool(
     ) {
       const parsed = toolInputSchema.safeParse(raw);
       if (!parsed.success) throw new Error("Invalid subagent parameters");
+      checkLaunchArgs(parsed.data.launch_args ?? []);
       const tasks = await current();
       let details: ToolDetails | undefined;
       let timer: ReturnType<typeof setInterval> | undefined;
@@ -109,24 +163,18 @@ export function createSubagentTool(
 
       const update = () => {
         if (!callOpen || !details || !tasks.activeBinding) return;
-
-        // A presentation callback must not throw out of a timer or leak the running process.
-        try {
-          onUpdate?.({ content: [], details: { ...details } });
-        } catch {
-          /* The final result still carries the latest details. */
-        }
+        onUpdate?.({ content: [], details: { ...details } });
       };
 
       try {
         return toolResult(
+          parsed.data,
           await tasks.submit(parsed.data, {
             ...(signal ? { signal } : {}),
             onChange: (next) => {
               details = next;
 
-              // The first update after queueing means the call started a task run. A running call
-              // also shows its elapsed time.
+              // The first update after queueing means the call started a task run. A running call also shows its elapsed time.
               if (next.state !== "queued" && !timer) {
                 delegated();
                 timer = setInterval(update, PROGRESS_INTERVAL_MS);
@@ -174,7 +222,7 @@ export function createAbortTool(
             text: formatTaskEnvelope({
               id: task_id,
               state: "cancelled",
-              body: "The task is aborted. Resume its session with this task_id if needed."
+              body: "The task is aborted."
             })
           }
         ],

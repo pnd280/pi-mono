@@ -88,13 +88,17 @@ function classifySummary(
 }
 
 /** Wait for Pi's final abort check before appending metadata at its persistence boundary. */
-function recordSummaryBeforeCompaction(
-  session: NativeSession,
-  registration: Registration,
-  result: Awaited<ReturnType<DefaultCompaction>>,
-  signal: AbortSignal,
-  entry: SummaryModelEntry
-) {
+function recordSummaryBeforeCompaction({
+  session,
+  registration,
+  signal,
+  entry
+}: {
+  session: NativeSession;
+  registration: Registration;
+  signal: AbortSignal;
+  entry: SummaryModelEntry;
+}) {
   if (signal.aborted) return;
   registration.clearSummary?.();
   const manager = session.sessionManager;
@@ -119,15 +123,9 @@ function recordSummaryBeforeCompaction(
   signal.addEventListener("abort", clear, { once: true });
 
   try {
+    // Only this attempt's append can run between Pi's final abort check and compaction_end.
     hooks.replace(manager, "appendCompaction", function (this: typeof manager, ...args) {
-      if (
-        !active ||
-        this !== manager ||
-        args[4] ||
-        args[0] !== result.summary ||
-        args[1] !== result.firstKeptEntryId
-      )
-        return append.apply(this, args);
+      if (!active) return append.apply(this, args);
 
       clear();
       if (registration.active && !signal.aborted) registration.onSummarized(entry);
@@ -205,9 +203,11 @@ export function bindNativeCompaction(
       );
 
       if (registration?.active && trigger !== undefined)
-        recordSummaryBeforeCompaction(this, registration, result, args[3], {
-          ...summarySelection,
-          trigger
+        recordSummaryBeforeCompaction({
+          session: this,
+          registration,
+          signal: args[3],
+          entry: { ...summarySelection, trigger }
         });
 
       return result;
@@ -228,9 +228,7 @@ export function bindNativeCompaction(
 
       // Native compaction already records success and supplies the model's summary.
       if (registration.active && outcome.status !== "completed") {
-        // Public sendMessage defers while streaming, missing this next response.
-        // The tool batch is already persisted here, so native append is safe and
-        // reports the outcome without queueing or requesting another turn.
+        // Public sendMessage defers while streaming, missing this next response. The tool batch is already persisted here, so native append is safe and reports the outcome without queueing or requesting another turn.
         this._appendCustomMessage({
           role: "custom",
           customType: compactionResultType,
@@ -269,17 +267,11 @@ export function bindNativeCompaction(
     }
   }
 
-  if (patch.registrations.has(manager)) {
-    throw new Error("pi-smart-compact: already bound to this session.");
-  }
-
   const registration: Registration = { active: true, selection, onSummarized };
   patch.registrations.set(manager, registration);
 
   return {
     request(instructions?: string, signal?: AbortSignal) {
-      if (!registration.active) throw new Error("pi-smart-compact binding has been disposed.");
-      signal?.throwIfAborted();
       registration.pending = { instructions, signal };
     },
     clear() {

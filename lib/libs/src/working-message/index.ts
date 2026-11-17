@@ -7,7 +7,11 @@ import type {
 import { z } from "zod";
 
 import { Emissions, rendezvous, report, type Host, type Notify } from "../coordination/index.ts";
-import { settingsSection, type SettingsSection } from "../settings-file/index.ts";
+import {
+  settingsSection,
+  type SettingsScope,
+  type SettingsSection
+} from "../settings-file/index.ts";
 import {
   WorkingMessageCoordinator,
   completeOrder,
@@ -20,8 +24,7 @@ export type { WorkingMessageComponent, WorkingMessageHandle } from "./coordinato
 
 export type WorkingMessageRegistration = WorkingMessageComponent & {
   /**
-   * The live component with the lowest rank registers `/working-message` through its own
-   * extension.
+   * Lower ranks take priority to host `/working-message`. See `command-owner.md`.
    */
   ownerRank: number;
 };
@@ -130,7 +133,7 @@ function installCoordinator(host: Host): Shared {
       const store = settings;
       const preferences = store.load();
       const ids = coordinator.snapshot().map((entry) => entry.id);
-      const scopes: OrderSettingsScope[] = [
+      const scopes: OrderSettingsScope<SettingsScope>[] = [
         {
           id: "global",
           label: "global",
@@ -185,8 +188,6 @@ function installCoordinator(host: Host): Shared {
               close,
               save: (destination, order) => {
                 if (lifetime.signal.aborted) throw new Error("This session has ended.");
-                if (destination !== "global" && destination !== "project")
-                  throw new Error("Unknown save scope.");
                 store.save(destination, order);
                 const saved = store.load();
                 coordinator.setOrder(saved.project ?? saved.global ?? []);
@@ -210,9 +211,7 @@ function installCoordinator(host: Host): Shared {
   };
 
   /**
-   * The participant registers the command when it has the best component of every participant
-   * that is live or can still become live. Pi rejects bus calls from a failed factory, but not
-   * from a factory that the loader dropped, so such a factory still counts as a candidate.
+   * The participant registers the command when it has the best component of every participant that is live or can still become live. Pi rejects bus calls from a failed factory, but not from a factory that the loader dropped, so such a factory still counts as a candidate.
    */
   const ownsCommand = (participant: Participant): boolean => {
     const candidates = coordinator

@@ -103,13 +103,16 @@ export function taskResult({
 
 /** The model-facing `<job>` text of a call result or a result message. */
 export function jobText(record: JobRecord, body: string, summary?: string): string {
-  return formatJobEnvelope({
-    id: record.job_id,
-    state: record.state,
-    ...(record.state === "inactive"
-      ? { outcome: record.outcome, exit_code: record.exit_code }
-      : {}),
-    summary,
-    body
-  });
+  return formatJobEnvelope(
+    record.state === "inactive"
+      ? {
+          id: record.job_id,
+          state: record.state,
+          outcome: record.outcome,
+          exit_code: record.exit_code,
+          summary,
+          body
+        }
+      : { id: record.job_id, state: record.state, summary, body }
+  );
 }

@@ -33,14 +33,21 @@ const explanations = {
   removed: "The earlier instructions for this directory no longer apply."
 };
 
-function headerRows(
-  label: string,
-  file: string | undefined,
-  width: number,
-  expanded: boolean,
-  hasChildren: boolean,
-  theme: NoticeTheme
-): string[] {
+function headerRows({
+  label,
+  file,
+  width,
+  expanded,
+  hasChildren,
+  theme
+}: {
+  label: string;
+  file: string | undefined;
+  width: number;
+  expanded: boolean;
+  hasChildren: boolean;
+  theme: NoticeTheme;
+}): string[] {
   const marker = expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   const title = `${theme.fg("accent", marker)} ${theme.fg("accent", theme.bold(label))}`;
   const continuation = {
@@ -72,8 +79,7 @@ function headerRows(
 }
 
 export function createNoticeRenderer() {
-  // Pi rebuilds renderers on invalidation. Preserve local expansion until the
-  // global tool-output toggle changes.
+  // Pi rebuilds renderers on invalidation. Preserve local expansion until the global tool-output toggle changes.
   const states = new WeakMap<NoticeMessage, { expanded: boolean; globalExpanded: boolean }>();
 
   return function renderNotice(
@@ -94,11 +100,9 @@ export function createNoticeRenderer() {
     return new MouseRegion(
       {
         render(width) {
-          if (width < 1) return [];
           const innerWidth = Math.max(1, width - 4);
           const label = notice ? labels[notice.action] : "Nested instructions";
-          // The explanation describes the notice itself, so it continues the heading;
-          // only the instruction body or empty-file note is a child branch.
+          // The explanation describes the notice itself, so it continues the heading; only the instruction body or empty-file note is a child branch.
           let child: string[] = [];
 
           if (expansion.expanded) {
@@ -108,7 +112,14 @@ export function createNoticeRenderer() {
           }
 
           const hasChildren = expansion.expanded && child.length > 0;
-          const lines = headerRows(label, file, width, expansion.expanded, hasChildren, theme);
+          const lines = headerRows({
+            label,
+            file,
+            width,
+            expanded: expansion.expanded,
+            hasChildren,
+            theme
+          });
           headerHeight = lines.length;
           const items: TreeItem[] = [];
 

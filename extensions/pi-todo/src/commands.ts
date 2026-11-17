@@ -10,8 +10,7 @@ const ERR_COLLAPSE_REQUIRES_FULLSCREEN =
 
 const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 
-// The browser view and its shared TUI components load on first use, not at startup.
-// Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
+// The browser view and its shared TUI components load on first use, not at startup. Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
 const importBrowserModules = () =>
   Promise.all([import("@pi-mono/libs/tui/responsive-custom-ui"), import("./ui/todos-view.ts")]);
 let browserModules: ReturnType<typeof importBrowserModules> | undefined;
@@ -19,7 +18,13 @@ const loadBrowserModules = () => (browserModules ??= importBrowserModules());
 
 const actions = ["collapse", "expand", "toggle"] as const;
 
+export type TodosCommandContext = Pick<ExtensionCommandContext, "signal"> & {
+  ui: Pick<ExtensionUIContext, "custom" | "notify">;
+};
+
 export function getTodosArgumentCompletions(prefix: string) {
+  // An exact argument must submit, rather than accepting an identical completion first.
+  if ((actions as readonly string[]).includes(prefix.trim())) return null;
   const normalized = prefix.trimStart().toLowerCase();
   const matches = actions
     .filter((action) => action.startsWith(normalized))
@@ -69,9 +74,7 @@ export class TodosCustomViewHost {
   }
 
   async show(
-    ctx: Pick<ExtensionCommandContext, "signal"> & {
-      ui: Pick<ExtensionUIContext, "custom" | "notify">;
-    },
+    ctx: TodosCommandContext,
     controller: Pick<TodoController, "getTodos">
   ): Promise<void> {
     // Read the host context before the view loads; the invocation can end during the import.
@@ -105,9 +108,7 @@ export class TodosCustomViewHost {
 
 export async function runTodosCommand(
   args: string,
-  ctx: Pick<ExtensionCommandContext, "signal"> & {
-    ui: Pick<ExtensionUIContext, "custom" | "notify">;
-  },
+  ctx: TodosCommandContext,
   controller: Pick<TodoController, "getTodos">,
   options: {
     customViewHost: TodosCustomViewHost;

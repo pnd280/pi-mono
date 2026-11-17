@@ -2,12 +2,7 @@
 
 [pi-abort-guard](../README.md)
 
-> Last verified against Pi 1.5.0 with package checks, offline tests, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: a physical terminal; the disposable input probes; live dialogs, including stacked dialogs over a running agent; live compactions, retries, and branch summaries.
-
-## Upgrade procedure
-
-1. Run the [workspace checks](../../../../docs/development.md#focused-validation).
-2. Work through the checklist below, then update the "Last verified" line.
+> Last verified against Pi 1.5.2 with package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: a physical terminal; the disposable input probes; live dialogs, including stacked dialogs over a running agent; live compactions, retries, and branch summaries.
 
 ## Checklist
 
@@ -25,10 +20,10 @@
 - [ ] Manual compaction still emits `session_compact` or `session_compact_failed`, and successful tree navigation still emits `session_tree`, so pending confirmation can be cleared. A failed branch summary emits no terminal event.
 - [ ] `agent_start`, `session_before_compact`, and `session_before_tree` still fire before each new run, compaction, and tree navigation, so confirmation from an operation without a terminal event is cleared.
 - [ ] `keyText("app.interrupt")` still names the active interrupt keys.
-- [ ] Retries, compactions, and branch summaries still show their own status indicators instead of the working message, as the [README](../README.md#behaviour) states.
+- [ ] Retries, compactions, and branch summaries still show their own status indicators instead of the working message, as the [README](../README.md#usage) states.
 
 ## Limitations
 
 - If Pi adds a setting that requires a double press to interrupt, remove this extension.
-- In Pi 1.5.0, an editor set while an extension dialog is open appears only after the last dialog closes. Pi still calls the factory at once, so the editor is guarded before it appears.
-- In Pi 1.5.0, the docs recommend the injected `keyText()` over the imported one, because an extension's own copy of Pi does not see the configured keys. The hint imports `keyText()` outside a renderer, where no injected copy exists. Pi's extension loader maps that import to Pi's own copy, so the hint names the configured keys.
+- In Pi 1.5.1 and 1.5.2, an editor set while an extension dialog is open appears only after the last dialog closes. Pi still calls the factory at once, so the editor is guarded before it appears.
+- In Pi 1.5.1 and 1.5.2, the docs recommend the injected `keyText()` over the imported one, because an extension's own copy of Pi does not see the configured keys. The hint imports `keyText()` outside a renderer, where no injected copy exists. Pi's extension loader maps that import to Pi's own copy, so the hint names the configured keys.

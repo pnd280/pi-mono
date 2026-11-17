@@ -12,6 +12,8 @@ import { OutputBuffer } from "@pi-mono/libs/output-buffer";
 import { outputOmission } from "@pi-mono/utils/output-text";
 import { z } from "zod";
 
+import { asError } from "./platform.ts";
+
 export type RpcRecord = RpcResponse | RpcExtensionUIRequest | JsonAgentSessionEvent;
 
 export type ProcessExit = {
@@ -76,8 +78,7 @@ export class ChildConnection {
     process.stdout.on("error", (error: Error) => this.fail(error));
     process.stderr.on("error", (error: Error) => this.fail(error));
     process.once("error", (error) => this.fail(error));
-    // Output can still hold responses after the exit. Another process can hold the pipes open, so
-    // the wait for them is bounded.
+    // Output can still hold responses after the exit. Another process can hold the pipes open, so the wait for them is bounded.
     process.once("exit", (code, signal) => {
       this.exit = { code, signal };
       this.exitTimer = setTimeout(
@@ -133,7 +134,7 @@ export class ChildConnection {
       this.pending.set(id, { resolve, reject });
     });
     void this.write({ ...command, id }).catch((error: unknown) => {
-      this.fail(error instanceof Error ? error : new Error(String(error)));
+      this.fail(asError(error));
     });
 
     return response;
@@ -189,7 +190,7 @@ export class ChildConnection {
       try {
         this.dispatch(decodeRecord(line));
       } catch (error) {
-        this.fail(error instanceof Error ? error : new Error(String(error)));
+        this.fail(asError(error));
       }
 
       newline = data.indexOf("\n", start);

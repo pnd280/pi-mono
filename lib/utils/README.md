@@ -16,8 +16,9 @@ Callers supply inputs and policy: the helpers do not read files, resolve symlink
 Choose the [exported module](package.json) for your task:
 
 - File and display text: [patches](src/patch.ts), [output notices](src/output-text.ts), [UTF-8 windows](src/utf8.ts).
-- Discovery: [package provenance](src/provenance.ts), [FFF tool classification](src/fff-tools.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
+- Paths: [lexical paths](src/paths.ts).
 - Shell commands: [POSIX-shell argument quoting](src/shell.ts).
+- Prompt text: [skill references](src/skill-reference.ts) replace skill tokens with a formatted reference to the skill file, and validate the format setting.
 - Thrown values: [error codes and messages](src/errors.ts) of caught values that need not be `Error` objects.
 - Model settings: [`provider/model-id` references](src/model-reference.ts), [thinking levels](src/thinking-levels.ts).
 - Subagent results: [task envelopes](src/task-envelope.ts) format task and job results and extract their bodies.
@@ -26,3 +27,4 @@ Choose the [exported module](package.json) for your task:
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Call a helper                                     | Its [caller boundaries](docs/caller-boundaries.md): inputs, failure results, and the duties that stay with the caller     |
 | Sanitise terminal text or normalise shortcut keys | [Terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md) in libs |
+| Upgrade Pi or check a host assumption             | [Pi compatibility for maintainers](docs/pi-compatibility.md)                                                              |

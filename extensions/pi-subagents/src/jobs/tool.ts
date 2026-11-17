@@ -16,6 +16,7 @@ import {
   type CardState,
   type Result
 } from "../tasks/render.ts";
+import { Wrapped } from "../wrapped-lines.ts";
 import {
   jobAbortInputSchema,
   jobAbortParameters,
@@ -48,29 +49,10 @@ class Rows implements Component {
   constructor(private build: (width: number) => string[]) {}
 
   render(width: number): string[] {
-    return width < 1 ? [] : this.build(width);
+    return this.build(width);
   }
 
   invalidate(): void {}
-}
-
-/** Plain lines, wrapped and fitted once per width; theme colours stay out of this cache. */
-class Wrapped {
-  private cache: { width: number; rows: string[] } | undefined;
-
-  constructor(private lines: readonly string[]) {}
-
-  rows(width: number): string[] {
-    if (this.cache?.width !== width)
-      this.cache = {
-        width,
-        rows: this.lines.flatMap((line) =>
-          line ? wrapRows(line, width).map((row) => truncateToWidth(row, width, "")) : [""]
-        )
-      };
-
-    return this.cache.rows;
-  }
 }
 
 const fit = (rows: string[], width: number) => rows.map((row) => truncateToWidth(row, width, ""));
@@ -105,18 +87,24 @@ function callRows(
       : [];
   const shown = lines.slice(0, expanded ? COMMAND_LINES : 1);
   const rest = new Wrapped(shown.slice(1));
-  const pad = " ".repeat(LABEL_WIDTH);
 
   return (width) => {
+    const labelWidth = width >= LABEL_WIDTH + 2 ? LABEL_WIDTH : 0;
+    const pad = " ".repeat(labelWidth);
     const rows = wrapRows(
       `${theme.fg("toolTitle", theme.bold(kind))} ${theme.fg("toolTitle", label)}`,
       width
     );
     if (shown[0] !== undefined)
-      rows.push(...field(theme, "command", theme.fg("toolOutput", shown[0]), width, LABEL_WIDTH));
+      rows.push(
+        ...field(theme, "command", theme.fg("toolOutput", shown[0]), {
+          width,
+          labelWidth: LABEL_WIDTH
+        })
+      );
     rows.push(
       ...rest
-        .rows(Math.max(1, width - LABEL_WIDTH))
+        .rows(Math.max(1, width - labelWidth))
         .map((row) => `${pad}${theme.fg("toolOutput", row)}`)
     );
     if (shown.length < lines.length) rows.push(`${pad}${theme.fg("dim", "…")}`);
@@ -126,14 +114,21 @@ function callRows(
 }
 
 /** The result's labelled rows and body, prepared when the result or expansion change. */
-function resultRows(
-  kind: Kind,
-  result: Result,
-  details: JobDetails | undefined,
-  expanded: boolean,
-  error: boolean,
-  theme: Theme
-): (width: number) => string[] {
+function resultRows({
+  kind,
+  result,
+  details,
+  expanded,
+  error,
+  theme
+}: {
+  kind: Kind;
+  result: Result;
+  details: JobDetails | undefined;
+  expanded: boolean;
+  error: boolean;
+  theme: Theme;
+}): (width: number) => string[] {
   const text = result.content
     .flatMap((block) => (block.type === "text" && block.text !== undefined ? [block.text] : []))
     .join("\n");
@@ -146,14 +141,14 @@ function resultRows(
         ? []
         : fit(
             [
-              ...field(
-                theme,
-                "status",
-                theme.fg("error", `${TUI_GLYPHS.outcome.failure} failed`),
+              ...field(theme, "status", theme.fg("error", `${TUI_GLYPHS.outcome.failure} failed`), {
                 width,
-                LABEL_WIDTH
-              ),
-              ...field(theme, "error", theme.fg("error", reason), width, LABEL_WIDTH)
+                labelWidth: LABEL_WIDTH
+              }),
+              ...field(theme, "error", theme.fg("error", reason), {
+                width,
+                labelWidth: LABEL_WIDTH
+              })
             ],
             width
           );
@@ -165,23 +160,28 @@ function resultRows(
   const log = displayLine(details.log_file);
   const body = expanded
     ? displayText(
-        parseJobEnvelope(text, {
-          id: details.job_id,
-          state: details.state,
-          ...(details.state === "inactive"
-            ? { outcome: details.outcome, exit_code: details.exit_code }
-            : {})
-        }) ?? text
+        parseJobEnvelope(
+          text,
+          details.state === "inactive"
+            ? {
+                id: details.job_id,
+                state: details.state,
+                outcome: details.outcome,
+                exit_code: details.exit_code
+              }
+            : { id: details.job_id, state: details.state }
+        ) ?? text
       ).trim()
     : "";
   const bodyRows = new Wrapped(body ? body.split("\n") : []);
 
   return (width) => {
     const rows = [
-      ...field(theme, "status", theme.fg(color, label), width, LABEL_WIDTH),
-      ...field(theme, "job", theme.fg("muted", shownId), width, LABEL_WIDTH)
+      ...field(theme, "status", theme.fg(color, label), { width, labelWidth: LABEL_WIDTH }),
+      ...field(theme, "job", theme.fg("muted", shownId), { width, labelWidth: LABEL_WIDTH })
     ];
-    if (expanded) rows.push(...field(theme, "log", theme.fg("muted", log), width, LABEL_WIDTH));
+    if (expanded)
+      rows.push(...field(theme, "log", theme.fg("muted", log), { width, labelWidth: LABEL_WIDTH }));
 
     return body ? [...fit(rows, width), "", ...bodyRows.rows(width)] : fit(rows, width);
   };
@@ -207,7 +207,16 @@ function createJobRenderers(
       context.state.bindingId = details?.binding_id;
 
       return clickable(
-        new Rows(resultRows(kind, result, details, options.expanded, context.isError, theme)),
+        new Rows(
+          resultRows({
+            kind,
+            result,
+            details,
+            expanded: options.expanded,
+            error: context.isError,
+            theme
+          })
+        ),
         context.state,
         open
       );
@@ -215,32 +224,22 @@ function createJobRenderers(
   };
 }
 
-const RESULT_ARRIVES =
-  "The result arrives automatically when the command exits; do not sleep or poll.";
-
 /**
- * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs
- * that do not hold it.
+ * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs that do not hold it. The `hold_run` parameter describes held jobs.
  */
 function jobDelivery(delivers: boolean): string {
   return delivers
-    ? `${RESULT_ARRIVES} Set hold_run when you need the result before you finish.`
-    : "Set hold_run for a command whose result you need, such as a build or a test run: your run waits for the job, and the result arrives automatically; do not sleep or poll. Jobs without hold_run stop when your final reply ends this run, so use them only for processes that you need during the run, such as a server that you test.";
+    ? "The result arrives automatically when the command exits."
+    : "Jobs without hold_run stop when your final reply ends this run, so use them only for processes that you need during the run, such as a server that you test.";
 }
 
-/** What happens to the result of this job. */
+/** The log path, and the poll rule when a result will arrive. */
 function jobStarted(logFile: string, delivers: boolean, hold: boolean): string {
-  let result = RESULT_ARRIVES;
-  if (hold) result = `Your run waits for this job after your final reply. ${RESULT_ARRIVES}`;
-  else if (!delivers)
-    result =
-      "If the job still runs when your final reply ends this run, it stops, and you receive no result.";
+  const log = `Log file: ${logFile}`;
 
-  return [
-    `The job is running in the background. Its output goes to the log file ${logFile}`,
-    result,
-    "Read the log file to check output while it runs. Stop the job with job_abort."
-  ].join("\n");
+  return delivers || hold
+    ? `${log}\n\nThe result arrives automatically when the command exits; do not sleep or poll.`
+    : log;
 }
 
 /** Guidance for the model; `delivers` is false where the run's end stops jobs without `hold_run`. */

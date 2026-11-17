@@ -46,8 +46,7 @@ export function mcpCallFacts(result?: BorrowedToolResult): McpFacts | undefined 
   const details = record(result.details);
   if (details.error !== undefined && details.error !== "tool_error") return undefined;
 
-  // Pi content is the published, output-guarded result. Raw mcpResult can contain
-  // omitted output or pre-middleware data; never resurrect it or copy image bytes.
+  // Pi content is the published, output-guarded result. Raw mcpResult can contain omitted output or pre-middleware data; never resurrect it or copy image bytes.
   return {
     ...identity,
     outcome: details.error === "tool_error" ? "returned-error" : "success",

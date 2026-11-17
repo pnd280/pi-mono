@@ -3,9 +3,7 @@ import { z } from "zod";
 import type { InvocationPart, SummaryItem, ToolFamily } from "../../contracts.ts";
 import { invocationParts, resolveInvocationPath } from "../../invocation.ts";
 
-/** Pi 1.5.0 replaces these spaces before lexical path resolution. Its helper is
- * not publicly exported by coding-agent; keep this native policy out of custom paths and filters.
- */
+/** Pi 1.5.2 replaces these spaces before lexical path resolution. Its helper is not publicly exported by coding-agent; keep this native policy out of custom paths and filters. */
 export function normalizeNativePathSpaces(path: string): string {
   return path.replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g, " ");
 }
@@ -26,7 +24,13 @@ export function pathSummaryItem(
   path: string,
   cwd: string
 ): SummaryItem & { identity: string } {
-  return { category, identity: `path\0${resolveInvocationPath(path, cwd) ?? path}` };
+  const resolved = resolveInvocationPath(path, cwd);
+
+  return {
+    category,
+    identity: `path\0${resolved ?? path}`,
+    ...(resolved === undefined ? {} : { path: resolved })
+  };
 }
 
 export function nativeInvocationParts(

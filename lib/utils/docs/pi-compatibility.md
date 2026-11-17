@@ -2,38 +2,27 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.5.0 with package checks, all helper tests, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: live FFF behaviour.
-
-## Upgrade procedure
-
-1. Run the [focused checks](../../../docs/development.md#focused-validation) for `@pi-mono/utils`.
-2. Run the checks of the libs modules and extensions whose input or output assumptions changed. The [code navigation](../AGENTS.md#code-navigation) table lists the FFF and shared-library consumers. This package needs no standalone terminal scenario.
-3. Work through the checklist below, then update the "Last verified" line.
+> Last verified against Pi 1.5.2 with package checks, all helper tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised probe that parses native `edit` patches with `parsePatch`, which last ran on Pi 1.5.1.
 
 ## Checklist
 
-- [ ] Pi tool metadata still supplies the source and path forms that [`fffAdapter`](../src/fff-tools.ts) recognises for the official FFF tools.
-- [ ] The FFF tools still use the path fields and query syntax that [`parseFffScopes`](../src/search-scopes.ts) interprets.
 - [ ] Pi tool results still carry text that the [output-text](../src/output-text.ts) consumers transform with omission ranges as UTF-16 offsets.
 - [ ] Pi's native `edit` results still supply one unified patch that [`parsePatch`](../src/patch.ts) accepts.
 - [ ] Pi's byte-limited tool output still clips a head or tail edge that [`decodeUtf8Window`](../src/utf8.ts) identifies correctly.
+- [ ] Pi still runs input handlers before its native skill insertion, which starts only at a leading `/skill:<name>` followed by a literal space or the end, and before prompt-template expansion, which ends the name at any whitespace, as the [skill-reference guard](../src/skill-reference.ts) assumes.
 - [ ] [Thinking levels](../src/thinking-levels.ts) match `MODEL_THINKING_LEVELS` in Pi's `@earendil-works/pi-ai/providers/model-schema`, in the same order.
-
-This package keeps its own copy of the thinking levels, because installed extensions can't import that entry point.
 
 ## Limitations
 
 Compare new public Pi helpers with the [supported exports](../README.md#usage). Replace local code only when bounds, Unicode units, parsing and failure behaviour, and consumers all agree.
 
-In Pi 1.3.0, a source diff against 1.2.0 found extension types and tool source provenance unchanged, and built-in tool changes limited to read rendering. This package needed no runtime changes.
+The current host offers these related helpers, and none replaces a module here:
 
-Pi 1.3.0 adds `formatReadLineRange`, a read-header range formatter with no counterpart here, and resolves model references with registry-aware matching that is not exported from the package root. Neither replaces [`model-reference`](../src/model-reference.ts), which only checks and splits the `provider/model-id` syntax.
+| Pi helper                                                                                          | Why this package keeps its own code                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MODEL_THINKING_LEVELS` in `@earendil-works/pi-ai/providers/model-schema`                          | In Pi 1.5.2, the extension loader maps no alias for that entry point, so installed extensions can't import it. [Thinking levels](../src/thinking-levels.ts) keep a copy.                       |
+| `resolveCliModel` from the `@earendil-works/pi-coding-agent` root                                  | It resolves CLI provider and model options against the model registry. [`model-reference`](../src/model-reference.ts) only checks and splits the `provider/model-id` syntax, with no registry. |
+| `formatReadLineRange` from the `@earendil-works/pi-coding-agent` root                              | It formats read-header line ranges, which no module here does.                                                                                                                                 |
+| `truncateHead`, `truncateTail`, and `truncateLine` from the `@earendil-works/pi-coding-agent` root | They truncate decoded strings. [`decodeUtf8Window`](../src/utf8.ts) decodes a raw byte window and counts the bytes that it drops at a clipped edge.                                            |
 
-In Pi 1.4.0, a source diff against 1.3.0 found extension types, tool source provenance, and thinking levels unchanged, and built-in tool changes limited to `grep` running `rg --no-config`. The new `@earendil-works/pi-ai/models` host entry point does not export `MODEL_THINKING_LEVELS`. This package needed no runtime changes.
-
-In Pi 1.5.0, a source diff against 1.4.0 found these changes, and this package needed no runtime changes:
-
-- Extension types add display and status fields only. Tool source provenance adds `changelogPath` and keeps the `source` and `path` forms.
-- `MODEL_THINKING_LEVELS` keeps the same levels in the same order. Pi still maps no `@earendil-works/pi-ai/providers/model-schema` entry point for extensions.
-- `grep` no longer converts a lone CR to a line break, and read-header paths use Pi's `shortenHomePath`. Neither changes the formats that these helpers parse.
-- The native `edit` tool changes only its prompt guidelines. Its result and patch format, and the truncation helpers, are unchanged.
+Since Pi 1.5.1, the native `edit` tool builds its patch from the edited regions instead of a whole-file diff. The patch format is unchanged, and the randomised probe on Pi 1.5.1 found that `parsePatch` accepts it.

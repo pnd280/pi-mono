@@ -4,9 +4,7 @@ const depthKey = Symbol.for("pi-subagents.depth");
 const retained: unknown = Reflect.get(process, depthKey);
 const value = process.env[DEPTH_ENV];
 delete process.env[DEPTH_ENV];
-const parsed = value !== undefined && /^\d+$/.test(value) ? Number(value) : 0;
-const inherited = Number.isSafeInteger(parsed) ? parsed : 0;
-const depth = typeof retained === "number" ? retained : inherited;
+const depth = typeof retained === "number" ? retained : Number(value ?? 0);
 // Pi reloads extension modules. Keep depth process-owned after removing the inherited variable.
 Reflect.set(process, depthKey, depth);
 const taskKey = Symbol.for("pi-subagents.task-id");

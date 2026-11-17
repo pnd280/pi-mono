@@ -1,4 +1,6 @@
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type { AgentSessionEvent, MessageRenderer } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { NativeSession } from "./compatibility.ts";
 import { withCompactionInstructions } from "./summarize.ts";
@@ -37,24 +39,23 @@ export function describeOutcome(
   }
 }
 
+/** The failure text comes from the provider, so it reaches the terminal only as plain text. */
+export const renderOutcome: MessageRenderer = (message, _options, theme) =>
+  typeof message.content === "string"
+    ? new Text(theme.fg("warning", displayText(message.content)), 1, 0)
+    : undefined;
+
 export async function runRequestedCompaction(
   session: NativeSession,
   instructions?: string
 ): Promise<CompactionOutcome> {
   let outcome: CompactionOutcome | undefined;
-  // Native preparation can return early or swallow an error without emitting an
-  // event. Its boolean signals queued continuation, not success or a skip reason.
+  // Native preparation can return early or swallow an error without emitting an event. Its boolean signals queued continuation, not success or a skip reason.
   let skippedReason = "Pi did not start compaction.";
 
   if (!session.model) skippedReason = "No model selected.";
-  else {
-    try {
-      if (session.sessionManager.getBranch().at(-1)?.type === "compaction")
-        skippedReason = "Already compacted.";
-    } catch {
-      // This read only improves a skip diagnostic; Pi owns preparation and its error handling.
-    }
-  }
+  else if (session.sessionManager.getBranch().at(-1)?.type === "compaction")
+    skippedReason = "Already compacted.";
 
   const unsubscribe = session.subscribe((event) => {
     if (event.type === "compaction_end" && event.reason === "manual") outcome = fromEvent(event);

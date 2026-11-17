@@ -50,10 +50,10 @@ function applyStartupParent(manager: SessionManager, args: Args): void {
 
   const sessionDir =
     manager.getSessionDir() || args.sessionDir || process.env.PI_CODING_AGENT_SESSION_DIR;
-  const parent = resolveParentSession(reference.data, manager.getCwd(), sessionDir);
-  // Pi currently returns its live header. Do not silently succeed if a future host returns a copy.
-  if (manager.getHeader() !== header) throw new Error("Pi no longer exposes a live session header");
-  header.parentSession = parent;
+  header.parentSession = resolveParentSession(reference.data, {
+    cwd: manager.getCwd(),
+    sessionDir
+  });
 }
 
 export function installParentSessionStartup(pi: Pick<ExtensionAPI, "on" | "getFlag">): void {
@@ -74,11 +74,9 @@ export function installParentSessionStartup(pi: Pick<ExtensionAPI, "on" | "getFl
     hooks.restore();
   };
 
-  // CLI/SDK context reconstruction runs after resource loading, before session binding and JSON
-  // output. A session_start error is swallowed by Pi, so validate here to fail startup instead.
+  // CLI/SDK context reconstruction runs after resource loading, before session binding and JSON output. A session_start error is swallowed by Pi, so validate here to fail startup instead.
   hooks.replace(SessionManager.prototype, "buildSessionContext", function (this: SessionManager) {
-    // CLI flag values become available only after all extension factories have finished.
-    // Ignore scratch managers reconstructed by another factory before that boundary.
+    // CLI flag values become available only after all extension factories have finished. Ignore scratch managers reconstructed by another factory before that boundary.
     if (active && pi.getFlag("parent-session") !== undefined) {
       dispose();
       applyStartupParent(this, args);

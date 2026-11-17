@@ -20,13 +20,9 @@ function splitKey(value: string): { parts: string[]; base: string } {
 }
 
 function validKey(value: string): value is KeyId {
-  const { parts, base } = splitKey(value);
+  const { base } = splitKey(value);
 
-  return (
-    (baseKeys.has(base) || /^[a-z0-9]$/.test(base)) &&
-    parts.every((part) => modifiers.includes(part)) &&
-    new Set(parts).size === parts.length
-  );
+  return baseKeys.has(base) || /^[a-z0-9]$/.test(base);
 }
 
 function normalizeKey(value: string): KeyId | undefined {
@@ -37,7 +33,7 @@ function normalizeKey(value: string): KeyId | undefined {
   if (base === "return") base = "enter";
   if (base === "pageup") base = "pageUp";
   if (base === "pagedown") base = "pageDown";
-  // Pi 1.5.0 cannot dispatch modified Escape.
+  // Pi 1.5.2 cannot dispatch modified Escape.
   if (!base || (parts.length > 0 && base === "escape")) return undefined;
   if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
     return undefined;
@@ -58,7 +54,7 @@ export const canonicalKeySchema = z
     return z.NEVER;
   });
 
-function canonicalKey(value: unknown): KeyId | undefined {
+function canonicalKey(value: string): KeyId | undefined {
   return canonicalKeySchema.safeParse(value).data;
 }
 
@@ -78,9 +74,7 @@ function formatKeyLabel(key: string): string {
 }
 
 /**
- * Hint a paired up/down action from `formatKeyLabel` output; `undefined` marks a
- * direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or
- * `Shift+↑↓`.
+ * Hint a paired up/down action from `formatKeyLabel` output; `undefined` marks a direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or `Shift+↑↓`.
  */
 function navigationHints(
   up: string | undefined,
@@ -102,16 +96,14 @@ function arrowPair(up: string, down: string): string | undefined {
   return down === `${modifiers}Down` ? `${modifiers}↑↓` : undefined;
 }
 
-export type KeybindingCandidate<Action extends string = string> = {
+type KeybindingCandidate<Action extends string = string> = {
   action: Action;
   keys: readonly string[];
   exclude?: (key: KeyId) => boolean;
 };
 
 /**
- * Pi 1.5.0 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
- * `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a
- * symbol and any shifted digit or symbol with the same other modifiers as overlapping.
+ * Pi 1.5.2 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a symbol and any shifted digit or symbol with the same other modifiers as overlapping.
  */
 function shiftOverlap(a: KeyId, b: KeyId): boolean {
   const slot = (key: KeyId) => {
@@ -127,8 +119,7 @@ function shiftOverlap(a: KeyId, b: KeyId): boolean {
   return !!first && !!second && first.shifted !== second.shifted && first.others === second.others;
 }
 
-// Pi accepts these legacy sequences for more than one key ID. Ask its matcher
-// about both IDs so protocol and platform rules stay with the host.
+// Pi accepts these legacy sequences for more than one key ID. Ask its matcher about both IDs so protocol and platform rules stay with the host.
 const legacyInputs = new Map<string, readonly string[]>([
   ["escape", ["\x1b"]],
   ["enter", ["\r", "\n"]],
@@ -154,7 +145,7 @@ function legacyOverlap(a: KeyId, b: KeyId): boolean {
   );
 }
 
-/** True when Pi can dispatch one keypress to both canonical keys. */
+/** True for equal keys, keys that share a Pi input alias, and Shift-symbol pairs that can collide on some keyboard layout (conservative). */
 export function keysOverlap(a: KeyId, b: KeyId): boolean {
   return a === b || shiftOverlap(a, b) || legacyOverlap(a, b);
 }
@@ -187,8 +178,7 @@ export type KeyControl<Action extends string> =
   | { action: Action; key: KeyId };
 
 /**
- * Dispatch and hints of one view, resolved from its ordered controls at each call so that live
- * keybinding changes apply. An earlier control takes the keys that overlap a later one.
+ * Dispatch and hints of one view, resolved from its ordered controls at each call so that live keybinding changes apply. An earlier control takes the keys that overlap a later one.
  */
 export class KeyControls<Action extends string> {
   constructor(

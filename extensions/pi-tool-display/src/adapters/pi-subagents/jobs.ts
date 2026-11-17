@@ -75,7 +75,7 @@ function ending(details: Inactive): string {
     .join(" · ");
 }
 
-function openAction(result: BorrowedToolResult | undefined) {
+function openAction(_args: unknown, result?: BorrowedToolResult) {
   const details = jobDetailsSchema.safeParse(result?.details).data;
 
   return details
@@ -91,12 +91,17 @@ const envelopeText: NonNullable<ToolDisplayAdapter["textParts"]> = (text, _args,
   const details = jobDetailsSchema.safeParse(context.result.details).data;
   const body =
     details &&
-    parseJobEnvelope(text, {
-      id: details.job_id,
-      state: details.state,
-      outcome: details.state === "inactive" ? details.outcome : undefined,
-      exit_code: details.exit_code
-    });
+    parseJobEnvelope(
+      text,
+      details.state === "inactive"
+        ? {
+            id: details.job_id,
+            state: details.state,
+            outcome: details.outcome,
+            exit_code: details.exit_code
+          }
+        : { id: details.job_id, state: details.state }
+    );
 
   return [{ kind: context.isError ? "error" : "output", text: body ?? text }];
 };
@@ -111,7 +116,7 @@ const jobDisplayAdapter: ToolDisplayAdapter = {
     { kind: "value", text: argsSchema.safeParse(args).data?.description ?? "Job" }
   ],
   textParts: envelopeText,
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = argsSchema.partial().safeParse(value).data;
     const details = jobDetailsSchema.safeParse(result?.details).data;
@@ -152,7 +157,7 @@ const jobAbortDisplayAdapter: ToolDisplayAdapter = {
     { kind: "value", text: abortArgsSchema.safeParse(args).data?.job_id ?? "Job" }
   ],
   textParts: envelopeText,
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = abortArgsSchema.partial().safeParse(value).data;
     const details = inactiveJobDetailsSchema.safeParse(result?.details).data;
@@ -200,7 +205,7 @@ export const jobResultDisplayAdapter: ToolDisplayAdapter = {
     return outcome === "cancelled" ? "cancelled" : undefined;
   },
   textParts: envelopeText,
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (_args, result) => {
     const details = inactiveJobDetailsSchema.safeParse(result?.details).data;
     if (!details) return;
@@ -241,14 +246,12 @@ export function jobResultCard(
     : undefined;
 }
 
-/** Expects a tool already verified as registered by pi-subagents. */
+/** Expects a `job` or `job_abort` tool already verified as registered by pi-subagents. */
 export function jobAdapter(tool: ToolInfo): ToolDisplayAdapter | undefined {
   if (tool.name === "job")
     return parametersSchema.safeParse(tool.parameters).success ? jobDisplayAdapter : undefined;
-  if (tool.name === "job_abort")
-    return abortParametersSchema.safeParse(tool.parameters).success
-      ? jobAbortDisplayAdapter
-      : undefined;
 
-  return undefined;
+  return abortParametersSchema.safeParse(tool.parameters).success
+    ? jobAbortDisplayAdapter
+    : undefined;
 }

@@ -6,26 +6,21 @@ import { detailsSchema, type JobDetails, type ToolDetails } from "./details.ts";
 import { jobText, taskResult, usageDifference } from "./result.ts";
 
 /**
- * A background result message, ready for `pi.sendMessage`. This module alone builds and reads its
- * `customType`, content text, and details, including `late_usage`; pi-tool-display and
- * `@pi-mono/utils/task-envelope` read the same format.
+ * A background result message, ready for `pi.sendMessage`. This module alone builds and reads its `customType`, content text, and details, including `late_usage`; pi-tool-display and `@pi-mono/utils/task-envelope` read the same format.
  */
 export type ResultMessage = Parameters<ExtensionAPI["sendMessage"]>[0];
 
 /** What a result source reports when a background task or job finishes. */
 export type ResultEvent =
   /**
-   * A result to deliver. Only job results survive a pending session change, because jobs stop
-   * only when the change is final; see ADR 0005.
+   * A result to deliver. Only job results survive a pending session change, because jobs stop only when the change is final; see ADR 0005.
    */
   | { kind: "result"; message: ResultMessage; survivesChange: boolean }
   /** No result, but the work that holds the run changed, such as after a `subagent_abort` drop. */
   | { kind: "changed" };
 
 /**
- * The finished background results of one registry: the seam that delivery reads. Delivery keeps
- * the timing; the registry decides which results exist and whether its unfinished work holds the
- * supervisor's run.
+ * The finished background results of one registry: the seam that delivery reads. Delivery keeps the timing; the registry decides which results exist and whether its unfinished work holds the supervisor's run.
  */
 export class ResultSource {
   private listeners = new Set<(event: ResultEvent) => void>();
@@ -45,15 +40,9 @@ export class ResultSource {
     };
   }
 
-  /** Reports a finished task or job. A failing listener cannot change process lifetime. */
+  /** Reports a finished task or job. */
   publish(event: ResultEvent): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch {
-        /* Observers cannot change process lifetime. */
-      }
-    }
+    for (const listener of this.listeners) listener(event);
   }
 }
 
@@ -77,33 +66,29 @@ const lateUsageSchema = z.object({
 });
 
 /** The details of a task's background result message. */
-export const resultDetailsSchema = detailsSchema.extend({
+const resultDetailsSchema = detailsSchema.extend({
   /** Background usage after the call returned, counted once when the result is persisted. */
   late_usage: lateUsageSchema.optional()
 });
 
 export type LateUsage = z.infer<typeof lateUsageSchema>;
 
-/** Splits `provider/model` at the first `/`; model IDs can contain `/`. */
-function splitModel(model: string): { provider: string; model: string } {
-  const index = model.indexOf("/");
+/** A model's provider and ID, kept apart: either can contain `/`. */
+export type ModelIdentity = Pick<LateUsage, "provider" | "model">;
 
-  return index < 0
-    ? { provider: "", model }
-    : { provider: model.slice(0, index), model: model.slice(index + 1) };
-}
-
-/** Usage after a background call returned, or `undefined` when there is none to count. */
+/**
+ * Usage after a background call returned, or `undefined` when there is none to count. `model` is the child's applied model; a child without one has made no model request.
+ */
 export function lateUsage(
   reported: SessionStats | undefined,
   end: SessionStats | undefined,
-  model: string
+  model: ModelIdentity | undefined
 ): LateUsage | undefined {
-  if (!reported || !end) return undefined;
+  if (!reported || !end || !model) return undefined;
   const usage = usageDifference(reported, end);
   if (!usage.totalTokens && !usage.cost.total) return undefined;
 
-  return { ...splitModel(model), usage };
+  return { provider: model.provider, model: model.model, usage };
 }
 
 /** The result message of a background or promoted task's run, from the run's completion. */
@@ -134,8 +119,7 @@ export function taskResultMessage({
 }
 
 /**
- * The result message of a job whose command exited. `output` is Pi's output tail with its status
- * line; when it does not already state the job's error (`stated`), an `Error:` line names it.
+ * The result message of a job whose command exited. `output` is Pi's output tail with its status line; when it does not already state the job's error (`stated`), an `Error:` line names it.
  */
 export function jobResultMessage(
   details: JobDetails & { state: "inactive" },
@@ -166,8 +150,7 @@ export function jobResultMessage(
 }
 
 /**
- * The late usage that a task's result message carries, for the ADR 0002 patch when Pi persists
- * the message, and for a run's live usage when its child reports the message.
+ * The late usage that a task's result message carries, for the ADR 0002 patch when Pi persists the message, and for a run's live usage when its child reports the message.
  */
 export function lateUsageOf(message: {
   customType: string;

@@ -1,18 +1,38 @@
-import { CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+  CustomEditor,
+  type ExtensionAPI,
+  type SlashCommandInfo
+} from "@earendil-works/pi-coding-agent";
 import { joinInputChain } from "@pi-mono/libs/input-chain";
+import { loadSkillReferenceFormat } from "@pi-mono/libs/skill-reference-settings";
+import {
+  defaultSkillReferenceFormat,
+  expandSkillReferences,
+  skillReferenceCatalog
+} from "@pi-mono/utils/skill-reference";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
-import { loadExpansionFormat } from "./config.ts";
 import { completeInlineSlash } from "./editor.ts";
-import { defaultExpansionFormat, expandSkillInput } from "./tokens.ts";
 
 /** Expands references before later transforms; observers still see the typed text. */
 const INPUT_RANK = 100;
 
+/** Expands standalone registered `/skill:<name>` tokens; each token is its own command. */
+function expandSkillInput(text: string, commands: SlashCommandInfo[], format: string): string {
+  // Existing references can start with a template command and still need the leading guard.
+  if (!text.includes("/skill:") && !text.startsWith("/")) return text;
+
+  return expandSkillReferences(text, {
+    catalog: skillReferenceCatalog(commands),
+    format,
+    resolve: (token) => token
+  });
+}
+
 export default function skills(pi: ExtensionAPI): void {
   const input = joinInputChain(pi, { id: "pi-skills" });
   const getCommands = () => pi.getCommands();
-  let format = defaultExpansionFormat;
+  let format = defaultSkillReferenceFormat;
 
   // Pi's `input` event runs before its native skill insertion, so leading references stay literal.
   input.transform(INPUT_RANK, (event) => {
@@ -22,7 +42,10 @@ export default function skills(pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    format = loadExpansionFormat(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
+    format = loadSkillReferenceFormat("ext.pi-skills", {
+      cwd: ctx.cwd,
+      projectTrusted: ctx.isProjectTrusted()
+    });
     if (ctx.mode !== "tui") return;
 
     ctx.ui.addAutocompleteProvider((current) =>
@@ -40,7 +63,7 @@ export default function skills(pi: ExtensionAPI): void {
       if (!completeInlineSlash(editor) && !warned) {
         warned = true;
         ctx.ui.notify(
-          "pi-skills: typing / mid-prompt doesn't open skill completion with this Pi version or another extension's editor. Tab after /skill: still completes.",
+          "pi-skills: typing / mid-prompt doesn't open skill completion with this Pi version or another extension's editor.",
           "warning"
         );
       }

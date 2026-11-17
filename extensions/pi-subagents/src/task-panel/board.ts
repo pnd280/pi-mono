@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-import { wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { pack, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 
 import type { JobRecord } from "../details.ts";
@@ -32,16 +32,10 @@ export const views = [
 
 const groups = views.slice(1);
 
-const groupOf = (task: TaskRecord) =>
-  Math.max(
-    0,
-    groups.findIndex((group) => group.match(task))
-  );
+const groupOf = (task: TaskRecord) => groups.findIndex((group) => group.match(task));
 
 /**
- * One board row. `lead` holds the tree branch; `guides` prefixes the task's wrapped rows. It
- * continues the ancestors' guides and, for a task with children, the stem down to them. A job is
- * always a root row.
+ * One board row. `lead` holds the tree branch; `guides` prefixes the task's wrapped rows. It continues the ancestors' guides and, for a task with children, the stem down to them. A job is always a root row.
  */
 export type BoardEntry = { group: number; lead: string; guides: string } & (
   | { kind: "task"; task: TaskRecord }
@@ -54,9 +48,7 @@ export const entryId = (entry: BoardEntry): string =>
 export type BoardRows = { lines: string[]; targets: (number | undefined)[] };
 
 /**
- * Orders tasks and jobs as running, background, then finished. Each tree stays together in
- * the group of its most active task. Tasks whose parent is not listed, because it is
- * filtered out, are roots. Jobs follow the tasks of their group.
+ * Orders tasks and jobs as running, background, then finished. Each tree stays together in the group of its most active task. Tasks whose parent is not listed, because it is filtered out, are roots. Jobs follow the tasks of their group.
  */
 export function boardEntries(
   rows: readonly TaskRecord[],
@@ -65,8 +57,7 @@ export function boardEntries(
   const { guide, branch, lastBranch, horizontal } = TUI_GLYPHS.tree;
   const listed = new Set(rows.map((task) => task.task_id));
 
-  // Branches hang from the parent's status glyph, so its wrapped rows can carry a stem to them.
-  // `indent` holds the ancestors' continuing guides for every row below this task.
+  // Branches hang from the parent's status glyph, so its wrapped rows can carry a stem to them. `indent` holds the ancestors' continuing guides for every row below this task.
   type TaskEntry = BoardEntry & { kind: "task" };
 
   const walk = (task: TaskRecord, lead: string, indent: string): TaskEntry[] => {
@@ -119,8 +110,7 @@ const BACKGROUND_GLYPH = "◐";
 type Status = { glyph: string; color: Parameters<Theme["fg"]>[0]; label: string };
 
 /**
- * Completed tasks need no label: the check mark carries the outcome. Outcome glyphs name a
- * cancellation in `error`, like pi-tool-display headings; card status details use `warning`.
+ * Completed tasks need no label: the check mark carries the outcome. Outcome glyphs name a cancellation in `error`, like pi-tool-display headings; card status details use `warning`.
  */
 export function status(task: Pick<TaskRecord, "state" | "outcome" | "background">): Status {
   if (task.state === "active")
@@ -146,9 +136,7 @@ export function contextLabel(task: TaskRecord): string {
 }
 
 /**
- * Status label with the latest run's duration, the current tool of a direct child, the context
- * use of an active task or the tokens of an inactive one, and the cost. Missing and zero values
- * are left out.
+ * Status label with the latest run's duration, the current tool of a direct child, the context use of an active task or the tokens of an inactive one, and the cost. Missing values, zero tokens, and a zero cost are left out.
  */
 function taskMetadata(tasks: Tasks, task: TaskRecord): string[] {
   const { label } = status(task);
@@ -158,7 +146,7 @@ function taskMetadata(tasks: Tasks, task: TaskRecord): string[] {
   else if (task.ended_at !== null) time = elapsed(task.started_at, task.ended_at);
   const activity = task.state === "active" ? tasks.activity(task.task_id) : "";
   const live = task.state === "active" ? contextLabel(task) : "";
-  const cost = task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(2)}` : "";
+  const cost = task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(3)}` : "";
 
   return [
     [label, time].filter(Boolean).join(" "),
@@ -218,9 +206,7 @@ export function usageParts(task: TaskRecord, full: boolean): string[] {
 }
 
 /**
- * Renders one row per task or job: status, description, and the muted model or `job`, with the
- * other muted details aligned to the right edge. Narrow panels wrap a row under its description
- * column and continue the tree guides. `targets` maps each line to its entry index.
+ * Renders one row per task or job: status, description, and the muted model or `job`, with the other muted details aligned to the right edge. Narrow panels wrap a row under its description column and continue the tree guides. `targets` maps each line to its entry index.
  */
 export function renderBoard(
   theme: Theme,
@@ -244,27 +230,27 @@ export function renderBoard(
       entry.kind === "task"
         ? compactDisplayText(`${entry.task.model}:${entry.task.thinking}`)
         : "job";
-    const metadata = theme.fg(
-      "muted",
-      (entry.kind === "task" ? taskMetadata(tasks, entry.task) : jobMetadata(entry.job)).join(" · ")
-    );
+    const details = (
+      entry.kind === "task" ? taskMetadata(tasks, entry.task) : jobMetadata(entry.job)
+    ).map((part) => theme.fg("muted", part));
+    const separator = theme.fg("muted", " · ");
+    const metadata = details.join(separator);
     const first = `${cursor}${theme.fg("dim", lead)}${theme.fg(color, glyph)} `;
     const rest = `  ${theme.fg("dim", guides)}`;
     const title = isSelected ? theme.fg("accent", description) : description;
     const room = Math.max(1, width - visibleWidth(first));
     const left = `${title}${theme.fg("muted", ` · ${model}`)}`;
     const alignRight = (row: string, used = 0) =>
-      `${" ".repeat(Math.max(0, room - used - visibleWidth(row)))}${row}`;
+      `${" ".repeat(room - used - visibleWidth(row))}${row}`;
     const gap = visibleWidth(metadata) ? 1 : 0;
-    // A row that does not fit keeps the model and the details on their own rows, without a
-    // dangling separator. Wrapped details stay aligned to the right edge.
+    // A row that does not fit keeps the model and the details on their own rows, without a dangling separator. Wrapped details stay aligned to the right edge.
     const rows =
       visibleWidth(left) + gap + visibleWidth(metadata) <= room
         ? [gap ? `${left}${alignRight(metadata, visibleWidth(left))}` : left]
         : [
             ...wrapRows(title, room),
             ...wrapRows(theme.fg("muted", model), room),
-            ...(gap ? wrapRows(metadata, room).map((row) => alignRight(row)) : [])
+            ...pack(details, separator, room).map((row) => alignRight(row))
           ];
 
     rows.forEach((row, line) => {

@@ -1,6 +1,10 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { registeredBy } from "@pi-mono/utils/provenance";
-import { interpretReadResult, retainedSelectionSchema, selectionLabel } from "pi-read/result";
+import {
+  interpretReadResult,
+  retainedSelectionSchema,
+  selectionLabel,
+  windowArgumentSchema
+} from "pi-read/result";
 import { z } from "zod";
 
 import type {
@@ -17,6 +21,7 @@ import {
   readSummaryItems,
   readTextParts
 } from "../native/read.ts";
+import { registeredBy } from "../provenance.ts";
 
 // Pi omits optional nulls before execution, but standalone cards receive raw arguments.
 function optionalArgument<T extends z.ZodType>(schema: T) {
@@ -26,8 +31,8 @@ function optionalArgument<T extends z.ZodType>(schema: T) {
 // Read execution ignores unknown top-level fields; keep selection validation strict.
 const argsSchema = z.object({
   path: z.string().min(1),
-  offset: optionalArgument(z.number()),
-  limit: optionalArgument(z.number()),
+  offset: optionalArgument(windowArgumentSchema),
+  limit: optionalArgument(windowArgumentSchema),
   selection: optionalArgument(retainedSelectionSchema)
 });
 
@@ -98,11 +103,11 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
 
     return readSummaryItems(path === undefined ? undefined : normalizeNativePathSpaces(path), cwd);
   },
-  exploration(args, result) {
-    const input = argsSchema.safeParse(args);
-    if (!input.success || (result && !supports(args, result))) return undefined;
+  exploration(args) {
+    const path = argsSchema.safeParse(args).data?.path;
+    if (path === undefined) return undefined;
 
-    return readExploration(invocation(args), normalizeNativePathSpaces(input.data.path));
+    return readExploration(invocation(args), normalizeNativePathSpaces(path));
   },
   notices(result, expanded) {
     const interpreted = interpretReadResult(result);

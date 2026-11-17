@@ -31,8 +31,7 @@ function supportedSgr(parameters: string): string {
       const count = mode === "5" ? 1 : 3;
       const channels = parts.slice(index + 2, index + 2 + count);
       index += count + 1;
-      // Consume underline-colour and malformed colour groups as a whole so their
-      // channels cannot become bold, dim, blink, or other independent attributes.
+      // Consume underline-colour and malformed colour groups as a whole so their channels cannot become bold, dim, blink, or other independent attributes.
       if (
         code !== 58 &&
         channels.length === count &&
@@ -78,7 +77,7 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
   return { end: index, sgr };
 }
 
-export type TerminalTextSlice = {
+type TerminalTextSlice = {
   text: string;
   leadingSgr: string;
 };
@@ -113,9 +112,7 @@ function advanceSgr(codes: string, sequence: string): string {
   return advanced.length > 4096 ? canonicalSgr(advanced) : advanced;
 }
 
-/** Select a UTF-16 source range without splitting graphemes or recognized terminal sequences.
- * `leadingSgr` reconstructs suffix styling with Pi's SGR tracker.
- */
+/** Select a UTF-16 source range without splitting graphemes or recognized terminal sequences. `leadingSgr` reconstructs suffix styling with Pi's SGR tracker. */
 export function sliceTerminalText(
   text: string,
   requestedStart: number,
@@ -128,7 +125,7 @@ export function sliceTerminalText(
   let sgr = "";
   // Keep this parser aligned with styledOutput so hidden OSC/DCS payloads cannot affect SGR state.
   // oxlint-disable-next-line no-control-regex
-  const escapes = /[\x1b\x9b\x9d\x90]/g;
+  const escapes = /[\x1b\x9b\x9d\x90\x98\x9e\x9f]/g;
   const scannedText = end < text.length ? text.slice(0, end) : text;
   let startIsSequenceBoundary = start === 0;
   let endIsSequenceBoundary = end === text.length;
@@ -146,7 +143,7 @@ export function sliceTerminalText(
       startIsSequenceBoundary = true;
     }
 
-    if (match.index < end && sequenceEnd >= end) {
+    if (sequenceEnd >= end) {
       if (sequenceEnd > end) end = match.index;
       // A following combining mark must not pull the boundary into a complete escape.
       endIsSequenceBoundary = true;
@@ -155,7 +152,7 @@ export function sliceTerminalText(
     if (options.preserveSgr && match.index < start && sequence.sgr)
       sgr = advanceSgr(sgr, sequence.sgr);
 
-    escapes.lastIndex = Math.max(sequenceEnd, match.index + 1);
+    escapes.lastIndex = sequenceEnd;
   }
 
   if (!startIsSequenceBoundary) start = graphemeBoundary(text, start, "start");
@@ -179,14 +176,11 @@ function literal(text: string): string {
   );
 }
 
-/** Allow only SGR supported by Pi's style tracker. OSC/DCS/APC and cursor/screen controls never reach the terminal.
- * Pass complete snapshots, not independently sanitized stream chunks.
- */
+/** Allow only SGR supported by Pi's style tracker. OSC/DCS/APC and cursor/screen controls never reach the terminal. Pass complete snapshots, not independently sanitized stream chunks. */
 export function styledOutput(text: string): string {
-  // Copy literal runs rather than building a character-by-character rope for
-  // every live snapshot. Escape parsing still sees the complete source.
+  // Copy literal runs rather than building a character-by-character rope for every live snapshot. Escape parsing still sees the complete source.
   // oxlint-disable-next-line no-control-regex
-  const escapes = /[\x1b\x9b\x9d\x90]/g;
+  const escapes = /[\x1b\x9b\x9d\x90\x98\x9e\x9f]/g;
   let result = "",
     start = 0;
 

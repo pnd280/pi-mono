@@ -13,8 +13,7 @@ type ResultCard = (
 ) => { args: object; result: BorrowedToolResult } | undefined;
 
 /**
- * Background results use a standalone progress card layout. Invalid details keep
- * Pi's default message box. A click emits the result's open action.
+ * Background results use a standalone progress card layout. Invalid details keep Pi's default message box. A click emits the result's open action.
  */
 function createResultRenderer(
   name: string,

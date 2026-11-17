@@ -32,8 +32,7 @@ export type Cancelled = {
 type Answer = Omit<Extract<ChildMessage, { kind: "control-reply" }>, "kind" | "request_id">;
 
 /**
- * One way to reach an active task. A request gives undefined when it did not reach the task:
- * nothing was sent, or the task ended first.
+ * One way to reach an active task. A request gives undefined when it did not reach the task: nothing was sent, or the task ended first.
  */
 type Target = {
   /** The run that carries the task: its own run, or the run of the direct task above it. */
@@ -75,8 +74,7 @@ function local(host: RouteHost, run: Run): Target {
 }
 
 /**
- * A descendant, reached through the child of the direct task above it. That child supervisor
- * answers through its own route; see `Tasks.control`.
+ * A descendant, reached through the child of the direct task above it. That child supervisor answers through its own route; see `Tasks.control`.
  */
 function routed(run: Run, taskId: string): Target {
   const request = (value: ControlRequest): Promise<Answer | undefined> => {
@@ -104,26 +102,24 @@ function recordDetails(bindingId: string, record: TaskRecord): Omit<ToolDetails,
     description: record.description,
     model: record.model,
     thinking: record.thinking,
+    ...(record.requested_launch_args.length ? { launch_args: record.requested_launch_args } : {}),
     background: record.background,
     delivery: "follow_up",
     started_at: record.started_at,
-    ended_at: record.ended_at ?? null,
+    ended_at: record.ended_at,
     activity: "",
     usage: record.usage ?? detailsUsage()
   };
 }
 
 /**
- * The live route from a supervisor to the active tasks of its subtree. A direct task is reached
- * through its own run. A descendant is reached through the run of the direct task above it, whose
- * child supervisor answers the request for its own subtree.
+ * The live route from a supervisor to the active tasks of its subtree. A direct task is reached through its own run. A descendant is reached through the run of the direct task above it, whose child supervisor answers the request for its own subtree.
  */
 export class Route {
   constructor(private readonly host: RouteHost) {}
 
   /**
-   * Send input to an active task. Undefined when the task is inactive, or when nothing was sent;
-   * the run that carried the task has then ended, so the caller can resume a direct task.
+   * Send input to an active task. Undefined when the task is inactive, or when nothing was sent; the run that carried the task has then ended, so the caller can resume a direct task.
    */
   async input(
     taskId: string,
@@ -141,8 +137,7 @@ export class Route {
     }
 
     if (!answer.details) throw new Error("Subagent input acknowledgement is missing its result");
-    // An input call's details describe that call, which returns at once. A routed child's
-    // details carry its own binding; the card opens in this one.
+    // An input call's details describe that call, which returns at once. A routed child's details carry its own binding; the card opens in this one.
     const now = Date.now();
 
     return {
@@ -157,9 +152,7 @@ export class Route {
   }
 
   /**
-   * Cancel an active task. With `drop`, a direct task's cancellation result goes to nobody; a task
-   * that finished before the abort keeps its result. A failed cleanup of the task's processes
-   * throws after the task stops.
+   * Cancel an active task. With `drop`, a direct task's cancellation result goes to nobody; a task that finished before the abort keeps its result. A failed cleanup of the task's processes throws after the task stops.
    */
   async cancel(taskId: string, reason: string, { drop }: { drop: boolean }): Promise<Cancelled> {
     const target = this.target(taskId);
@@ -167,7 +160,7 @@ export class Route {
     const answer = await this.answer(target.cancel(reason, drop));
     if (!answer) throw new Error("Task is inactive");
     const { record } = answer;
-    if (record?.task_id !== taskId || record.state !== "inactive" || record.outcome !== "cancelled")
+    if (record?.state !== "inactive" || record.outcome !== "cancelled")
       throw new Error("Invalid subagent abort acknowledgement");
     const details: ToolDetails = {
       ...(answer.details ?? recordDetails(this.host.bindingId, record)),
@@ -185,8 +178,7 @@ export class Route {
     if (this.host.owned(taskId).background) throw new Error("Task is already in the background");
     const answer = await this.answer(target.promote());
     if (!answer) throw new Error("Task is inactive");
-    if (answer.record?.task_id !== taskId)
-      throw new Error("Invalid subagent background acknowledgement");
+    if (!answer.record) throw new Error("Invalid subagent background acknowledgement");
 
     return answer.record;
   }

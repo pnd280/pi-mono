@@ -33,9 +33,7 @@ function isNormalReply(message: TurnEndEvent["message"] | undefined): boolean {
 /**
  * Starts one prepared turn on an idle supervisor for all ready background results.
  *
- * The first result starts the run through `before_agent_start`, and Pi adds pending `nextTurn`
- * messages after it. Queue the others first, in the same synchronous block, so that no other run
- * takes them.
+ * The first result starts the run through `before_agent_start`, and Pi adds pending `nextTurn` messages after it. Queue the others first, in the same synchronous block, so that no other run takes them.
  */
 function wakeIdle(
   pi: Pick<ExtensionAPI, "sendMessage">,
@@ -47,9 +45,7 @@ function wakeIdle(
 }
 
 /**
- * Owns the finished background results of its sources until a turn end, the settlement, or the
- * idle handoff. A wait lasts while a source holds the run; results that do not hold it join the
- * next handoff. See ADR 0001, ADR 0005, and ADR 0006.
+ * Owns the finished background results of its sources until a turn end, the settlement, or the idle handoff. A wait lasts while a source holds the run; results that do not hold it join the next handoff. See ADR 0001, ADR 0005, and ADR 0006.
  */
 export class Delivery {
   private pending: Pending[] = [];
@@ -84,7 +80,6 @@ export class Delivery {
   }
 
   private receive(event: ResultEvent): void {
-    if (this.closed) return;
     // The work that holds the run changed, so a wait checks it again.
     if (event.kind === "changed") return this.wake?.();
     this.pending.push(event);
@@ -99,8 +94,7 @@ export class Delivery {
   }
 
   /**
-   * Starts a turn for pending results on an idle supervisor. Busy results stay owned here until Pi
-   * can commit them, the aborted run settles, or Pi becomes idle without a run.
+   * Starts a turn for pending results on an idle supervisor. Busy results stay owned here until Pi can commit them, the aborted run settles, or Pi becomes idle without a run.
    */
   private handoff(): void {
     if (!this.ready()) return this.stopRecheck();
@@ -159,8 +153,7 @@ export class Delivery {
   }
 
   /**
-   * With `turn_end` delivery, commits ready results after a normal turn, so the model's next
-   * request includes them. Results that arrive after the final turn wait for `end` and `settle`.
+   * With `turn_end` delivery, commits ready results after a normal turn, so the model's next request includes them. Results that arrive after the final turn wait for `end` and `settle`.
    */
   turn(event: TurnEndEvent): TurnEndEventResult | undefined {
     if (this.resultDelivery !== "turn_end" || !this.ready() || !isNormalReply(event.message))
@@ -192,8 +185,7 @@ export class Delivery {
   }
 
   /**
-   * A source's unfinished result holds the run: a direct background task or a job started with
-   * `hold_run`. A suspended delivery cannot deliver the result, so nothing holds the run then.
+   * A source's unfinished result holds the run: a direct background task or a job started with `hold_run`. A suspended delivery cannot deliver the result, so nothing holds the run then.
    */
   private holdsRun(): boolean {
     return !this.suspended && [...this.sources.keys()].some((source) => source.holdsRun());
@@ -201,13 +193,12 @@ export class Delivery {
 
   /** Commits ready results in all modes; print, JSON, and nested supervisors can also wait. */
   async settle(): Promise<AgentBeforeSettleEventResult | undefined> {
+    // `next` and `ready` end the wait of a closed or suspended delivery.
     if (
-      this.closed ||
-      this.suspended ||
-      (!this.pending.length &&
-        this.depth === 0 &&
-        this.ctx.mode !== "print" &&
-        this.ctx.mode !== "json")
+      !this.pending.length &&
+      this.depth === 0 &&
+      this.ctx.mode !== "print" &&
+      this.ctx.mode !== "json"
     )
       return;
     this.waiting = true;
@@ -232,9 +223,7 @@ export class Delivery {
   }
 
   /**
-   * Before a session change: drop task results and end the wait, also for held jobs. Job results survive
-   * the change and stay pending without starting a turn, because a later extension can still
-   * cancel the change. Results that arrive later also wait.
+   * Before a session change: drop task results and end the wait, also for held jobs. Job results survive the change and stay pending without starting a turn, because a later extension can still cancel the change. Results that arrive later also wait.
    */
   suspend(): void {
     this.suspended = true;

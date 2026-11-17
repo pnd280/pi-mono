@@ -8,20 +8,15 @@ import {
   type ExtensionAPI,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { observeFileMutations } from "@pi-mono/libs/file-mutations";
-import { observeNativeTools } from "@pi-mono/libs/native-tools";
 
+import { observeFileMutations } from "../file-mutations/index.ts";
 import type { DisplayFailure } from "../interpretation.ts";
 import { displayMutationSink, observeNativeDefinition } from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
-import {
-  executionOutcome,
-  hostToolResult,
-  TranscriptMessages,
-  validDuration
-} from "../transcript/messages.ts";
+import { executionOutcome, hostToolResult, TranscriptMessages } from "../transcript/messages.ts";
 import { DisplaySession, type ToolSnapshot } from "../transcript/session.ts";
 import { displaySettings } from "./configuration.ts";
+import { observeNativeTools } from "./native-tools/index.ts";
 import { selectAdapter } from "./selection.ts";
 
 /** Collection belongs to the session, including when no terminal is attached. */
@@ -54,7 +49,6 @@ export class DisplayCollector {
       runtime: randomUUID(),
       cwd: this.session.sessionManager.getCwd(),
       history: this.session.sessionManager,
-      settings: this.settings,
       tools: () => this.owner.tools(this.session, this.settings),
       onFailure: (failure) => this.owner.failure(failure),
       expanded: () => this.expanded(),
@@ -107,7 +101,7 @@ export class DisplayCollector {
       if (event.type === "tool_execution_end")
         display.result(event.toolCallId, hostToolResult(event.result), {
           outcome: executionOutcome(event.isError, this.session.agent.signal),
-          durationMs: validDuration(event.durationMs) ? event.durationMs : undefined
+          durationMs: event.durationMs
         });
       if (event.type === "agent_end") display.coordinator.settle();
     } catch {
@@ -125,7 +119,15 @@ export class DisplayCollector {
         event.type === "message_update" && "contentIndex" in event.assistantMessageEvent
           ? event.assistantMessageEvent.contentIndex
           : undefined;
-      const message = this.messages.read(event.message, index);
+      const message = this.messages.read(event.message, index, event.type !== "message_start");
+      // Pi labels the pending calls of an aborted retry with the attempt count, which it resets after this event.
+      const attempts = this.session.retryAttempt;
+      if (
+        message?.kind === "assistant" &&
+        message.interruption?.outcome === "cancelled" &&
+        attempts > 0
+      )
+        message.interruption.text = `Aborted after ${attempts} retry attempt${attempts > 1 ? "s" : ""}`;
       this.display.message(message, "live", event.type === "message_end");
     }
 
@@ -137,7 +139,6 @@ export class DisplayCollector {
   dispose(): void {
     if (!this.active) return;
     this.unsubscribe();
-    // Facts of running calls persist while this collector can still append.
     this.display.dispose();
     this.active = false;
   }
@@ -148,10 +149,7 @@ function nested(event: AgentSessionEvent): boolean {
 }
 
 /**
- * Validates a copy of the raw arguments against the current schema with Pi's validator,
- * which removes optional nulls that the schema rejects and converts values. Execution can
- * differ: Pi first applies the tool's `prepareArguments`, which display does not run
- * because it is tool code, and `tool_call` handlers can change the validated copy.
+ * Validates a copy of the raw arguments against the current schema with Pi's validator, which removes optional nulls that the schema rejects and converts values. Execution can differ: Pi first applies the tool's `prepareArguments`, which display does not run because it is tool code, and `tool_call` handlers can change the validated copy.
  */
 function validatedArgs(tool: ToolInfo, args: unknown): unknown {
   try {
@@ -174,8 +172,10 @@ export class DisplayCollectors {
   /** Display policy only; native provenance and mutation I/O are shared with other observers. */
   private native;
   private mutations;
-  /** Failure kinds and adapter IDs already reported. */
-  private failures = new Set<string>();
+  /** Warnings already shown; each text shows once. */
+  private warned = new Set<string>();
+  /** The session manager that this runtime's `session_start` announced. The append callback writes to this runtime's session, so collection rejects every other manager. */
+  private manager: object | undefined;
 
   constructor(
     private append?: ExtensionAPI["appendEntry"],
@@ -205,16 +205,17 @@ export class DisplayCollectors {
   }
 
   private eligible(session: AgentSession, name: string): boolean {
-    const display = this.collectors.get(session)?.display;
+    const settings = this.collectors.get(session)?.settings;
 
     return (
-      this.active &&
-      !!display?.settings.valid &&
-      (display.settings.rendererOverrides[name] ?? "auto") === "auto"
+      this.active && !!settings?.valid && (settings.rendererOverrides[name] ?? "auto") === "auto"
     );
   }
 
   warning(text: string): void {
+    if (this.warned.has(text)) return;
+    this.warned.add(text);
+
     try {
       this.warn(`pi-tool-display: ${text}`);
     } catch {
@@ -223,9 +224,6 @@ export class DisplayCollectors {
   }
 
   failure({ kind, adapter }: DisplayFailure): void {
-    const key = JSON.stringify([kind, adapter.id]);
-    if (this.failures.has(key)) return;
-    this.failures.add(key);
     this.warning(
       kind === "adapter"
         ? `display adapter ${adapter.id} failed; its calls render generically.`
@@ -243,13 +241,14 @@ export class DisplayCollectors {
         const definition = session.getToolDefinition(name);
         const info = registered(name);
 
-        return selectAdapter(
-          configuration,
+        return selectAdapter({
+          settings: configuration,
           name,
-          definition && session.extensionRunner.resolveToolRenderers(name, () => definition),
-          this.native.isNative(session, name, info),
+          original:
+            definition && session.extensionRunner.resolveToolRenderers(name, () => definition),
+          native: this.native.isNative(session, name, info),
           info
-        );
+        });
       },
       args: (name, args) => {
         const info = registered(name);
@@ -259,8 +258,15 @@ export class DisplayCollectors {
     };
   }
 
+  /**
+   * Whether this runtime may collect and adapt rows for a session. Pi can reconstruct the transcript before `session_start` announces its manager; after that, every other manager is foreign.
+   */
+  owns(session: AgentSession): boolean {
+    return this.active && (this.manager === undefined || this.manager === session.sessionManager);
+  }
+
   get(session: AgentSession): DisplayCollector | undefined {
-    if (!this.active) return;
+    if (!this.owns(session)) return;
     let collector = this.collectors.get(session);
 
     if (collector && collector.sessionId !== session.sessionManager.getSessionId()) {
@@ -284,6 +290,15 @@ export class DisplayCollectors {
   }
 
   start(manager: object): void {
+    this.manager = manager;
+
+    // A collector created before the announcement could belong to another runtime's session.
+    for (const [session, collector] of this.collectors)
+      if (session.sessionManager !== manager) {
+        collector.dispose();
+        this.collectors.delete(session);
+      }
+
     const session = this.runtimes.get(manager);
     if (session) this.get(session);
   }

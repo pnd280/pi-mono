@@ -17,7 +17,7 @@ This package tests collection formats, retention and recovery, activation, clipb
 - **Critical, integration:** The repository refuses unsafe private-file paths.
 - **Critical, integration:** The repository protects collection and directory permissions through the private-files module.
 - **Critical, integration:** Draft additions that exceed capacity are refused without evicting existing drafts.
-- **Critical, integration:** Deletion requires the selected UUID to stay unique in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
+- **Critical, integration:** Deletion requires the selected UUID to stay unique among usable records in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
 - **High, integration:** Session expiry cancels queued and processing operations before replacement and releases active processing resources. Its cleanup waits for started atomic writes and for cancelled operations to release their locks.
 - **High, integration:** Cleanup warnings after a commit stay committed outcomes, not failed writes that the extension retries.
 
@@ -48,8 +48,10 @@ This package tests collection formats, retention and recovery, activation, clipb
 
 ## Not tested
 
-- History deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover them. The live-input scenario also checks capture ordering as part of the capture invariant.
+- History deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover browser rows, command syntax, and editor restoration; history deduplication and ranking order have no dedicated check. The live-input scenario also checks capture ordering as part of the capture invariant.
 - Settings parsing and fallback are below the severity bar.
+- Unlocked reads during an atomic replacement on POSIX are not tested, because the race shows only under many concurrent replacements. The [storage permissions and writes check](validation.md#storage-permissions-and-writes) covers it.
+- Input typed or restored while a draft save is pending is not tested, because exposing it needs an SDK editor scenario that holds the locked draft write open while the editor changes, and the maintainers declined that scenario. `saveEditor` clears the editor only when the editor text and the restore revision still match what it saved; review changes to that check by hand.
 - Event-loop responsiveness during large collection processing is below the severity bar. The [interaction measurement](validation.md#interaction-measurement) covers it.
 - Libs owns the shared browser geometry.
 - Pi owns native editor history.

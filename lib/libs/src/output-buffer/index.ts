@@ -6,18 +6,14 @@ import {
   type OutputText
 } from "@pi-mono/utils/output-text";
 import { utf8Prefix, utf8Suffix } from "@pi-mono/utils/utf8";
-import { z } from "zod";
 
-const limitsSchema = z.object({
+export type OutputBufferOptions = {
   /** Retain full output up to this many raw input bytes. */
-  maxBytes: z.int().positive(),
+  maxBytes: number;
   /** Completed lines kept at each edge once full output exceeds maxBytes. */
-  edgeLines: z.int().positive(),
+  edgeLines: number;
   /** Bytes kept per line, divided between its head and tail. */
-  lineBytes: z.int().positive()
-});
-
-export type OutputBufferOptions = z.infer<typeof limitsSchema> & {
+  lineBytes: number;
   formatOmission: OmissionFormatter;
 };
 
@@ -39,8 +35,7 @@ class RetainedLine {
         return;
       }
 
-      // Split only oversized lines: a character may fit the full budget but neither half.
-      // Once split, never fill a head boundary gap with later, narrower characters.
+      // Split only oversized lines: a character may fit the full budget but neither half. Once split, never fill a head boundary gap with later, narrower characters.
       this.spilled = true;
       this.head = utf8Prefix(complete, Math.ceil(this.options.lineBytes / 2));
       this.tail = utf8Suffix(
@@ -75,13 +70,10 @@ export class OutputBuffer {
   private finished = false;
   private totalBytes = 0;
   constructor(private readonly options: OutputBufferOptions) {
-    if (!limitsSchema.safeParse(options).success)
-      throw new RangeError("Output buffer limits must be positive safe integers.");
     this.options = { ...options };
     this.line = new RetainedLine(this.options);
   }
   append(buffer: Buffer): void {
-    if (this.finished) return;
     this.totalBytes += buffer.length;
     if (this.totalBytes > this.options.maxBytes) this.full = undefined;
     for (let offset = 0; offset < buffer.length; offset += 16 * 1024)

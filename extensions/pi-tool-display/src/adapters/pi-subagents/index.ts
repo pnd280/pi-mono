@@ -1,10 +1,14 @@
 import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
-import { registeredBy } from "@pi-mono/utils/provenance";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { OPEN_EVENT } from "pi-subagents/constants";
-import { deliverySchema, detailsSchema, type ToolDetails } from "pi-subagents/details";
+import {
+  deliverySchema,
+  detailsSchema,
+  launchArgItems,
+  type ToolDetails
+} from "pi-subagents/details";
+import { usageText } from "pi-subagents/text";
 import { z } from "zod";
 
 import type {
@@ -13,6 +17,7 @@ import type {
   SummaryCategory,
   ToolDisplayAdapter
 } from "../../contracts.ts";
+import { registeredBy } from "../provenance.ts";
 import { jobAdapter, messageResult, times } from "./jobs.ts";
 
 const argsSchema = z.object({
@@ -21,6 +26,7 @@ const argsSchema = z.object({
   task_id: z.string().min(1).optional(),
   model: z.string().optional(),
   thinking: z.string().optional(),
+  launch_args: z.array(z.string()).optional(),
   background: z.boolean().optional(),
   delivery: deliverySchema.optional()
 });
@@ -52,21 +58,14 @@ const abortCategory: SummaryCategory = {
   count: { one: "aborted {n} subagent", other: "aborted {n} subagents" }
 };
 
-/** Non-breaking spaces keep the group on one row when it fits. */
-function usage({ usage }: ToolDetails): string {
-  if (!Object.values(usage).some((value) => value > 0)) return "";
-
-  return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
-}
-
 /** Only expanded fields name a returned call's task; failures put usage before the reason. */
 function secondary(details: ToolDetails): string {
   if (details.returned) return details.task_id === undefined ? "Waiting for capacity" : "";
   if (details.state === "queued") return "Waiting for capacity";
   if (details.state === "running") return "";
-  if (details.state === "completed") return usage(details);
+  if (details.state === "completed") return usageText(details);
 
-  return [usage(details), details.error].filter(Boolean).join(" · ");
+  return [usageText(details), details.error].filter(Boolean).join(" · ");
 }
 
 function status(details: ToolDetails): NonNullable<DisplayProgress["status"]> {
@@ -91,19 +90,26 @@ function status(details: ToolDetails): NonNullable<DisplayProgress["status"]> {
   };
 }
 
-function fields(
-  task: string | undefined,
-  background: boolean | undefined,
-  delivery: string | undefined
-): DisplayProgress["fields"] {
+function fields({
+  taskId,
+  background,
+  delivery,
+  launchArgs = []
+}: {
+  taskId: string | undefined;
+  background?: boolean | undefined;
+  delivery?: string | undefined;
+  launchArgs?: readonly string[] | undefined;
+}): DisplayProgress["fields"] {
   return [
-    ...(task ? [{ label: "task_id", value: task }] : []),
+    ...(taskId ? [{ label: "task_id", value: taskId }] : []),
+    ...(launchArgs.length ? [{ label: "launch_args", items: launchArgItems(launchArgs) }] : []),
     ...(background ? [{ label: "background", value: "true" }] : []),
     ...(delivery === "steer" ? [{ label: "delivery", value: "steer" }] : [])
   ];
 }
 
-function openAction(result: BorrowedToolResult | undefined) {
+function openAction(_args: unknown, result?: BorrowedToolResult) {
   const details = detailsSchema.safeParse(result?.details).data;
 
   return details?.task_id && details.binding_id
@@ -137,8 +143,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
 
     return state === "cancelled" ? "cancelled" : undefined;
   },
-  // The envelope's tags and summary repeat the card's facts, so show only the child's reply.
-  // Text that does not match the validated details stays intact.
+  // The envelope's tags and summary repeat the card's facts, so show only the child's reply. Text that does not match the validated details stays intact.
   textParts: envelopeText,
   summaryCategories: [category],
   summaryItems: (_args, { result }) => {
@@ -146,7 +151,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
 
     return [{ category: category.id, ...(id ? { identity: id } : {}) }];
   },
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = partialArgsSchema.safeParse(value).data;
     const details = detailsSchema.safeParse(result?.details).data;
@@ -160,7 +165,12 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
         description: args.description ?? "…",
         identity: [args.model, args.thinking].filter(Boolean).join(":"),
         secondary: "",
-        fields: fields(args.task_id, args.background, args.delivery),
+        fields: fields({
+          taskId: args.task_id,
+          background: args.background,
+          delivery: args.delivery,
+          launchArgs: args.launch_args
+        }),
         ...prompt
       };
 
@@ -172,7 +182,12 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
       secondary: secondary(details),
       // Returned calls describe their fixed acknowledgement, not the child's later state.
       ...(details.returned ? {} : times(details)),
-      fields: fields(details.task_id, details.background, details.delivery),
+      fields: fields({
+        taskId: details.task_id,
+        background: details.background,
+        delivery: details.delivery,
+        launchArgs: details.launch_args
+      }),
       ...prompt,
       ...(details.state === "completed" && !details.returned ? { resultPreview: true } : {})
     };
@@ -195,7 +210,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
 
     return [{ category: abortCategory.id, ...(id ? { identity: id } : {}) }];
   },
-  action: (_args, result) => openAction(result),
+  action: openAction,
   progress: (value, result) => {
     const args = abortArgsSchema.partial().safeParse(value).data;
     const details = detailsSchema.safeParse(result?.details).data;
@@ -207,7 +222,7 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
         description: args.task_id ?? "…",
         identity: "",
         secondary: "",
-        fields: fields(args.task_id, undefined, undefined)
+        fields: fields({ taskId: args.task_id })
       };
 
     return {
@@ -215,9 +230,9 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
       description: details.description,
       identity: `${details.model}:${details.thinking}`,
       status: { glyph: TUI_GLYPHS.outcome.cancelled, text: "aborted", tone: "success" },
-      secondary: usage(details),
+      secondary: usageText(details),
       ...times(details),
-      fields: fields(details.task_id, undefined, undefined)
+      fields: fields({ taskId: details.task_id, launchArgs: details.launch_args })
     };
   }
 };

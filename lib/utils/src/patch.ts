@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-const byteLimitSchema = z.int().nonnegative();
 const hunkRangeSchema = z
   .object({
     start: z.int().nonnegative(),
@@ -40,7 +39,7 @@ const hunkHeader = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 /** Index after adjacent `---` and `+++` file headers, allowing a nonempty preamble. */
 function headerEnd(lines: readonly string[]): number | undefined {
   for (const [index, line] of lines.entries()) {
-    if (!line || (line.startsWith("Binary files ") && line.endsWith("differ"))) return undefined;
+    if (line.startsWith("Binary files ") && line.endsWith("differ")) return undefined;
     if (line.startsWith("+++ "))
       return lines[index - 1]?.startsWith("--- ") ? index + 1 : undefined;
   }
@@ -130,13 +129,9 @@ function validHunks(hunks: readonly Hunk[]): boolean {
 }
 
 /**
- * Parse one unified patch, optionally without file headers, within a caller-chosen
- * byte limit. Invalid or oversized patches return undefined; a limit that is not
- * a nonnegative safe integer throws RangeError.
+ * Parse one unified patch, optionally without file headers, within a caller-chosen byte limit. Invalid or oversized patches return undefined.
  */
 export function parsePatch(patch: string, maxBytes: number): ParsedPatch | undefined {
-  if (!byteLimitSchema.safeParse(maxBytes).success)
-    throw new RangeError("Patch byte limit must be a nonnegative safe integer.");
   if (Buffer.byteLength(patch) > maxBytes) return undefined;
   const normalized = patch.replaceAll("\r\n", "\n").replace(/\n+$/, "");
   const lines = normalized.split("\n");

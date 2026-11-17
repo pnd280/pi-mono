@@ -22,8 +22,7 @@ export default function modelPrompt(pi: ExtensionAPI): void {
     }
   });
 
-  // The coordinator calls parts after every hold, such as a profile's model switch, has settled,
-  // so `ctx.model` is the model for this run.
+  // The coordinator calls parts after every hold, such as a profile's model switch, has settled, so `ctx.model` is the model for this run.
   prompt.part(PROMPT_RANK, (ctx) => {
     const model = ctx.model;
     if (!snapshot || !model) return undefined;

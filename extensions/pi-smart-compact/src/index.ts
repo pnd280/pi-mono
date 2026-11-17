@@ -3,7 +3,9 @@ import type {
   ExtensionContext,
   ToolDefinition
 } from "@earendil-works/pi-coding-agent";
+import { withCodemodeNotice } from "@pi-mono/libs/codemode-notice";
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import {
@@ -13,7 +15,9 @@ import {
   type CompactConfig
 } from "./config.ts";
 import { bindNativeCompaction } from "./native.ts";
+import { compactionResultType, renderOutcome } from "./outcome.ts";
 import { compactAcknowledgement, type CompactDetails } from "./result.ts";
+import { contextStatus } from "./status.ts";
 import {
   renderSummaryModel,
   summaryModelEntryType,
@@ -71,24 +75,31 @@ function contextWindowTool(docs: string) {
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);
-  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose
-  // the active tools. The session_start registration keeps the same exposure, so without `--tools`
-  // it only replaces the description. With `--tools`, any registration activates every listed tool
-  // again; a profile still wins because lifecycle startup commits run after every session_start
-  // handler.
+  pi.registerMessageRenderer(compactionResultType, renderOutcome);
+  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose the active tools. Without a replacing `--tools` list, the session_start registration only replaces the description. With one, any registration reactivates every listed tool; a profile still wins because lifecycle startup commits run after every session_start handler.
   pi.registerTool(contextWindowTool(""));
   let binding: ReturnType<typeof bindNativeCompaction> | undefined;
   let config: CompactConfig = {};
+  let statusStep = 0;
   let unavailable = "pi-smart-compact is not bound to an active session.";
+
+  const status = (ctx: ExtensionContext) =>
+    contextStatus(ctx.sessionManager.getBranch(), ctx.getContextUsage(), ctx.model, statusStep);
+
   pi.on("session_start", (_event, ctx) => {
     binding?.dispose();
     binding = undefined;
     config = {};
+    statusStep = 0;
     let docs = "";
     updateCompactionStatus(ctx);
 
     try {
-      ({ docs = "", ...config } = loadCompactConfig(ctx.cwd, {
+      ({
+        docs = "",
+        statusStep = 0,
+        ...config
+      } = loadCompactConfig(ctx.cwd, {
         projectTrusted: ctx.isProjectTrusted()
       }));
       binding = bindNativeCompaction(
@@ -97,15 +108,30 @@ export default function smartCompact(pi: ExtensionAPI) {
         Object.keys(config).length ? { config, registry: ctx.modelRegistry } : undefined
       );
     } catch (error) {
-      unavailable =
-        error instanceof Error ? error.message : "pi-smart-compact: initialization failed.";
-      // Rethrowing makes Pi render the full stack; the message alone is actionable and already
-      // names the extension.
-      if (ctx.hasUI) ctx.ui.notify(unavailable, "error");
+      const message = error instanceof Error ? error.message : "initialization failed.";
+      unavailable = message.startsWith("pi-smart-compact: ")
+        ? message
+        : `pi-smart-compact: ${message}`;
+      // Rethrowing makes Pi render the full stack; the prefixed message alone is actionable.
+      if (ctx.hasUI) ctx.ui.notify(displayText(unavailable), "error");
     }
 
     // Settings are read here, after project trust is known; this replaces the description.
     pi.registerTool(contextWindowTool(docs));
+  });
+  // The two points where the model's next response can still act on a status: before a run's first request, and after each response.
+  pi.on("before_agent_start", (_event, ctx) => {
+    const message = status(ctx);
+
+    return message && { message };
+  });
+  pi.on("turn_end", (event, ctx) => {
+    // Usage is read from the saved branch, so it predates a compaction that an earlier handler proposed. A status saved after that compaction would carry the old count and hide the boundaries below it.
+    if (event.outcome !== "completed" || event.entries.some((entry) => entry.type === "compaction"))
+      return undefined;
+    const message = status(ctx);
+
+    return message && { entries: [...event.entries, { type: "custom_message", ...message }] };
   });
   // session_compact fires only after a compaction entry is persisted, so failures never count.
   pi.on("session_compact", (_event, ctx) => updateCompactionStatus(ctx));
@@ -120,37 +146,40 @@ export default function smartCompact(pi: ExtensionAPI) {
     binding?.dispose();
     binding = undefined;
     config = {};
+    statusStep = 0;
     if (ctx.mode === "tui") ctx.ui.setStatus(compactionStatusKey, undefined);
   });
-  pi.registerTool({
-    name: "compact",
-    exposure: "model-only",
-    label: "Compact context",
-    description: "Compact the session context",
-    parameters: compactParameters,
-    async execute(_id, args, signal, _onUpdate, ctx) {
-      if (!binding) throw new Error(unavailable);
-      const parsed = compactInput.safeParse(args);
-      if (!parsed.success) throw new Error("Invalid compact parameters");
-      binding.request(parsed.data.instructions, signal);
-      const rule = ctx.model && selectRule(config, ctx.model);
-      const modelOverride = rule?.model;
-      let thinkingLevel = rule?.thinkingLevel ?? pi.getThinkingLevel();
+  pi.registerTool(
+    withCodemodeNotice({
+      name: "compact",
+      exposure: "model-only",
+      label: "Compact context",
+      description: "Compact the session context",
+      parameters: compactParameters,
+      async execute(_id, args, signal, _onUpdate, ctx) {
+        if (!binding) throw new Error(unavailable);
+        const parsed = compactInput.safeParse(args);
+        if (!parsed.success) throw new Error("Invalid compact parameters");
+        binding.request(parsed.data.instructions, signal);
+        const rule = ctx.model && selectRule(config, ctx.model);
+        const modelOverride = rule?.model;
+        let thinkingLevel = rule?.thinkingLevel ?? pi.getThinkingLevel();
 
-      if (
-        modelOverride &&
-        rule.thinkingLevel === undefined &&
-        findConfiguredModel(ctx.modelRegistry, modelOverride)?.reasoning === false
-      )
-        thinkingLevel = "off";
+        if (
+          modelOverride &&
+          rule.thinkingLevel === undefined &&
+          findConfiguredModel(ctx.modelRegistry, modelOverride)?.reasoning === false
+        )
+          thinkingLevel = "off";
 
-      return {
-        content: [{ type: "text", text: compactAcknowledgement }],
-        details: {
-          scheduled: true,
-          ...(modelOverride ? { modelOverride, thinkingLevel } : {})
-        } satisfies CompactDetails
-      };
-    }
-  });
+        return {
+          content: [{ type: "text", text: compactAcknowledgement }],
+          details: {
+            scheduled: true,
+            ...(modelOverride ? { modelOverride, thinkingLevel } : {})
+          } satisfies CompactDetails
+        };
+      }
+    })
+  );
 }

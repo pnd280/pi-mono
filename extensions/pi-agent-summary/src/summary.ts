@@ -8,19 +8,6 @@ import { maxMilestones, milestoneSchema } from "./milestones.ts";
 export const summaryEntryType = "pi-agent-summary.summary";
 
 const countSchema = z.int().nonnegative();
-const fileChangeSchema = z.discriminatedUnion("status", [
-  z.object({
-    path: z.string().min(1),
-    status: z.literal("available"),
-    added: countSchema,
-    removed: countSchema
-  }),
-  z.object({
-    path: z.string().min(1),
-    status: z.literal("unavailable"),
-    reason: z.string().min(1)
-  })
-]);
 
 type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
 
@@ -32,7 +19,7 @@ type HostLevels = ThinkingLevel extends (typeof MODEL_THINKING_LEVELS)[number]
 // Rejects both missing and unknown host thinking levels at compile time.
 const thinkingLevels = MODEL_THINKING_LEVELS satisfies HostLevels;
 
-// Ignore unknown fields, but never render invalid statistics from session JSON.
+/** Ignore unknown fields, but never render invalid statistics from session JSON. */
 export const summarySchema = z.object({
   durationMs: countSchema,
   finishedAt: countSchema.max(8_640_000_000_000_000),
@@ -62,10 +49,7 @@ export const summarySchema = z.object({
     .array(counterSchema.extend({ count: countSchema.positive() }))
     .min(1)
     .max(maxCounters)
-    .optional(),
-  files: z.array(fileChangeSchema)
+    .optional()
 });
-
-export type FileChange = z.infer<typeof fileChangeSchema>;
 
 export type RunSummary = z.infer<typeof summarySchema>;

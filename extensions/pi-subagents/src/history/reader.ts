@@ -1,4 +1,5 @@
 import type { JsonAgentSessionEvent, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { TaskRecord } from "../tasks/records.ts";
 import type { Tasks } from "../tasks/registry.ts";
@@ -57,9 +58,7 @@ class LiveRun {
 }
 
 /**
- * One task's transcript, which follows the task to each new run. A run that is live in this binding
- * streams into it from the run's start; the child file supplies every other run. The reader holds it
- * while the run is live, and each view holds it; the last release disposes it.
+ * One task's transcript, which follows the task to each new run. A run that is live in this binding streams into it from the run's start; the child file supplies every other run. The reader holds it while the run is live, and each view holds it; the last release disposes it.
  */
 class TaskSource {
   readonly transcript = new Transcript();
@@ -189,7 +188,7 @@ class TaskSource {
       if (!this.isActive() || record.run_id !== this.record.run_id) return;
       const live = this.live?.runId === record.run_id && this.live.connected;
       if (live) this.unavailable = "Child transcript unavailable";
-      else this.unavailable = error instanceof Error ? error.message : "Transcript unavailable";
+      else this.unavailable = errorMessage(error);
       this.changed();
     } finally {
       this.refreshing = false;
@@ -264,9 +263,7 @@ export class TaskView {
 }
 
 /**
- * Reads tasks' runs: live from a direct task's connection while its run is active, and from the
- * child file otherwise. It holds each live run's source from the run's start, so a view opened
- * later still has the run's streamed events. Each source follows its task's current record.
+ * Reads tasks' runs: live from a direct task's connection while its run is active, and from the child file otherwise. It holds each live run's source from the run's start, so a view opened later still has the run's streamed events. Each source follows its task's current record.
  */
 export class RunReader {
   /** Each task's source while its run is live here or a view shows it. */

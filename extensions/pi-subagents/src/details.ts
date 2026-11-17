@@ -19,6 +19,8 @@ export const detailsSchema = z.object({
   description: z.string(),
   model: z.string(),
   thinking: z.string(),
+  /** The extra Pi CLI arguments of the run; absent when it has none. */
+  launch_args: z.array(z.string()).optional(),
   background: z.boolean(),
   delivery: deliverySchema,
   state: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
@@ -33,6 +35,23 @@ export const detailsSchema = z.object({
 });
 
 export type ToolDetails = z.infer<typeof detailsSchema>;
+
+// oxlint-disable-next-line no-control-regex
+const HIDDEN = /[\x7f-\x9f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g;
+
+/**
+ * Launch arguments as the items of a JSON array, such as `["--tools",` `"read"]`, with each argument exact. JSON escapes C0 controls; DEL, C1 controls, line separators, and bidi controls are also escaped, so terminal sanitising and bidi reordering cannot change a value. Each comma stays with its item, so a row that breaks between items still ends with it.
+ */
+export function launchArgItems(args: readonly string[]): string[] {
+  return args.map((arg, index) => {
+    const json = JSON.stringify(arg).replace(
+      HIDDEN,
+      (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`
+    );
+
+    return `${index ? "" : "["}${json}${index === args.length - 1 ? "]" : ","}`;
+  });
+}
 
 const jobId = z.string().min(1).max(1024);
 
@@ -63,9 +82,7 @@ const activeJobSchema = jobEntrySchema.extend({
 });
 
 /** A job as derived from its entries and live state. It is never persisted. */
-const jobRecordSchema = z.discriminatedUnion("state", [activeJobSchema, inactiveJobSchema]);
-
-export type JobRecord = z.infer<typeof jobRecordSchema>;
+export type JobRecord = z.infer<typeof activeJobSchema> | z.infer<typeof inactiveJobSchema>;
 
 /** The details of `job_abort` results and job result messages. */
 export const inactiveJobDetailsSchema = inactiveJobSchema.extend({ binding_id: jobId });

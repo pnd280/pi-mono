@@ -5,7 +5,7 @@ import type { DisplayAction, DisplayMode } from "../contracts.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { TranscriptMessages } from "../transcript/messages.ts";
 import type { DisplaySession } from "../transcript/session.ts";
-import { trackThinkingCompletion } from "./assistant.ts";
+import { assistantPresentationCompatible, trackThinkingCompletion } from "./assistant.ts";
 import type { DisplayCollector, DisplayCollectors } from "./collection.ts";
 import {
   hostHook,
@@ -17,7 +17,7 @@ import {
   type Host
 } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
-import { TranscriptRows } from "./rows.ts";
+import { TranscriptRows, type RowFailureStage } from "./rows.ts";
 
 type Binding = {
   host: Host;
@@ -34,11 +34,9 @@ const nextMode: Record<DisplayMode, DisplayMode> = {
   verbose: "summary"
 };
 
-/** Summaries collapse only in fullscreen, where no transcript row is already in
- * scrollback, and only when row chrome can draw summary lines.
- */
+/** Summaries collapse only in fullscreen, where no transcript row is already in scrollback, and only when row chrome can draw summary lines. */
 function summaries(host: Host, rowChrome: boolean): boolean {
-  return rowChrome && host.ui?.mode === "fullscreen";
+  return rowChrome && host.ui.mode === "fullscreen";
 }
 
 /** Without summaries, summary renders as compact, so the cycle skips the identical step. */
@@ -67,9 +65,7 @@ export function installHostIntegration(
   const originalSetExpanded = prototype.setToolsExpanded;
   const modeHooks = modeHooksCompatible(prototype);
   const rowChrome = rowContractCompatible();
-  let modeWarning = false;
-  let rowWarning = false;
-  const rowFailures = new Set<"bind" | "release">();
+  const assistantPresentation = assistantPresentationCompatible();
   let active = true;
 
   function rowsFor(host: Host): TranscriptRows {
@@ -79,10 +75,8 @@ export function installHostIntegration(
     return rows;
   }
 
-  /** Row failures leave the session usable, so each stage warns once. */
-  function rowFailure(stage: "bind" | "release"): void {
-    if (rowFailures.has(stage)) return;
-    rowFailures.add(stage);
+  /** Row failures leave the session usable. */
+  function rowFailure(stage: RowFailureStage): void {
     collection.warning(
       stage === "bind"
         ? "row hooks unavailable; affected rows stand alone, outside groups and summaries."
@@ -95,42 +89,45 @@ export function installHostIntegration(
     binding.detach();
     bindings.delete(binding);
     hosts.delete(binding.host);
-    if (sessions.get(binding.host.session) === binding) sessions.delete(binding.host.session);
+    sessions.delete(binding.host.session);
   }
 
   function ensure(host: Host, reset = false): Binding | undefined {
-    if (!active || !host.ui || !host.chatContainer) return undefined;
+    if (!active) return undefined;
     let binding = hosts.get(host);
+    // Replaces the collector after a session change, and rejects a foreign session.
+    const collector = collection.get(host.session);
 
     if (
       binding &&
-      (reset ||
-        sessions.get(host.session) !== binding ||
-        binding.collector.sessionId !== host.session.sessionManager.getSessionId())
+      (reset || sessions.get(host.session) !== binding || binding.collector !== collector)
     ) {
       release(binding);
       binding = undefined;
     }
 
     if (binding) return binding;
-    const collector = collection.get(host.session);
     if (!collector) return;
     const configuration = collector.settings;
 
-    if (!modeHooks && configuration.valid && !modeWarning) {
-      modeWarning = true;
+    if (!modeHooks && configuration.valid) {
       const expand = keyText("app.tools.expand");
       collection.warning(
         expand
-          ? `mode cycling unavailable; ${expand} toggles ${configuration.collapsedMode} ↔ verbose.`
+          ? `mode cycling unavailable; ${expand} toggles collapsed ↔ verbose.`
           : "mode cycling unavailable; app.tools.expand has no key."
       );
     }
 
-    if (!rowChrome && !rowWarning) {
-      rowWarning = true;
-      collection.warning("row contract unavailable; summaries disabled.");
-    }
+    if (!rowChrome && configuration.valid)
+      collection.warning(
+        "row contract unavailable; summaries, card actions, and click modifiers disabled."
+      );
+
+    if (!assistantPresentation && configuration.valid)
+      collection.warning(
+        "assistant presentation unavailable; prose markers and early thinking hiding disabled."
+      );
 
     const display = reset ? collector.reconstruct() : collector.display;
     display.coordinator.setMode(initialMode(host, configuration));
@@ -156,7 +153,7 @@ export function installHostIntegration(
       collector,
       messages: new TranscriptMessages(configuration.valid && rowChrome),
       rows,
-      detach: collector.attach(() => host.toolOutputExpanded ?? false)
+      detach: collector.attach(() => host.toolOutputExpanded)
     };
     hosts.set(host, current);
     sessions.set(host.session, current);
@@ -207,8 +204,9 @@ export function installHostIntegration(
     if (!active) return definition;
 
     try {
+      if (!collection.owns(this.session)) return definition;
       const binding = hosts.get(this);
-      const configuration = binding?.display.settings ?? displaySettings(this.session);
+      const configuration = binding?.collector.settings ?? displaySettings(this.session);
       const selected = binding
         ? binding.display.selectAdapter(name)
         : collection.tools(this.session, configuration).adapter(name);
@@ -242,8 +240,7 @@ export function installHostIntegration(
   try {
     hooks.replace(prototype, "getRegisteredToolDefinition", lookup);
 
-    // Pi can suppress custom entries or insert notices before streaming rows.
-    // Observe actual insertion, not registration or the last indexed call.
+    // Pi can suppress custom entries or insert notices before streaming rows. Observe actual insertion, not registration or the last indexed call.
     for (const key of [
       "maybeShowThinkingDropNotice",
       "addCacheMissNotice",
@@ -261,9 +258,9 @@ export function installHostIntegration(
 
     if (modeHooks && originalToggle && originalSetExpanded) {
       hooks.replace(prototype, "toggleToolOutputExpansion", function (this: Host) {
-        const binding = active ? hosts.get(this) : undefined;
+        const binding = hosts.get(this);
         // Invalid settings keep original rendering, where summary and compact are identical.
-        if (!binding?.display.settings.valid) return originalToggle.call(this);
+        if (!binding?.collector.settings.valid) return originalToggle.call(this);
         transition(
           this,
           binding,
@@ -271,13 +268,13 @@ export function installHostIntegration(
         );
       });
       hooks.replace(prototype, "setToolsExpanded", function (this: Host, expanded: boolean) {
-        const binding = active ? hosts.get(this) : undefined;
-        if (!binding?.display.settings.valid) return originalSetExpanded.call(this, expanded);
+        const binding = hosts.get(this);
+        if (!binding?.collector.settings.valid) return originalSetExpanded.call(this, expanded);
         const mode = binding.display.coordinator.mode;
         if (expanded) transition(this, binding, "verbose");
         // Collapsing applies only to verbose; summary and compact are both collapsed.
         else if (mode === "verbose")
-          transition(this, binding, binding.display.settings.collapsedMode);
+          transition(this, binding, binding.collector.settings.collapsedMode);
       });
     }
 
@@ -285,17 +282,15 @@ export function installHostIntegration(
     const switchMode = prototype.switchTuiMode;
     hooks.replace(prototype, "switchTuiMode", function (this: Host, ...args: unknown[]) {
       const result = switchMode.apply(this, args);
-      const binding = active ? hosts.get(this) : undefined;
-      binding?.display.coordinator.setSummaries(summaries(this, rowChrome));
+      hosts.get(this)?.display.coordinator.setSummaries(summaries(this, rowChrome));
 
       return result;
     });
 
     const thinkingVisibility = prototype.updateThinkingBlockVisibility;
     hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
-      const binding = active ? hosts.get(this) : undefined;
-      // A global toggle visits every assistant row. Reconcile only after all
-      // boundaries reflect final visibility, never through intermediate merges.
+      const binding = hosts.get(this);
+      // A global toggle visits every assistant row. Reconcile only after all boundaries reflect final visibility, never through intermediate merges.
       if (binding) return binding.display.coordinator.batch(() => thinkingVisibility.call(this));
 
       return thinkingVisibility.call(this);
@@ -307,19 +302,16 @@ export function installHostIntegration(
     });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
-    // Pi 1.5.0 passes (items, messageMeta, options); forward every argument so
-    // footer, editor history, and saved-message metadata reach Pi's rows.
+    // Pi 1.5.2 passes (items, messageMeta, options); forward every argument so footer, editor history, and saved-message metadata reach Pi's rows.
     hooks.replace(prototype, "renderSessionItems", function (this: Host, items, ...rest) {
-      // Pi appends replay slices around a boundary compaction summary. Retain
-      // earlier rows and their ownership until the host clears the transcript.
-      const binding = active ? ensure(this, this.chatContainer?.children.length === 0) : undefined;
+      // Pi appends replay slices around a boundary compaction summary. Retain earlier rows and their ownership until the host clears the transcript.
+      const binding = ensure(this, this.chatContainer.children.length === 0);
       if (!binding) return reconstruct.call(this, items, ...rest);
       const result = binding.display.reconstruct(() => {
         for (const item of items)
           binding.display.message(binding.messages.read(item), "historical");
 
-        // Pi discovers visible assistant/notice boundaries while creating rows.
-        // Reconcile once after those insertions, before binding expansion state.
+        // Pi discovers visible assistant/notice boundaries while creating rows. Reconcile once after those insertions, before binding expansion state.
         return reconstruct.call(this, items, ...rest);
       });
 

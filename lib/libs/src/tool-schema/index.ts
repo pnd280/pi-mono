@@ -43,8 +43,7 @@ function hasExplicitBounds(schema: JSONSchema): boolean {
   );
 }
 
-// Omitted caller-declared bounds must stay visible to the model through a description. A field's
-// description covers its nullable members, array items, and record values.
+// Omitted caller-declared bounds must stay visible to the model through a description. A field's description covers its nullable members, array items, and record values.
 function requireBoundDescriptions(
   schema: JSONSchema | boolean,
   path: string,

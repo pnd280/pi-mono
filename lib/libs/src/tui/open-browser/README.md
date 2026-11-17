@@ -2,7 +2,7 @@
 
 [Shared TUI](../README.md#usage)
 
-Mounting a browser needs Pi presentation, remount survival, and post-closure effects in one call. [`openBrowser`](index.ts) mounts the [collection browser](../components/browser/README.md) through [responsive custom UI](../responsive-custom-ui/README.md), using shared browser measurements to choose inline or overlay presentation.
+Mounting a browser needs Pi presentation, remount survival, and post-closure effects in one call. [`openBrowser`](index.ts) mounts the [collection browser](../components/browser/README.md) through [responsive custom UI](../responsive-custom-ui/README.md), using shared browser measurements to choose inline or overlay presentation. This entry also exports the `BrowserOptions`, `BrowserSection`, and `BrowserSnapshot` [browser contracts](../components/browser/types.ts).
 
 ## Behaviour
 
@@ -25,7 +25,6 @@ await openBrowser({ ui: ctx.ui, signal, browser, onError, onInputRoutingUnavaila
 
 ## Caller responsibilities
 
-- Supply the [host options](index.ts). This entry also exports the `BrowserOptions`, `BrowserSection`, and `BrowserSnapshot` [browser contracts](../components/browser/types.ts).
 - Use `onInputRoutingUnavailable` to warn that fullscreen input routing is unavailable, and suggest regular mode if controls do not respond.
 - Record selection in actions.
 - Check the selection in `afterClose` before editor changes, never during remounts.

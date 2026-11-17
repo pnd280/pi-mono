@@ -14,9 +14,9 @@ The prefix lists each model that answered, with the thinking level Pi requested,
 
 ## Output throughput
 
-`tok/s` is the reported output tokens, including reasoning, divided by the time the assistant spent streaming. Tool execution and gaps between responses are excluded.
+`tok/s` is the reported output tokens, including reasoning, divided by the response time Pi measured, from each request to the end of its response. Tool execution and gaps between responses are excluded.
 
-It's an approximate rate seen from the client, not the provider's generation speed. Responses with no output usage or no streaming time are left out, and a run with nothing to measure shows no rate.
+It's an approximate rate seen from the client, not the provider's generation speed. Responses with no output usage or no measured response time are left out, and a run with nothing to measure shows no rate.
 
 While the agent works, the working message refreshes the rate once a second in whole tokens per second, such as `160/s`:
 
@@ -26,27 +26,3 @@ While the agent works, the working message refreshes the rate once a second in w
 ## Commands
 
 `ran N commands` counts each `bash` call the agent made once, including failed, cancelled, or blocked calls. Commands inside a script don't count separately, and commands you run yourself with `!` or `!!` are excluded.
-
-## File changes
-
-File statistics come from Pi's native `edit` and `write` tools only; changes made through `bash` or custom tools aren't counted.
-
-- Counts compare each file's original and final content, so a change that was reverted disappears.
-- Symlink aliases count as one file.
-- Totals include only files with available statistics.
-
-Statistics are unavailable, not zero, in these cases. Expand the summary to see the reason for a file.
-
-- The file is binary, unreadable, or not valid UTF-8.
-- The file changed during observation.
-- The target is not a regular file.
-- The tool's own patch is invalid.
-- The write failed.
-- Something other than Pi's native `edit` and `write` tools, such as `bash` or an editor, changed the file between two native operations.
-- A source is larger than 8 MiB. A large native edit can still use its tool-provided patch.
-- The patch is larger than 128 KiB.
-- The comparison takes longer than 50 ms or has more than 2000 changed lines.
-- A file changed more than once, and keeping its original and final source would take the run above 16 MiB of retained source text. Single-operation statistics can still use the operation's patch.
-- The shared diff queue is full, or the diff worker fails.
-
-The [bounded-diff module](../../../libs/src/bounded-diff/README.md#behaviour) describes the diff limits for callers.

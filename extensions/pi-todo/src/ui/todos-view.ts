@@ -50,7 +50,6 @@ type ListLayout = {
 type TodoAction = "cancel" | "confirm" | "up" | "down" | "pageUp" | "pageDown";
 
 type ViewLayout = {
-  rows: number;
   title: boolean;
   borders: boolean;
   summary: boolean;
@@ -68,11 +67,6 @@ const configuredActions = [
   ["pageUp", "tui.select.pageUp"],
   ["pageDown", "tui.select.pageDown"]
 ] as const satisfies readonly [TodoAction, string][];
-
-/** Host row counts are coerced directly; the value is host-provided, not untrusted input. */
-function normalizeRows(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 24;
-}
 
 /** Index of the entry whose row range contains `row`, or the nearest earlier entry. */
 function firstEntryAtOrBefore(rowStart: readonly number[], row: number): number {
@@ -116,7 +110,7 @@ export class TodosView implements Component {
     );
     if (!this.controls.label("cancel"))
       throw new Error(
-        "Todo browser requires a cancel binding other than Ctrl+C. Fix tui.select.cancel and reload."
+        "Todo browser requires a cancel binding other than Ctrl+C. Fix tui.select.cancel, then /reload."
       );
     this.entries = projectTaskTreeEntries(
       deriveTaskHierarchy(options.tasks)?.entries.filter(
@@ -127,7 +121,7 @@ export class TodosView implements Component {
   }
 
   private layout(width: number, bodyLength: number): ViewLayout {
-    const rows = normalizeRows(this.options.tui.terminal.rows);
+    const rows = this.options.tui.terminal.rows;
     // Leave room for Pi's footer in inline views.
     const reserve = Math.min(4, Math.floor(rows / 4), Math.max(0, rows - 8));
     const budget = rows - reserve;
@@ -160,15 +154,12 @@ export class TodosView implements Component {
       capacity = nextCapacity;
     }
 
-    return { rows, title, borders, summary, capacity, footer };
+    return { title, borders, summary, capacity, footer };
   }
 
   render(width: number): string[] {
-    if (!Number.isFinite(width) || width <= 0) return [""];
-    width = Math.max(1, Math.floor(width));
     const bodyLength = this.measureBodyLength(width);
     const layout = this.layout(width, bodyLength);
-    if (!layout.rows) return [];
     const { theme } = this.options;
     const selected = this.entries[this.selected]?.task;
     this.viewportCapacity = layout.capacity;
@@ -218,7 +209,9 @@ export class TodosView implements Component {
 
   /** Indented and dimmed like the empty states of the shared browser. */
   private emptyRows(width: number): string[] {
-    return wrapRows(this.options.theme.fg("dim", `  ${EMPTY_TODOS_MESSAGE}`), width);
+    const message = this.options.tasks.length ? this.summary : EMPTY_TODOS_MESSAGE;
+
+    return wrapRows(this.options.theme.fg("dim", `  ${message}`), width);
   }
 
   private selectionSummary(): string {
@@ -376,8 +369,7 @@ export class TodosView implements Component {
   }
 
   /**
-   * Children hang from the status glyph, so wrapped rows align after it and carry a stem down to
-   * the children, after the ancestors' guides and this todo's own sibling guide.
+   * Children hang from the status glyph, so wrapped rows align after it and carry a stem down to the children, after the ancestors' guides and this todo's own sibling guide.
    */
   private entryRows(index: number, width: number, marker: string): string[] {
     const { theme } = this.options;

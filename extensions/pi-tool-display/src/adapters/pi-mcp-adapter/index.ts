@@ -1,9 +1,9 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { registeredBy } from "@pi-mono/utils/provenance";
 import { z } from "zod";
 
 import type { BorrowedToolResult, InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { record } from "../../values.ts";
+import { registeredBy } from "../provenance.ts";
 import {
   mcpCallFacts,
   mcpCallIdentity,
@@ -101,11 +101,7 @@ function invocation(
     }
   }
 
-  return [
-    { kind: "value", text: title },
-    ...parts,
-    { kind: "parameters", value: parameters ?? {} }
-  ];
+  return [{ kind: "value", text: title }, ...parts, { kind: "parameters", value: parameters }];
 }
 
 function toolKind(tool: ToolInfo): ToolKind | undefined {

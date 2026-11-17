@@ -33,7 +33,9 @@ const configSchema = z.strictObject({
   applyToManual: z.boolean().optional(),
   applyToAuto: z.boolean().optional(),
   compactionInstructionsFile: z.string().trim().min(1).optional(),
-  docs: z.array(z.string().trim().min(1)).optional()
+  docs: z.array(z.string().trim().min(1)).optional(),
+  // 0 and null turn an inherited step off.
+  statusStep: z.union([z.literal(0), z.null(), z.number().int().min(50_000)]).optional()
 });
 const sectionSchema = configSchema.optional();
 
@@ -42,7 +44,10 @@ export type CompactSettings = z.input<typeof configSchema>;
 
 type ParsedSettings = z.output<typeof configSchema>;
 
-export type CompactConfig = Omit<ParsedSettings, "compactionInstructionsFile" | "docs"> & {
+export type CompactConfig = Omit<
+  ParsedSettings,
+  "compactionInstructionsFile" | "docs" | "statusStep"
+> & {
   instructions?: string;
 };
 
@@ -62,27 +67,22 @@ export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, refer
 }
 
 function readSection(section: ScopedSection): ParsedSettings {
-  try {
-    const parsed = section.status === "read" ? sectionSchema.safeParse(section.value) : undefined;
+  const parsed = section.status === "read" ? sectionSchema.safeParse(section.value) : undefined;
 
-    if (parsed?.success) {
-      const config = parsed.data ?? {};
-      // Relative paths belong to the scope that names them.
-      const scoped = (entry: string) =>
-        resolve(dirname(section.path), expandHomePath(entry, homedir()));
-      if (config.compactionInstructionsFile !== undefined)
-        config.compactionInstructionsFile = scoped(config.compactionInstructionsFile);
-      if (config.docs !== undefined) config.docs = config.docs.map(scoped);
+  if (!parsed?.success)
+    throw new Error(
+      "pi-smart-compact: invalid or unreadable settings. Check ext.pi-smart-compact in global and trusted project settings.json, then /reload."
+    );
 
-      return config;
-    }
-  } catch {
-    // Report only the redacted settings error below.
-  }
+  const config = parsed.data ?? {};
+  // Relative paths belong to the scope that names them.
+  const scoped = (entry: string) =>
+    resolve(dirname(section.path), expandHomePath(entry, homedir()));
+  if (config.compactionInstructionsFile !== undefined)
+    config.compactionInstructionsFile = scoped(config.compactionInstructionsFile);
+  if (config.docs !== undefined) config.docs = config.docs.map(scoped);
 
-  throw new Error(
-    "pi-smart-compact: invalid or unreadable settings. Check ext.pi-smart-compact in global and trusted project settings.json, then /reload."
-  );
+  return config;
 }
 
 /** Read a selected text file, trimmed; `setting` names it in the error. */
@@ -100,21 +100,21 @@ function readTextFile(path: string, setting: "compactionInstructionsFile" | "doc
 }
 
 /**
- * Only absent fields inherit; invalid settings must not silently select another model.
- * `docs` joins the selected files for the `context_window` description and is absent when unset.
+ * Only absent fields inherit; invalid settings must not silently select another model. `docs` joins the selected files for the `context_window` description and is absent when unset. `statusStep` is absent when off.
  */
 export function loadCompactConfig(
   cwd: string,
   { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
-): CompactConfig & { docs?: string } {
+): CompactConfig & { docs?: string; statusStep?: number } {
   const [global, project] = readScopedSections(
     { cwd, projectTrusted, agentDir },
     "ext.pi-smart-compact"
   ).map(readSection);
-  const { compactionInstructionsFile, docs, ...config } = { ...global, ...project };
+  const { compactionInstructionsFile, docs, statusStep, ...config } = { ...global, ...project };
 
   return {
     ...config,
+    ...(typeof statusStep === "number" && statusStep > 0 ? { statusStep } : {}),
     ...(compactionInstructionsFile !== undefined && {
       instructions: readTextFile(compactionInstructionsFile, "compactionInstructionsFile")
     }),

@@ -15,7 +15,7 @@ type Create<ComponentType> = (
   close: () => void
 ) => ComponentType;
 
-export type ResponsiveCustomUIOptions = {
+type ResponsiveCustomUIOptions = {
   ui: Pick<ExtensionContext["ui"], "custom">;
   signal: AbortSignal;
   useOverlay(tui: HostArguments[0]): boolean;
@@ -79,8 +79,6 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
           finishPresentation = finish;
           view ??= options.create(tui, theme, keys, close);
           const currentView = view;
-          if (currentView.ownsFullscreenInput && !options.onInputRoutingUnavailable)
-            throw new Error("Fullscreen input ownership requires onInputRoutingUnavailable.");
 
           const checkLayout = () => {
             presentation.nextOverlay = options.useOverlay(tui);
@@ -99,7 +97,7 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
           };
 
           checkLayout();
-          if (closed || options.signal.aborted) queueMicrotask(close);
+          if (closed) queueMicrotask(close);
 
           const adapter: Component & Focusable & { dispose(): void } = {
             render: (width) => {
@@ -119,6 +117,12 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
             },
             invalidate: () => {
               if (!settled && !closed) currentView.invalidate();
+            },
+            get wantsKeyRelease() {
+              return currentView.wantsKeyRelease ?? false;
+            },
+            get capturesViewportInput() {
+              return currentView.capturesViewportInput ?? false;
             },
             get focused() {
               return !settled && !closed && focused;

@@ -1,15 +1,11 @@
 import { todoInputSchema } from "../tool-schema.ts";
 import type { Task, TaskMutationResult, TodoState } from "./model.ts";
-import { applyTaskInput, cloneState, cloneTask, emptyTodoState } from "./reducer.ts";
+import { applyTaskInput, cloneTask, emptyTodoState } from "./reducer.ts";
 import { todoStateFromBranch } from "./session-state.ts";
 
 export class TodoController {
   private state: TodoState = emptyTodoState();
   private revision = 0;
-
-  getState(): TodoState {
-    return cloneState(this.state);
-  }
 
   getTodos(): readonly Task[] {
     return this.state.tasks.map(cloneTask);

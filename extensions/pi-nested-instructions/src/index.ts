@@ -12,13 +12,11 @@ export default function nestedInstructions(pi: ExtensionAPI) {
   });
   pi.on("tool_execution_start", (event) => {
     if (!event.parentToolCallId) return;
-    const tool = pi.getAllTools().find((candidate) => candidate.name === event.toolName);
     nestedCalls.push({
       toolCallId: event.toolCallId,
       parentToolCallId: event.parentToolCallId,
       toolName: event.toolName,
-      input: event.args,
-      ...(tool ? { sourceInfo: tool.sourceInfo } : {})
+      input: event.args
     });
   });
   pi.on("turn_end", async (event, ctx) => {
@@ -26,53 +24,38 @@ export default function nestedInstructions(pi: ExtensionAPI) {
     nestedCalls = [];
     if (event.message.role !== "assistant") return;
 
-    try {
-      const tools = pi.getAllTools();
-
-      // Issued inputs count even if validation or a guard blocked execution.
-      // Never inspect event.toolResults, including their success status.
-      for (const call of event.message.content) {
-        if (call.type !== "toolCall") continue;
-        const tool = tools.find((candidate) => candidate.name === call.name);
-
-        calls.push({
-          toolCallId: call.id,
-          callEntryId: event.messageEntryId,
-          toolName: call.name,
-          input: call.arguments,
-          ...(tool ? { sourceInfo: tool.sourceInfo } : {})
-        });
-      }
-
-      // Earlier boundary handlers can add notices or edit context before drafts are committed.
-      const branch = ctx.sessionManager.getBranch();
-      const projected = event.context.contextEntries;
-      const entries = new Map(
-        [...branch, ...projected.map((entry) => entry.sourceEntry)].map((entry) => [
-          entry.id,
-          entry
-        ])
-      );
-      const discovered = await discover(calls, ctx.cwd, {
-        buildSessionProjection: () => ({ entries: projected }),
-        getBranch: () => [...entries.values()]
+    // Issued inputs count even if validation or a guard blocked execution. Never inspect event.toolResults, including their success status.
+    for (const call of event.message.content) {
+      if (call.type !== "toolCall") continue;
+      calls.push({
+        toolCallId: call.id,
+        callEntryId: event.messageEntryId,
+        toolName: call.name,
+        input: call.arguments
       });
-
-      return { entries: [...event.entries, ...discovered] };
-    } catch {
-      return undefined;
     }
+
+    // Earlier boundary handlers can add notices or edit context before drafts are committed.
+    const branch = ctx.sessionManager.getBranch();
+    const projected = event.context.contextEntries;
+    const entries = new Map(
+      [...branch, ...projected.map((entry) => entry.sourceEntry)].map((entry) => [entry.id, entry])
+    );
+    const discovered = await discover(calls, ctx.cwd, {
+      buildSessionProjection: () => ({ entries: projected }),
+      getBranch: () => [...entries.values()]
+    });
+
+    return { entries: [...event.entries, ...discovered] };
   });
   pi.on("session_shutdown", () => {
     nestedCalls = [];
   });
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {
     nestedCalls = [];
-    // Discovery never prevents starting or reloading a session.
-    const messages = await refresh(ctx.cwd, ctx.sessionManager).catch(() => []);
+    const messages = await refresh(ctx.cwd, ctx.sessionManager);
     if (!messages.length) return;
-    // An idle sendMessage appends at once. At rank 100, the messages precede the startup entries
-    // of pi-profiles (rank 200) in every load order.
+    // An idle sendMessage appends at once. At rank 100, the messages precede the startup entries of pi-profiles (rank 200) in every load order.
     arrival.commit(100, () => {
       for (const message of messages) pi.sendMessage(message, { triggerTurn: false });
     });

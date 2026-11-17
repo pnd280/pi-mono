@@ -20,8 +20,7 @@ type RelayHost = {
 };
 
 /**
- * Only adjacent processes exchange messages. The root alone grants whole-tree capacity. Task
- * records travel up the same streams as slot requests; see `publish` for their order.
+ * Only adjacent processes exchange messages. The root alone grants whole-tree capacity. Task records travel up the same streams as slot requests; see `publish` for their order.
  */
 export class Relay {
   private active = true;
@@ -71,7 +70,7 @@ export class Relay {
       } catch (error) {
         this.pending.get(requestId)?.dispose();
         this.pending.delete(requestId);
-        reject(error instanceof Error ? error : new Error("Cannot request subagent capacity"));
+        reject(error);
       }
     });
   }
@@ -86,13 +85,9 @@ export class Relay {
   }
 
   /**
-   * In a child, send a task's latest record to this process's supervisor. An immediate update is
-   * sent before this call returns, and it replaces a debounced update of the same task.
+   * In a child, send a task's latest record to this process's supervisor. An immediate update is sent before this call returns, and it replaces a debounced update of the same task.
    *
-   * An ancestor drops a slot request whose owner it does not know, so a task's record must reach
-   * every ancestor before the task can request capacity. The order holds on each stream: a run's
-   * start is immediate, and its child is prompted only after the start returns; each process
-   * publishes an accepted descendant update at once, before it reads the child's next message.
+   * An ancestor drops a slot request whose owner it does not know, so a task's record must reach every ancestor before the task can request capacity. The order holds on each stream: a run's start is immediate, and its child is prompted only after the start returns; each process publishes an accepted descendant update at once, before it reads the child's next message.
    */
   publish(record: TaskRecord, urgency: Urgency): void {
     if (this.host.self === undefined || !this.active) return;
@@ -140,7 +135,7 @@ export class Relay {
       if (!this.tree.accept(child, message.record)) return;
       if (message.record.state === "inactive") this.exited(message.record.task_id);
     } else if (message.kind === "slot-request") {
-      if (!this.tree.belongsTo(child, message.owner) || this.routes.has(message.request_id)) return;
+      if (!this.tree.belongsTo(child, message.owner)) return;
       this.routes.set(message.request_id, { child, owner: message.owner });
       if (this.host.self === undefined) this.grant(child, message.request_id, message.owner);
       else this.host.send(message);

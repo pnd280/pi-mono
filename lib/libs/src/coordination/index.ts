@@ -1,20 +1,19 @@
-import type { EventBus } from "@earendil-works/pi-coding-agent";
+import type { EventBus, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { errorMessage } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
+import { displayText } from "../tui/terminal-text/index.ts";
+
 export type Notify = (message: string, type: "warning" | "error") => void;
 
-type NotifyContext = {
-  hasUI: boolean;
-  ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
+type NotifyContext = Pick<ExtensionContext, "hasUI"> & {
+  ui: Pick<ExtensionContext["ui"], "notify">;
 };
 
 type Protocol = { readonly name: string; readonly version: number };
 
 /**
- * The rendezvous envelope. Its shape is fixed for every protocol version, so copies with
- * different versions still find each other, tell whether the other version is live, and warn
- * about the mismatch once.
+ * The rendezvous envelope. Its shape is fixed for every protocol version, so copies with different versions still find each other, tell whether the other version is live, and warn about the mismatch once.
  */
 type Offer<Shared> = {
   readonly version: number;
@@ -42,9 +41,7 @@ export class Host {
   ) {}
 
   /**
-   * Call from the participant's own `session_start` handler. Pi runs no handler of an extension
-   * whose factory failed or that the loader dropped, so only these participants become live.
-   * Returns true the first time.
+   * Call from the participant's own `session_start` handler. Pi runs no handler of an extension whose factory failed or that the loader dropped, so only these participants become live. Returns true the first time.
    */
   markLive(participant: object): boolean {
     if (this.live.has(participant)) return false;
@@ -70,8 +67,7 @@ export class Host {
   }
 
   /**
-   * Call from each participant's `session_start` handler after `markLive`. The first participant
-   * that sees live participants of another version warns, once per runtime.
+   * Call from each participant's `session_start` handler after `markLive`. The first participant that sees live participants of another version warns, once per runtime.
    */
   warnIfDisabled(events: EventBus, notify: Notify | undefined): void {
     const found = offers(events, this.channel);
@@ -92,8 +88,7 @@ export class Host {
 }
 
 /**
- * Joins the coordinator of `protocol` for this runtime, or installs it when no participant of
- * this version answers. Participants of other versions get their own coordinator.
+ * Joins the coordinator of `protocol` for this runtime, or installs it when no participant of this version answers. Participants of other versions get their own coordinator.
  */
 export function rendezvous<Shared>(
   events: EventBus,
@@ -114,8 +109,7 @@ export function rendezvous<Shared>(
   }
 
   const answer = offer;
-  // Every participant answers for its version. Pi removes the subscriptions of a failed
-  // factory, so the coordinator stays reachable while any participant that joined it remains.
+  // Every participant answers for its version. Pi removes the subscriptions of a failed factory, so the coordinator stays reachable while any participant that joined it remains.
   events.on(channel, (request: unknown) => {
     if (typeof request === "function") Reflect.apply(request, undefined, [answer]);
   });
@@ -125,8 +119,7 @@ export function rendezvous<Shared>(
 
 function offers<Shared>(events: EventBus, channel: string): Offer<Shared>[] {
   const found = new Set<Offer<Shared>>();
-  // Pi dispatches bus listeners synchronously. A callback rendezvous also works across the
-  // separate copies of this library that Pi loads for each extension.
+  // Pi dispatches bus listeners synchronously. A callback rendezvous also works across the separate copies of this library that Pi loads for each extension.
   events.emit(channel, (answer: Offer<Shared>) => {
     found.add(answer);
   });
@@ -170,8 +163,7 @@ export class Roster {
   }
 
   /**
-   * Call first in the participant's own `session_start` handler: marks it live, warns about a
-   * version mismatch, and throws when it becomes live while another live participant has its ID.
+   * Call first in the participant's own `session_start` handler: marks it live, warns about a version mismatch, and throws when it becomes live while another live participant has its ID.
    */
   arrive(participant: Participant, events: EventBus, ctx: NotifyContext): void {
     if (!this.host.markLive(participant)) return;
@@ -219,8 +211,7 @@ export class Registry<T> {
   }
 
   /**
-   * Active registrations by rank, then participant ID, then registration order. With `only`,
-   * returns that participant's registrations.
+   * Active registrations by rank, then participant ID, then registration order. With `only`, returns that participant's registrations.
    */
   ordered(only?: Participant): Entry<T>[] {
     return [...this.entries]
@@ -270,5 +261,5 @@ export function reportFailure(
   what: string,
   error: unknown
 ): void {
-  report(notify, `${participant.id}: ${what} failed: ${errorMessage(error)}`, "error");
+  report(notify, `${participant.id}: ${what} failed: ${displayText(errorMessage(error))}`, "error");
 }

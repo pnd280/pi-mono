@@ -3,6 +3,7 @@ import {
   CustomEditor,
   type ExtensionAPI,
   type ExtensionContext,
+  type McpServerConfig,
   type SessionStartEvent,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
@@ -18,9 +19,11 @@ import {
   enforcedTools,
   latestSelection,
   planRestore,
+  planServers,
   planSwitch,
   reportTools,
   searchableTools,
+  selectedProfile,
   SELECTION_ENTRY,
   withGroups,
   type Rules,
@@ -34,8 +37,7 @@ const PROMPT_RANK = 200;
 /** After pi-nested-instructions (`100`), so the selection entry follows its startup messages. */
 const STARTUP_RANK = 200;
 
-// The menu and its shared TUI components load on first use, not at startup. Concurrent opens
-// share one import: under jiti a concurrent import can return a partly evaluated module.
+// The menu and its shared TUI components load on first use, not at startup. Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
 const importMenu = () => import("./menu.ts");
 let menuModule: ReturnType<typeof importMenu> | undefined;
 const loadMenu = () => (menuModule ??= importMenu());
@@ -61,12 +63,12 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   let switching: Promise<void> | undefined;
   /** The outgoing selection, for a tree destination that has no selection or tool record. */
   let treeSelection: Selection | undefined;
+  /**
+   * The MCP servers that the extension registered, by name. Pi loads the extension again with each session and on `/reload`, and drops the registrations of the previous load.
+   */
+  const servers = new Map<string, McpServerConfig>();
 
-  // Pi skips its built-in `tool_search` when an extension registers one while loading. This copy is
-  // Pi's own tool, but it sees the deferred tools as `deferred`, so it finds and loads them too, and
-  // the tools that it turns on bring the rest of their deferred groups.
-  // It is always registered: a loading extension gets no trust decision, so the settings cannot tell
-  // whether a project profile defers tools.
+  // Registering a `tool_search` while loading makes Pi skip its built-in one. This copy of Pi's tool sees the profile's deferred tools as `deferred`, so it loads them with their whole groups. Always register it: loading extensions get no trust decision, so settings cannot show whether a project profile defers tools.
   await createToolSearchExtension()({
     ...pi,
     getAllTools: () => searchableTools(pi.getAllTools(), rules),
@@ -110,8 +112,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       const render = editor.render.bind(editor);
 
       editor.render = (width) => {
-        // A copy, because an earlier editor can return the same array again.
-        const lines = [...render(width)];
+        const lines = render(width);
         const [top] = lines;
         if (label !== undefined && top !== undefined)
           lines[0] = labelBorder(top, label, (text) => editor.borderColor?.(text) ?? text);
@@ -125,10 +126,18 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     });
   }
 
-  const currentName = (ctx: ExtensionContext) =>
-    latestSelection(ctx.sessionManager.getBranch())?.name;
+  const currentSelection = (ctx: ExtensionContext) =>
+    latestSelection(ctx.sessionManager.getBranch());
+  /**
+   * Whether the choice, a profile or no profile, is the selection. A selection whose profile the settings no longer supply matches no choice, also not a profile of the same name.
+   */
+  const isCurrent = (choice: Profile | undefined, selection: Selection | undefined) =>
+    choice ? selectedProfile(selection, [choice]) !== undefined : selection?.name === undefined;
   const findProfile = (name: string | undefined) =>
     config?.profiles.find((profile) => profile.name === name);
+  /** The selection's profile, when the current settings still supply it. */
+  const selected = (selection: Selection | undefined) =>
+    selectedProfile(selection, config?.profiles ?? []);
 
   /** What a `/profile` or `--profile` argument selects: a profile, or none for `clear`. */
   const choose = (name: string): { profile: Profile | undefined } | undefined => {
@@ -147,15 +156,35 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   /**
-   * Without a profile, the model and thinking level stay, and the previous profile's tool changes
-   * are undone. `source` prefixes notices for switches that the user did not request.
+   * Registers the profile's MCP servers, and unregisters the others, so that only the selected profile's servers connect. A server that Pi refuses is left out, with an error.
+   */
+  function selectServers(profile: Profile | undefined, ctx: ExtensionContext): void {
+    const plan = planServers(servers, profile?.mcpServers);
+
+    for (const name of plan.unregister) {
+      pi.unregisterMcpServer(name);
+      servers.delete(name);
+    }
+
+    for (const [name, config] of plan.register) {
+      try {
+        pi.registerMcpServer(name, config);
+        servers.set(name, config);
+      } catch (error) {
+        reportError(ctx, `pi-profiles: MCP server ${name} not registered: ${errorMessage(error)}`);
+      }
+    }
+  }
+
+  /**
+   * Without a profile, the model and thinking level stay, and the previous profile's tool changes and MCP servers are undone. `source` prefixes notices for switches that the user did not request. Resolves whether the profile applied.
    */
   async function switchTo(
     profile: Profile | undefined,
     ctx: ExtensionContext,
     source = ""
-  ): Promise<void> {
-    if (session.signal.aborted) return;
+  ): Promise<boolean> {
+    if (session.signal.aborted) return false;
 
     if (!ctx.isIdle() || switching) {
       ctx.ui.notify(
@@ -163,18 +192,29 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
         "warning"
       );
 
-      return;
+      return false;
     }
 
-    switching = apply(profile, ctx, source).finally(() => {
-      switching = undefined;
-    });
+    let applied = false;
+    switching = apply(profile, ctx, source)
+      .then((result) => {
+        applied = result;
+      })
+      .finally(() => {
+        switching = undefined;
+      });
     // A run that starts now builds its prompt after the switch, with the profile and its model.
     prompt.hold(switching);
     await switching;
+
+    return applied;
   }
 
-  async function apply(profile: Profile | undefined, ctx: ExtensionContext, source: string) {
+  async function apply(
+    profile: Profile | undefined,
+    ctx: ExtensionContext,
+    source: string
+  ): Promise<boolean> {
     if (profile?.model) {
       const model = profileModel(profile.model, ctx);
       const current = ctx.model?.provider === model?.provider && ctx.model?.id === model?.id;
@@ -188,7 +228,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
           `${source}Profile ${profile.name} not applied: ${profile.model} is unavailable or has no credentials`
         );
 
-        return;
+        return false;
       }
     }
 
@@ -199,9 +239,13 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const result = plan.settle(pi.getActiveTools());
     rules = result.rules;
     pi.appendEntry<Selection>(SELECTION_ENTRY, result.entry);
+    // After the tools: a call that turns off a tool drops the pending tools of connecting servers.
+    selectServers(profile, ctx);
     showLabel(profile?.name);
     const title = profile ? `Profile ${profile.name}` : "No profile";
     ctx.ui.notify(displayText(`${source}${title}: ${result.change}`), "info");
+
+    return true;
   }
 
   function restoreTools(
@@ -216,7 +260,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       messages: () => ctx.sessionManager.buildSessionProjection().messages
     });
     rules = plan.rules;
-    showLabel(plan.selection?.name);
+    showLabel(selected(plan.selection)?.name);
     if (plan.tools) pi.setActiveTools(plan.tools);
 
     return plan.selection;
@@ -231,20 +275,23 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const selection = restoreTools(ctx, reason === "reload");
     const flag = pi.getFlag("profile");
     const requested = typeof flag === "string" ? choose(flag) : undefined;
+    let applied = false;
     if (typeof flag === "string" && !requested && reason === "startup")
       reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
 
     if (requested && (reason === "startup" || !selection)) {
-      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such
-      // as after /new, keep theirs, and use `--profile` in place of the default profile.
-      await switchTo(requested.profile, ctx);
+      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such as after /new, keep theirs, and use `--profile` in place of the default profile.
+      applied = await switchTo(requested.profile, ctx);
     } else if (!selection) {
-      // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
+      // Print, JSON, and RPC runs, such as subagents, apply no default profile, so a branch without a selection keeps the model and tools it was given.
       if (ctx.mode === "tui" && loaded.defaultProfile)
-        await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
-    } else if (ctx.hasUI && selection.name !== undefined && !findProfile(selection.name)) {
+        applied = await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
+    } else if (selection.name !== undefined && !selected(selection)) {
       ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
     }
+
+    // A switch registers its profile's servers. Otherwise the restored selection's servers register.
+    if (!applied) selectServers(selected(selection), ctx);
   }
 
   // Startup and /reload both start a session, so edited settings apply after /reload.
@@ -253,25 +300,22 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const loaded = loadProfiles({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
     config = loaded;
 
-    if (ctx.hasUI) {
-      for (const warning of loaded.warnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
-    }
+    for (const warning of loaded.warnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
 
     if (loaded.profiles.length > 0) {
       arrival.claimShortcut(loaded.shortcut, {
         description: "Switch to the next profile, or to no profile after the last",
         handler: async (shortcutCtx) => {
-          const names = [...loaded.profiles.map(({ name }) => name), undefined];
-          const next = names[(names.indexOf(currentName(shortcutCtx)) + 1) % names.length];
-          await switchTo(findProfile(next), shortcutCtx);
+          const cycle = [...loaded.profiles, undefined];
+          const selection = currentSelection(shortcutCtx);
+          const index = cycle.findIndex((choice) => isCurrent(choice, selection));
+          await switchTo(cycle[(index + 1) % cycle.length], shortcutCtx);
         }
       });
       if (ctx.mode === "tui") labelEditor(ctx);
     }
 
-    // Commits run in the first participant's `resources_discover` handler, which Pi emits after
-    // every extension's `session_start` handler, so the tools that they register are known, and
-    // the selection entry follows pi-nested-instructions' startup messages (`100`).
+    // Commits run in the first participant's `resources_discover` handler, which Pi emits after every extension's `session_start` handler, so the tools that they register are known, and the selection entry follows pi-nested-instructions' startup messages (`100`).
     arrival.commit(STARTUP_RANK, () => startProfile(event.reason, loaded, ctx));
   });
 
@@ -282,8 +326,9 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   });
 
   pi.on("session_tree", (_event, ctx) => {
-    restoreTools(ctx, false, treeSelection);
+    const selection = restoreTools(ctx, false, treeSelection);
     treeSelection = undefined;
+    selectServers(selected(selection), ctx);
   });
 
   pi.on("session_before_switch", async () => {
@@ -291,19 +336,17 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     await switching;
   });
 
-  // Before any extension awaits its shutdown work, no new switch starts and the menu closes. The
-  // switch in progress still saves its selection.
+  // Before any extension awaits its shutdown work, no new switch starts and the menu closes. The switch in progress still saves its selection.
   lifecycle.onSessionShutdown(
     () => session.abort(),
     () => switching
   );
 
   // The coordinator calls parts after every hold, such as a switch, has settled.
-  prompt.part(PROMPT_RANK, (ctx) => findProfile(currentName(ctx))?.prompts.join("\n\n"));
+  prompt.part(PROMPT_RANK, (ctx) => selected(currentSelection(ctx))?.prompts.join("\n\n"));
 
   /**
-   * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools`
-   * can turn on again. Sets the tools only when a `deny` tool is active.
+   * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools` can turn on again. Sets the tools only when a `deny` tool is active.
    */
   function enforceTools(): void {
     const tools = enforcedTools(pi.getActiveTools(), rules);
@@ -317,30 +360,30 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     enforceTools();
   });
 
-  // A later request declares the tools that are active when the previous turn ends. Pi takes them
-  // before turn_start, so a change in turn_start reaches only the request after.
+  // A later request declares the tools that are active when the previous turn ends. Pi takes them before turn_start, so a change in turn_start reaches only the request after.
   pi.on("turn_end", () => {
     enforceTools();
   });
 
   /** The configured profiles, then `clear` for no profile. */
   const choices = () => [
-    ...(config?.profiles ?? []).map(({ name, description }) => ({
-      name,
-      description: compactDisplayText(description)
+    ...(config?.profiles ?? []).map((profile) => ({
+      name: profile.name,
+      description: compactDisplayText(profile.description),
+      profile
     })),
-    { name: CLEAR, description: "No profile" }
+    { name: CLEAR, description: "No profile", profile: undefined }
   ];
 
   /** The profiles, with the change that each switch would make now, and the state of every tool. */
   function menuData(ctx: ExtensionContext): MenuData {
     const state = toolState(ctx);
-    const current = latestSelection(state.branch)?.name;
-    const profile = findProfile(current);
+    const selection = latestSelection(state.branch);
+    const profile = selected(selection);
     const choices = [...(config?.profiles ?? []), undefined].map((choice) => ({
       name: choice?.name ?? CLEAR,
       profile: choice,
-      current: choice?.name === current,
+      current: isCurrent(choice, selection),
       change: planSwitch(choice, state).change,
       modelAvailable: !choice?.model || profileModel(choice.model, ctx) !== undefined
     }));
@@ -350,10 +393,16 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
   pi.registerCommand("profile", {
     description: "Switch profile",
-    getArgumentCompletions: (prefix) =>
-      choices()
-        .filter(({ name }) => name.startsWith(prefix.trim()))
-        .map(({ name, description }) => ({ value: name, label: name, description })),
+    getArgumentCompletions: (prefix) => {
+      const typed = prefix.trim();
+      const list = choices();
+      // An exact argument must submit, rather than accepting an identical completion first.
+      if (list.some(({ name }) => name === typed)) return null;
+
+      return list
+        .filter(({ name }) => name.startsWith(typed))
+        .map(({ name, description }) => ({ value: name, label: name, description }));
+    },
     handler: async (args, ctx) => {
       let name = args.trim();
 
@@ -369,29 +418,27 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
         const { ui } = ctx;
         const { signal } = session;
 
-        try {
-          const { openMenu } = await loadMenu();
-          if (signal.aborted) return;
-          await openMenu({
-            ui,
-            signal,
-            data: menuData(ctx),
-            onSwitch: (profile) => switchTo(profile, ctx),
-            notify: (message, type) => ui.notify(message, type)
-          });
-        } catch (error) {
-          if (!signal.aborted) ui.notify(displayText(errorMessage(error)), "error");
-        }
+        const { openMenu } = await loadMenu();
+        if (signal.aborted) return;
+        await openMenu({
+          ui,
+          signal,
+          data: menuData(ctx),
+          onSwitch: async (profile) => {
+            await switchTo(profile, ctx);
+          },
+          notify: (message, type) => ui.notify(message, type)
+        });
 
         return;
       }
 
       if (name === "" && ctx.hasUI) {
         const list = choices();
-        const current = currentName(ctx) ?? CLEAR;
+        const selection = currentSelection(ctx);
         const options = list.map(
           (choice) =>
-            `${choice.name}${choice.name === current ? " (current)" : ""}: ${choice.description}`
+            `${choice.name}${isCurrent(choice.profile, selection) ? " (current)" : ""}: ${choice.description}`
         );
         const choice = await ctx.ui.select("Profile", options);
         if (choice === undefined) return;
@@ -403,7 +450,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       else
         ctx.ui.notify(
           `Usage: /profile <name> or /profile ${CLEAR}; no profile has that name`,
-          "warning"
+          "error"
         );
     }
   });

@@ -4,8 +4,7 @@ import { VERSION } from "@earendil-works/pi-coding-agent";
 
 const provenanceKey = Symbol.for("@pi-mono/libs/owned-hooks.provenance");
 
-// Pi reloads extensions with jiti's moduleCache disabled. Share only weak function
-// keys across module instances; do not retain targets, owners, or sessions here.
+// Pi reloads extensions with jiti's moduleCache disabled. Share only weak function keys across module instances; do not retain targets, owners, or sessions here.
 const registry = globalThis as typeof globalThis & {
   [provenanceKey]?: WeakMap<object, unknown>;
 };
@@ -33,8 +32,7 @@ export function inspectedSource(method: unknown, hashes: ReadonlySet<string>): b
 }
 
 /**
- * The host fingerprint policy for a hooked method: its deepest recorded predecessor must be
- * callable and match a reviewed hash, or Pi's public version must equal the owner's pin.
+ * The host fingerprint policy for a hooked method: its deepest recorded predecessor must be callable and match a reviewed hash, or Pi's public version must equal the owner's pin.
  */
 export function hookCompatible(
   value: unknown,
@@ -64,25 +62,22 @@ export class OwnedHooks {
       let owner: object | null = target;
 
       while (!descriptor && owner) {
-        const parent: unknown = Object.getPrototypeOf(owner);
         // Function targets inherit from callable prototypes such as `Function.prototype`.
-        owner = typeof parent === "object" || typeof parent === "function" ? parent : null;
+        owner = Reflect.getPrototypeOf(owner);
         if (owner) descriptor = Object.getOwnPropertyDescriptor(owner, key);
       }
     }
 
     const predecessor: unknown = descriptor && "value" in descriptor ? descriptor.value : undefined;
 
-    // Define an own data property without invoking an inherited setter. Preserve existing
-    // flags, and remove newly introduced shadows rather than freezing a prototype's value.
+    // Define an own data property without invoking an inherited setter. Preserve existing flags, and remove newly introduced shadows rather than freezing a prototype's value.
     Object.defineProperty(target, key, {
       ...(previous ?? { configurable: true, enumerable: true, writable: true }),
       value
     });
 
     if (typeof value === "function" && value !== predecessor) {
-      // A reused function cannot claim two different predecessors. Leave an
-      // ambiguous link unresolved rather than overwrite its original provenance.
+      // A reused function cannot claim two different predecessors. Leave an ambiguous link unresolved rather than overwrite its original provenance.
       if (predecessors.has(value) && predecessors.get(value) !== predecessor)
         predecessors.set(value, undefined);
       else predecessors.set(value, predecessor);
@@ -101,8 +96,7 @@ export class OwnedHooks {
       try {
         restore();
       } catch {
-        // A subsequently locked property must not prevent restoring other owned hooks.
-        // Consumers must deactivate their callbacks before attempting restoration.
+        // A subsequently locked property must not prevent restoring other owned hooks. Consumers must deactivate their callbacks before attempting restoration.
       }
     }
   }

@@ -4,7 +4,6 @@ const durationSchema = z.number().nonnegative().max(2_147_483_647);
 
 export type TimedConfirmationOptions = {
   durationMs: number;
-  now(): number;
   expired(): void;
 };
 
@@ -26,12 +25,10 @@ export class TimedConfirmation<Target> {
   confirm(target: Target): boolean {
     if (this.disposed) return false;
     const confirmed =
-      this.state !== undefined &&
-      this.state.target === target &&
-      this.options.now() < this.state.deadline;
+      this.state !== undefined && this.state.target === target && Date.now() < this.state.deadline;
     this.cancel();
     if (confirmed) return true;
-    this.state = { target, deadline: this.options.now() + this.options.durationMs };
+    this.state = { target, deadline: Date.now() + this.options.durationMs };
     this.expiry = setTimeout(() => {
       this.cancel();
       this.options.expired();

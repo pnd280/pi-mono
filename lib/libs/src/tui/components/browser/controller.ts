@@ -11,7 +11,6 @@ import type {
 type BrowserPorts = {
   changed(this: void): void;
   close(this: void): void;
-  now(this: void): number;
   onError(this: void, error: unknown): void;
 };
 
@@ -45,10 +44,8 @@ export class BrowserController<Item> {
     readonly options: BrowserOptions<Item>,
     private readonly ports: BrowserPorts
   ) {
-    for (const section of options.sections) {
-      if (this.views.has(section.id)) throw new Error("Browser section IDs must be unique.");
+    for (const section of options.sections)
       this.views.set(section.id, { query: section.initialQuery ?? "", selected: undefined });
-    }
 
     this.section = this.findSection(options.initialSection);
     this.searchTask = new LatestTask({ changed: ports.changed });
@@ -65,7 +62,6 @@ export class BrowserController<Item> {
   private createConfirmation() {
     return new TimedConfirmation<Item>({
       durationMs: this.section.remove?.durationMs ?? 1500,
-      now: this.ports.now,
       expired: this.ports.changed
     });
   }
@@ -113,7 +109,6 @@ export class BrowserController<Item> {
   }
 
   async activate(id = this.section.id): Promise<void> {
-    if (this.isClosed() || this.busy) return;
     const section = this.findSection(id);
     this.activation.abort();
     const activation = new AbortController();
@@ -156,10 +151,7 @@ export class BrowserController<Item> {
       if (activation.signal.aborted) return;
       this.preview = false;
       this.status = "unavailable";
-      this.error =
-        error instanceof Error
-          ? error.message
-          : (this.options.loadError ?? "Could not load items.");
+      this.error = error instanceof Error ? error.message : "Could not load items.";
       this.ports.changed();
     }
   }
@@ -185,49 +177,47 @@ export class BrowserController<Item> {
     const state = this.state;
     this.showSearchNotice(edited && this.settled);
 
-    try {
-      await this.searchTask.run(
-        (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
-        (results) => {
-          this.hideSearchNotice();
-          this.settled = true;
-          this.results = results;
+    await this.searchTask.run(
+      (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
+      (results) => {
+        this.hideSearchNotice();
+        this.settled = true;
+        this.results = results;
 
-          if (this.snapshot) {
-            this.status = "ready";
-            this.error = "";
-          }
-
-          if (edited || !results.some((item) => this.options.key(item) === state.selected)) {
-            const selected = results[Math.min(nearby, results.length - 1)];
-            state.selected = selected === undefined ? undefined : this.options.key(selected);
-          }
-
-          if (!results.length) this.preview = false;
+        if (this.snapshot) {
+          this.status = "ready";
+          this.error = "";
         }
-      );
-    } catch (error) {
-      this.hideSearchNotice();
-      this.settled = false;
-      this.results = [];
-      state.selected = undefined;
-      this.preview = false;
 
-      if (this.snapshot) {
-        this.status = "unavailable";
-        this.error = "Could not search items.";
+        if (edited || !results.some((item) => this.options.key(item) === state.selected)) {
+          const selected = results[Math.min(nearby, results.length - 1)];
+          state.selected = selected === undefined ? undefined : this.options.key(selected);
+        }
+
+        if (!results.length) this.preview = false;
+      },
+      (error) => {
+        this.hideSearchNotice();
+        this.settled = false;
+        this.results = [];
+        state.selected = undefined;
+        this.preview = false;
+
+        if (this.snapshot) {
+          this.status = "unavailable";
+          this.error = "Could not search items.";
+        }
+
+        this.ports.changed();
+        this.reportError(error);
       }
-
-      this.ports.changed();
-      throw error;
-    }
+    );
   }
 
   setQuery(query: string): void {
-    if (this.isClosed() || this.busy || this.preview || this.options.inspection) return;
     this.cancelConfirmation();
     this.state.query = query;
-    void this.filter({ edited: true }).catch((error: unknown) => this.reportError(error));
+    void this.filter({ edited: true });
   }
 
   cancelConfirmation(): void {
@@ -327,7 +317,6 @@ export class BrowserController<Item> {
   }
 
   action(action: BrowserAction, pageSize = 5): void {
-    if (this.isClosed() || action === "ignore") return;
     if (action !== "delete") this.cancelConfirmation();
     if (action === "cancel") {
       if (this.canReturnToList) {

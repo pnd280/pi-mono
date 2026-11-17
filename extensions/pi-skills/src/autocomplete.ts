@@ -78,9 +78,21 @@ export function createSkillAutocompleteProvider(
     cursorCol: number,
     options: SuggestionOptions
   ): Promise<AutocompleteSuggestions | null> {
-    const query = findToken(lines[cursorLine] ?? "", cursorCol)?.query;
+    const line = lines[cursorLine] ?? "";
+    const token = findToken(line, cursorCol);
+    const query = token?.query;
 
-    if (query?.startsWith(skillPrefix)) return suggestSkills(query, options);
+    if (token?.query.startsWith(skillPrefix)) {
+      // In a slash command's arguments, the command's own suggestions come first.
+      const argument =
+        isCommandLine(lines, cursorLine, cursorCol) && line.slice(0, token.start).trim() !== "";
+      const native = argument
+        ? await current.getSuggestions(lines, cursorLine, cursorCol, options)
+        : null;
+
+      return native ?? suggestSkills(token.query, options);
+    }
+
     // Tab keeps Pi's completion of other tokens, such as absolute paths.
     if (options.force) return current.getSuggestions(lines, cursorLine, cursorCol, options);
 
@@ -94,8 +106,7 @@ export function createSkillAutocompleteProvider(
 
     if (query?.startsWith("/")) return suggestSkills(query, options);
 
-    // After the whitespace that ends a token, Pi would replace skill suggestions with files for an
-    // empty prefix. Escape doesn't reset this state, so keep Pi's other results, such as a quoted @ path.
+    // After the whitespace that ends a token, Pi would replace skill suggestions with files for an empty prefix. Escape doesn't reset this state, so keep Pi's other results, such as a quoted @ path.
     if (query === undefined && showingSkills) {
       const native = await current.getSuggestions(lines, cursorLine, cursorCol, options);
 

@@ -15,8 +15,8 @@ Pi runs extension handlers in load order, so extensions that share an event can 
 
 - Ranked callbacks (input transforms, prompt parts, and startup commits) run in ascending rank. Equal ranks run in participant ID order, and then in registration order within the participant. Join and load order never decide.
 - A participant becomes live when its own `session_start` handler runs. Only callbacks of live participants run.
-- Pi runs no handler of an extension whose factory failed, or of an extension that the loader leaves out after its factory ran. Neither extension becomes live, so neither changes the result for live participants.
-- Participant IDs start with a letter or digit, use only letters, digits, and `._:/-`, and have up to 200 characters. When a second live participant has the same ID, its `session_start` handler throws, and no participant with that ID takes part.
+- Pi runs no handler of an extension whose factory failed, or of an extension that the loader leaves out after its factory ran. Neither extension becomes live, so neither changes the result for live participants, except for [working-message command ownership](../working-message/command-owner.md#command-owner).
+- Input-chain, prompt-parts, and lifecycle participant IDs start with a letter or digit, use only letters, digits, and `._:/-`, and have up to 200 characters. When a second live participant has the same ID, its `session_start` handler throws, and no participant with that ID takes part in shared work. Each one's own handlers still run; see the [shutdown phase](../lifecycle/phases.md#shutdown-phase) for its revoke. Working-message components have their own [duplicate rule](../working-message/README.md).
 - Input observers, input transforms, and prompt parts return a function that removes the registration, and a working-message handle's `dispose()` removes its component. Startup commits and shortcut claims cannot be removed. A removed callback does not run, also when another callback removed it earlier in the same dispatch. Other participants keep their registrations.
 
 ## Errors
@@ -38,5 +38,3 @@ The join callback receives an envelope with the protocol version, the shared sta
 | Input chain                                      | [Input-chain version mismatch](../input-chain/order.md#version-mismatch)                 |
 | Prompt parts                                     | [Prompt-part version mismatch](../prompt-parts/order.md#version-mismatch)                |
 | Working message                                  | [Working-message version mismatch](../working-message/command-owner.md#version-mismatch) |
-
-Increase a coordinator's protocol version whenever the shape or behaviour of its shared state changes.

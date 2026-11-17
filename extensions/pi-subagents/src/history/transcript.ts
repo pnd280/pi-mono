@@ -7,9 +7,11 @@ import {
 import {
   buildSessionProjection,
   type JsonAgentSessionEvent,
+  type SessionEntry,
   type SessionProjection
 } from "@earendil-works/pi-coding-agent";
 
+import { MARKER_ENTRY } from "../constants.ts";
 import type { RunHistory } from "./sessions.ts";
 
 export type TranscriptMessage = SessionProjection["messages"][number];
@@ -29,24 +31,39 @@ export type TranscriptItem =
       call: ToolCall;
       output: ToolOutput | undefined;
       partial: boolean;
-      started: boolean;
     };
 
 type ToolItem = Extract<TranscriptItem, { kind: "tool" }>;
 
 type Execution = { output: ToolOutput | undefined; partial: boolean };
 
+/**
+ * The compactions on the viewed branch of the child file, including those of earlier runs, and whether the child is compacting now.
+ */
+export type Compactions = {
+  count: number;
+  /** The context tokens before the latest compaction. */
+  tokensBefore: number | undefined;
+  running: boolean;
+};
+
 type MessageUpdate = Extract<JsonAgentSessionEvent, { type: "message_update" }>;
 
 /** Tool call IDs can repeat in a resumed conversation; the owning message scopes them. */
-function executionKey(timestamp: number, id: string): string {
-  return `${timestamp}\0${id}`;
+function executionKey(owner: number, id: string): string {
+  return `${owner}\0${id}`;
+}
+
+function observedKey(owner: number): string {
+  return `assistant\0${owner}`;
 }
 
 /**
- * Saved entries are authoritative. Streamed assistant messages and tool executions overlay
- * them until the matching entries arrive. A transcript follows one task: a history or a
- * connection of another run ends the earlier run's overlay.
+ * Saved entries are authoritative. Streamed assistant messages and tool executions overlay them until the matching entries arrive. A transcript follows one task: a history or a connection of another run ends the earlier run's overlay.
+ *
+ * Each observed assistant message is numbered in arrival order. Timestamps are request start times in milliseconds, so distinct messages can share one; saved assistant entries match observed messages one-to-one, in order, by timestamp.
+ *
+ * Only entries after the branch's last run marker match observed messages or settle their executions. That marker belongs to `history.runId`, because a run's branch ends before any later marker.
  */
 export class Transcript {
   /** The run that the overlay belongs to. */
@@ -54,18 +71,23 @@ export class Transcript {
   private projection: SessionProjection | undefined;
   /** The last saved assistant message on the branch. */
   private latest: AssistantMessage | undefined;
-  private saved = new Set<number>();
-  private pending = new Map<number, AssistantMessage>();
-  private streaming: AssistantMessage | undefined;
+  /** The assistant messages that this connection observed; the index numbers each one. */
+  private messages: AssistantMessage[] = [];
+  /** The observed message that each saved assistant entry holds, by entry ID. */
+  private matches = new Map<string, number>();
+  private streaming: { owner: number; message: AssistantMessage } | undefined;
   /** Argument JSON received so far, by content index of the streaming message. */
   private json = new Map<number, string>();
-  /** The owning assistant message timestamp of each call that this connection observed. */
+  /** The observed message that owns each call that this connection observed. */
   private calls = new Map<string, number>();
   private executions = new Map<string, Execution>();
   private listeners = new Set<() => void>();
   /** Whether a connection reports the child's events; otherwise only histories arrive. */
   private observed = false;
   private running = false;
+  private compacted: Omit<Compactions, "running"> = { count: 0, tokensBefore: undefined };
+  /** Only a connection reports a compaction while it runs. */
+  private compacting = false;
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -93,29 +115,36 @@ export class Transcript {
     if (history.runId !== this.run) this.reset(history.runId);
     const { entries } = history;
     this.projection = buildSessionProjection([...entries], entries.at(-1)?.id ?? null);
-    this.saved.clear();
+    this.matches.clear();
     this.latest = undefined;
+    this.compacted = compacted(entries);
     for (const entry of this.projection.entries)
       for (const message of entry.messages) if (message.role === "assistant") this.latest = message;
     const owners = new Map<string, number>();
+    /** The first observed message that no earlier saved entry matched. */
+    let next = 0;
 
-    for (const entry of entries) {
+    for (const entry of runEntries(entries)) {
       if (entry.type !== "message") continue;
       const { message } = entry;
 
       if (message.role === "assistant") {
-        this.saved.add(message.timestamp);
+        const owner = this.messages.findIndex(
+          (observed, index) => index >= next && observed.timestamp === message.timestamp
+        );
+        if (owner < 0) continue;
+        next = owner + 1;
+        this.matches.set(entry.id, owner);
         for (const block of message.content)
-          if (block.type === "toolCall") owners.set(block.id, message.timestamp);
+          if (block.type === "toolCall") owners.set(block.id, owner);
       } else if (message.role === "toolResult") {
         const owner = owners.get(message.toolCallId);
         if (owner !== undefined) this.executions.delete(executionKey(owner, message.toolCallId));
       }
     }
 
-    for (const timestamp of this.pending.keys())
-      if (this.saved.has(timestamp)) this.pending.delete(timestamp);
-    if (this.streaming && this.saved.has(this.streaming.timestamp)) this.streaming = undefined;
+    // The streaming message is the latest observed one, so a match at or after it is its own.
+    if (this.streaming && next > this.streaming.owner) this.streaming = undefined;
     this.changed();
   }
 
@@ -123,12 +152,18 @@ export class Transcript {
     this.run = runId;
     this.projection = undefined;
     this.latest = undefined;
-    this.saved.clear();
+    this.matches.clear();
     this.json.clear();
-    this.pending.clear();
+    this.messages = [];
     this.streaming = undefined;
     this.calls.clear();
     this.executions.clear();
+    this.compacted = { count: 0, tokensBefore: undefined };
+    this.compacting = false;
+  }
+
+  compactions(): Compactions {
+    return { ...this.compacted, running: this.compacting };
   }
 
   event(event: JsonAgentSessionEvent): void {
@@ -141,22 +176,20 @@ export class Transcript {
         this.streaming = undefined;
         this.calls.clear();
         break;
+      case "compaction_start":
+      case "compaction_end":
+        this.compacting = event.type === "compaction_start";
+        break;
       case "message_start":
 
-      case "message_end": {
+      case "message_end":
         if (event.message.role !== "assistant") return;
-        const message = structuredClone(event.message);
-        for (const block of message.content)
-          if (block.type === "toolCall") this.calls.set(block.id, message.timestamp);
-        this.streaming = event.type === "message_start" ? message : undefined;
-        this.json.clear();
-        if (!this.saved.has(message.timestamp)) this.pending.set(message.timestamp, message);
+        this.message(event.message, event.type === "message_start");
         break;
-      }
 
       case "message_update":
         if (!this.streaming) return;
-        this.streaming.usage = structuredClone(event.usage);
+        this.streaming.message.usage = structuredClone(event.usage);
         this.update(this.streaming, event.assistantMessageEvent);
         break;
       case "tool_execution_start":
@@ -185,15 +218,30 @@ export class Transcript {
     this.changed();
   }
 
+  /** An assistant message starts, or ends and replaces the message that its start began. */
+  private message(event: AssistantMessage, start: boolean): void {
+    const owner = !start && this.streaming ? this.streaming.owner : this.messages.length;
+    const message = structuredClone(event);
+    for (const block of message.content)
+      if (block.type === "toolCall") this.calls.set(block.id, owner);
+    this.messages[owner] = message;
+    this.streaming = start ? { owner, message } : undefined;
+    this.json.clear();
+  }
+
   /** The source stopped: its unresolved calls are interrupted. */
   stop(): void {
     this.running = false;
+    this.compacting = false;
     this.streaming = undefined;
     this.calls.clear();
     this.changed();
   }
 
-  private update(message: AssistantMessage, update: MessageUpdate["assistantMessageEvent"]): void {
+  private update(
+    { owner, message }: { owner: number; message: AssistantMessage },
+    update: MessageUpdate["assistantMessageEvent"]
+  ): void {
     if (!("contentIndex" in update)) return;
     const index = update.contentIndex;
     const block = message.content[index];
@@ -218,7 +266,7 @@ export class Transcript {
         message.content[index] = { type: "thinking", thinking: update.content };
         break;
       case "toolcall_start":
-        this.calls.set(update.id, message.timestamp);
+        this.calls.set(update.id, owner);
         message.content[index] = {
           type: "toolCall",
           id: update.id,
@@ -259,27 +307,31 @@ export class Transcript {
       return key;
     };
 
-    const assistant = (message: AssistantMessage, streaming: boolean) => {
-      const key = unique(`assistant\0${message.timestamp}`);
+    /** An observed message keeps its key when its saved entry replaces it. */
+    const assistant = (
+      message: AssistantMessage,
+      key: string,
+      owner: number | undefined,
+      streaming: boolean
+    ) => {
       items.push({ kind: "message", key, message, streaming });
       const failure = failed(message);
 
       for (const [index, call] of message.content.entries()) {
         if (call.type !== "toolCall") continue;
-        const execution = this.executions.get(executionKey(message.timestamp, call.id));
+        const execution =
+          owner === undefined ? undefined : this.executions.get(executionKey(owner, call.id));
         const item: ToolItem = {
           kind: "tool",
           key: `${key}\0${index}`,
           call,
           output: failure ?? execution?.output,
-          partial: failure ? false : (execution?.partial ?? false),
-          started: execution !== undefined
+          partial: failure ? false : (execution?.partial ?? false)
         };
         open.set(call.id, item);
-        // A connection observes every call it runs, so earlier unresolved calls never finish.
-        // Without one, only the calls of the latest response can still run.
+        // A connection observes every call it runs, so earlier unresolved calls never finish. Without one, only the calls of the latest response can still run.
         const current = this.observed
-          ? this.calls.get(call.id) === message.timestamp
+          ? owner !== undefined && this.calls.get(call.id) === owner
           : message === this.latest;
         if (!this.running || !current) stale.add(item);
         items.push(item);
@@ -296,8 +348,12 @@ export class Transcript {
           : entry.messages;
 
       for (const [index, message] of messages.entries()) {
-        if (message.role === "assistant") assistant(message, false);
-        else if (message.role === "toolResult") {
+        if (message.role === "assistant") {
+          const owner = this.matches.get(entry.sourceEntry.id);
+          const key =
+            owner === undefined ? `${entry.sourceEntry.id}\0${index}` : observedKey(owner);
+          assistant(message, unique(key), owner, false);
+        } else if (message.role === "toolResult") {
           const item = open.get(message.toolCallId);
           if (!item) continue;
           item.output = {
@@ -319,7 +375,10 @@ export class Transcript {
       }
     }
 
-    for (const message of this.pending.values()) assistant(message, message === this.streaming);
+    const saved = new Set(this.matches.values());
+    for (const [owner, message] of this.messages.entries())
+      if (!saved.has(owner))
+        assistant(message, unique(observedKey(owner)), owner, owner === this.streaming?.owner);
 
     for (const item of stale) {
       if (item.output && !item.partial) continue;
@@ -333,6 +392,25 @@ export class Transcript {
   dispose(): void {
     this.listeners.clear();
   }
+}
+
+/** The entries after the branch's last run marker. */
+function runEntries(entries: readonly SessionEntry[]): readonly SessionEntry[] {
+  let start = 0;
+  for (const [index, entry] of entries.entries())
+    if (entry.type === "custom" && entry.customType === MARKER_ENTRY) start = index + 1;
+
+  return entries.slice(start);
+}
+
+/** Count the whole branch: the model-context projection can omit older compactions. */
+function compacted(entries: readonly SessionEntry[]): Omit<Compactions, "running"> {
+  let result: Omit<Compactions, "running"> = { count: 0, tokensBefore: undefined };
+  for (const entry of entries)
+    if (entry.type === "compaction")
+      result = { count: result.count + 1, tokensBefore: entry.tokensBefore };
+
+  return result;
 }
 
 /** Derived outputs keep their identity, so the viewer updates a row only when it changes. */

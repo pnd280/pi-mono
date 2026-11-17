@@ -12,6 +12,7 @@ export const regionLabel: Record<Region, string> = {
 const builtinLabels: Record<string, string> = {
   "builtin:cwd": "Working directory",
   "builtin:git-branch": "Git branch",
+  "builtin:git-changes": "Git changes",
   "builtin:session-title": "Session title",
   "builtin:tokens": "Tokens and cost",
   "builtin:context": "Context usage",

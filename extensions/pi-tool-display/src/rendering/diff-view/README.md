@@ -13,7 +13,7 @@ Showing a patch inside Pi needs rows that fit the terminal and respect expansion
 - Patches remain unmodified.
 - Every row is exactly the supplied width.
 
-For padding, theme colours, and the strips that show header rows, hunk numbers, and footer rows, see the [diff panel layout guide](../../../docs/diff-view.md).
+For padding, theme colours, and the strips that show header rows, hunk numbers, and footer rows, see the [diff viewer layout](../../../docs/presentation.md#layout).
 
 ## Usage
 
@@ -42,11 +42,7 @@ const rows =
 
 ## Caller responsibilities
 
-- Pass the `ParsedPatch` from `parsePatch(source, maxBytes)` to `renderDiffPanel`.
-- Choose the source byte limit before parsing.
-- Handle an `undefined` parse result as an unavailable patch.
-- Supply the width, expansion state, an expansion hint, a [`DiffViewTheme`](index.ts), and trusted syntax highlighting.
-- Choose valid [row budgets](index.ts) before rendering, because invalid budgets throw a `RangeError`.
+- Supply trusted syntax highlighting.
 - Own labels, totals, empty and unavailable messages, outcomes, expansion keys, loading, and retention.
 - Pass totals and notes as styled header and footer rows.
 

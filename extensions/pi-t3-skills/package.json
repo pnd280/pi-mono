@@ -1,0 +1,25 @@
+{
+  "name": "pi-t3-skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Skill references instead of skill contents for T3 Code skill chips in Pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

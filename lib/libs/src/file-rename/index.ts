@@ -8,8 +8,7 @@ const ATTEMPTS = 10;
 const sleeper = new Int32Array(new SharedArrayBuffer(4));
 
 /**
- * Windows refuses a rename while another process, such as a reader or a virus scanner, has the
- * source or target open. Waits grow by 10 ms per attempt, 450 ms in total.
+ * Windows refuses a rename while another process, such as a reader or a virus scanner, has the source or target open. Waits grow by 10 ms per attempt, 450 ms in total.
  */
 function retryable(error: unknown, attempt: number): boolean {
   return (

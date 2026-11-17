@@ -1,17 +1,10 @@
-import { z } from "zod";
-
-const offsetRangeSchema = z
-  .object({ start: z.int().nonnegative(), end: z.int().nonnegative() })
-  .refine(({ start, end }) => end >= start);
-
 export type OutputOmission = {
   count: number;
   unit: "bytes" | "lines" | "retained-lines";
 };
 
 /**
- * Consumers own notice wording and any surrounding style resets. Mark the notice with
- * `outputOmission`: text outside the returned ranges reads as process output.
+ * Consumers own notice wording and any surrounding style resets. Mark the notice with `outputOmission`: text outside the returned ranges reads as process output.
  */
 export type OmissionFormatter = (omission: OutputOmission) => OutputText;
 
@@ -27,14 +20,8 @@ function assertValidOmissions(output: OutputText): void {
   let end = 0;
 
   for (const range of output.omissions ?? []) {
-    if (
-      !offsetRangeSchema.safeParse(range).success ||
-      range.start < end ||
-      range.end > output.text.length
-    )
-      throw new RangeError(
-        "Omission ranges must be ordered, nonoverlapping UTF-16 offsets within the text."
-      );
+    if (range.start < end)
+      throw new RangeError("Omission ranges must be ordered and nonoverlapping.");
     end = range.end;
   }
 }
@@ -90,8 +77,6 @@ export function sliceOutputText(
   start: number,
   end = output.text.length
 ): OutputText {
-  if (!offsetRangeSchema.safeParse({ start, end }).success)
-    throw new RangeError("Output slices require ordered, nonnegative UTF-16 offsets.");
   assertValidOmissions(output);
 
   return {

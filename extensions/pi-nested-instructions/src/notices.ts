@@ -1,16 +1,22 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 
+import { contentText } from "@earendil-works/pi-ai";
 import type { CustomMessageEntryDraft } from "@earendil-works/pi-coding-agent";
-import { absolutePathSchema, relativeDisplayPath } from "@pi-mono/utils/paths";
+import { relativeDisplayPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 export const noticeType = "pi-nested-instructions.notice";
 
+export const absolutePathSchema = z
+  .string()
+  .refine(path.isAbsolute, "Expected an absolute path")
+  .max(65536);
+
 export const noticeSchema = z.strictObject({
   version: z.literal(3),
-  directory: absolutePathSchema.max(65536),
-  path: absolutePathSchema.max(65536).nullable(),
+  directory: absolutePathSchema,
+  path: absolutePathSchema.nullable(),
   /** The cwd-relative path used in the model-facing text when the notice was created. */
   displayPath: z.string().max(65536),
   action: z.enum(["loaded", "updated", "removed"]),
@@ -29,9 +35,7 @@ export function digest(content: string): string {
 const sender = "The user did not send this message.";
 
 /**
- * The model-facing text around the instruction body. Notices reach the model as user messages,
- * and compaction labels them as user text, so the text says that Pi sent them. The tag matches
- * Pi's native project context.
+ * The model-facing text around the instruction body. Notices reach the model as user messages, and compaction labels them as user text, so the text says that Pi sent them. The tag matches Pi's native project context.
  */
 function noticeFrame(
   displayPath: string,
@@ -85,13 +89,12 @@ export function noticeEntry(
 export function decodeNotice(message: NoticeMessage): { notice: Notice | undefined; body: string } {
   const parsed = noticeSchema.safeParse(message.details);
   const notice = parsed.success ? parsed.data : undefined;
-  const content =
-    typeof message.content === "string"
-      ? message.content
-      : message.content
-          .filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join("\n");
+  const content = contentText(message.content);
+
+  return { notice, body: noticeBody(content, notice) };
+}
+
+export function noticeBody(content: string, notice: Notice | undefined): string {
   const { prefix, suffix } = notice
     ? noticeFrame(notice.displayPath, notice.action)
     : { prefix: "", suffix: "" };
@@ -100,8 +103,5 @@ export function decodeNotice(message: NoticeMessage): { notice: Notice | undefin
     content.startsWith(prefix) &&
     content.endsWith(suffix);
 
-  return {
-    notice,
-    body: framed ? content.slice(prefix.length, content.length - suffix.length) : content
-  };
+  return framed ? content.slice(prefix.length, content.length - suffix.length) : content;
 }

@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { withCodemodeNotice } from "@pi-mono/libs/codemode-notice";
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
@@ -27,7 +28,7 @@ import { Delivery } from "./delivery.ts";
 import { shellOptions } from "./jobs/registry.ts";
 import { createJobAbortTool, createJobTool } from "./jobs/tool.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
-import { createAbortTool, createSubagentTool } from "./tasks/tool.ts";
+import { createAbortTool, createSubagentTool, templateGuidance } from "./tasks/tool.ts";
 
 // Commands load at first use. Concurrent calls share one import.
 let commands: Promise<typeof CommandsModule> | undefined;
@@ -52,8 +53,7 @@ const FOREIGN_BASH_WARNING =
   "pi-subagents: job and job_abort are off because another extension owns bash";
 
 /**
- * The Pi adapter: it maps Pi's events, tools, and commands to the session binding. Pi gives no
- * options; an in-process host sets `invocation` when its own entry does not start Pi.
+ * The Pi adapter: it maps Pi's events, tools, and commands to the session binding. Pi gives no options; an in-process host sets `invocation` when its own entry does not start Pi.
  */
 export default function subagents(
   pi: ExtensionAPI,
@@ -61,7 +61,7 @@ export default function subagents(
 ): void {
   const depth = getDepth();
   const taskId = getTaskId();
-  let lateUsageWarning = installLateUsagePatch();
+  installLateUsagePatch();
   const lifecycle = joinLifecycle(pi, { id: "pi-subagents" });
   if (depth > 0 && taskId) joinChildPrompt(pi);
   const waiting = registerWorkingMessage(pi, {
@@ -115,12 +115,13 @@ export default function subagents(
 
   /** The current binding offers the job tools. */
   let jobsOn = false;
+  const foreignBash = () =>
+    pi.getAllTools().some((tool) => tool.name === "bash" && tool.sourceInfo.source !== "builtin");
   pi.registerCommand("subagents", {
     description:
       "List tasks or jobs, show <task_id> (--since, --limit, --last) or <job_id>, abort <task_id|job_id>, or background [task_id]",
     handler: async (args, ctx) => {
-      // Reserved subcommands from this child's supervisor. Pi reports them as handled even when
-      // they throw; their replies travel through the protocol status.
+      // Reserved subcommands from this child's supervisor. Pi reports them as handled even when they throw; their replies travel through the protocol status.
       const reserved = /^(begin|slot|control) (.*)$/s.exec(args.trim());
 
       if (reserved && depth > 0 && taskId) {
@@ -159,8 +160,6 @@ export default function subagents(
 
   /** The binding's view of the session in `ctx`, after the warnings of its settings. */
   const session = (ctx: ExtensionContext): BindingSession & { docs: string } => {
-    if (lateUsageWarning) ctx.ui.notify(lateUsageWarning, "warning");
-    lateUsageWarning = undefined;
     const { docs, warnings, ...config } = loadConfig(ctx.cwd, {
       projectTrusted: ctx.isProjectTrusted()
     });
@@ -197,64 +196,96 @@ export default function subagents(
         ...shellOptions(pi.getSettings()),
         sessionId,
         cwd: ctx.cwd,
-        started: () => pi.events.emit(counterChannel, startedJobs)
+        started: () => pi.events.emit(counterChannel, startedJobs),
+        foreignBash
       },
       append: (type, data) => pi.appendEntry(type, data),
-      warn: (message) => ctx.ui.notify(message, "warning"),
+      warn: (message) => ctx.ui.notify(displayText(message), "warning"),
       delivery: new Delivery(pi, ctx, depth, waiting, config.resultDelivery),
       ui: ctx
     };
   };
 
-  let registered: string | undefined;
+  let registered: { key: string; tasks: boolean; jobs: boolean } | undefined;
 
   /**
-   * Registers the four tools when their exposure, docs, or delivery changed since the last
-   * registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi
-   * activates a `model-only` tool when it is first registered or when its exposure changes to
-   * `model-only`. With `--tools`, every registration activates each listed tool again, which would
-   * undo the active tools that a profile chose; an unchanged registration is therefore skipped.
+   * Registers the four tools when their exposure, docs, templates, or delivery changed since the last registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi activates a `model-only` tool when it is first registered or when its exposure changes to `model-only`. With `--tools`, every registration activates each listed tool again, which would undo the active tools that a profile chose. A later registration therefore keeps the active tools from before it, and adds only the owned tools whose exposure turned on.
    */
-  const registerTools = (tasks: boolean, jobs: boolean, docs: string, delivers: boolean) => {
-    const key = JSON.stringify([tasks, jobs, docs, delivers]);
-    if (key === registered) return;
-    registered = key;
+  const registerTools = ({
+    tasks,
+    jobs,
+    docs,
+    templates,
+    delivers
+  }: {
+    tasks: boolean;
+    jobs: boolean;
+    docs: string;
+    templates: string;
+    delivers: boolean;
+  }) => {
+    const key = JSON.stringify([tasks, jobs, docs, templates, delivers]);
+    if (key === registered?.key) return;
+    const previous = registered;
+    registered = { key, tasks, jobs };
+    // The factory registration has no active tools to keep.
+    const active = previous ? pi.getActiveTools() : [];
     const taskExposure = tasks ? "model-only" : "hidden";
     const jobExposure = jobs ? "model-only" : "hidden";
     pi.registerTool({
-      ...createSubagentTool(
-        currentTasks,
-        emitOpen,
-        () => pi.events.emit(counterChannel, delegated),
-        docs
+      ...withCodemodeNotice(
+        createSubagentTool({
+          current: currentTasks,
+          open: emitOpen,
+          delegated: () => pi.events.emit(counterChannel, delegated),
+          docs,
+          templates
+        })
       ),
       exposure: taskExposure
     });
-    pi.registerTool({ ...createAbortTool(currentTasks, emitOpen), exposure: taskExposure });
     pi.registerTool({
-      ...createJobTool(currentJobs, emitOpenJob, delivers),
+      ...withCodemodeNotice(createAbortTool(currentTasks, emitOpen)),
+      exposure: taskExposure
+    });
+    pi.registerTool({
+      ...withCodemodeNotice(createJobTool(currentJobs, emitOpenJob, delivers)),
       exposure: jobExposure
     });
-    pi.registerTool({ ...createJobAbortTool(currentJobs, emitOpenJob), exposure: jobExposure });
+    pi.registerTool({
+      ...withCodemodeNotice(createJobAbortTool(currentJobs, emitOpenJob)),
+      exposure: jobExposure
+    });
+    if (!previous) return;
+    const turnedOn = [
+      ...(tasks && !previous.tasks ? ["subagent", "subagent_abort"] : []),
+      ...(jobs && !previous.jobs ? ["job", "job_abort"] : [])
+    ];
+    const now = pi.getActiveTools();
+    const kept = now.filter((name) => active.includes(name) || turnedOn.includes(name));
+    if (kept.length < now.length) pi.setActiveTools(kept);
   };
 
-  // Registered at load, so Pi activates them before any session_start handler, such as a profile,
-  // chooses the active tools.
-  registerTools(true, true, "", depth === 0);
+  // Registered at load, so Pi activates them before any session_start handler, such as a profile, chooses the active tools.
+  registerTools({ tasks: true, jobs: true, docs: "", templates: "", delivers: depth === 0 });
 
   /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
   const open = async (ctx: ExtensionContext, { docs, ...opened } = session(ctx)) => {
     await binding.open(opened);
-    const { maxDepth, jobs } = opened.config;
+    const { maxDepth, jobs, templates } = opened.config;
     // Jobs apply at all depths. They run commands through Pi's built-in shell.
-    const foreign =
-      jobs &&
-      pi.getAllTools().some((tool) => tool.name === "bash" && tool.sourceInfo.source !== "builtin");
+    const foreign = jobs && foreignBash();
     if (foreign) ctx.ui.notify(FOREIGN_BASH_WARNING, "warning");
     jobsOn = jobs && !foreign;
     // Print, JSON, and child runs end with their final reply, and their jobs end with them.
     const delivers = depth === 0 && ctx.mode !== "print" && ctx.mode !== "json";
-    registerTools(depth < maxDepth, jobsOn, docs, delivers);
+    registerTools({
+      tasks: depth < maxDepth,
+      jobs: jobsOn,
+      docs,
+      templates: templateGuidance(templates),
+      delivers
+    });
   };
 
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {
@@ -300,8 +331,7 @@ export default function subagents(
     const bound = await binding.current();
     if (bound) remindTasks(pi, bound.tasks, jobsOn ? bound.jobs : undefined);
   });
-  // The revoke runs before any participant's shutdown handler awaits, so no task or job starts,
-  // writes an entry, or delivers a result after shutdown begins. Cleanup then stops them.
+  // The revoke runs before any participant's shutdown handler awaits, so no task or job starts, writes an entry, or delivers a result after shutdown begins. Cleanup then stops them.
   lifecycle.onSessionShutdown(
     () => {
       unsubscribe();

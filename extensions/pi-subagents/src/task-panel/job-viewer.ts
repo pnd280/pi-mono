@@ -6,13 +6,15 @@ import {
   type TUI,
   type TuiMouseEvent
 } from "@earendil-works/pi-tui";
+import type { KeybindingSource } from "@pi-mono/libs/tui/keybindings";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { errorMessage } from "@pi-mono/utils/errors";
 
 import { readLogTail } from "../jobs/log.ts";
 import type { Jobs } from "../jobs/registry.ts";
-import { PanelControls, type PanelKeys } from "./controls.ts";
+import { Wrapped } from "../wrapped-lines.ts";
+import { PanelControls } from "./controls.ts";
 import { jobRows, renderViewer, Spinner, type ViewerBody } from "./viewer-frame.ts";
 
 /** A live log follows its file at this interval. */
@@ -22,7 +24,7 @@ const LOG_REFRESH_MS = 1000;
 export class JobLogView implements Component {
   /** Display lines of the latest read; prepared outside render. */
   private lines: string[] = [];
-  private wrapped: { width: number; rows: string[] } | undefined;
+  private wrapped = new Wrapped([]);
   /** Display lines of the command; prepared outside render. */
   private command: string[];
   private working: Spinner | undefined;
@@ -34,7 +36,7 @@ export class JobLogView implements Component {
   /** An event arrived during a read; read once more after it. */
   private again = false;
   private scroll = new ScrollView(
-    { render: (width) => this.wrap(width), invalidate: () => (this.wrapped = undefined) },
+    { render: (width) => this.wrapped.rows(width), invalidate: () => this.invalidate() },
     { follow: "end", scrollbar: "hidden" }
   );
   private timer: ReturnType<typeof setInterval>;
@@ -46,7 +48,7 @@ export class JobLogView implements Component {
     readonly jobId: string,
     private tui: TUI,
     private theme: Theme,
-    keys: PanelKeys,
+    keys: KeybindingSource,
     private close: () => void
   ) {
     this.controls = new PanelControls(keys, "job");
@@ -102,7 +104,7 @@ export class JobLogView implements Component {
     } finally {
       this.reading = false;
       this.loaded = true;
-      this.wrapped = undefined;
+      this.wrapped = new Wrapped(this.lines);
     }
 
     this.tui.requestRender();
@@ -111,16 +113,6 @@ export class JobLogView implements Component {
       this.again = false;
       void this.read();
     }
-  }
-
-  private wrap(width: number): string[] {
-    if (this.wrapped?.width !== width)
-      this.wrapped = {
-        width,
-        rows: this.lines.flatMap((line) => (line ? wrapRows(line, width) : [""]))
-      };
-
-    return this.wrapped.rows;
   }
 
   ownsFullscreenInput(data: string): boolean {
@@ -148,7 +140,7 @@ export class JobLogView implements Component {
     try {
       await this.jobs.abort(this.jobId);
     } catch (error) {
-      if (this.active) this.error = error instanceof Error ? error.message : "Job action failed";
+      if (this.active) this.error = errorMessage(error);
     }
 
     this.tui.requestRender();
@@ -180,22 +172,30 @@ export class JobLogView implements Component {
         ...(active ? [this.controls.hint("abort", "abort")] : []),
         ...this.controls.scrollHints()
       ],
-      body: (height) => this.body(lines, unavailableInBody, height)
+      body: (height) => this.body(lines, unavailableInBody, width, height)
     }).rows;
   }
 
   /** The visible log rows, or the loading, empty, or unavailable text. */
-  private body(lines: string[], unavailableInBody: boolean, height: number): ViewerBody {
+  private body(
+    lines: string[],
+    unavailableInBody: boolean,
+    width: number,
+    height: number
+  ): ViewerBody {
     this.scroll.updateLayout(lines.length, height, () => this.tui.requestRender());
     const above = this.scroll.scrollTop;
     let body = lines.slice(above, above + height).map((row) => this.theme.fg("toolOutput", row));
     const below = Math.max(0, lines.length - above - body.length);
 
-    if (!lines.length) {
-      let empty = this.theme.fg("dim", this.loaded ? "(no output)" : "Loading log…");
-      if (unavailableInBody) empty = this.theme.fg("error", compactDisplayText(this.unavailable));
-      body = [empty].slice(0, height);
-    }
+    if (!lines.length)
+      body = (
+        unavailableInBody
+          ? wrapRows(compactDisplayText(this.unavailable), width).map((row) =>
+              this.theme.fg("error", row)
+            )
+          : [this.theme.fg("dim", this.loaded ? "(no output)" : "Loading log…")]
+      ).slice(0, height);
 
     return { lines: body, above, below };
   }
@@ -208,7 +208,7 @@ export class JobLogView implements Component {
   }
 
   invalidate(): void {
-    this.wrapped = undefined;
+    this.wrapped = new Wrapped(this.lines);
   }
 
   dispose(): void {

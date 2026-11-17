@@ -31,8 +31,7 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   const caption = nativeImageCaption(text);
   if (!caption?.tail.startsWith("\n")) return [];
   const notes = caption.tail.slice(1).split("\n");
-  // An omitted image has no attachment. Require its exact native omission envelope;
-  // a model-warning lookalike in ordinary text alone does not establish an image read.
+  // An omitted image has no attachment. Require its exact native omission envelope; a model-warning lookalike in ordinary text alone does not establish an image read.
   if (
     !hasImages &&
     (!imageOmissionNotes.has(notes[0] ?? "") ||
@@ -47,14 +46,13 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
 // Native read accepts number-valued windows and prints their arithmetic without rounding.
 const readNumber = String.raw`-?\d+(?:\.\d+)?(?:e[+-]?\d+)?`;
 const readTrailer = new RegExp(
-  String.raw`(?:^|\n\n)(\[(?:Showing lines ${readNumber}-${readNumber} of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=${readNumber} to continue\.|${readNumber} more lines in file\. Use offset=${readNumber} to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$`
+  String.raw`(?:^|\n\n)(\[(?:Showing lines ${readNumber}-${readNumber} of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=${readNumber} to continue\.|${readNumber} more lines in file\. Use offset=${readNumber} to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: sed -n '\d+p' [\s\S]+ \| head -c \d+)\])$`
 );
 
 function splitTrailer(text: string, pattern: RegExp | undefined) {
   const match = pattern?.exec(text);
   const notice = match?.[1];
-  if (!match || notice === undefined || match.index + match[0].length !== text.length)
-    return undefined;
+  if (!match || notice === undefined) return undefined;
 
   return {
     content: text.slice(0, match.index),
@@ -64,8 +62,7 @@ function splitTrailer(text: string, pattern: RegExp | undefined) {
 }
 
 /**
- * Interpret retained native envelopes; exact literal lookalikes share their styling.
- * `highlight` marks the selection in read source text.
+ * Interpret retained native envelopes; exact literal lookalikes share their styling. `highlight` marks the selection in read source text.
  */
 export function nativeResultParts(
   name: NativeToolName,
@@ -86,7 +83,7 @@ export function nativeResultParts(
   if (shell && context.isError) {
     const status = splitTrailer(
       text,
-      /(?:^|\n\n)(Command exited with code -?\d+|Command aborted|Command timed out after [\d.e+-]+ seconds)$/
+      /(?:^|\n\n)(Command exited with code -?\d+|Command aborted|Command timed out after [\d.e+-]+ seconds(?:\. The shell exited with code -?\d+ after [\d.e+-]+ seconds, but background processes it started kept writing output until the timeout\.)?)$/
     );
     if (!status) return [part(text, "error")];
     text = status.content;
@@ -95,8 +92,7 @@ export function nativeResultParts(
     else if (["", "(no output)"].includes(text)) return [];
   } else if (context.isError) return [part(text, "error")];
 
-  // Match native trailer positions, not arbitrary lines. Retained text alone cannot
-  // prove provenance; operation outcomes come from structured observations elsewhere.
+  // Match native trailer positions, not arbitrary lines. Retained text alone cannot prove provenance; operation outcomes come from structured observations elsewhere.
   let trailerPattern: RegExp | undefined;
   if (shell)
     trailerPattern =
@@ -104,7 +100,7 @@ export function nativeResultParts(
   else if (name === "read") trailerPattern = readTrailer;
   else if (name === "grep" || name === "find" || name === "ls")
     trailerPattern =
-      /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
+      /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.?|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
   const trailer = splitTrailer(text, trailerPattern);
 
   if (trailer) {
@@ -162,24 +158,21 @@ function nativeContentParts(
 }
 
 const noticesSchema = z.object({
-  truncation: z
-    .object({ truncated: z.boolean().optional().catch(undefined) })
-    .optional()
-    .catch(undefined),
-  fullOutputPath: z.string().optional().catch(undefined),
-  matchLimitReached: z.number().optional().catch(undefined),
-  resultLimitReached: z.number().optional().catch(undefined),
-  entryLimitReached: z.number().optional().catch(undefined),
-  linesTruncated: z.boolean().optional().catch(undefined)
+  truncation: z.object({ truncated: z.boolean().optional() }).optional(),
+  fullOutputPath: z.string().optional(),
+  matchLimitReached: z.number().optional(),
+  resultLimitReached: z.number().optional(),
+  entryLimitReached: z.number().optional(),
+  linesTruncated: z.boolean().optional()
 });
 
 /** Backend omissions remain visible even when the successful read body is collapsed. */
-export function nativeResultNotices(details: unknown): DisplayNotice[] {
+export function nativeResultNotices(details: unknown, expanded: boolean): DisplayNotice[] {
   const data = noticesSchema.safeParse(details).data;
   if (!data) return [];
   const notices: DisplayNotice[] = [];
   const warning = (text: string) => notices.push({ kind: "warning", text });
-  if (data.truncation?.truncated)
+  if (data.truncation?.truncated && !expanded)
     warning("Tool output truncated by pi; expand to inspect retained output.");
 
   // Raw, so the card can match the call's saved path; rendering sanitises the value.

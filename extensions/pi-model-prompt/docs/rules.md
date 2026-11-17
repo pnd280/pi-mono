@@ -20,7 +20,7 @@ Each rule in `ext.pi-model-prompt.rules` matches models by ID and lists the prom
 
 - The first matching rule that sets `append` wins. Matching rules without `append` don't stop later rules from matching.
 - An empty `append` list adds nothing, but it still wins, so later matching rules aren't tried.
-- Models with no matching rule get only Pi's append text.
+- With no matching rule, pi-model-prompt adds nothing; Pi's append text and other extensions' additions still apply.
 - pi-model-prompt chooses the files for the model that the run uses, after other extensions, such as pi-profiles, finish a model switch.
 - Rules for a [virtual model](https://pi.dev/docs/latest/virtual-models) match its own ID, not the model it routes to; read [virtual models](virtual-models.md).
 
@@ -30,6 +30,7 @@ pi-model-prompt adds the listed files after Pi's append text; it does not replac
 
 - Pi uses the `--append-system-prompt` text when it is given. Otherwise, Pi uses one `APPEND_SYSTEM.md`: the project's `.pi/` file in [trusted](https://pi.dev/docs/latest/security#understand-project-trust) projects, or else the agent directory's file.
 - pi-model-prompt keeps the changes that earlier extensions make to the append text.
+- A complete system-prompt replacement from another extension takes precedence, and the listed files reach the model only if that replacement includes them.
 - The text comes before the text of [pi-profiles](../../pi-profiles/README.md), whatever the extension load order.
 - pi-model-prompt joins the files' contents in list order with a blank line (`\n\n`), the way Pi joins several append sources.
 - A blank line separates the files' contents from Pi's append text.

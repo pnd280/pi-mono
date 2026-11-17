@@ -2,28 +2,28 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md). In TUI and RPC modes, each command except the TUI task panel produces one JSON notification outside model context. Print and JSON modes show no notifications, so commands there return nothing. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`.
+The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md). In TUI and RPC modes, each command except the TUI task panel produces one JSON notification outside model context. Print and JSON modes show no notifications, so commands there return nothing. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`. The notification omits terminal controls, so a value that contains them differs from the saved one.
 
-| Command                                                      | Result                                                                                                                  |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `/subagents`                                                 | The [task panel](interface.md) in TUI mode; the first page in RPC mode.                                                 |
-| `/subagents list [--offset <n>] [--limit <n>]`               | A JSON page in depth-first launch order.                                                                                |
-| `/subagents show <task_id> [--since <cursor>] [--limit <n>]` | A compact transcript digest with cumulative child usage.                                                                |
-| `/subagents show <task_id> --last`                           | The text and entry cursor of the latest assistant message with content; both fields are `null` when absent.             |
-| `/subagents abort <task_id>`                                 | Cancel an active task; its session remains resumable.                                                                   |
-| `/subagents jobs [--offset <n>] [--limit <n>]`               | A JSON page of the jobs on the selected ancestry, in start order.                                                       |
-| `/subagents show <job_id>`                                   | The job's state and the end of its log file.                                                                            |
-| `/subagents abort <job_id>`                                  | Stop an active job; its `cancelled` result is delivered.                                                                |
-| `/subagents background [task_id]`                            | Move foreground work to the background. Without an ID, move all direct foreground children of the top-level supervisor. |
+| Command                                                      | Result                                                                                                                                 |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `/subagents`                                                 | The [task panel](interface.md) in TUI mode; the first page in RPC mode.                                                                |
+| `/subagents list [--offset <n>] [--limit <n>]`               | A JSON page in depth-first launch order.                                                                                               |
+| `/subagents show <task_id> [--since <cursor>] [--limit <n>]` | A compact transcript digest with the run's outcome and cumulative child usage.                                                         |
+| `/subagents show <task_id> --last`                           | The run's outcome, and the text and entry cursor of the latest assistant message with content; text and cursor are `null` when absent. |
+| `/subagents abort <task_id>`                                 | Cancel an active task; its session remains resumable.                                                                                  |
+| `/subagents jobs [--offset <n>] [--limit <n>]`               | A JSON page of the jobs on the selected ancestry, in start order.                                                                      |
+| `/subagents show <job_id>`                                   | The job's state and the end of its log file.                                                                                           |
+| `/subagents abort <job_id>`                                  | Stop an active job; its `cancelled` result is delivered.                                                                               |
+| `/subagents background [task_id]`                            | Move foreground work to the background. Without an ID, move all direct foreground children of the top-level supervisor.                |
 
 ## Task pages
 
-List results contain `{ tasks, total, offset, next_offset }`. Offset defaults to 0; limit defaults to 20 and accepts 1 to 100. Follow `next_offset` until it is `null`. Each page fits 50 KiB and may contain fewer items than requested; an item too large to fit alone returns an error. Pages read the current list, so restart at offset 0 if it changes while paging.
+List results contain `{ tasks, total, offset, next_offset }`. Offset defaults to 0; limit defaults to 20 and accepts 1 to 100. Follow `next_offset` until it is `null`. Each page fits 50 KiB and may contain fewer items than requested; an item too large to fit alone has its strings cut until it fits, each cut string ending with `[Text truncated]`. Pages read the current list, so restart at offset 0 if it changes while paging.
 
 The fields of a task item have different scopes:
 
 - `usage` adds the usage of all the task's runs with known usage. It includes the usage of descendants that their results reported to the task. Do not add `usage` across all items, because descendants are then counted more than once. To get a total, add only the direct tasks; in a top-level supervisor, their `parent_task_id` is `null`.
-- `run_id`, `description`, `model`, `thinking`, `requested_model`, `requested_thinking`, `background`, `started_at`, `ended_at`, `state`, `outcome`, and `error` describe the latest run on the selected ancestry. `state` is `active` or `inactive`, and `outcome` is `completed`, `failed`, `cancelled`, or `null` while active. `model` and `thinking` are the applied selection; `requested_model` and `requested_thinking` are the selection that the run requested, which a resume reuses for omitted values.
+- `run_id`, `description`, `model`, `thinking`, `requested_model`, `requested_thinking`, `requested_launch_args`, `background`, `started_at`, `ended_at`, `state`, `outcome`, and `error` describe the latest run on the selected ancestry. `state` is `active` or `inactive`, and `outcome` is `completed`, `failed`, `cancelled`, or `null` while active. `model` and `thinking` are the applied selection; `requested_model`, `requested_thinking`, and `requested_launch_args` are the selection and [launch arguments](tasks.md#launch-arguments) that the run requested, which a resume reuses for omitted values.
 - `context` is the latest known context use, and `cache_hit` is the cache hit rate of the latest model request that had a prompt. They can come from an earlier run.
 
 ## Job pages
@@ -40,8 +40,9 @@ A tool summary, such as `read ×2, bash ×1`, counts the calls of one assistant 
 
 - Without `--since`, the response contains the latest items and `omitted`, the count of earlier items.
 - With `--since <cursor>`, it contains the first items after that entry and `more`, which indicates whether another page is available. Pass the returned `cursor` to read forward; an unknown cursor is an error.
-- `--limit` is an integer from 1 to 100 and defaults to 20. Text items and tool summaries are cut at 2,000 bytes. Complete JSON pages fit 50 KiB and may contain fewer items than requested.
+- `--limit` is an integer from 1 to 100 and defaults to 20. Text items and tool summaries are cut at 2,000 bytes; a cut item ends with `[Text truncated]`. Complete JSON pages fit 50 KiB and may contain fewer items than requested.
+- `state`, `outcome`, and `error` describe the selected run, as in [task pages](#task-pages); `error` is absent when the run has none.
 - `usage` covers the selected child ancestry, including reported descendant usage. Late background descendant usage is included when its result was delivered to that descendant's supervisor.
-- `--last` returns `{ task_id, state, cursor, text }` from the active conversation, using the same text limits as the tool result. It follows Pi's active model context on the selected branch, and skips assistant messages without content, such as an empty error that Pi can add after an abort.
+- `--last` returns `{ task_id, state, outcome, error, cursor, text }` from the active conversation, using the same text limits as the tool result. It follows Pi's active model context on the selected branch, and skips assistant messages without content, such as an empty message that Pi can add after an abort.
 
 Reading a digest never modifies the child session. `session_file` from `list` is the task's child file. It can also contain runs that are not on the selected ancestry, and these are not shown.

@@ -24,7 +24,7 @@ async function ignoreMissing(operation: Promise<unknown>): Promise<void> {
   }
 }
 
-/** A new session file can be absent until Pi writes its first response. */
+/** A new session file can be absent until Pi saves the first user or assistant message. */
 async function canonical(file: string): Promise<string> {
   try {
     return await realpath(file);
@@ -36,8 +36,7 @@ async function canonical(file: string): Promise<string> {
 }
 
 /**
- * A reused PID still counts as live; only a missing or exited process frees an entry. Signals
- * still reach an exited process until its parent reaps it, so Linux also checks for a zombie.
+ * A reused PID still counts as live; only a missing or exited process frees an entry. Signals still reach an exited process until its parent reaps it, so Linux also checks for a zombie.
  */
 async function alive(pid: number): Promise<boolean> {
   try {
@@ -62,9 +61,7 @@ async function alive(pid: number): Promise<boolean> {
 const releasedKey = Symbol.for("pi-subagents.released-lease-entries");
 
 /**
- * Entries that this process released but could not remove. They name this live process, so they
- * would otherwise block its next acquire. The set is process-owned because Pi reloads extension
- * modules.
+ * Entries that this process released but could not remove. They name this live process, so they would otherwise block its next acquire. The set is process-owned because Pi reloads extension modules.
  */
 function releasedEntries(): Set<unknown> {
   const retained: unknown = Reflect.get(process, releasedKey);
@@ -78,9 +75,7 @@ function releasedEntries(): Set<unknown> {
 function pids(text: string): number[] | undefined {
   const values = text.split(" ").map(Number);
 
-  return values.length > 0 && values.every((pid) => Number.isSafeInteger(pid) && pid > 0)
-    ? values
-    : undefined;
+  return values.every((pid) => Number.isSafeInteger(pid) && pid > 0) ? values : undefined;
 }
 
 /** A damaged entry excludes a writer without allowing an unbounded or blocking read. */
@@ -92,7 +87,6 @@ async function readEntry(path: string) {
     if (!stat.isFile() || stat.size > 1024) return undefined;
     const buffer = Buffer.alloc(1025);
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (bytesRead !== stat.size) return undefined;
 
     return {
       processes: pids(buffer.subarray(0, bytesRead).toString("utf8")),
@@ -115,8 +109,7 @@ async function removeReleased(path: string): Promise<void> {
 }
 
 /**
- * Cross-process exclusion for a child session writer. Each contender publishes an entry that
- * names its processes, then lists the others; two contenders cannot both hold the lease.
+ * Cross-process exclusion for a child session writer. Each contender publishes an entry that names its processes, then lists the others; two contenders cannot both hold the lease.
  */
 export class WriterLease {
   private released = false;
@@ -150,9 +143,7 @@ export class WriterLease {
           // Entries are published by rename, so an unreadable one is not a partial write.
           if (!holder?.processes || (await Promise.all(holder.processes.map(alive))).includes(true))
             throw new Error("Task is running in another process");
-          // The supervisor can add its child after we open the old entry, then exit before the
-          // liveness check. Only remove the inode we checked. Once its writers are dead, they
-          // cannot replace it again.
+          // The supervisor can add its child after we open the old entry, then exit before the liveness check. Only remove the inode we checked. Once its writers are dead, they cannot replace it again.
           const current = await lstat(path);
           if (current.dev !== holder.dev || current.ino !== holder.ino)
             throw new Error("Task is running in another process");
@@ -214,8 +205,7 @@ export class WriterLease {
       try {
         await mkdir(this.directory, { recursive: true, mode: 0o700 });
         await writeFile(temporary, this.processes.join(" "), { flag: "wx", mode: 0o600 });
-        // Windows refuses to replace a file while another process, such as a contender reading
-        // it or a virus scanner, has it open. A final failure keeps the previous entry published.
+        // Windows refuses to replace a file while another process, such as a contender reading it or a virus scanner, has it open. A final failure keeps the previous entry published.
         await renameWithRetry(temporary, this.entry);
 
         return;

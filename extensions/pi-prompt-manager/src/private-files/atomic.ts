@@ -10,17 +10,12 @@ import { checkHandle, sameFile } from "./privacy.ts";
 export type WriteHooks = {
   beforeWrite?(): Promise<void>;
   beforeRename?(): Promise<void>;
-  afterRename?(): Promise<void>;
 };
 
-export type AtomicWriteWarning = "post-commit" | "close";
+export type AtomicWriteWarning = "close";
 
 /**
- * Replace a file under caller-established private parents and an owned lock.
- * Check cancellation before calling; once started, allow the write to finish.
- * Rename commits the mutation: pre-commit errors throw, post-commit failures return
- * warnings. Do not retry a committed write. The parent directory is not fsynced,
- * so process-crash atomicity does not guarantee power-loss durability.
+ * Replace a file under caller-established private parents and an owned lock. Check cancellation before calling; once started, allow the write to finish. Rename commits the mutation: pre-commit errors throw and leave the destination unchanged, and a post-commit descriptor-close failure returns a warning. Do not retry a committed write. The parent directory is not fsynced, so process-crash atomicity does not guarantee power-loss durability.
  */
 export async function atomicReplace(
   path: string,
@@ -44,19 +39,15 @@ export async function atomicReplace(
     await hooks.beforeRename?.();
     await renameWithRetry(temporary, path);
     committed = true;
-    await hooks.afterRename?.();
   } catch (error) {
-    if (!committed) throw error;
-    warnings.push("post-commit");
-  } finally {
-    if (!committed) {
-      try {
-        if (await sameFile(temporary, handle)) await unlink(temporary);
-      } catch {
-        // The prior destination is intact. Only our temporary file may remain.
-      }
+    try {
+      if (await sameFile(temporary, handle)) await unlink(temporary);
+    } catch {
+      // The prior destination is intact. Only our temporary file may remain.
     }
 
+    throw error;
+  } finally {
     try {
       await handle.close();
     } catch {

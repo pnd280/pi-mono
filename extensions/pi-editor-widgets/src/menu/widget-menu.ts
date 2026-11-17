@@ -182,7 +182,9 @@ export class WidgetMenu implements Component {
   private save(): void {
     try {
       if (!this.options.coordinator.enabled)
-        throw new Error("Resolve footer conflict and /reload.\nWidget coordinator is inactive.");
+        throw new Error(
+          "Resolve the host/footer diagnostic and /reload.\nWidget coordinator is inactive."
+        );
       this.options.settings.save(
         this.drafts.scope,
         this.drafts.current.value ?? this.drafts.layout()
@@ -227,7 +229,6 @@ export class WidgetMenu implements Component {
   }
 
   render(width: number): string[] {
-    if (width < 1) return [];
     const rows = this.options.rows() - 2;
     // Leave the live draft regions visible; below the 10-row frame minimum, they clip instead.
     const height = Math.max(

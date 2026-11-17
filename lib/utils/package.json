@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./fff-tools": "./src/fff-tools.ts",
-    "./provenance": "./src/provenance.ts",
-    "./search-scopes": "./src/search-scopes.ts",
     "./paths": "./src/paths.ts",
     "./model-reference": "./src/model-reference.ts",
     "./thinking-levels": "./src/thinking-levels.ts",
@@ -14,6 +11,7 @@
     "./output-text": "./src/output-text.ts",
     "./utf8": "./src/utf8.ts",
     "./shell": "./src/shell.ts",
+    "./skill-reference": "./src/skill-reference.ts",
     "./task-envelope": "./src/task-envelope.ts",
     "./errors": "./src/errors.ts"
   },

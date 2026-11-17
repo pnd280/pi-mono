@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { formatReadLineRange } from "@earendil-works/pi-coding-agent";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
+import { expandHomePath, relativeDisplayPath, windowsDrivePath } from "@pi-mono/utils/paths";
 
 import type { ToolFamily, InvocationPart } from "./contracts.ts";
 import { record } from "./values.ts";
@@ -16,24 +16,18 @@ const literal = (value: unknown): string => (typeof value === "string" ? value :
 const UNAVAILABLE_PARAMETERS = "<parameters unavailable>";
 
 export function serializeParameters(input: unknown, indentation?: number): string {
-  try {
-    const serialized = JSON.stringify(input, undefined, indentation) as string | undefined;
+  const serialized = JSON.stringify(input, undefined, indentation) as string | undefined;
 
-    return serialized ?? UNAVAILABLE_PARAMETERS;
-  } catch {
-    return UNAVAILABLE_PARAMETERS;
-  }
+  return serialized ?? UNAVAILABLE_PARAMETERS;
 }
 
-/** Serialize a JSON prefix without traversing omitted argument values. The depth
- * and visit budgets also bound deeply nested or entirely omitted properties.
- */
+/** Serialize a JSON prefix without traversing omitted argument values. The depth and visit budgets also bound deeply nested or entirely omitted properties. */
 function parameterPreview(input: unknown, maximum: number): { text: string; truncated: boolean } {
   if (maximum === Infinity) return { text: serializeParameters(input), truncated: false };
   let text = "";
   let truncated = false;
   let visits = 0;
-  const ancestors = new Set<object>();
+  let depth = 0;
 
   const exhausted = () => {
     if (text.length >= maximum || ++visits > maximum) truncated = true;
@@ -65,25 +59,12 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
     return append(serialized);
   };
 
-  const normalize = (value: unknown, key: string): unknown => {
-    if (value !== null && typeof value === "object") {
-      const toJSON: unknown = Reflect.get(value, "toJSON");
-      if (typeof toJSON === "function") value = toJSON.call(value, key);
-    }
-
-    if (value instanceof Number || value instanceof String || value instanceof Boolean)
-      return value.valueOf();
-
-    if (value !== null && typeof value === "object") {
-      if (ancestors.has(value)) throw new TypeError("Circular parameters");
-      if (ancestors.size >= 64) truncated = true;
-    }
+  // Arguments are parsed JSON, so only nesting depth needs a bound.
+  const nested = (value: unknown): unknown => {
+    if (value !== null && typeof value === "object" && depth >= 64) truncated = true;
 
     return value;
   };
-
-  const omitted = (value: unknown) =>
-    value === undefined || typeof value === "function" || typeof value === "symbol";
 
   const write = (value: unknown): void => {
     if (truncated) return;
@@ -101,7 +82,7 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       return;
     }
 
-    ancestors.add(value);
+    depth++;
 
     if (Array.isArray(value)) {
       append("[");
@@ -109,8 +90,8 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       for (let index = 0; index < value.length; index++) {
         if (exhausted()) break;
         if (index && !append(",")) break;
-        const item = normalize(value[index], String(index));
-        write(omitted(item) ? null : item);
+        const item = nested(value[index]);
+        write(item === undefined ? null : item);
       }
 
       append("]");
@@ -121,8 +102,8 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       for (const key in value) {
         if (exhausted()) break;
         if (!Object.hasOwn(value, key)) continue;
-        const item = normalize(Reflect.get(value, key), key);
-        if (omitted(item)) continue;
+        const item = nested(Reflect.get(value, key));
+        if (item === undefined) continue;
         if (!first && !append(",")) break;
         first = false;
         if (!quoted(key) || !append(":")) break;
@@ -132,17 +113,12 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       append("}");
     }
 
-    ancestors.delete(value);
+    depth--;
   };
 
-  try {
-    if (!exhausted()) write(normalize(input, ""));
+  if (!exhausted()) write(input);
 
-    return { text, truncated };
-  } catch {
-    // Match expanded serialization for invalid borrowed values, including cycles.
-    return { text: UNAVAILABLE_PARAMETERS, truncated: false };
-  }
+  return { text, truncated };
 }
 
 type ParametersPart = Extract<InvocationPart, { kind: "parameters" }>;
@@ -153,20 +129,20 @@ export function parametersText(
   maximum: number
 ): { text: string; truncated: boolean } {
   const open = part.separated ? " (" : "(";
-  const preview = parameterPreview(part.value, Math.max(0, maximum - open.length));
+  const preview = parameterPreview(part.value, Math.max(0, maximum - open.length - 1));
 
   return {
-    text: preview.truncated ? open + preview.text : `${open}${preview.text})`,
+    text: preview.truncated ? (open + preview.text).slice(0, maximum) : `${open}${preview.text})`,
     truncated: preview.truncated
   };
 }
 
-/** Resolve only explicitly tagged file targets. Retained rendering must not inspect
- * current files or follow symlinks, and search expressions are not filesystem paths.
- */
+/** Resolve only explicitly tagged file targets. Retained rendering must not inspect current files or follow symlinks, and search expressions are not filesystem paths. */
 export function resolveInvocationPath(value: string, cwd: string): string | undefined {
   if (!value) return undefined;
   let path = expandHomePath(value.startsWith("@") ? value.slice(1) : value, homedir());
+  // Pi resolves Git Bash, MSYS, Cygwin, and WSL drive aliases on Windows.
+  if (process.platform === "win32") path = windowsDrivePath(path);
 
   if (path.startsWith("file://")) {
     try {

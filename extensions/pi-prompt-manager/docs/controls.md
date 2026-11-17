@@ -6,7 +6,7 @@
 
 The `shortcuts` [setting](../README.md#configuration) holds the keys that open "History" and save a draft.
 
-- Shortcuts must be valid Pi keys. Pi 1.5.0 can't dispatch modified **Escape**, so these keys are invalid. Modified function keys **F1** to **F12** are valid.
+- Shortcuts must be valid Pi keys. Pi 1.5.2 can't dispatch modified **Escape**, so these keys are invalid. Modified function keys **F1** to **F12** are valid.
 - When keys can match the same keypress, such as `tab` and `ctrl+i`, only the first is used. `history` keys come before `saveDraft` keys, so `history` wins a shared key, with a warning.
 - Pi may warn about conflicts with built-in keys, such as **Ctrl+R** for session renaming.
 - If a shortcut can match the same keypress as a shortcut of another [pi-mono](../../../../README.md) extension, such as pi-profiles, neither extension registers it, and a warning names the conflict.
@@ -26,7 +26,7 @@ Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_C
 
 | Default                             | Binding                                    | Action                                                               |
 | ----------------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| **Ctrl+C**                          | `tui.input.copy`                           | Copy the complete text and stay open.                                |
+| **Ctrl+C**                          | `tui.input.copy`                           | [Copy](../README.md#clipboard) the text and stay open.               |
 | **Escape**                          | `tui.select.cancel`                        | Close the preview or view.                                           |
 | **Enter**                           | `tui.select.confirm`                       | Restore and close. In inspection, only close.                        |
 | **Up**, **Down**                    | `tui.select.up`, `tui.select.down`         | Select, or scroll the preview.                                       |
@@ -38,7 +38,7 @@ Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_C
 
 When one key is bound to several actions, the first in this order wins: copy, cancel, confirm, up, down, page up, page down, fixed controls, then search editing.
 
-- Hints skip invalid keys and keys that Pi 1.5.0 can't dispatch, such as modified **Escape**.
+- Hints skip invalid keys and keys that Pi 1.5.2 can't dispatch, such as modified **Escape**.
 - Hints also skip a key that sends the same input as a key of an earlier action. For example, **Ctrl+[** and **Escape** send the same byte in some terminals.
 - Hints show the first usable binding for each action, or mark the action unavailable. For example, if copy is bound to **Enter**, restore uses another confirm key, or the hint shows "restore unavailable".
 - Configured actions override fixed keys they conflict with, and hints leave those keys out. If **Tab** conflicts, **Shift+Tab** may still switch collections. To free a key, rebind it, or use the [numbered commands](#numbered-draft-commands).
@@ -98,7 +98,7 @@ You can keep browsing while a copy is in progress, but another copy is refused w
 
 ## Presentation
 
-Text is shown as terminal-safe plain text, never Markdown. Copying keeps the full original text, but [restoring](../README.md#restore-text) can reject unsafe text.
+Text is shown as terminal-safe plain text, never Markdown. [Copying](../README.md#clipboard) sends the stored text, but [restoring](../README.md#restore-text) can reject unsafe text.
 
 ### Tabs and status
 

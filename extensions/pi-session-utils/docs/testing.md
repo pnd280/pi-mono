@@ -16,13 +16,13 @@ This package tests session persistence, parent lookup, the startup flag, and nam
 - **Critical, integration:** An explicitly cancelled persistence switch removes only the newly saved snapshot.
 - **High, e2e:** Completed naming leaves print text and JSON protocol output valid, with title changes only in native session metadata.
 - **High, e2e:** Superseded or cancelled naming results do not change the session name, even when the provider ignores cancellation.
-- **High, integration:** Invalid `--parent-session` startup exits nonzero in a real process before executing the prompt.
+- **High, e2e:** Invalid `--parent-session` startup exits nonzero in a real process before executing the prompt.
 
 ## Not tested
 
 - Busy-agent warnings, the command list and its completion, child creation guidance, notification text, title formatting, and request text limits are below the severity bar.
 - Rejection of incomplete or thinking-only title responses, title token budgets for virtual models, and the retry policy after tree navigation are below the severity bar. The token budget is a [compatibility check](pi-compatibility.md#generation).
-- The [settings-file library](../../../libs/src/settings-file/README.md) owns settings file encoding and size limits.
+- The [settings-file library](../../../libs/src/settings-file/README.md) owns settings file encoding and the output size limit.
 - Pi owns terminal rendering and provider authentication mechanisms.
 - Paid model requests and title quality are not tested because the tests use offline fixture providers.
 - Exporting other branches is not tested because `persist` saves only the active branch.

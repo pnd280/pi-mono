@@ -5,13 +5,11 @@ import type {
   DisplayCall,
   DisplayMode,
   Outcome,
-  SavedOutput,
   SummaryNotice,
   ToolDisplayAdapter
 } from "../contracts.ts";
 import type { DisplayFailureHandler } from "../interpretation.ts";
 import type { ObservationSink } from "../observation/native.ts";
-import type { DisplaySettings } from "../settings.ts";
 import { TranscriptCoordinator, type ResultStatus, type ValidatedArgs } from "./coordinator.ts";
 import { DisplayHistory, type HistorySource } from "./history.ts";
 import { SavedCalls, type SavedCallsOptions } from "./saved-calls.ts";
@@ -30,6 +28,8 @@ export type TranscriptMessage =
     }
   | {
       kind: "assistant";
+      /** One assistant message across its stream updates, finalisation, and replay, distinct from other messages with the same timestamp. It also owns the message's boundary. */
+      source: object;
       timestamp: number;
       boundary?: boolean;
       calls: readonly { index: number; id: string; name: string; args: unknown }[];
@@ -48,7 +48,6 @@ type DisplaySessionOptions = {
   runtime: string;
   cwd: string;
   history: HistorySource;
-  settings: DisplaySettings;
   tools(): ToolSnapshot;
   expanded(): boolean;
   /** Initial transcript mode; the host owns later transitions. */
@@ -56,7 +55,6 @@ type DisplaySessionOptions = {
   append?: ExtensionAPI["appendEntry"] | undefined;
   warn: SavedCallsOptions["warn"];
   savedPaths?: SavedCallsOptions["savedPaths"];
-  readSavedOutput?: (path: string) => Promise<SavedOutput>;
   onFailure?: DisplayFailureHandler;
 };
 
@@ -78,17 +76,16 @@ function retainedAdapter(
 /** Session orchestration without a Pi runtime or terminal. All call writes go through the coordinator. */
 export class DisplaySession {
   readonly coordinator: TranscriptCoordinator;
-  readonly settings: DisplaySettings;
   private history: DisplayHistory;
   private saved: SavedCalls;
   private output: SavedOutputs;
   private messages = new Set<string>();
-  private assistants = new Map<number, { owner: object; after: DisplayCall | undefined }>();
+  /** The call that preceded each assistant message, where its boundary goes. */
+  private assistants = new Map<object, DisplayCall | undefined>();
   private noticeAnchor: DisplayCall | undefined;
   private disposed = false;
   private snapshot: ToolSnapshot | undefined;
   constructor(private options: DisplaySessionOptions) {
-    this.settings = options.settings;
     this.coordinator = new TranscriptCoordinator(options.runtime, {
       cwd: options.cwd,
       ...(options.mode ? { mode: options.mode } : {}),
@@ -103,13 +100,10 @@ export class DisplaySession {
       warn: options.warn,
       savedPaths: options.savedPaths
     });
-    this.output = new SavedOutputs(this.coordinator, options.readSavedOutput);
+    this.output = new SavedOutputs(this.coordinator);
   }
   refreshAdapters(): void {
-    if (this.disposed) return;
-
-    // Registration can finish after reconstruction. Upgrade contracts and validate
-    // arguments against the new schemas without replaying calls.
+    // Registration can finish after reconstruction. Upgrade contracts and validate arguments against the new schemas without replaying calls. Native provenance exists from session construction, so a late adapter is never native and has no observed facts or saved output to restore; cancellation was replayed with the generic card.
     const tools = this.options.tools();
     this.coordinator.batch(() => {
       for (const call of this.coordinator.calls.values()) {
@@ -117,9 +111,6 @@ export class DisplaySession {
         const selected = tools.adapter(call.name);
         const upgraded = selected && selected.id !== "generic" ? selected : undefined;
         this.coordinator.refreshTools(call, upgraded ?? call.adapter, tools.args);
-        if (!upgraded) continue;
-        this.saved.replay(call);
-        if (call.result) this.output.retain(call, call.result);
       }
     });
   }
@@ -140,8 +131,7 @@ export class DisplaySession {
   }
   beginObservation(id: string, adapter: string): ObservationSink | undefined {
     const call = this.coordinator.byId(id);
-    if (this.disposed || !call || call.origin !== "live" || call.adapter.id !== adapter)
-      return undefined;
+    if (!call || call.origin !== "live" || call.adapter.id !== adapter) return undefined;
     this.saved.observe(call);
 
     return {
@@ -153,12 +143,11 @@ export class DisplaySession {
   /** Pi started the call; native observation may already have reported it executing. */
   queued(id: string): void {
     const call = this.coordinator.byId(id);
-    if (!call || this.disposed) return;
+    if (!call) return;
     if (call.lifecycle !== "executing") this.coordinator.update(call, "queued");
   }
   /**
-   * Pi's execution event. Extensions can still replace the result before Pi saves it,
-   * so the call's facts are saved with Pi's final result message.
+   * Pi's execution event. Extensions can still replace the result before Pi saves it, so the call's facts are saved with Pi's final result message.
    */
   result(id: string, result: AgentToolResult<unknown>, status: ResultStatus): void {
     const call = this.publish(id, result, status);
@@ -170,7 +159,6 @@ export class DisplaySession {
     status: ResultStatus
   ): DisplayCall | undefined {
     const { outcome, partial = false } = status;
-    if (this.disposed) return;
     const call = this.coordinator.byId(id);
     if (!call) return;
     this.coordinator.batch(() => {
@@ -228,14 +216,10 @@ export class DisplaySession {
 
     const tools = this.snapshot ?? this.options.tools();
     coordinator.batch(() => {
-      let boundary = this.assistants.get(input.timestamp);
-
-      if (!boundary) {
-        boundary = { owner: {}, after: [...coordinator.calls.values()].at(-1) };
-        this.assistants.set(input.timestamp, boundary);
-      }
-
-      coordinator.setBoundary(boundary.owner, input.boundary ? boundary.after : undefined);
+      if (!this.assistants.has(input.source))
+        this.assistants.set(input.source, [...coordinator.calls.values()].at(-1));
+      const after = this.assistants.get(input.source);
+      coordinator.setBoundary(input.source, input.boundary ? after : undefined);
       if (input.boundary) this.noticeAnchor = undefined;
 
       for (const content of input.calls) {
@@ -281,8 +265,8 @@ export class DisplaySession {
     });
   }
 
+  /** Disposal clears the coordinator, so retained observation callbacks find no call. */
   dispose(): void {
-    this.saved.dispose();
     this.disposed = true;
     this.coordinator.dispose();
     this.output.dispose();

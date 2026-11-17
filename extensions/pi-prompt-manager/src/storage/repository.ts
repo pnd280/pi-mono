@@ -35,7 +35,6 @@ function storageErrorMessage(error: unknown): string {
 }
 
 const writeWarnings: Record<AtomicWriteWarning, string> = {
-  "post-commit": "Collection committed, but post-commit cleanup failed.",
   close: "Collection committed, but closing its temporary descriptor failed."
 };
 

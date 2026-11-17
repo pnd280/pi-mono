@@ -1,9 +1,6 @@
 <!doctype html>
 <!--
-  README banner for pi-subagents. The PNGs next to this file are screenshots of it.
-  The supervisor session on the right runs the README's example prompt. The two task viewers on
-  the left show the end of each child's transcript. Each subagent card in the supervisor shows the
-  child's last reply row, and a wire joins the two rows.
+  README banner for pi-subagents. The PNGs next to this file are screenshots of it. The supervisor session on the right runs the README's example prompt. The two task viewers on the left show the end of each child's transcript. Each subagent card in the supervisor shows the child's last reply row, and a wire joins the two rows.
   Re-render both from the repository root:
 
   for theme in dark light; do
@@ -285,10 +282,10 @@
       <div class="panel session" id="session">
         <pre><span class="accent">›</span> Ask two subagents to review the parser and
   the docs, then summarise their findings.
-<span class="dim">•</span> <b class="accent">Subagent</b> Review parser<span class="dim"> · </span><span class="add">✓ completed 1m 12s</span>
-<span class="dim">  │ openai/gpt-6.1-sol:xhigh · ↑96k ↓5.2k $0.81</span>
-<span class="reply" data-from="parser"><span class="dim">  └</span> parseList throws on a trailing comma.</span><span class="dim">•</span> <b class="accent">Subagent</b> Review docs<span class="dim"> · </span><span class="add">✓ completed 48.5s</span>
-<span class="dim">  │ openai/gpt-6-luna:max · ↑41k ↓2.8k $0.09</span>
+<span class="dim">•</span> <b class="accent">Subagent</b> Review parser<span class="dim"> · </span><span class="add">✓ 1m 12s</span>
+<span class="dim">  │ openai/gpt-6.1-sol:xhigh · ↑96k ↓5.2k $0.810</span>
+<span class="reply" data-from="parser"><span class="dim">  └</span> parseList throws on a trailing comma.</span><span class="dim">•</span> <b class="accent">Subagent</b> Review docs<span class="dim"> · </span><span class="add">✓ 48.5s</span>
+<span class="dim">  │ openai/gpt-6-luna:max · ↑41k ↓2.8k $0.090</span>
 <span class="reply" data-from="docs"><span class="dim">  └</span> README shows [1, 2,], which fails.</span>Both reviews found one bug. The parser rejects
 the trailing comma that the README shows.
 <span class="dim">• anthropic/claude-opus-5-5:medium · 1m 31s</span>
@@ -301,8 +298,7 @@ the trailing comma that the README shows.
       const box = (node) => node.getBoundingClientRect();
       const middle = (node) => box(node).top + box(node).height / 2;
 
-      // The supervisor is as tall as both viewers. Its first card row is level with the first
-      // child's reply row, so the first wire is straight.
+      // The supervisor is as tall as both viewers. Its first card row is level with the first child's reply row, so the first wire is straight.
       const session = document.getElementById("session");
       const pre = session.querySelector("pre");
       const first = document.querySelector(".reply[data-to]");
@@ -311,9 +307,7 @@ the trailing comma that the README shows.
       pre.style.paddingTop = parseFloat(getComputedStyle(pre).paddingTop) + shift + "px";
       session.style.height = box(document.getElementById("docs")).bottom - box(session).top + "px";
 
-      // A wire joins each child's reply row at the viewer's right edge to the matching card row at
-      // the supervisor's left edge. When the rows are not level, the wire has a vertical segment
-      // in the middle of the gap.
+      // A wire joins each child's reply row at the viewer's right edge to the matching card row at the supervisor's left edge. When the rows are not level, the wire has a vertical segment in the middle of the gap.
       const gap = (box(first.closest(".viewer")).right + box(session).left) / 2 - banner.left;
       for (const from of document.querySelectorAll(".reply[data-to]")) {
         const to = document.querySelector(`.reply[data-from="${from.dataset.to}"]`);

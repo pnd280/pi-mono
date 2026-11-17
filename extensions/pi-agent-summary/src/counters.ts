@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 /**
- * Public `pi.events` channel. Each payload adds 1 to its counter in the active run. Pi-agent-summary
- * ignores payloads emitted while no run is active.
+ * Public `pi.events` channel. Each payload adds 1 to its counter in the active run. Pi-agent-summary ignores payloads emitted while no run is active.
  */
 export const counterChannel = "pi-agent-summary:counter";
 

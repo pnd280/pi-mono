@@ -7,9 +7,8 @@ Highlighting an unbounded file with Pi syntax highlighting risks slow renders. [
 ## Behaviour
 
 - An explicit language overrides path detection.
-- If no language applies or the input exceeds a limit, the text comes back unchanged.
+- If no language is given or detected from the path, or the input exceeds a limit, the text comes back unchanged. Pi colours an unsupported language as a plain code block.
 - Generated ANSI does not count toward the limits.
-- Limits that are not nonnegative safe integers throw a `RangeError`.
 
 `highlightCodeSelection(source, options)` sanitises the source, applies the limits, and then applies `mark(text)` to each selected range:
 
@@ -44,6 +43,6 @@ const { text, hasSelection } = highlightCodeSelection(source, {
 - Pass unsanitised source to `highlightCodeSelection`.
 - Supply ordered, nonoverlapping ranges with a zero-based `line` index and UTF-16 offsets within that line. `start` is inclusive and `end` is exclusive.
 - Make `mark` preserve text and restore the caller's background after selection styling.
-- Choose the language and limits before rendering; see the [validated options](index.ts).
+- Choose the language and limits before rendering; see the [options](index.ts).
 
 Related: [terminal text](../../terminal-text/README.md) sanitises the text that `highlightCodeBounded` receives.

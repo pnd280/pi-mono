@@ -26,7 +26,7 @@ In all modes, a supervisor stays busy after a normal reply while its direct back
 - Print and JSON supervisors wait before exiting.
 - The waiting time counts as busy time, for example in `pi-agent-summary`, and commands that need an idle session are blocked until the wait ends.
 
-In TUI mode, the working message shows "Waiting for background results" during the wait, as the `pi-subagents.waiting` item. To change its position, run `/working-message`; see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
+In TUI mode, the working message shows "Waiting for background results" during the wait. `/working-message` lists it as "Background wait" (saved as `pi-subagents.waiting`). To change its position, run `/working-message` and save; see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
 
 Edge cases:
 

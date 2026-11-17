@@ -1,4 +1,10 @@
-import { DEFAULT_MAX_BYTES, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import {
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
+  type ExtensionUIContext
+} from "@earendil-works/pi-coding-agent";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
@@ -7,6 +13,7 @@ import { parseFlags } from "./flags.ts";
 import type { RunReader } from "./history/reader.ts";
 import { readLogTail } from "./jobs/log.ts";
 import type { Jobs } from "./jobs/registry.ts";
+import { boundedText } from "./result.ts";
 import { showTask } from "./show.ts";
 import type { Tasks } from "./tasks/registry.ts";
 
@@ -18,10 +25,10 @@ const pageSchema = z.object({
   limit: z.coerce.number().int().min(1).max(LIST_MAX_LIMIT)
 });
 
-type Page<T> = { items: T[]; total: number; offset: number; next_offset: number | null };
+type Page = { items: unknown[]; total: number; offset: number; next_offset: number | null };
 
 /** One page of `records` within the output budget, as `{ <key>, total, offset, next_offset }`. */
-function listPage<T>(key: "tasks" | "jobs", records: readonly T[], tokens: string[]): unknown {
+function listPage(key: "tasks" | "jobs", records: readonly unknown[], tokens: string[]): unknown {
   const text = (value: string) => value;
   const flags = parseFlags(
     tokens,
@@ -37,7 +44,7 @@ function listPage<T>(key: "tasks" | "jobs", records: readonly T[], tokens: strin
       `offset must be a non-negative safe integer; limit must be 1 to ${LIST_MAX_LIMIT}`
     );
   const { offset, limit } = parsed.data;
-  const page: Page<T> = { items: [], total: records.length, offset, next_offset: null };
+  const page: Page = { items: [], total: records.length, offset, next_offset: null };
 
   const output = () => {
     const { items, ...rest } = page;
@@ -45,19 +52,39 @@ function listPage<T>(key: "tasks" | "jobs", records: readonly T[], tokens: strin
     return { [key]: items, ...rest };
   };
 
+  const fits = () => Buffer.byteLength(JSON.stringify(output())) <= DEFAULT_MAX_BYTES;
+
   for (const record of records.slice(offset, offset + limit)) {
     page.items.push(record);
     const next = offset + page.items.length;
     page.next_offset = next < records.length ? next : null;
-    if (Buffer.byteLength(JSON.stringify(output())) <= DEFAULT_MAX_BYTES) continue;
+    if (fits()) continue;
     page.items.pop();
-    if (page.items.length === 0)
-      throw new Error(`${key === "tasks" ? "Task" : "Job"} item exceeds the list output budget`);
-    page.next_offset = offset + page.items.length;
-    break;
+
+    if (page.items.length > 0) {
+      page.next_offset = offset + page.items.length;
+      break;
+    }
+
+    // Labels and job commands can each reach the budget, so a record alone can exceed it.
+    for (let maxBytes = DEFAULT_MAX_BYTES; ; maxBytes = Math.floor(maxBytes / 2)) {
+      page.items[0] = shortened(record, maxBytes);
+      if (fits()) break;
+      if (maxBytes === 0)
+        throw new Error(`${key === "tasks" ? "Task" : "Job"} item exceeds the list output budget`);
+    }
   }
 
   return output();
+}
+
+/** `record` with each string value cut to `maxBytes` and marked. */
+function shortened(record: unknown, maxBytes: number): unknown {
+  return JSON.parse(
+    JSON.stringify(record, (_key, value: unknown) =>
+      typeof value === "string" ? boundedText(value, DEFAULT_MAX_LINES, maxBytes) : value
+    )
+  );
 }
 
 function jobItem(job: JobRecord) {
@@ -160,19 +187,11 @@ export async function runCommand(
     const [command = "list", ...tokens] = args.trim() ? args.trim().split(/\s+/) : [];
     const job = await jobCommand(jobs, command, tokens);
     const result = job ? job.result : await taskCommand(tasks, reader, command, tokens);
-    const json = JSON.stringify(result);
+    const json = displayText(JSON.stringify(result));
     if (Buffer.byteLength(json) > DEFAULT_MAX_BYTES)
       throw new Error("Command result exceeds the output budget");
     ui.notify(json, "info");
   } catch (error) {
-    const json = JSON.stringify({
-      error: error instanceof Error ? error.message : "Subagent command failed"
-    });
-    ui.notify(
-      Buffer.byteLength(json) <= DEFAULT_MAX_BYTES
-        ? json
-        : '{"error":"Subagent command failed; diagnostic too large"}',
-      "error"
-    );
+    ui.notify(displayText(JSON.stringify({ error: errorMessage(error) })), "error");
   }
 }

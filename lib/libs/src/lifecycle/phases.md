@@ -17,7 +17,7 @@ No participant waits for another, so the barrier cannot deadlock. A commit that 
 - Each key is normalised with [`canonicalKeySchema`](../tui/keybindings/README.md). An invalid key is not registered, with one warning.
 - Claims whose keys can match one keypress, by [`keysOverlap`](../tui/keybindings/README.md), form one conflict. No claimant in a conflict registers its key, and each conflict gives one warning.
 - Every other claim registers its canonical key through the claimant's own `pi.registerShortcut`. Pi sets up shortcuts after `resources_discover`, so they work at once.
-- A key runs only the handler of the claim that the latest barrier accepted. Pi cannot remove a shortcut, so a key that a later bind drops, puts in a conflict, or accepts from another participant stays registered with its earlier description. The key does nothing while no current claim for it is accepted. When a later bind accepts a claim for it again, from any participant, the key runs that claim's handler.
+- A key runs only the handler of the claim that the latest barrier accepted. Pi cannot remove a shortcut, so a key that a later bind drops, puts in a conflict, or accepts from another participant stays registered with its earlier description. The key does nothing while no current claim for it is accepted. When a later bind accepts a claim for it again, from any participant, the key runs that claim's handler. A stale key that overlaps a newly accepted key, for example through a legacy terminal encoding, still takes that keypress and does nothing until the next reload.
 - Claims do not see shortcuts that other extensions register directly, or Pi's built-in keys. Pi resolves those conflicts.
 
 ## Shutdown phase
@@ -30,7 +30,7 @@ No participant waits for another, so the barrier cannot deadlock. A commit that 
 
 ## Run marks
 
-`onAgentStart` and `onAgentSettled` take a `performance.now()` mark at the start of each handler, before the handler runs. Every participant receives the earliest mark taken for that event, so a participant's run timing does not depend on slower handlers before it.
+`onAgentStart` and `onAgentSettled` take a `performance.now()` mark at the start of each handler, before the handler runs. Every participant receives the earliest mark taken for that event, so a participant's run timing does not depend on slower participant handlers before it. Handlers of other extensions that run before every participant still delay the mark.
 
 ## Version mismatch
 

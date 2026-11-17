@@ -19,7 +19,7 @@ Edge cases:
 
 Each entry in `allow`, `deny`, and `defer` is a tool name or a pattern in which `*` matches any characters, as in Pi's `--tools`. For example, `mcp__github__*` matches each tool of the `github` MCP server, and `*` matches every tool. A pattern in `allow` has these limits:
 
-- As in `--tools`, a pattern in `allow` turns on only `direct` and `model-only` tools.
+- As in `--tools`, a pattern in `allow` turns on only `direct` and `model-only` tools; see Pi's [tool exposure](https://pi.dev/docs/latest/mcp#control-tool-exposure).
 - A pattern in `allow` keeps the `codemode` and `deferred` tools that are base tools, such as tools that `tool_search` loaded. To declare another `codemode` or `deferred` tool, put its name in `allow`.
 - A pattern in `allow` matches only the tools that are registered when you switch. For a tool that registers later, for example from an MCP server that connects later, switch again.
 - Until you switch again, Pi decides whether a tool that registers later is declared; see [MCP tools](#mcp-tools).
@@ -63,19 +63,19 @@ Here each Linear tool is deferred alone, but one search can load more than one o
 
 ### Codemode-only mode
 
-While `codemode` is declared and `codemode.mode` is `"only"`, Pi leaves the active `direct` tools out of the model request. The codemode description lists them, and the model calls them from codemode scripts. Profiles change Pi's active tools, but they do not override this mode. The mode changes the effect of `defer`:
+While `codemode` is declared and `codemode.mode` is `"only"`, Pi leaves the active `direct` tools out of the model request. The codemode description lists those that fit Pi's `codemode.inlineBudget`, and the model calls them from codemode scripts. Profiles change Pi's active tools, but they do not override this mode. The mode changes the effect of `defer`:
 
 - After `tool_search` loads a deferred `direct` tool, the model can call it only from codemode scripts, because Pi hides its declaration.
 - The `tool_search` result still says that the loaded tool is available from the next call.
-- Each load of a deferred `direct` tool changes the codemode description, so Pi declares `codemode` again.
-- Because Pi already hides `direct` declarations, deferral of a `direct` tool only removes it from the codemode description and from scripts.
+- Loading a deferred `direct` tool that fits the budget changes the codemode description, so Pi declares `codemode` again.
+- Because Pi already hides `direct` declarations, deferral of a `direct` tool only removes it from scripts and, if it was listed, from the codemode description.
 - To remove a `direct` tool, use `deny`. To keep it for scripts, leave it out of `defer`.
 
 ## Tool search
 
-pi-profiles registers its own `tool_search` while Pi loads extensions, also when no profile has a `defer` list. An extension cannot see the project trust decision while it loads, so it cannot tell whether a project profile has one. Pi then does not load its built-in `tool-search` extension; the README's [tool search](../README.md#tool-search) section tells how to stop the warning that Pi shows.
+pi-profiles registers its own `tool_search` while Pi loads extensions, also when no profile has a `defer` list. Pi then does not load its built-in `tool-search` extension; the README's [side effects](../README.md#side-effects) section tells how to stop the warning that Pi shows.
 
-The `tool_search` of pi-profiles is Pi's `tool_search`, built with Pi's own code: it has the same name, description, and search. It also finds the tools that the current profile deferred, and it loads the rest of their [groups](#groups) with them. Without deferred tools, it works as Pi's built-in `tool_search`.
+The `tool_search` of pi-profiles is Pi's `tool_search`, built with Pi's own code: it has the same name, description, and search. It also finds the tools that the current profile deferred, and it loads the rest of their [groups](#groups) with them. Without deferred or `deny` tools, it works as Pi's built-in `tool_search`.
 
 - If pi-profiles no longer owns `tool_search`, for example because another extension now registers it, resume, `/tree`, `/fork`, and `/reload` declare again the `direct` and `model-only` tools that the session's selection deferred. They also declare each registered tool of its deferred groups, except `hidden` tools.
 - If no registered, non-hidden `tool_search` is active, restoration declares all registered, non-hidden deferred tools, subject to Pi's tool restrictions.
@@ -109,3 +109,13 @@ Pi's MCP support also changes the declared tools by itself, so the profile does 
 | `allow` names a tool of a server that has not connected yet.                                                                                           | pi-profiles ignores the name. Pi declares a `direct` tool when it appears, as above; a `codemode` or `deferred` tool stays undeclared.                                                                                                       | Switch again after the server connects.                                 |
 | `allow` omits `codemode` or `tool_search`, or `defer` lists `codemode`.                                                                                | When a session starts, when the server list changes, after a sign-in, and after `/mcp` actions such as reconnect, Pi declares `codemode` again for servers with `codemode` exposure, and `tool_search` for servers with `deferred` exposure. | Switch again after these events. To keep them off, list them in `deny`. |
 | You resume, fork, or reload a session while a server is still connecting, and pi-profiles changes the tools at that time; see [sessions](sessions.md). | If the change turns off a tool, tools that the model loaded from that server with `tool_search` disappear.                                                                                                                                   | The model can load them again with `tool_search`.                       |
+
+### Profile MCP servers
+
+A profile's `mcpServers` field defines MCP servers that pi-profiles registers while the profile is selected; see [profile fields](configuration.md#profile-fields) and [MCP servers](switching.md#mcp-servers).
+
+- pi-profiles passes each entry to Pi unchanged: a relative `cwd` resolves from the session working directory, and `~/` names the home directory, as in `mcp.json`. This differs from `appendSystemPrompts`, which resolves from the settings file's directory.
+- A new or changed server connects in the background after the switch, so its tools register after the switch. `allow` and `defer` apply only to the tools that are registered when you switch. For tools that register later, use `exposure` and `toolExposure` in the profile's entry, or switch again after the server connects. `deny` still applies to them, because pi-profiles turns off the `deny` tools again before each run and at the end of each turn.
+- A profile server whose name is the name of a server in `mcp.json`, or differs from it only in `-` and `_`, loses: Pi uses the `mcp.json` server, and `/mcp` shows the override. pi-profiles cannot detect this.
+- pi-profiles cannot turn off or change servers from `mcp.json`. To keep their tools away from the model in a profile, use `deny` with a pattern such as `mcp__github__*` (codemode scripts can still call `codemode` and `deferred` tools, as in the table above), or `hidden` exposure in `mcp.json` for every profile.
+- With `--no-mcp`, with `"-builtin:mcp"` in `extensions`, or with an extension that replaces Pi's MCP support, profile servers connect only if a loaded extension supports registered MCP servers. Without one, nothing connects them, and Pi reports each registration as an extension error.

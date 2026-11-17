@@ -1,5 +1,4 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { registeredBy } from "@pi-mono/utils/provenance";
 import {
   formatTodosSummary,
   presentCompactTaskText,
@@ -16,6 +15,7 @@ import type {
   Outcome,
   ToolDisplayAdapter
 } from "../../contracts.ts";
+import { registeredBy } from "../provenance.ts";
 
 type TaskAction = (typeof TASK_ACTIONS)[number];
 
@@ -43,7 +43,7 @@ const taskSchema = z.object({
 const detailsSchema = z.object({
   error: z.string().optional(),
   tasks: z.array(taskSchema).optional(),
-  nextId: z.int().positive().optional().catch(undefined)
+  nextId: z.int().positive().optional()
 });
 
 const parametersSchema = z.object({
@@ -75,9 +75,7 @@ function titledVerbs(action: TaskAction): HeadingVerbs {
 }
 
 /**
- * Literal scope shared by every todo call so adjacent calls join one group.
- * The value is internal and never displayed for titled groups; keep it distinct
- * from path filters an exploration adapter could produce.
+ * Literal scope shared by every todo call so adjacent calls join one group. The value is internal and never displayed for titled groups; keep it distinct from path filters an exploration adapter could produce.
  */
 const GROUP_SCOPE = "pi-todo:todo";
 
@@ -104,12 +102,11 @@ function taskSubject(
   id: number | undefined
 ): string | undefined {
   if (id === undefined) return undefined;
-  const subject = parseDetails(result)?.tasks?.find((task) => task.id === id)?.subject;
 
-  return subject === undefined || subject === "" ? undefined : subject;
+  return parseDetails(result)?.tasks?.find((task) => task.id === id)?.subject;
 }
 
-function changeSummary(args: NonNullable<ReturnType<typeof parseArgs>>): string {
+function changeSummary(args: z.infer<typeof argsSchema>): string {
   const changes: string[] = [];
   if (args.status !== undefined) changes.push(`status → ${TASK_STATUS_TEXT[args.status]}`);
   if (args.subject !== undefined) changes.push("subject");
@@ -118,10 +115,10 @@ function changeSummary(args: NonNullable<ReturnType<typeof parseArgs>>): string 
   if (args.owner !== undefined) changes.push("owner");
   if (args.parentId !== undefined)
     changes.push(args.parentId === null ? "detached" : `parent → #${args.parentId}`);
-  if ((args.addBlockedBy?.length ?? 0) > 0)
-    changes.push(`blocked by +${args.addBlockedBy?.length ?? 0}`);
-  if ((args.removeBlockedBy?.length ?? 0) > 0)
-    changes.push(`blocked by -${args.removeBlockedBy?.length ?? 0}`);
+  if (args.addBlockedBy !== undefined && args.addBlockedBy.length > 0)
+    changes.push(`blocked by +${args.addBlockedBy.length}`);
+  if (args.removeBlockedBy !== undefined && args.removeBlockedBy.length > 0)
+    changes.push(`blocked by -${args.removeBlockedBy.length}`);
 
   return changes.join(" · ");
 }
@@ -187,8 +184,7 @@ function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[
 }
 
 /**
- * Presentation for the todo tool's own result envelope. Arguments and results are
- * borrowed and validated; the adapter never changes retained data or model content.
+ * Presentation for the todo tool's own result envelope. Arguments and results are borrowed and validated; the adapter never changes retained data or model content.
  */
 export const todoDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-todo:todo",
@@ -221,7 +217,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     if (outcome !== "success") return undefined;
     const details = parseDetails(result);
     const parsed = parseArgs(args);
-    if (!parsed || !details?.tasks || details.error) return undefined;
+    if (!parsed || !details?.tasks) return undefined;
     const tasks = details.tasks;
     const progress = formatTodosSummary(tasks);
     const id =
@@ -233,7 +229,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     if (parsed.action === "list" && (parsed.status !== undefined || parsed.includeDeleted)) {
       const matching = tasks.filter(
         (task) =>
-          (parsed.includeDeleted || task.status !== "deleted") &&
+          (parsed.includeDeleted || parsed.status === "deleted" || task.status !== "deleted") &&
           (parsed.status === undefined || task.status === parsed.status)
       ).length;
 

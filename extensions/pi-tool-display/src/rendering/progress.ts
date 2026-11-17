@@ -1,7 +1,7 @@
 import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { displayLine, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { displayLine, pack, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import type { DisplayProgress, DisplayProgressStatus } from "../contracts.ts";
 import type { Projection } from "./types.ts";
@@ -107,8 +107,7 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
   const separator = theme.fg("dim", " · ");
   // Style the status before wrapping so continuation rows keep its colour.
   const title = `${theme.fg(colors.label, theme.bold(displayLine(progress.label)))} ${displayLine(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
-  // Wrapped title rows, metadata, and details lead into the result branch with a guide;
-  // without a body, they use a plain indent. A collapsed card shows a body only for a result preview.
+  // Wrapped title rows, metadata, and details lead into the result branch with a guide; without a body, they use a plain indent. A collapsed card shows a body only for a result preview.
   const hasBody = p.result !== undefined && (p.expanded || progress.resultPreview === true);
   const indent = hasBody ? `  ${theme.fg("dim", TUI_GLYPHS.tree.guide)} ` : "    ";
   const detailWidth = Math.max(1, p.width - 4);
@@ -125,13 +124,14 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
 
   if (!p.expanded) return { rows, stale };
 
-  for (const field of progress.fields)
-    rows.push(
-      ...wrapRows(
-        `${theme.fg("dim", `${displayLine(field.label)}:`)} ${displayLine(field.value)}`,
-        detailWidth
-      ).map((row) => `${indent}${row}`)
-    );
+  for (const field of progress.fields) {
+    const label = theme.fg("dim", `${displayLine(field.label)}:`);
+    const fieldRows =
+      "items" in field
+        ? pack([label, ...field.items.map(displayText)], " ", detailWidth)
+        : wrapRows(`${label} ${displayLine(field.value)}`, detailWidth);
+    rows.push(...fieldRows.map((row) => `${indent}${row}`));
+  }
 
   if (progress.prompt !== undefined) {
     const retained = sliceTerminalText(progress.prompt, 0, 16 * 1024).text;
@@ -144,7 +144,11 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
         )
       );
     if (retained.length < progress.prompt.length || prompt.length > 10)
-      rows.push(`${indent}  ${theme.fg("dim", "… (prompt truncated)")}`);
+      rows.push(
+        ...wrapRows(theme.fg("dim", "… (prompt truncated)"), Math.max(1, p.width - 6)).map(
+          (row) => `${indent}  ${row}`
+        )
+      );
   }
 
   if (p.result) rows.push(`${indent}${theme.fg("dim", "Result:")}`);

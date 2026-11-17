@@ -8,10 +8,19 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 ### Launch, capacity, and tools
 
-- **Critical, e2e:** Untrusted project settings cannot affect launch configuration or the `subagent` description, and cannot turn on `jobs`.
+- **Critical, e2e:** Untrusted project settings cannot affect launch configuration, templates, or the `subagent` description, and cannot turn on `jobs`.
 - **Critical, e2e:** Children receive the supervisor's project-trust flag.
+- **Critical, e2e:** A resume from a supervisor in another directory than the child file's fails before a child starts.
+- **Critical, e2e:** `launch_args` reach the child argv before the extension's flags.
+- **Critical, e2e:** In `launch_args`, flags owned by `model`, `thinking`, or `task_id`, `--`, and a last flag that needs a value, are rejected before any side effect.
+- **Critical, e2e:** A resume that omits `launch_args` and `template` reuses the `launch_args` value that the task's latest run requested.
+- **Critical, e2e:** A global template's `launchArgs` cannot make a child load an extension, skill, prompt template, or theme from the project, or read a project file into its system prompt: relative and package-like values that Pi reads as local paths resolve from the directory of the template's file, except `-e` values with an npm, git, or built-in prefix, and settings leave out a template whose `launchArgs` contain `--system-prompt` or `--append-system-prompt`.
+- **High, e2e:** A `template` call starts the child with the call's `model` and `thinking` when the call sets them, and with the template's values when it does not.
+- **High, e2e:** The child argv of a `template` call has the call's `launch_args`, then the template's `launchArgs`, then a `--append-system-prompt <absolute path>` pair for each prompt file in order, before the extension's flags.
+- **High, e2e:** A template from a template file resolves its prompt files from the directory of that file.
+- **High, e2e:** On resume, the template's model, thinking level, and argv part replace those of the task's latest run.
+- **High, e2e:** These `template` calls fail before any side effect: an unknown template, a template that settings left out for an unknown field or an unreadable prompt file, and call `launch_args` that set a single-value flag that the template also sets.
 - **High, e2e:** Foreground calls report the child's final text and correct state.
-- **High, e2e:** Launch failures include the failed step, exit code, and stderr.
 - **High, e2e:** Active children stay within configured [capacity](../GLOSSARY.md#tasks-and-processes), and queued launches start in FIFO order.
 - **High, e2e:** A launch into a full queue fails with `launch queue is full`.
 - **High, e2e:** (S3) Descendants respect configured depth and whole-tree capacity. When capacity is full, a nested launch fails immediately, and the slots of a failed or exited subtree let the top-level FIFO queue continue.
@@ -30,6 +39,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** After a forced-stop failure, a cancelled task stays cancelled, and its result names the failure. `subagent_abort` returns the error instead of a confirmation.
 - **High, e2e:** Tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes).
 - **High, e2e:** After a session change, late completions of the replaced binding's tasks and a late `/subagents` command of the replaced binding, such as an abort, cannot affect the replacement binding.
+- **High, e2e:** Input sent to an active task from a replaced session fails when the child acknowledges it after the session change, instead of reporting that the task, which the change stopped, took the input.
 - **High, e2e:** After another extension cancels a tree navigation or a parent-session fork, `/subagents list` and new `subagent` calls work on the same ancestry, and a job result that waited arrives once in the next run.
 - **High, e2e:** When a session change starts while the run waits for a [held job](jobs.md#held-jobs), the wait ends and the job continues. If another extension cancels the change, the job's result arrives once in the next run.
 - **High, e2e:** Ordinary foreground abort stops only its foreground subtree, and new messages leave children running.
@@ -38,24 +48,23 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** (S9) `subagent_abort` stops an owned active task, releases its capacity, and keeps it resumable.
 - **High, e2e:** (S9) `subagent_abort` rejects foreign and inactive tasks.
 - **High, e2e:** (S9) `subagent_abort` returns a successful confirmation and delivers no separate `cancelled` result, and the supervisor stops waiting when no task remains.
-- **High, e2e:** (T5) Late updates from a disposed task view or connection cannot affect a replacement task view or session.
+- **High, integration:** (T5) A child snapshot that arrives after a task transcript view is disposed cannot update that view or a view of another task.
 
 ### History and leases
 
-- **Critical, integration:** Invalid UTF-8 or JSON in complete child records, ambiguous ancestry, and replaced child files are never accepted as the recorded task's valid session.
+- **Critical, integration:** Invalid UTF-8 or JSON in complete child records, ambiguous ancestry, and a replaced child file with another session identity are never accepted as the recorded task's valid session.
 - **Critical, integration:** Child-file reads leave the file bytes unchanged.
+- **Critical, e2e:** Only one process, the holder of the [writer lease](../GLOSSARY.md#history), writes a task's child file. A forked supervisor cannot resume a task while the original child runs, also after the original supervisor is killed, and the rejected resume leaves the file unchanged.
+- **Critical, integration:** After a release cannot remove its lease entry, the same process can take the lease again, and a lease that it holds still excludes another writer.
+- **Critical, integration:** A contender for the writer lease never removes a lease entry that its holder replaced while the contender checked the entry's processes.
 - **High, e2e:** The [selected parent ancestry](../GLOSSARY.md#history) supplies each task's latest [run](../GLOSSARY.md#tasks-and-processes) and its descendants.
 - **High, e2e:** Running tasks recover stopped, including after restart or fork, and a run without an `end` entry shows as cancelled.
 - **High, e2e:** Explicit resume keeps the task ID, session ID, and session file, continues the selected run in the same [child file](../GLOSSARY.md#history), and excludes later runs.
 - **High, e2e:** Explicit resume warns about incomplete tool cycles without replaying old calls.
-- **High, e2e:** A resume that omits `model` or `thinking` sends the child's provider requests with the value that the task's latest run on the selected ancestry requested, not the applied value, the supervisor's current selection, or the selection of a later run. A value in the call replaces only its own field.
+- **High, e2e:** A resume that omits `model` or `thinking`, with no template that sets it, sends the child's provider requests with the value that the task's latest run on the selected ancestry requested, not the applied value, the supervisor's current selection, or the selection of a later run. A value in the call replaces only its own field.
 - **High, e2e:** Historical views leave child files unchanged.
 - **High, e2e:** Saved supervisor history grows by bounded [per-run records](adr/0003-keep-task-history-in-child-sessions.md#records), independent of the child's message count.
-- **High, e2e:** Nothing is written under `<agentDir>/pi-subagents/`, and no lease directory remains after the runs end.
-- **High, e2e:** Only one process, the holder of the [writer lease](../GLOSSARY.md#history), writes a task's child file. A forked supervisor cannot resume a task while the original child runs, also after the original supervisor is killed, and the file stays unchanged.
 - **High, e2e:** After the lease writers exit, the next resume succeeds and removes the stale lease entries.
-- **High, integration:** After a release cannot remove its lease entry, the same process can take the lease again, and a lease that it holds still excludes another writer.
-- **High, integration:** A contender for the writer lease never removes a lease entry that its holder replaced while the contender checked the entry's processes.
 - **High, integration:** History and lease reads reject non-regular files without blocking and enforce byte limits.
 - **High, e2e:** (S6) Descendant records read from child session files preserve ownership across restart.
 - **High, e2e:** (S10) While a task runs, also after a restart, `list` still shows the descendants of the task's earlier runs, and it never shows a descendant that is starting or running as stopped.
@@ -85,7 +94,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 ### Jobs
 
 - **Critical, e2e:** (J4) `job` uses the `shellPath` and `shellCommandPrefix` settings.
-- **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden.
+- **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden, and a `job` call after a later `bash` registration starts no command.
 - **Critical, integration:** (J5) The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
 - **High, e2e:** (J1) A job delivers exactly one background result to its supervisor when the supervisor is busy, idle, or settling after an abort.
 - **High, e2e:** (J1) The supervisor settles while a job without `hold_run` runs.
@@ -106,6 +115,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **Critical, e2e:** (R2) Only owned tasks receive input.
 - **Critical, e2e:** (R2) Descendant routing preserves the result destination.
 - **Critical, e2e:** (R2) Only the supervisor that launched a task resumes it after it stops; ancestors and foreign supervisors cannot.
+- **Critical, e2e:** Child-controlled text in cards, dialogs, the task panel, and the viewers cannot emit terminal-control sequences.
 - **High, e2e:** A supervisor cannot resume or abort another supervisor's tasks, and no input reaches them.
 - **High, e2e:** Child dialogs reach the supervisor's client, and answers reach the requesting child with the selected value preserved even when sanitised labels collide.
 - **High, e2e:** An editor dialog submitted with its forwarded prefill unchanged returns the child's prefill exactly, also when the supervisor shows the prefill sanitised and cut.
@@ -115,21 +125,29 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** (R1) The result of a run that took active-task input keeps the final reply that the input followed, before the input's reply.
 - **High, e2e:** (R3) Read-only `show` paging covers eligible items on the selected run's ancestry once, including tool summaries that complete after a cursor was given out, with correct cursors and ancestry-scoped cumulative usage.
 - **High, e2e:** (R3) `show` excludes thinking, arguments, and outputs.
-- **High, e2e:** (R4) After an abort during a tool call, `show --last` returns the text and cursor of the latest assistant message with content, and skips empty `error` messages.
+- **High, e2e:** (R4) After an abort during a tool call, `show --last` returns the text and cursor of the latest assistant message with content, and skips empty `aborted` messages.
 
 ## Not tested
 
-- Late updates outside the connection boundary are not tested because the [late-update test](../validation/activity.test.ts) covers only that boundary. The untested cases include a replaced terminal task view, a delayed filesystem read, an injected failed response, and other late event kinds.
+- Late updates of a disposed task view other than a child snapshot, such as a delayed file read, a failed read, or another event kind, are not tested separately: they reach the view only through the listener and source that `TaskView.dispose` removes, which the [late-update test](../validation/activity.test.ts) exercises with a snapshot. A replaced terminal task view only changes what the terminal shows, which is below the severity bar.
 - A delayed file read of an earlier run is below the severity bar; see [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#delayed-reads).
-- Late active-task input from a replaced binding is not tested, because holding a `subagent` call across a session change needs a timing guess.
+- A panel open whose task leaves the tree while the panel module loads is not tested, because the open must fail inside that load, which needs a timing hook. The panel then stops its timer and subscriptions.
+- The failed step, exit code, and stderr in the result of a failed launch are below the severity bar, because the call still reports the launch as failed.
 - Pi owns RPC framing, prompt-disposition semantics, lineage, and its internal trust enforcement.
 - macOS and Windows are not tested because the tests run only on Linux. The tests of failed process cleanup also need `perl` to put a process into another process group.
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files, are not tested automatically. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks for these cases.
 - A child that blocks shutdown can survive supervisor SIGKILL, because no independent watchdog exists to stop it.
 - The wording of the `subagent` guidance and of a child's [result instructions](children.md#result-instructions) is below the severity bar. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns where the instructions appear in the system prompt.
+- The template's `background` value is below the severity bar, because the call's result shows at once whether the task runs in the background.
+- The template name before the task label is below the severity bar.
+- `--prompt-template` and `--theme` values in template `launchArgs` are not tested separately, because they take the same resolution as the `--skill` value that the test of the global-template invariant uses.
+- The exact launch-argument display, including its `\u` escapes, is not tested. `displayText` already removes terminal controls; the escapes only keep values exact and stop text-direction reordering.
 - Card appearance, the activity that cards and panel rows name, task-list pagination, and the panel shortcut are below the severity bar.
 - Job card appearance, the widget's job count, panel job rows, and the job log viewer are below the severity bar.
 - A job process that leaves its process group is not tested because job cleanup does not stop it.
+- A child whose [output pipes](shutdown.md#output-pipes) the supervisor closes before EOF is not tested, because the case needs a process outside the stopped group that holds the pipes; the run then fails or stays cancelled instead of completing.
+- Aborts from the task panel and its viewers are not tested. They pass the selected task or job to the same `Tasks.abort` and `Jobs.abort` calls as the tested `/subagents abort` and `job_abort`; only the selection is untested.
+- A running job's on-disk log at its byte cap is not tested automatically; the [job log retention check](validation.md#job-log-retention) covers it by hand.
 - A cancelled session switch and a cancelled or failed branch summary are not tested because the fixtures cancel only tree navigation and parent-session forks.
 
 ## Manual checks

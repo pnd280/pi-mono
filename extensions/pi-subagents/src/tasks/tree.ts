@@ -9,24 +9,22 @@ import { stopRun, taskHistory, type TaskRecord } from "./records.ts";
 const REFRESH_MS = 1_000;
 
 /**
- * How soon this process's supervisor needs a live record. A run's start, promotion, and end, and
- * each accepted descendant update, are immediate; other child events are debounced.
+ * How soon this process's supervisor needs a live record. A run's start, promotion, and end, and each accepted descendant update, are immediate; other child events are debounced.
  */
 export type Urgency = "immediate" | "debounced";
 
 /**
- * One change of the tree. `taskId` names the changed task; a file read that removed tasks names
- * none. Only a live record is published, because each supervisor reads child files itself.
+ * One change of the tree. Only a live record is published, because each supervisor reads child files itself.
  */
 export type TreeChange = {
-  taskId?: string;
   publish?: { record: TaskRecord; urgency: Urgency };
 };
 
+/** The listed records in depth-first order, and by ID. */
+type Listing = { list: readonly TaskRecord[]; byId: ReadonlyMap<string, TaskRecord> };
+
 /**
- * The tasks that the child files of `roots` name, at any depth. Each run's ancestry names its
- * child's tasks; the run reader stops an active run's ancestry at its marker. An unreadable file
- * adds no descendants.
+ * The tasks that the child files of `roots` name, at any depth. Each run's ancestry names its child's tasks; the run reader stops an active run's ancestry at its marker. An unreadable file adds no descendants.
  */
 async function fileDescendants(roots: readonly TaskRecord[]): Promise<TaskRecord[]> {
   const seen = new Set(roots.map((task) => task.task_id));
@@ -54,10 +52,7 @@ async function fileDescendants(roots: readonly TaskRecord[]): Promise<TaskRecord
 }
 
 /**
- * The task tree of one supervisor binding, as ADR 0003 defines it. The selected ancestry names the
- * direct tasks, child files name their descendants, and live records from this binding's runs and
- * from descendant updates replace what the files show. It lists the tree depth first, each task's
- * children in the order the tree learned them.
+ * The task tree of one supervisor binding, as ADR 0003 defines it. The selected ancestry names the direct tasks, child files name their descendants, and live records from this binding's runs and from descendant updates replace what the files show. It lists the tree depth first, each task's children in the order the tree learned them.
  */
 export class TaskTree {
   /** Records by task ID in the order the tree learned them. */
@@ -66,8 +61,8 @@ export class TaskTree {
   private read = new Set<string>();
   /** Sequence numbers of the latest started and applied file reads. */
   private reads = { started: 0, applied: 0 };
-  /** The listed records in depth-first order, and by ID; rebuilt after a change. */
-  private order: { list: readonly TaskRecord[]; byId: ReadonlyMap<string, TaskRecord> } | undefined;
+  /** Rebuilt after a change. */
+  private order: Listing | undefined;
   private observers = 0;
   private timer: ReturnType<typeof setInterval> | undefined;
   private closed = false;
@@ -135,12 +130,11 @@ export class TaskTree {
     // An unchanged record keeps the listed order.
     if (this.records.get(record.task_id) !== record) this.order = undefined;
     this.records.set(record.task_id, record);
-    this.onChange({ taskId: record.task_id, publish: { record, urgency } });
+    this.onChange({ publish: { record, urgency } });
   }
 
   /**
-   * Store the final record of one of this binding's runs and publish it at once. A task whose run
-   * ended has no active descendants, so the tree first stops each that is still active.
+   * Store the final record of one of this binding's runs and publish it at once. A task whose run ended has no active descendants, so the tree first stops each that is still active.
    */
   end(record: TaskRecord): void {
     for (const descendant of this.active(record.task_id))
@@ -150,9 +144,7 @@ export class TaskTree {
   }
 
   /**
-   * Store a descendant update that the child of the direct task `child` sent, and publish it at
-   * once. The tree accepts it only when its parent is `child` or one of its descendants, it names
-   * neither this supervisor nor `child` or an ancestor of `child`, and a known task keeps its parent.
+   * Store a descendant update that the child of the direct task `child` sent, and publish it at once. The tree accepts it only when its parent is `child` or one of its descendants, it names neither this supervisor nor `child` or an ancestor of `child`, and a known task keeps its parent.
    */
   accept(child: string, record: TaskRecord): boolean {
     const previous = this.records.get(record.task_id);
@@ -170,8 +162,7 @@ export class TaskTree {
   }
 
   /**
-   * Read the descendants again from child files: a process outside this binding can add them. It
-   * resolves when the tree shows this read or one that started later, because a later read wins.
+   * Read the descendants again from child files: a process outside this binding can add them. It resolves when the tree shows this read or one that started later, because a later read wins.
    */
   async refresh(): Promise<void> {
     const sequence = ++this.reads.started;
@@ -190,7 +181,7 @@ export class TaskTree {
       removed = true;
     }
 
-    const updated: string[] = [];
+    let updated = 0;
 
     for (const record of descendants) {
       const previous = this.records.get(record.task_id);
@@ -198,17 +189,16 @@ export class TaskTree {
         continue;
       this.records.set(record.task_id, record);
       this.read.add(record.task_id);
-      updated.push(record.task_id);
+      updated++;
     }
 
-    if (removed || updated.length) this.order = undefined;
+    if (removed || updated) this.order = undefined;
     if (removed) this.onChange({});
-    for (const taskId of updated) this.onChange({ taskId });
+    for (let i = 0; i < updated; i++) this.onChange({});
   }
 
   /**
-   * Keep the tree fresh while it is observed: read now, then every second until the returned stop
-   * ends the last observation.
+   * Keep the tree fresh while it is observed: read now, then every second until the returned stop ends the last observation.
    */
   observe(): () => void {
     if (this.closed) return () => {};
@@ -235,7 +225,7 @@ export class TaskTree {
   }
 
   /** Each listed task once, below its parent; a record in a parent cycle is not listed. */
-  private listed(): { list: readonly TaskRecord[]; byId: ReadonlyMap<string, TaskRecord> } {
+  private listed(): Listing {
     if (this.order) return this.order;
     const children = new Map<string | null, TaskRecord[]>();
 

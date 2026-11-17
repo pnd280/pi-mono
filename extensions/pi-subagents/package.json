@@ -10,7 +10,8 @@
   "exports": {
     ".": "./index.ts",
     "./constants": "./src/constants.ts",
-    "./details": "./src/details.ts"
+    "./details": "./src/details.ts",
+    "./text": "./src/text.ts"
   },
   "dependencies": {
     "@pi-mono/libs": "0.1.0",

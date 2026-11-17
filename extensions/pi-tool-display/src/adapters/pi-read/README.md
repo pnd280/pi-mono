@@ -14,4 +14,4 @@ Schema recognition checks integer coordinate types, required fields, and selecti
 
 ## Validation
 
-Run the [installed-CLI compatibility check](../../host/install-cli.test.ts), and follow the [pi-read terminal check](../../../docs/validation.md#pi-read) for visual checks.
+The [interpretation tests](index.test.ts) and [card tests](render.test.ts) check that argument normalisation and rendering leave retained arguments and results unchanged. Follow the [pi-read terminal check](../../../docs/validation.md#pi-read) for visual checks.

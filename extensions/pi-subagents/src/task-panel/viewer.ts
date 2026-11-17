@@ -54,7 +54,6 @@ type Row =
       component: ToolExecutionComponent;
       name: string;
       args: unknown;
-      started: boolean;
       output: ToolOutput | undefined;
       partial: boolean;
     };
@@ -155,9 +154,7 @@ function builtInRenderers(cwd: string): Map<string, Renderers> {
 }
 
 /**
- * A child transcript in Pi's chat components. Calls never receive `setArgsComplete`, as in
- * Pi's own history, so renderers do not read the current files. Scrolling, keyboard focus,
- * and mounting belong to the caller.
+ * A child transcript in Pi's chat components. Calls never receive `setArgsComplete`, as in Pi's own history, so renderers do not read the current files. Scrolling, keyboard focus, and mounting belong to the caller.
  */
 export class TranscriptViewer extends Container {
   private rows = new Map<string, Row>();
@@ -233,8 +230,11 @@ export class TranscriptViewer extends Container {
   }
 
   private tool(item: Extract<TranscriptItem, { kind: "tool" }>): Row {
-    const { call, output, partial, started } = item;
+    const { call, output, partial } = item;
     const previous = this.rows.get(item.key);
+    // The package's own cards escape recorded values as they do in the main chat; Pi's renderers receive display copies.
+    const own = this.options.tools.has(call.name);
+    const shown = (value: unknown) => (own ? value : displayValue(value));
     let reused = previous?.kind === "tool" && previous.name === call.name ? previous : undefined;
     let component = reused?.component;
 
@@ -242,7 +242,7 @@ export class TranscriptViewer extends Container {
       component = new ToolExecutionComponent(
         displayText(call.name),
         call.id,
-        displayValue(call.arguments),
+        shown(call.arguments),
         { showImages: false },
         this.renderers.get(call.name),
         this.options.ui,
@@ -252,9 +252,7 @@ export class TranscriptViewer extends Container {
       reused = undefined;
     }
 
-    if (reused && reused.args !== call.arguments)
-      component.updateArgs(displayValue(call.arguments));
-    if (started && !reused?.started) component.markExecutionStarted();
+    if (reused && reused.args !== call.arguments) component.updateArgs(shown(call.arguments));
     if (
       output &&
       (reused?.output?.content !== output.content ||
@@ -266,9 +264,11 @@ export class TranscriptViewer extends Container {
         {
           ...output,
           content: output.content.map((block) =>
-            block.type === "text" ? { ...block, text: displayText(block.text) } : block
+            block.type === "text"
+              ? { ...block, text: own ? block.text : displayText(block.text) }
+              : block
           ),
-          details: displayValue(output.details)
+          details: shown(output.details)
         },
         partial
       );
@@ -278,7 +278,6 @@ export class TranscriptViewer extends Container {
       component,
       name: call.name,
       args: call.arguments,
-      started,
       output,
       partial
     };

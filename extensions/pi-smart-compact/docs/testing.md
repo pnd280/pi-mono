@@ -2,11 +2,9 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Compatibility and terms](pi-compatibility.md)
 
-This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, and ownership of the native hooks it replaces; Pi owns summarisation and provider behaviour. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the invariants below.
+This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, ownership of the native hooks it replaces, and when a context status reaches the model; Pi owns summarisation and provider behaviour. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the invariants below.
 
 ## Must not regress
-
-E2e checks never use personal settings or credentials.
 
 ### Model and credential isolation
 
@@ -33,7 +31,13 @@ E2e checks never use personal settings or credentials.
 - **High, unit:** Settlement, binding disposal, or an abort detected before the boundary discards the pending request.
 - **High, e2e:** Session replacement and reload dispose the old binding before binding the new session state.
 - **High, e2e:** When an extension that loads earlier turns `context_window` off at session start, it stays off.
+- **High, e2e:** `context_window` returns the current session's usage in its result details, whether Pi knows it, does not know it, or has none, including after session replacement and reload.
 - **High, unit:** Disposing a binding during an attempt prevents late outcome status publication, and outcome listeners are released when the native attempt exits, including on exceptions.
+
+### Context status
+
+- **High, e2e:** When usage passes a `statusStep` boundary, the model's next request carries one status with the session's usage at that point, whether the boundary is found when a run starts or after a completed response, including a run's last. A status starts no request.
+- **High, e2e:** A boundary is reported once on a branch, including after a reload. It is reported again after a compaction, after a model change, and on a branch that does not hold its status. A status with a count from before a compaction is never saved after it.
 
 ### Hook ownership
 
@@ -43,15 +47,12 @@ E2e checks never use personal settings or credentials.
 
 ## Not tested
 
-- Footer status, docs-file loading, and the text of `context_window` results are below the severity bar.
+- Footer status, docs-file loading, and the wording of `context_window` results are below the severity bar.
 - Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
+- How a virtual conversation model's routes affect context statuses is below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
-- The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
+- The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and output size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
 - Pi owns threshold detection and the full overflow retry scheduler.
-- Interactive mounting and terminal appearance are not tested automatically. The [manual checks](#manual-checks) cover them.
+- Interactive mounting and terminal appearance are not tested automatically. The [manual checks](pi-compatibility.md#manual-checks) cover them.
 - Pi owns RPC display.
 - Undoing Pi's earlier overflow-recovery edits, atomic metadata and compaction writes, and combinations of third-party patches and reloads are not tested, because the extension does not guarantee them. The [compatibility limits](pi-compatibility.md#limitations) explain why.
-
-## Manual checks
-
-Use the [compatibility manual checks](pi-compatibility.md#manual-checks) for interactive progress, **Escape** behaviour, and real-provider summary quality.

@@ -39,27 +39,27 @@ export const resultDetailsSchema = z.looseObject({
 
 export const outputGuardSchema = z.object({
   truncated: z.literal(true),
-  fullOutputPath: nonemptyStringSchema.optional().catch(undefined),
-  writeError: nonemptyStringSchema.optional().catch(undefined)
+  fullOutputPath: nonemptyStringSchema.optional(),
+  writeError: nonemptyStringSchema.optional()
 });
 
 export const omittedResultSchema = z.object({
   omitted: z.literal(true),
-  fullResultPath: nonemptyStringSchema.optional().catch(undefined)
+  fullResultPath: nonemptyStringSchema.optional()
 });
 
 export const noticeDetailsSchema = z.object({
-  error: nonemptyStringSchema.optional().catch(undefined),
-  mode: z.string().optional().catch(undefined),
-  calls: z.array(z.unknown()).optional().catch(undefined),
-  resourceUri: nonemptyStringSchema.optional().catch(undefined),
+  error: nonemptyStringSchema.optional(),
+  mode: z.string().optional(),
+  calls: z.array(z.unknown()).optional(),
+  resourceUri: nonemptyStringSchema.optional(),
   outputGuard: z.unknown().optional(),
   mcpResult: z.unknown().optional()
 });
 
 export const failedScriptCallSchema = z.object({
   ok: z.literal(false),
-  error: z.string().optional().catch(undefined)
+  error: z.string().optional()
 });
 
 export const scriptSummarySchema = z.object({

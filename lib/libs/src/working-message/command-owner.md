@@ -16,8 +16,6 @@ After a [version mismatch](../coordination/README.md#version-mismatch), each par
 
 ## Recommended owner ranks
 
-Each participant states its reasons in its own documentation.
-
 | Participant      | `ownerRank` |
 | ---------------- | ----------- |
 | pi-todo          | `100`       |

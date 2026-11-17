@@ -36,17 +36,15 @@ export type WidgetHost = {
   footerContainer: Container;
   customFooter: NativeComponent | undefined;
   footerDataProvider: ReadonlyFooterDataProvider;
-  createExtensionUIContext(): ExtensionContext["ui"];
   renderWidgets(): void;
   setExtensionFooter: ExtensionContext["ui"]["setFooter"];
 };
 
 type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"] };
 
-export const inspectedPiVersion = "1.5.0";
+export const inspectedPiVersion = "1.5.2";
 
-// Inspected Pi 1.5.0 API and bundled CLI sources, respectively. Keep the owner in
-// .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
+// Inspected Pi 1.5.2 API and bundled CLI sources, respectively.
 const hostHashes = {
   switchTuiMode: new Set([
     "71c592580432ca0373dfd085c2a6649e2a3898e1017a43151dbce8d9e895d3eb",
@@ -63,18 +61,14 @@ const hostHashes = {
   setExtensionFooter: new Set([
     "7eed76ffc30d64b63edf638c82d2571b1f95ce637cf7daf3f5537afd9f2ae5cc",
     "f37882eace0d7aa8fe719440cb51d57134ca33652d811d84ffcce2460f199112"
-  ]),
-  createExtensionUIContext: new Set([
-    "9d4e6324456b3fbeafc0164acdce2495d40f8807cf969986761ef6e7e82cf45a",
-    "d5a9dc7b63e0b1be41091d34aae592c0a7451d86eaa837b97bdae81c5d34e49f"
   ])
 };
 
 const rendererHashes = new Set([
   "77b3e4902ad3f51cb43477bb6f4217e68ae7af76bed5d9bcfc90963fb1d9af52",
   "3edb75ade9475a01917d8e21b1aafca81ec901e810570c9090b5c097c71a7dc8",
-  "d72907c9a878f4e729638f3887954ba7b73ba1d65581d31c25e69cee886651ad",
-  "32657b82ce120ddfe4c9cd486867fea7fd7120d7871061ce1010ada325d9c94a"
+  "9c7a317d9dcef896c71ab269128e13f717d37dbc401beef1ca30091c534ea466",
+  "2034f3ec705ce9f9f0c8c73d27d6cf3ab58d3b5a6f1ecb27ff52636828baa5fa"
 ]);
 
 /** Unknown wrappers need the inspected version; provenance alone cannot identify native code. */
@@ -148,7 +142,7 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
 
   try {
     hooks.replace(target, "setExtensionStatus", function (this: unknown, id, text) {
-      if (active && id === key && text === undefined) {
+      if (active && id === key) {
         found = this;
 
         return;
@@ -156,8 +150,7 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
 
       original.call(this, id, text);
     });
-    // Intercept before the native status registry or requestRender is touched. An unknown
-    // host can at worst clear this unique, never-registered key; no existing content is removed.
+    // Intercept before the native status registry or requestRender is touched. An unknown host can at worst clear this unique, never-registered key; no existing content is removed.
     ui.setStatus(key, undefined);
   } finally {
     active = false;
@@ -165,7 +158,6 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
   }
 
   if (!compatible(found)) return undefined;
-  const nativeUI = found.createExtensionUIContext();
 
-  return { host: found, theme: () => nativeUI.theme };
+  return { host: found, theme: () => ui.theme };
 }

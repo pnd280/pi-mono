@@ -7,7 +7,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 
-// Pi does not export its virtual-model predicate from the public entry point.
+/** Pi does not export its virtual-model predicate from the public entry point. */
 export const virtualModelApi = "pi-virtual";
 
 export type ContextSnapshot = { messages: AgentSession["agent"]["state"]["messages"] };
@@ -40,7 +40,7 @@ export type NativeSession = Pick<
   _autoCompactionAbortController: AbortController | undefined;
   _compactionAbortController: AbortController | undefined;
   _runDefaultCompaction: DefaultCompaction;
-  // The inspected runtime forwards manual unchanged, despite its narrower declaration.
+  /** The inspected runtime forwards manual unchanged, despite its narrower declaration. */
   _runAutoCompaction(
     reason: SessionBeforeCompactEvent["reason"],
     willRetry: boolean
@@ -53,9 +53,7 @@ export type AutoCompaction = NativeSession["_runAutoCompaction"];
 
 export type ManualCompaction = AgentSession["compact"];
 
-// Reviewed Pi 1.5.0 API modules and installed bundled CLI, respectively. Never
-// learn fingerprints from the running host: an unknown implementation must fail closed.
-// Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
+// Reviewed Pi 1.5.2 API modules and installed bundled CLI, respectively. Never learn fingerprints from the running host: an unknown implementation must fail closed.
 const fingerprints = [
   {
     _compactBeforeNextAssistantResponse:
@@ -99,9 +97,9 @@ export function assertCompatible(
     Object.entries(expected).every(([key, hash]) => inspectedSource(actual[key], new Set([hash])))
   );
 
-  if (VERSION !== "1.5.0" || !inspected) {
+  if (VERSION !== "1.5.2" || !inspected) {
     throw new Error(
-      "pi-smart-compact: requires the inspected Pi 1.5.0 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact: requires the inspected Pi 1.5.2 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

@@ -1,4 +1,4 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import {
   Container,
   MouseRegion,
@@ -10,8 +10,9 @@ import {
 } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import { builtinText } from "./builtins.ts";
-import { widgetRendererCompatible, type WidgetHost } from "./host.ts";
+import { builtinText, gitChangesId } from "./builtins.ts";
+import { GitChanges } from "./git-changes.ts";
+import { inspectedPiVersion, widgetRendererCompatible, type WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
 import { clip, renderRows, type Rendered } from "./render.ts";
 
@@ -38,22 +39,43 @@ export class WidgetCoordinator {
   /** Unclipped regions from one render pass. */
   private measured: { width: number; rendered: Record<Region, Rendered> } | undefined;
   private cache: { width: number; height: number; rendered: Record<Region, Rendered> } | undefined;
+  /** Geometry of the frame on screen, which stays valid until the next frame replaces it. */
+  private frame: Record<Region, Rendered> | undefined;
   private saved: Layout | undefined;
   private draft: Layout | undefined;
   private readonly verbose = { context: false, tokens: false };
+  private readonly git: GitChanges;
+  private entryCount: number | undefined;
   private active = true;
   private readonly nativeFooter: WidgetHost["setExtensionFooter"];
   private unsubscribe: (() => void) | undefined;
+  private readonly host: WidgetHost;
+  private readonly theme: () => Theme;
+  private readonly warn: (message: string) => void;
 
-  constructor(
-    private readonly host: WidgetHost,
-    private readonly theme: () => Theme,
-    private readonly warn: (message: string) => void
-  ) {
+  constructor({
+    host,
+    theme,
+    warn,
+    exec
+  }: {
+    host: WidgetHost;
+    theme: () => Theme;
+    warn: (message: string) => void;
+    exec: ExtensionAPI["exec"];
+  }) {
+    this.host = host;
+    this.theme = theme;
+    this.warn = warn;
     if (host.customFooter)
       throw new Error(
         "pi-editor-widgets: footer conflict. Disable the other footer extension and /reload; native widgets and statuses remain supported."
       );
+    this.git = new GitChanges(
+      exec,
+      () => host.session.sessionManager.getCwd(),
+      () => host.ui.requestRender()
+    );
     this.nativeFooter = host.setExtensionFooter;
     const aboveEditor = new Container();
     aboveEditor.addChild(new Spacer(aboveEditorSpacing));
@@ -94,7 +116,10 @@ export class WidgetCoordinator {
         this.nativeFooter.call(host, factory);
       });
       this.nativeFooter.call(host, () => this.components.footer);
-      this.unsubscribe = host.footerDataProvider.onBranchChange(() => host.ui.requestRender());
+      this.unsubscribe = host.footerDataProvider.onBranchChange(() => {
+        this.git.refresh();
+        host.ui.requestRender();
+      });
       this.mount();
     } catch (error) {
       this.dispose();
@@ -118,9 +143,14 @@ export class WidgetCoordinator {
     this.host.ui.requestRender();
   }
 
+  /** A tool call can change files long before its result reaches the session. */
+  refreshGitChanges(): void {
+    this.git.refresh();
+  }
+
   /** Unclipped region height including spacing, without measuring the editor it is sized against. */
   regionHeight(width: number): number {
-    if (!this.active || width < 1) return 0;
+    if (!this.active) return 0;
     const { rendered } = this.measure(width);
 
     return (
@@ -149,6 +179,14 @@ export class WidgetCoordinator {
       }
     }
 
+    // Pi has no event for the end of a `!` command, but every finished command, tool result, and response adds a session entry.
+    const entryCount = this.host.session.sessionManager.getEntryCount();
+
+    if (entryCount !== this.entryCount) {
+      this.entryCount = entryCount;
+      this.git.refresh();
+    }
+
     const fullscreen = this.host.renderer.mode === "fullscreen";
     const contextDisplay = this.verbose.context ? "verbose" : "compact";
     const tokensDisplay = this.verbose.tokens ? "verbose" : "compact";
@@ -159,7 +197,8 @@ export class WidgetCoordinator {
       this.theme(),
       {
         contextDisplay: fullscreen ? contextDisplay : "regular",
-        tokensDisplay: fullscreen ? tokensDisplay : "regular"
+        tokensDisplay: fullscreen ? tokensDisplay : "regular",
+        git: this.git.current
       }
     ))
       this.setText(id, value);
@@ -186,8 +225,7 @@ export class WidgetCoordinator {
     ) {
       const widget = id === "builtin:context" ? "context" : "tokens";
       component = new MouseRegion(component, (event) => {
-        if (!this.active || this.host.renderer.mode !== "fullscreen" || event.button !== "left")
-          return undefined;
+        if (!this.active || event.button !== "left") return undefined;
         // Claim the press so Pi delivers a click instead of starting text selection.
         if (event.type === "press") return { handled: true, render: false };
         if (event.type !== "click") return undefined;
@@ -216,7 +254,9 @@ export class WidgetCoordinator {
       !("doRender" in target) ||
       typeof target.doRender !== "function"
     ) {
-      this.warn("pi-editor-widgets: renderer contract unavailable; coordinator released.");
+      this.warn(
+        `pi-editor-widgets: renderer contract unavailable; coordinator released. Use Pi ${inspectedPiVersion} and /reload, or disable the extension.`
+      );
       this.dispose();
 
       return;
@@ -257,12 +297,6 @@ export class WidgetCoordinator {
   }
 
   private render(width: number): Record<Region, Rendered> {
-    if (width < 1)
-      return {
-        aboveEditor: { lines: [], cells: [] },
-        belowEditor: { lines: [], cells: [] },
-        footer: { lines: [], cells: [] }
-      };
     const height = this.host.ui.terminal.rows;
     if (this.cache?.width === width && this.cache.height === height) return this.cache.rendered;
     const measured = this.measure(width);
@@ -286,6 +320,7 @@ export class WidgetCoordinator {
       remaining -= budget;
     });
     this.cache = { width, height, rendered };
+    this.frame = rendered;
 
     return rendered;
   }
@@ -294,18 +329,19 @@ export class WidgetCoordinator {
     if (this.measured?.width === width) return this.measured;
     this.sync();
     const layout = resolveLayout(this.draft ?? this.saved, [...this.registry.values()]);
+    this.git.setPlaced(regions.some((region) => layout[region].flat().includes(gitChangesId)));
     const sources = new Map(
       [...this.registry].flatMap(([id, source]) =>
         source.available ? [[id, source.component] as const] : []
       )
     );
-    const separator = this.theme().fg("dim", " • ");
+    const options = { sources, width, separator: this.theme().fg("dim", " • ") };
     this.measured = {
       width,
       rendered: {
-        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator, "bottom"),
-        belowEditor: renderRows(layout.belowEditor, sources, width, separator),
-        footer: renderRows(layout.footer, sources, width, separator)
+        aboveEditor: renderRows(layout.aboveEditor, { ...options, align: "bottom" }),
+        belowEditor: renderRows(layout.belowEditor, options),
+        footer: renderRows(layout.footer, options)
       }
     };
 
@@ -326,12 +362,23 @@ export class WidgetCoordinator {
 
   private mouse(region: Region, event: TuiMouseEvent): TuiMouseEventResult | undefined {
     if (!this.active) return undefined;
-    const cells = this.cache?.rendered[region].cells ?? [];
+    const cells = this.frame?.[region].cells ?? [];
     const cell = cells.find(
       ({ x, y, width, height }) =>
         event.x >= x && event.x < x + width && event.y >= y && event.y < y + height
     );
     if (!cell) return undefined;
+    // Pi disposes a removed native widget before the next frame replaces this geometry.
+    const source = [...this.registry.values()].find(
+      ({ component }) => component === cell.component
+    );
+    if (
+      source?.id.startsWith("widget:") &&
+      !nativeRegions.some((region) =>
+        [...this.native(region).widgets.values()].includes(cell.component)
+      )
+    )
+      return undefined;
     const result = cell.component.handleMouse?.({
       ...event,
       x: event.x - cell.x,
@@ -342,7 +389,7 @@ export class WidgetCoordinator {
     });
     if (!result) return undefined;
 
-    // Pi 1.5.0's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
+    // Pi 1.5.2's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
     if ("target" in result) {
       if (!result.focus || !cell.component.handleInput) return result;
       const delegated = { ...result, focusTarget: cell.component };
@@ -351,7 +398,7 @@ export class WidgetCoordinator {
     }
 
     if (!result.handled && !result.capture && !result.focus) return result;
-    // Pi 1.5.0's container dispatch contract retains the native target for drag capture and focus.
+    // Pi 1.5.2's container dispatch contract retains the native target for drag capture and focus.
     const forwarded = {
       ...result,
       handled: true,
@@ -371,6 +418,7 @@ export class WidgetCoordinator {
   dispose(): void {
     if (!this.active) return;
     this.active = false;
+    this.git.dispose();
     this.unsubscribe?.();
     this.hooks.restore();
     this.rendererHooks.restore();
@@ -389,6 +437,7 @@ export class WidgetCoordinator {
 
     this.registry.clear();
     this.invalidateCache();
+    this.frame = undefined;
     this.host.ui.requestRender();
   }
 }

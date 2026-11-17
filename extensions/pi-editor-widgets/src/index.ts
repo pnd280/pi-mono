@@ -1,11 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { WidgetCoordinator } from "./coordinator.ts";
-import { findWidgetHost } from "./host.ts";
+import { findWidgetHost, inspectedPiVersion } from "./host.ts";
 import { widgetSettings, type Preferences } from "./settings.ts";
 
-// The menu loads on first use to keep it out of startup. Sessions share one import: under jiti
-// a concurrent import can return a partly evaluated module.
+// The menu loads on first use to keep it out of startup. Sessions share one import: under jiti a concurrent import can return a partly evaluated module.
 const importMenu = () =>
   Promise.all([import("@pi-mono/libs/tui/responsive-custom-ui"), import("./menu/widget-menu.ts")]);
 let menu: ReturnType<typeof importMenu> | undefined;
@@ -37,21 +36,29 @@ export default function editorWidgets(pi: ExtensionAPI): void {
       binding = findWidgetHost(ctx.ui);
       if (!binding)
         throw new Error(
-          "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.5.0 and /reload, or disable the extension. Native UI was left unchanged."
+          `pi-editor-widgets: unsupported Pi widget registry. Use Pi ${inspectedPiVersion} and /reload, or disable the extension. Native UI was left unchanged.`
         );
-      coordinator = new WidgetCoordinator(binding.host, binding.theme, (message) =>
-        notify(ctx, message)
-      );
+      coordinator = new WidgetCoordinator({
+        host: binding.host,
+        theme: binding.theme,
+        warn: (message) => notify(ctx, message),
+        exec: (command, args, options) => pi.exec(command, args, options)
+      });
       apply(ctx, settingsFor(ctx).load());
     } catch (error) {
-      notify(
-        ctx,
+      const message =
         error instanceof Error
           ? error.message
-          : "pi-editor-widgets: cannot acquire the widget host."
+          : "pi-editor-widgets: cannot acquire the widget host.";
+      notify(
+        ctx,
+        message.startsWith("pi-editor-widgets: ") ? message : `pi-editor-widgets: ${message}`
       );
     }
   });
+
+  pi.on("tool_execution_end", () => coordinator?.refreshGitChanges());
+  pi.on("agent_settled", () => coordinator?.refreshGitChanges());
 
   pi.registerCommand("widgets", {
     description: "Arrange editor widgets and footer rows",
@@ -87,7 +94,7 @@ export default function editorWidgets(pi: ExtensionAPI): void {
       // Read the host context before the menu loads; a new session can start during the import.
       const ui = ctx.ui;
       const signal = ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal;
-      const theme = binding?.theme ?? (() => ui.theme);
+      const theme = () => ui.theme;
 
       try {
         current.apply(preferences.project ?? preferences.global);

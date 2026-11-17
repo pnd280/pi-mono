@@ -7,13 +7,15 @@ import { hasErrorCode } from "@pi-mono/utils/errors";
 import { KILL_GRACE_MS } from "../constants.ts";
 
 /**
- * The interval of process-group checks. Each signal follows a check that found the group; PIDs are
- * allocated in sequence, so its PGID is reused within one interval only after the PID space wraps.
+ * The interval of process-group checks. Each signal follows a check that found the group; PIDs are allocated in sequence, so its PGID is reused within one interval only after the PID space wraps.
  */
 const GROUP_CHECK_MS = 50;
 
 /** How long a group can remain after SIGKILL, such as zombies that their new parent reaps. */
 const KILL_CHECK_MS = 1_000;
+
+export const asError = (error: unknown) =>
+  error instanceof Error ? error : new Error(String(error));
 
 export function processOptions(): Pick<SpawnOptions, "detached" | "windowsHide"> {
   return process.platform === "win32" ? { detached: false, windowsHide: true } : { detached: true };
@@ -49,8 +51,7 @@ export function killGroupSync(child: ChildProcess): void {
 }
 
 /**
- * Freeze the live owned tree before discovery, including separately detached descendants. On
- * Windows, it returns the pending `taskkill` stop.
+ * Freeze the live owned tree before discovery, including separately detached descendants. On Windows, it returns the pending `taskkill` stop.
  */
 export function terminateTree(
   child: ChildProcess,
@@ -91,7 +92,7 @@ export function terminateTree(
       }
     } while (added);
   } catch (error) {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
   } finally {
     // Kill descendants first. All targets came from this live handle, never saved records.
     for (const pid of [...owned].reverse()) {
@@ -99,7 +100,7 @@ export function terminateTree(
         if (groups.has(pid)) signalProcess(-pid, "SIGKILL");
         signalProcess(pid, "SIGKILL");
       } catch (error) {
-        onError(error instanceof Error ? error : new Error(String(error)));
+        onError(asError(error));
       }
     }
   }
@@ -108,9 +109,7 @@ export function terminateTree(
 }
 
 /**
- * Begin the platform's forced stop; the caller already waited the stdin grace period. It resolves
- * when the stop ends: on Linux and macOS, when the child's process group is gone or its failure was
- * reported, also after the child itself exited.
+ * Begin the platform's forced stop. It resolves when the stop ends: on Linux and macOS, when the child's process group is gone or its failure was reported, also after the child itself exited.
  */
 export function forceStop(
   child: ChildProcess,
@@ -143,14 +142,12 @@ export function forceStop(
 
   // The live child holds its PID, so the first signal reaches its own group.
   return stopGroup(pid).catch((error: unknown) => {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
   });
 }
 
 /**
- * After the child's exit, the forced stop of the members that remain in its process group, such as a
- * process that holds the child's output pipes. It is undefined when the group is gone, and on
- * Windows, where the child has no process group.
+ * After the child's exit, the forced stop of the members that remain in its process group, such as a process that holds the child's output pipes. It is undefined when the group is gone, and on Windows, where the child has no process group.
  */
 export function stopRemainingGroup(
   child: ChildProcess,
@@ -160,23 +157,21 @@ export function stopRemainingGroup(
   if (pid === undefined || process.platform === "win32") return undefined;
 
   try {
-    // An answer proves only that a group with this PGID exists. After the child is reaped, only the
-    // remaining members keep the number, so a reused PGID can belong to another group.
+    // An answer proves only that a group with this PGID exists. After the child is reaped, only the remaining members keep the number, so a reused PGID can belong to another group.
     if (signalGroup(pid, 0) === "gone") return undefined;
   } catch (error) {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
 
     return undefined;
   }
 
   return stopGroup(pid).catch((error: unknown) => {
-    onError(error instanceof Error ? error : new Error(String(error)));
+    onError(asError(error));
   });
 }
 
 /**
- * Signal a process group. ESRCH means that it has no member left, so its PGID can be reused.
- * macOS also reports EPERM for a group that has only zombies, so EPERM does not prove a stop.
+ * Signal a process group. ESRCH means that it has no member left, so its PGID can be reused. macOS also reports EPERM for a group that has only zombies, so EPERM does not prove a stop.
  */
 function signalGroup(pgid: number, signal: NodeJS.Signals | 0): "sent" | "gone" | "denied" {
   try {

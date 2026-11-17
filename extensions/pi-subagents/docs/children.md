@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY.md#tasks-and-processes): a separate Pi process in RPC mode. A child is a full Pi session, not a sandbox. It starts with a fresh conversation, so the `prompt` must supply the context that it needs.
+Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY.md#tasks-and-processes): a separate Pi process in RPC mode. A child is a full Pi session, not a sandbox. A new task starts with a fresh conversation, so its `prompt` must supply the context that it needs; a resume continues the task's conversation.
 
 ## What a child inherits
 
@@ -11,12 +11,13 @@ Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY
 - Children load their own configured extensions and tools. When Pi reports an absolute source path for this package, children also load it through `-e`; otherwise, their settings must load it.
 - A child whose settings load another copy of the package fails to launch.
 - Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
+- A child gets the selected [launch arguments](tasks.md#launch-arguments), with those of its [template](tasks.md#what-a-call-receives), before the flags that the extension sets.
 
 Because a child loads its own extensions, a model that an extension registers is available to it only under the conditions in [model and thinking](tasks.md#model-and-thinking).
 
 ## Result instructions
 
-The supervisor receives only the child's final reply. Each child's system prompt therefore tells the child this, and asks for a final reply that gives the outcome first, then evidence as file paths with line numbers or as commands and their results, and then what the child did not verify or finish. The [child prompt](../src/child/prompt.ts) holds the exact text.
+The supervisor receives only the child's final reply. Each child's system prompt therefore tells the child this, and asks for a final reply that is complete on its own. The [child prompt](../src/child/prompt.ts) holds the exact text.
 
 - The instructions follow the text from Pi and `--append-system-prompt`, and the [pi-model-prompt](../../pi-model-prompt/README.md) and [pi-profiles](../../pi-profiles/README.md) prompts.
 - The top-level supervisor's system prompt does not get them.

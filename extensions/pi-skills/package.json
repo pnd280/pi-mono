@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@pi-mono/libs": "0.1.0",
-    "zod": "^4.6.7"
+    "@pi-mono/utils": "0.1.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

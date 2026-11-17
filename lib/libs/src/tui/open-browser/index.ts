@@ -23,7 +23,6 @@ export type OpenBrowserOptions<Item> = {
 
 export async function openBrowser<Item>(options: OpenBrowserOptions<Item>): Promise<void> {
   const active = () => !options.signal.aborted;
-  if (!active()) return;
   let view: Browser<Item> | undefined;
   let requestRender: (() => void) | undefined;
   const abort = () => view?.dispose();

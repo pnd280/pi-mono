@@ -1,7 +1,6 @@
 import path from "node:path";
 
 import { expandHomePath } from "@pi-mono/utils/paths";
-import { hasGlob } from "@pi-mono/utils/search-scopes";
 import {
   parse,
   type AndOr,
@@ -12,6 +11,8 @@ import {
   type Word,
   type WordPart
 } from "unbash";
+
+import { hasGlob } from "./scope-globs.ts";
 
 export type PathHint = {
   value: string;
@@ -32,7 +33,7 @@ type CommandSpec = {
   scriptFiles?: readonly string[];
   /** Options whose positive values are path patterns. */
   globs?: readonly string[];
-  /** Filename-only output modes, which do not read content into the result. */
+  /** Output modes that return no file content, such as filename, count, and quiet modes. */
   listing?: readonly string[];
   /** Options that make every positional a path. */
   filesOnly?: readonly string[];
@@ -127,13 +128,16 @@ function supportedPart(part: WordPart): boolean {
       return true;
     case "DoubleQuoted":
       return part.parts.every((child) => child.type === "Literal");
+    case "Glob":
+      return part.parts?.every(supportedPart) ?? true;
     case "BraceExpansion":
       // Scope alternatives do not interpret shell quotes or escapes inside braces.
       return (
-        !part.text.includes("\\") &&
+        !/[\\"']/.test(part.text) &&
         (part.parts?.every(
           (child) =>
-            child.type === "Literal" || (child.type === "BraceExpansion" && supportedPart(child))
+            child.type === "Literal" ||
+            ((child.type === "BraceExpansion" || child.type === "Glob") && supportedPart(child))
         ) ??
           true)
       );
@@ -199,14 +203,15 @@ function wordPattern(word: Word): boolean {
   return word.parts
     ? word.parts.some(
         (part) =>
-          part.type === "BraceExpansion" || (part.type === "Literal" && unescapedGlob(part.text))
+          part.type === "BraceExpansion" ||
+          part.type === "Glob" ||
+          (part.type === "Literal" && unescapedGlob(part.text))
       )
     : unescapedGlob(word.text);
 }
 
 /**
- * On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Map the Git Bash and MSYS2 drive
- * path `/c/dir` to `c:/dir`, and skip other POSIX-rooted paths, whose mount root is unknown.
+ * On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Map the Git Bash and MSYS2 drive path `/c/dir` to `c:/dir`, and skip other POSIX-rooted paths, whose mount root is unknown.
  */
 function nativeHint(hint: PathHint): PathHint | undefined {
   if (path.sep !== "\\" || !hint.value.startsWith("/")) return hint;
@@ -350,7 +355,10 @@ function commandHints(name: string, command: Command, cwd: string): PathHint[] {
   return hints.flatMap((hint) => nativeHint(hint) ?? []);
 }
 
-export function bashHints(source: string, cwd: string, home: string): PathHint[] {
+export function bashHints(
+  source: string,
+  { cwd, home }: { cwd: string; home: string }
+): PathHint[] {
   const script = parse(source);
   if ((script.errors?.length ?? 0) > 0) return [];
   const hints: PathHint[] = [];
@@ -375,14 +383,15 @@ export function bashHints(source: string, cwd: string, home: string): PathHint[]
     return true;
   }
 
-  // Negation, `time`, and redirected compound commands are separate nodes and stay unsupported.
+  // Negation and `time` are pipeline prefixes, and redirected compound commands are separate nodes; all stay unsupported.
   function visit(node: Statement | AndOr | PipelineNode, separator = "", piped = false): boolean {
     switch (node.type) {
       case "Statement":
         return !node.background && visit(node.command, separator, piped);
       case "Pipeline":
       case "AndOr":
-        if (node.type === "Pipeline" && node.operators.includes("|&")) return false;
+        if (node.type === "Pipeline" && (node.prefixes.length > 0 || node.operators.includes("|&")))
+          return false;
 
         return node.commands.every((child, index) =>
           visit(child, node.operators[index] ?? separator, piped || node.type === "Pipeline")

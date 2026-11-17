@@ -8,12 +8,12 @@ import {
   type RpcCommand,
   type RpcExtensionUIRequest,
   type RpcResponse,
-  type RpcSessionState,
   type SessionStats
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { errorMessage } from "@pi-mono/utils/errors";
 
+import type { ModelIdentity } from "../background-result.ts";
 import {
   DEPTH_ENV,
   PROTOCOL_KEY,
@@ -21,7 +21,13 @@ import {
   STOP_GRACE_MS,
   TASK_ID_ENV
 } from "../constants.ts";
-import { childMessageSchema, decode, encode, type ChildMessage } from "../coordination/protocol.ts";
+import {
+  childMessageSchema,
+  decode,
+  encode,
+  type ChildCommands,
+  type ChildMessage
+} from "../coordination/protocol.ts";
 import { firstLine } from "../result.ts";
 import { ChildConnection, type ProcessExit, type RpcRecord } from "./connection.ts";
 import type { PiInvocation } from "./invocation.ts";
@@ -61,7 +67,7 @@ export type ChildStart = {
   /** The continued history ends with a tool call that has no result. */
   interrupted: boolean;
   /** The model and thinking level that the child applied after Pi resolved and clamped the selection. */
-  model?: string;
+  model?: ModelIdentity;
   thinking: string;
   /** Statistics after `begin`; Pi's totals also cover the file's earlier runs. */
   usageStart: SessionStats;
@@ -80,6 +86,8 @@ export type ChildResult = {
 type ChildSelection = {
   model: string;
   thinking: string;
+  /** Extra Pi arguments; the flags that the extension sets follow them, so the extension's win. */
+  launchArgs: readonly string[];
   trusted: boolean;
   /** The supervisor's own extension entry; Pi loads a path that settings also name only once. */
   extension?: string;
@@ -107,7 +115,6 @@ type ChildOptions = ChildSelection & {
   onStart?: (start: ChildStart) => void | Promise<void>;
   /** The child's latest top-level tool, cleared when its agent starts and when the run exits. */
   onActivity?: (activity: string) => void;
-  onEvent?: (event: JsonAgentSessionEvent) => void;
   onUIRequest?: (request: RpcExtensionUIRequest) => void;
 };
 
@@ -148,8 +155,7 @@ export class ChildRun {
   private finished = false;
   private stopTimer: ReturnType<typeof setTimeout> | undefined;
   /**
-   * The forced stop, or after the child's exit, the stop of its remaining process group. It ends
-   * when the group is gone or its failure was reported.
+   * The forced stop, or after the child's exit, the stop of its remaining process group. It ends when the group is gone or its failure was reported.
    */
   private forced: Promise<void> | undefined;
   private listeners = new Set<(message: ChildMessage) => void>();
@@ -157,6 +163,7 @@ export class ChildRun {
   constructor(private readonly options: ChildOptions) {
     const args = [
       ...options.invocation.args,
+      ...options.launchArgs,
       "--mode",
       "rpc",
       "--model",
@@ -293,14 +300,11 @@ export class ChildRun {
   }
 
   /**
-   * Send a reserved `/subagents` subcommand and return the child's reply; undefined when the
-   * connection was closing and nothing was sent. A `handled` response is not success: Pi also
-   * reports it when the command handler throws. The child writes its reply before Pi writes the
-   * command's response, so a missing reply is reported, never retried.
+   * Send a reserved `/subagents` subcommand and return the child's reply; undefined when the connection was closing and nothing was sent. A `handled` response is not success: Pi also reports it when the command handler throws. The child writes its reply before Pi writes the command's response, so a missing reply is reported, never retried.
    */
-  async ask<T>(
-    name: string,
-    payload: unknown,
+  async ask<Name extends keyof ChildCommands, T>(
+    name: Name,
+    payload: ChildCommands[Name],
     match: (message: ChildMessage) => T | undefined
   ): Promise<T | undefined> {
     let reply: T | undefined;
@@ -325,11 +329,12 @@ export class ChildRun {
   }
 
   /**
-   * Send a reserved `/subagents` subcommand that has no reply; false when the connection was
-   * closing and nothing was sent. It is not input: it neither invalidates collection nor arms
-   * completion, and its pending response holds stdin open.
+   * Send a reserved `/subagents` subcommand that has no reply; false when the connection was closing and nothing was sent. It is not input: it neither invalidates collection nor arms completion, and its pending response holds stdin open.
    */
-  async command(name: string, payload: unknown): Promise<boolean> {
+  async command<Name extends keyof ChildCommands>(
+    name: Name,
+    payload: ChildCommands[Name]
+  ): Promise<boolean> {
     if (this.closing || this.finished) return false;
     const response = await this.connection.request({
       type: "prompt",
@@ -357,7 +362,7 @@ export class ChildRun {
     }
   }
 
-  private async begin(state: RpcSessionState): Promise<Begun> {
+  private async begin(): Promise<Begun> {
     const commands = await this.request({ type: "get_commands" });
     // Without the command, the begin request would reach the model as a prompt.
     if (
@@ -384,12 +389,6 @@ export class ChildRun {
     );
     if (!reply) throw new Error("Subagent launch cancelled");
     if (reply.kind === "begin-failed") throw new Error(reply.error);
-    if (
-      reply.task_id !== this.options.taskId ||
-      reply.session_id !== state.sessionId ||
-      reply.session_file !== state.sessionFile
-    )
-      throw new Error("Invalid subagent begin acknowledgement");
 
     return reply;
   }
@@ -407,7 +406,7 @@ export class ChildRun {
 
     if (this.options.sessionId !== undefined && state.data.sessionId !== this.options.sessionId)
       throw new Error("Subagent session identity does not match its task");
-    const begun = await this.begin(state.data);
+    const begun = await this.begin();
     if (this.closing) return;
     const usage = await this.request({ type: "get_session_stats" });
     if (usage.command !== "get_session_stats") throw new Error("Missing child usage");
@@ -417,7 +416,9 @@ export class ChildRun {
       sessionId: begun.session_id,
       sessionFile: begun.session_file,
       interrupted: begun.interrupted,
-      ...(state.data.model ? { model: `${state.data.model.provider}/${state.data.model.id}` } : {}),
+      ...(state.data.model
+        ? { model: { provider: state.data.model.provider, model: state.data.model.id } }
+        : {}),
       thinking: state.data.thinkingLevel,
       usageStart: usage.data
     };
@@ -432,8 +433,7 @@ export class ChildRun {
     });
     this.initialised = true;
 
-    // A handled command can start its own model work. Only a command with no run
-    // observed on this connection can complete without an agent_settled event.
+    // A handled command can start its own model work. Only a command with no run observed on this connection can complete without an agent_settled event.
     if (
       response.command === "prompt" &&
       response.data.disposition === "handled" &&
@@ -474,12 +474,10 @@ export class ChildRun {
     }
 
     this.observeEvent(record);
-    this.options.onEvent?.(record);
   }
 
   /**
-   * A reply goes to the request that waits for it; replies that no request matches are dropped.
-   * Only the begun run of this connection exchanges other coordination messages.
+   * A reply goes to the request that waits for it; replies that no request matches are dropped. Only the begun run of this connection exchanges other coordination messages.
    */
   private message(message: ChildMessage): void {
     if (this.finished) return;
@@ -565,8 +563,11 @@ export class ChildRun {
         this.connection.pendingCount === 0 &&
         !this.closing
       ) {
+        // On a resume, the session's last assistant text can be an earlier run's reply.
         if (text.command === "get_last_assistant_text")
-          this.text = [...this.earlier, text.data.text].filter(Boolean).join("\n\n");
+          this.text = [...this.earlier, this.lastAssistant ? text.data.text : null]
+            .filter(Boolean)
+            .join("\n\n");
         if (usage.command === "get_session_stats") this.usageEnd = usage.data;
         this.closeInput();
       }
@@ -635,9 +636,7 @@ export class ChildRun {
   }
 
   /**
-   * After the stop of the child's process group, EOF normally closes the output pipes. When another
-   * process still holds them, the supervisor closes them once no data arrived over several checks,
-   * or at the bound. Without EOF, more output could follow, so the result notes it.
+   * After the stop of the child's process group, EOF normally closes the output pipes. When another process still holds them, the supervisor closes them once no data arrived over several checks, or at the bound. Without EOF, more output could follow, so the result notes it.
    */
   private async closeOutput(
     child: ChildProcessWithoutNullStreams,
@@ -715,8 +714,7 @@ export class ChildRun {
   }
 
   /**
-   * Output closed before EOF can miss the records that decide the result, so a completed run fails.
-   * The note starts the first line, before the original text, so bounded error lines keep it.
+   * Output closed before EOF can miss the records that decide the result, so a completed run fails. The note starts the first line, before the original text, so bounded error lines keep it.
    */
   private noteOutput(result: ChildResult): ChildResult {
     if (!this.outputIncomplete) return result;

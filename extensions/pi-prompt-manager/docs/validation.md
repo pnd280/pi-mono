@@ -6,8 +6,6 @@
 
 Tests cover prompt policy, storage, editor effects, and SDK integration without visuals. They use temporary directories and captured clipboard input, never your settings, collections, or clipboard.
 
-Run the shared [browser, sizing, and remount tests](../../../libs/src/tui/README.md#validation) with `vpr '@pi-mono/libs#test' src/tui/`.
-
 ## Terminal launcher
 
 From the repository root:
@@ -26,13 +24,11 @@ Work only in the printed `Fixture:` directory.
 
 ### Reuse a fixture
 
-For reload, reopening, or concurrency checks, reuse only fixtures the launcher created, never a real agent directory. Replace the example path with the fixture's printed directory:
+For reload, reopening, or concurrency checks, reuse a fixture. Replace the example path with the fixture's printed directory:
 
 ```sh
 vpr 'pi-prompt-manager#validate:terminal' regular --reuse /tmp/pi-prompt-manager-terminal-EXAMPLE
 ```
-
-For the full syntax, pass `--help` instead of a mode.
 
 ### Basic scenario
 
@@ -52,25 +48,25 @@ Then add the checks below that match your change.
 
 ### Presentation, preview, or responsive mounting
 
-Setup: append `--models prompt-fixture/offline` to the launch command, so `/model` shows its "all" and "scoped" row to compare with the browser tabs. Use short, long, and multiline prompts.
+Setup: append `--models prompt-fixture/offline` to the launch command, so `/model` shows its "all" and "scoped" row as a layout reference for the browser tabs. Use short, long, and multiline prompts.
 
-| Do                                                                                         | Expect                                                                                                                        |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| At a wide size, 80×24, and 40×10, compare with the `/model` tabs.                          | Matches the [presentation contract](controls.md#presentation): stable list height, aligned ages, truncation, wrapped footers. |
-| Move the selection down, then type a search one character at a time.                       | The results don't blink, and each edit selects the first result.                                                              |
-| Resize between 19 rows (12-row inline) and 18 rows (13-row overlay), both ways.            | Search text, search cursor, selection, and preview scroll are kept.                                                           |
-| Start a deletion confirmation, then resize.                                                | The confirmation is cancelled.                                                                                                |
-| Resize to 80×24.                                                                           | The inline view is 15 rows.                                                                                                   |
-| In the preview, press **Tab** and **Shift+Tab**.                                           | Each collection keeps its search and selection.                                                                               |
-| Switch collections after scrolling a preview.                                              | The selected preview starts at the top.                                                                                       |
-| Start a deletion confirmation in the preview, then switch collections.                     | The confirmation is cancelled.                                                                                                |
-| Switch to an empty, unmatched, or unreadable collection in the preview.                    | You return to the list.                                                                                                       |
-| Press **Escape** in the preview.                                                           | The preview closes before the browser does.                                                                                   |
-| Open inspection on a short terminal, resize, and close.                                    | Inspection is still open after the resize. Closing it returns to the editor.                                                  |
-| Scroll a wrapped preview fully, including while confirming a deletion in a compact layout. | Border counts match the hidden rows.                                                                                          |
-| Resize until the preview fits.                                                             | The border counts disappear.                                                                                                  |
-| Resize below the minimum size, then cancel.                                                | The view closes.                                                                                                              |
-| Cancel while loading and while deleting; retry failed reads and deletions.                 | Completion never reopens a closed view.                                                                                       |
+| Do                                                                                         | Expect                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| At a wide size, 80×24, and 40×10, compare with the `/model` tabs.                          | The active browser tab is in brackets, such as `[History]`, where `/model` uses colour only. Otherwise matches the [presentation contract](controls.md#presentation): stable list height, aligned ages, truncation, wrapped footers. |
+| Move the selection down, then type a search one character at a time.                       | The results don't blink, and each edit selects the first result.                                                                                                                                                                     |
+| Resize between 19 rows (12-row inline) and 18 rows (13-row overlay), both ways.            | Search text, search cursor, selection, and preview scroll are kept.                                                                                                                                                                  |
+| Start a deletion confirmation, then resize.                                                | The confirmation is cancelled.                                                                                                                                                                                                       |
+| Resize to 80×24.                                                                           | The inline view is 15 rows.                                                                                                                                                                                                          |
+| In the preview, press **Tab** and **Shift+Tab**.                                           | Each collection keeps its search and selection.                                                                                                                                                                                      |
+| Switch collections after scrolling a preview.                                              | The selected preview starts at the top.                                                                                                                                                                                              |
+| Start a deletion confirmation in the preview, then switch collections.                     | The confirmation is cancelled.                                                                                                                                                                                                       |
+| Switch to an empty, unmatched, or unreadable collection in the preview.                    | You return to the list.                                                                                                                                                                                                              |
+| Press **Escape** in the preview.                                                           | The preview closes before the browser does.                                                                                                                                                                                          |
+| Open inspection on a short terminal, resize, and close.                                    | Inspection is still open after the resize. Closing it returns to the editor.                                                                                                                                                         |
+| Scroll a wrapped preview fully, including while confirming a deletion in a compact layout. | Border counts match the hidden rows.                                                                                                                                                                                                 |
+| Resize until the preview fits.                                                             | The border counts disappear.                                                                                                                                                                                                         |
+| Resize below the minimum size, then cancel.                                                | The view closes.                                                                                                                                                                                                                     |
+| Cancel while loading and while deleting; retry failed reads and deletions.                 | Completion never reopens a closed view.                                                                                                                                                                                              |
 
 ### Fullscreen paging
 
@@ -81,7 +77,7 @@ Setup: use the fullscreen fixture, and submit `pages` before opening the browser
 | Press **PageUp** and **PageDown** in the list, the preview, and `/prompts drafts show 1`.                                                                                                       | Only the focused view moves; at its limits the transcript stays still.      |
 | Close the browser and page.                                                                                                                                                                     | The transcript pages again.                                                 |
 | Resize between the 19-row inline and 18-row overlay layouts, both ways, and page.                                                                                                               | Paging still moves only the view.                                           |
-| Open transcript search with `tui.altScreen.search` (**Ctrl+Shift+F**; **Ctrl+F** on WSL) and page.                                                                                              | Paging doesn't reach the browser until **Escape** closes the search.        |
+| Open transcript search with `tui.altScreen.search` (**Ctrl+Shift+F** in this fixture, including on WSL) and page.                                                                               | Paging doesn't reach the browser until **Escape** closes the search.        |
 | In the fixture's `agent/keybindings.json` only, bind `tui.select.pageUp` and `tui.altScreen.pageUp` to `ctrl+pageUp`, and both `pageDown` actions to `ctrl+pageDown`. Run `/reload` and repeat. | The new keys page only the focused view, as the default keys did.           |
 | Close and reopen several times, then repeat after `/reload` and after `/new` (submit `pages` again).                                                                                            | The editor gets focus back, and restoring never submits or repeats effects. |
 
@@ -107,13 +103,13 @@ Setup: edit only the fixture's `agent/keybindings.json` and `agent/settings.json
 
 ### Capture, reload, or session isolation
 
-| Do                                                                                      | Expect                                                                                  |
-| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Submit `/raw-template`.                                                                 | "History" keeps the text before expansion, per the [capture rules](storage.md#capture). |
-| Submit steering and follow-up input, then withdraw it.                                  | The captures remain.                                                                    |
-| Reload several times, then run `/prompts` and both shortcuts.                           | Nothing is captured twice.                                                              |
-| Run fixtures at once in the same real cwd, through a symlink alias, and in another cwd. | The first two share collections; the other cwd doesn't.                                 |
-| Switch collections.                                                                     | Searches and selections are kept.                                                       |
+| Do                                                            | Expect                                                                                  |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Submit `/raw-template`.                                       | "History" keeps the text before expansion, per the [capture rules](storage.md#capture). |
+| Submit steering and follow-up input, then withdraw it.        | The captures remain.                                                                    |
+| Reload several times, then run `/prompts` and both shortcuts. | Nothing is captured twice.                                                              |
+| Run two sessions of one fixture at once.                      | They share collections.                                                                 |
+| Switch collections.                                           | Searches and selections are kept.                                                       |
 
 ### Storage, recovery, or exact text
 
@@ -134,26 +130,27 @@ Run these on real operating systems and filesystems. Fixture stdin and Linux-onl
 
 Setup: on Linux, macOS, and WSL, use isolated clipboards, never someone's live clipboard. Capturing fixture stdin doesn't test the OS clipboard.
 
-| Do                                                               | Expect                                                         |
-| ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| Copy complete Unicode, large text, and terminal controls.        | The native clipboard matches the complete source.              |
-| Make all native helper dependencies unavailable, then copy.      | Copying reports a failure.                                     |
-| End the session during an active copy.                           | The copy is cancelled.                                         |
-| Let a helper exceed the five-second deadline.                    | Copying reports a timeout.                                     |
-| On Linux, copy, press **Ctrl+Z**, paste in the shell, then `fg`. | The paste does not wait for Pi to resume.                      |
-| On macOS, copy Unicode with `LANG` unset, then with `LC_ALL=C`.  | The native clipboard matches the Unicode source in both cases. |
+| Do                                                                           | Expect                                                                                  |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Copy complete Unicode, large text, and terminal controls.                    | The native clipboard matches the complete source; on WSL, it ends at the first NUL.     |
+| Make all native helper dependencies unavailable, then copy.                  | Copying reports a failure.                                                              |
+| End the session during an active copy.                                       | The copy is cancelled.                                                                  |
+| Let a helper exceed the five-second deadline.                                | Copying reports a timeout.                                                              |
+| On Linux, copy, press **Ctrl+Z**, paste in the shell, then `fg`.             | The paste does not wait for Pi to resume.                                               |
+| On macOS, copy Unicode with `LANG` unset, then with `LC_ALL=C`.              | The native clipboard matches the Unicode source in both cases.                          |
+| On macOS, copy literal text beginning with `{\rtf1`, then with `%!PS-Adobe`. | The clipboard holds RTF, then EPS data, as the [README](../README.md#clipboard) states. |
 
 ### Storage permissions and writes
 
 Setup: use isolated collections on each supported Linux, macOS, and WSL filesystem, including the filesystem holding the agent directory on WSL.
 
-| Do                                                                                                                                           | Expect                                                       |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Use paths owned by another user, unsafe file types, and links.                                                                               | Access is refused.                                           |
-| Use a filesystem that rejects [private permission repair](../src/private-files/README.md#behaviour) or reports incorrect modes after repair. | Access is refused.                                           |
-| Open collections with incorrect modes and ACLs.                                                                                              | Modes and ACLs are repaired.                                 |
-| Hold a collection lock while another session tries to change it.                                                                             | The change reports contention after the two-second deadline. |
-| Read a collection while another session replaces it.                                                                                         | Every read sees a complete old or new document.              |
+| Do                                                                                                                                           | Expect                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Use paths owned by another user, unsafe file types, and links.                                                                               | Access is refused.                                                            |
+| Use a filesystem that rejects [private permission repair](../src/private-files/README.md#behaviour) or reports incorrect modes after repair. | Access is refused.                                                            |
+| Open collections with owner-readable but overly permissive modes and ACLs.                                                                   | Files use `0600`, directories `0700`, and effective ACL access is restricted. |
+| Hold a collection lock while another session tries to change it.                                                                             | The change reports contention after the two-second deadline.                  |
+| Read a collection while another session replaces it.                                                                                         | Every read sees a complete old or new document.                               |
 
 Setup for native Windows: use the default system temporary directory and an isolated test profile.
 

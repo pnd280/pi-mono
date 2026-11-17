@@ -9,6 +9,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { decodeUtf8Window } from "@pi-mono/utils/utf8";
 
+import { asError } from "../child/platform.ts";
+
 /** The one wording of both omission markers, so that the writer and the reader agree. */
 const OMITTED = "Earlier output omitted";
 
@@ -32,16 +34,13 @@ export function formatLogTail(
 }
 
 /**
- * The end of a job's log file, at most `maxBytes` and `maxLines`. It reads only the file's last
- * bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow
- * a link that replaced the path after `lstat`, but only the same regular file is read.
+ * The end of a job's log file: at most `maxBytes` and `maxLines` of output, plus omission markers. It reads the file's last bytes and its first 128 bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow a link that replaced the path after `lstat`, but only the same regular file is read.
  */
 export async function readLogTail(
   path: string,
   { maxBytes = DEFAULT_MAX_BYTES, maxLines = DEFAULT_MAX_LINES } = {}
 ): Promise<string> {
-  // Windows has no O_NOFOLLOW or O_NONBLOCK, so the opened file must also be the regular file that
-  // lstat found. Big integers keep 64-bit NTFS file IDs exact.
+  // Windows has no O_NOFOLLOW or O_NONBLOCK, so the opened file must also be the regular file that lstat found. Big integers keep 64-bit NTFS file IDs exact.
   const entry = await lstat(path, { bigint: true });
   if (!entry.isFile()) throw new Error("Job log is not a regular file");
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -71,8 +70,6 @@ export async function readLogTail(
 /** Includes the omission marker. Compact to half the limit to avoid rewriting on every chunk. */
 const MAX_LOG_BYTES = 16 * 1024 * 1024;
 const RETAIN_LOG_BYTES = MAX_LOG_BYTES / 2;
-
-const asError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
 /** A private, bounded log. All writes and compactions use the original handle, never its path. */
 export class JobLog extends Writable {
@@ -141,15 +138,7 @@ export class JobLog extends Writable {
     const previousBytes = Math.max(0, RETAIN_LOG_BYTES - data.length);
     const previous = Buffer.alloc(previousBytes);
 
-    if (previousBytes) {
-      const { bytesRead } = await handle.read(
-        previous,
-        0,
-        previousBytes,
-        this.size - previousBytes
-      );
-      if (bytesRead !== previousBytes) throw new Error("Job log changed during compaction");
-    }
+    if (previousBytes) await handle.read(previous, 0, previousBytes, this.size - previousBytes);
 
     const tail = Buffer.concat([previous, data.subarray(-RETAIN_LOG_BYTES)]);
     this.omitted += BigInt(this.size - this.headerBytes + data.length - tail.length);
@@ -172,7 +161,6 @@ export class JobLog extends Writable {
         data.length - offset,
         position + offset
       );
-      if (!bytesWritten) throw new Error("Job log write made no progress");
       offset += bytesWritten;
     }
   }

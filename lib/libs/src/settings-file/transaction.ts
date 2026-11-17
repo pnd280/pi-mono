@@ -22,8 +22,7 @@ const recordSchema = z.record(z.string(), z.unknown());
 
 let lockfile: typeof ProperLockfile | undefined;
 
-// Every settings reader evaluates this module at startup; only writes need the lock library,
-// which also installs process exit handlers when loaded. Updates are synchronous, so require it.
+// Every settings reader evaluates this module at startup; only writes need the lock library, which also installs process exit handlers when loaded. Updates are synchronous, so require it.
 function loadLockfile(): typeof ProperLockfile {
   const load: (id: string) => typeof ProperLockfile = createRequire(import.meta.url);
 
@@ -72,9 +71,7 @@ function linkTarget(path: string): string | undefined {
 }
 
 /**
- * Pi locks the supplied name, so writers through different aliases of one file take different
- * locks. A symlink's writers therefore also lock its final target, which every alias shares.
- * Both locks are taken in canonical path order, whichever alias the writer uses.
+ * Pi locks the supplied name, so writers through different aliases of one file take different locks. A symlink's writers therefore also lock its final target, which every alias shares. Both locks are taken in canonical path order, whichever alias the writer uses.
  */
 function lockDestination(path: string, target: string | undefined): () => void {
   const { lockSync } = loadLockfile();
@@ -100,10 +97,18 @@ function lockDestination(path: string, target: string | undefined): () => void {
   };
 }
 
-/** Pi-compatible lock around a bounded read/merge/atomic rename. Mutators may reject the write. */
-export function updateSettingsRecord(
+type SettingsFieldReplacement = {
+  /** Top-level key of the section object. A missing section is created. */
+  key: string;
+  /** The one section field that the update sets, including over an invalid old value. */
+  field: string;
+  value: unknown;
+};
+
+/** Pi-compatible lock around a bounded read, one field replacement, and an atomic rename. */
+export function replaceSettingsField(
   path: string,
-  update: (record: Record<string, unknown>) => void
+  { key, field, value }: SettingsFieldReplacement
 ): void {
   let temporary: string | undefined;
   let release: (() => void) | undefined;
@@ -116,22 +121,10 @@ export function updateSettingsRecord(
     if (linkTarget(path) !== link) throw new Error("Settings link changed during the update.");
     const target = link ?? path;
     const record = readSettingsRecord(target);
-    // A void callback type also accepts async functions. Never commit a
-    // record before its mutation finishes.
-    const outcome: unknown = update(record);
-
-    if (
-      outcome !== null &&
-      (typeof outcome === "object" || typeof outcome === "function") &&
-      "then" in outcome &&
-      typeof outcome.then === "function"
-    ) {
-      // The rejected mutation is no longer ours to await, but its rejection
-      // must not surface as an unhandled promise after releasing the lock.
-      void Promise.resolve(outcome).catch(() => {});
-      throw new TypeError("Settings mutations must be synchronous.");
-    }
-
+    // Reject malformed sections instead of discarding unrelated data to repair them.
+    const section = record[key] === undefined ? {} : record[key];
+    if (!isSettingsRecord(section)) throw new Error("Settings section must be an object.");
+    record[key] = { ...section, [field]: value };
     const content = `${JSON.stringify(record, null, 2)}\n`;
     if (Buffer.byteLength(content) > MAX_SETTINGS_FILE_BYTES)
       throw new Error("Settings exceed 1 MiB.");

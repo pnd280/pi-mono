@@ -19,7 +19,7 @@ For most layout changes, use `/widgets`. To edit layouts as JSON, add an `ext.pi
         ["builtin:cwd", "separator", "builtin:git-branch"],
         ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]
       ],
-      "hidden": ["builtin:session-title"]
+      "hidden": ["builtin:session-title", "builtin:git-changes"]
     }
   }
 }
@@ -39,32 +39,60 @@ A project layout replaces the entire global layout; the two are never merged.
 
 Each region is a list of rows, and each row is a list of these entries:
 
-| Entry                 | Meaning                                                                                             |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| `widget:<native-key>` | A widget registered with `setWidget()`.                                                             |
-| `status:<native-key>` | A status registered with `setStatus()`.                                                             |
-| `builtin:<name>`      | Built-in footer information: `cwd`, `git-branch`, `session-title`, `tokens`, `context`, or `model`. |
-| `separator`           | A divider.                                                                                          |
-| `flex`                | Right-aligns the group that follows.                                                                |
+| Entry                 | Meaning                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `widget:<native-key>` | A widget registered with `setWidget()`.                                                                            |
+| `status:<native-key>` | A status registered with `setStatus()`.                                                                            |
+| `builtin:<name>`      | Built-in footer information: `cwd`, `git-branch`, `git-changes`, `session-title`, `tokens`, `context`, or `model`. |
+| `separator`           | A divider.                                                                                                         |
+| `flex`                | Right-aligns the group that follows.                                                                               |
 
 - To hide something, list it in `hidden`. An empty region doesn't hide unlisted or future registrations.
 - Unlisted widgets get their own rows at the end of the region that their extension requested, sorted by ID in code unit order, whatever the locale. Unlisted statuses share one footer row, also sorted by ID in code unit order.
 - Unknown IDs keep their positions, so a widget reappears where you put it once its extension loads.
 - A row can contain each ID once and at most one `flex`. The same ID can appear in several rows, but an ID in `hidden` can't also be placed.
-- The default layout leaves the regions above and below the editor empty. Its first footer row shows `builtin:cwd`, `builtin:git-branch`, and `builtin:session-title`, with dividers between them. Its second footer row shows `builtin:tokens`, a divider, and `builtin:context`, then `builtin:model` right-aligned by `flex`.
+- The default layout leaves the regions above and below the editor empty. Its first footer row shows `builtin:cwd`, `builtin:git-branch`, and `builtin:session-title`, with dividers between them. Its second footer row shows `builtin:tokens`, a divider, and `builtin:context`, then `builtin:model` right-aligned by `flex`. It hides `builtin:git-changes`.
+- A layout that lists `builtin:git-changes` nowhere keeps it hidden. Every other unlisted built-in gets a footer row.
 
 ## Limits
 
 - Each region holds at most 1,000 rows, and each row at most 1,000 entries.
-- `hidden` holds at most 10,000 IDs, and each ID is at most 4,096 Unicode code points.
+- `hidden` holds at most 10,000 IDs, not counting `builtin:git-changes`, and each ID is at most 4,096 Unicode code points.
 - The complete settings file, including unrelated settings, is limited to 1 MiB on read and after save formatting. An oversized file warns and falls back to the next scope. A save that exceeds the limit fails and keeps the draft.
 
 ## How rows render
 
+- When the regions don't fit beside the editor, each region gets a share of the free terminal rows, and a region taller than its share ends with "… widgets clipped". A region with no room shows nothing.
 - An empty widget takes no space but keeps its position.
 - In `aboveEditor`, shorter widgets in a multiline row align to the bottom, next to the editor. Other regions align them to the top.
 - Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.
 
+## Git changes
+
+`builtin:git-changes` shows up to three parts, separated by two spaces: the lines added and removed by unstaged changes, the same for staged changes, and the number of untracked files after `U`. Staged counts are in brackets when unstaged counts are also shown, as in `+42 -11  [+10 -2]  U 3`. On their own they have no brackets, so they look like unstaged counts.
+
+To show the item:
+
+1. Open `/widgets` and choose a region.
+2. Open a row, or press **a** in the row list to add one.
+3. Press **a**, choose "Git changes", and press **Ctrl+S** to save.
+
+A part with nothing to report is left out, and a clean repository shows nothing.
+
+- The counts cover the whole repository that contains the session's working directory, not only that directory.
+- Lines are counted as `git diff --numstat` counts them. A side with no lines is left out, so three added lines show as `+3`. A part whose changed files have no added or removed lines shows as `+0 -0`, for example when only a binary file changed.
+- Untracked files are counted one by one, and files that `.gitignore` and Git's other exclude files cover are left out.
+- The counts update when the session starts, after each tool call and response, when the branch changes, and when Git's index changes, for example after `git add` or `git commit` in another terminal. A `!` command updates the counts when it finishes; during an agent response, this can wait until the agent finishes. A file edited outside Pi shows after the next of these, and so does an index change when the Git directory can't be watched.
+- During an update the item keeps its last counts. It shows nothing outside a repository, when `git` is missing or fails, or when the commands take more than two seconds together.
+- Git runs only in the interactive TUI and only while the item is placed in a row; hiding the item stops a running update. The commands pass `--no-optional-locks`, so they never take Git's index lock.
+
 ## Invalid layouts
 
-Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections.
+Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections. Failed saves keep the draft.
+
+| Message                                                                                                                                                                                                                                                             | What to do                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `pi-editor-widgets: cannot load layout settings from <path>. Check access, syntax, and the 1 MiB regular-file limit. Layout IDs must be unique per row and in hidden, hidden IDs cannot be placed, and a row has at most one flex. Falling back to the next scope.` | Fix the named file, then reopen `/widgets`.                                             |
+| `Cannot save this layout: too many or invalid entries.`                                                                                                                                                                                                             | Correct the draft, then press **Ctrl+S**.                                               |
+| `Check access, JSON, size and locks.`                                                                                                                                                                                                                               | Repair the file at the path shown, or wait for the other writer, then press **Ctrl+S**. |
+| `Resolve the host/footer diagnostic and /reload.` `Widget coordinator is inactive.`                                                                                                                                                                                 | Resolve the footer or host warning, then run `/reload`. The draft is not saved.         |

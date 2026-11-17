@@ -3,23 +3,15 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 import { containsPath, expandHomePath, windowsDrivePath } from "@pi-mono/utils/paths";
-import {
-  alternatives,
-  globRoot,
-  hasGlob,
-  isFilenameFilter,
-  parseFffScopes
-} from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
 import type * as BashModule from "./bash.ts";
 import type { PathHint } from "./bash.ts";
+import { alternatives, globRoot, hasGlob } from "./scope-globs.ts";
 import { instructionNames } from "./storage.ts";
 
-// The shell parser loads on the first Bash call instead of at startup.
-// Parallel calls share one import: under jiti a concurrent import can return a partly evaluated module.
+// The shell parser loads on the first Bash call instead of at startup. Parallel calls share one import: under jiti a concurrent import can return a partly evaluated module.
 let bashModule: Promise<typeof BashModule> | undefined;
 const loadBash = () => (bashModule ??= import("./bash.ts"));
 
@@ -30,7 +22,6 @@ export type Invocation = {
   parentToolCallId?: string;
   toolName: string;
   input: unknown;
-  sourceInfo?: NonNullable<Parameters<typeof fffAdapter>[0]>["sourceInfo"];
 };
 
 type Scope = {
@@ -41,7 +32,6 @@ type Scope = {
 const inputSchema = z.object({
   path: z.string().max(65536).nullish(),
   pattern: z.string().max(65536).nullish(),
-  constraints: z.string().max(65536).nullish(),
   glob: z.string().max(65536).nullish(),
   command: z.string().max(65536).nullish()
 });
@@ -57,45 +47,13 @@ function resolveInput(value: string, base: string, expandHome = true): string {
   return path.resolve(base, expandHome ? expandHomePath(value, homedir()) : value);
 }
 
-async function fffHints(kind: FffToolKind, input: Input, cwd: string): Promise<PathHint[]> {
-  const query = input.pattern;
-  let existing = false;
-
-  if (kind === "find" && query?.includes("/")) {
-    existing = await stat(resolveInput(query, cwd)).then(
-      () => true,
-      () => false
-    );
-  }
-
-  const { expressions } = parseFffScopes(kind, input, cwd, existing);
-
-  return expressions
-    .filter(({ source, value }) => source !== "path" || !isFilenameFilter(value))
-    .map(({ value, directoryOnly }) => ({
-      value,
-      cwd,
-      kind: directoryOnly ? "directory" : "auto",
-      read: kind !== "find",
-      pattern: true
-    }));
-}
-
 async function hints(invocation: Invocation, cwd: string): Promise<PathHint[]> {
   const parsed = inputSchema.safeParse(invocation.input);
-  if (!parsed.success) return [];
-  const input = parsed.data;
-  const kind = fffAdapter(
-    invocation.sourceInfo
-      ? { name: invocation.toolName, sourceInfo: invocation.sourceInfo }
-      : undefined
-  );
-  if (kind) return fffHints(kind, input, cwd);
 
-  return nativeHints(invocation.toolName, input, cwd);
+  return parsed.success ? nativeHints(invocation.toolName, parsed.data, cwd) : [];
 }
 
-// Pi's native tool path syntax, kept separate from Bash and FFF path semantics.
+// Pi's native tool path syntax, kept separate from Bash path semantics.
 function nativePath(value: string | null | undefined): string | undefined {
   if (value == null) return undefined;
   let normalized = value.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ").replace(/^@/, "");
@@ -111,38 +69,36 @@ async function nativeHints(name: string, input: Input, cwd: string): Promise<Pat
 
   const add = (
     value: string | null | undefined,
-    kind: PathHint["kind"],
-    read: boolean,
-    pattern = false,
-    relativeTo = cwd
+    hint: Pick<PathHint, "kind" | "read"> & Partial<Pick<PathHint, "cwd" | "pattern">>
   ) => {
-    if (value) output.push({ value, cwd: relativeTo, kind, read, pattern });
+    if (value) output.push({ value, cwd, pattern: false, ...hint });
   };
 
   switch (name) {
     case "read":
-      add(searchPath, "auto", true);
+      add(searchPath, { kind: "auto", read: true });
       break;
     case "ls":
-      add(searchPath, "directory", false);
+      add(searchPath, { kind: "directory", read: false });
       break;
 
     case "find":
-      add(searchPath, "directory", false);
+      add(searchPath, { kind: "directory", read: false });
       // Unrooted filename patterns do not identify a directory.
-      if (input.pattern?.includes("/")) add(input.pattern, "auto", false, true, base);
+      if (input.pattern?.includes("/"))
+        add(input.pattern, { kind: "auto", read: false, pattern: true, cwd: base });
       break;
 
     case "grep":
-      add(searchPath, "auto", true);
+      add(searchPath, { kind: "auto", read: true });
       if (input.glob?.includes("/") && !input.glob.startsWith("!"))
-        add(input.glob, "auto", true, true, base);
+        add(input.glob, { kind: "auto", read: true, pattern: true, cwd: base });
       break;
 
     case "bash": {
       const { bashHints } = await loadBash();
 
-      return bashHints(input.command ?? "", cwd, homedir());
+      return bashHints(input.command ?? "", { cwd, home: homedir() });
     }
 
     default:
@@ -167,7 +123,7 @@ export async function inferScope(invocation: Invocation, cwd: string): Promise<S
       if (glob) {
         const root = globRoot(expression);
         if (!root) continue;
-        value = root.prefix;
+        value = root;
         directory = true;
       }
 

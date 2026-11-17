@@ -1,5 +1,10 @@
 import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
-import type { SessionEntry, ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type {
+  McpServerConfig,
+  SessionEntry,
+  ToolExposure,
+  ToolInfo
+} from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { Profile } from "./settings.ts";
@@ -9,19 +14,23 @@ export const SELECTION_ENTRY = "pi-profiles.selection";
 /** Pi's tool that loads inactive tools. Pi does not export the name. */
 const TOOL_SEARCH = "tool_search";
 
-const selectionSchema = z.object({
-  /** Absent when no profile is selected. */
-  name: z.string().optional(),
-  /** Active tools without the profile; the next switch starts from them again. */
-  base: z.array(z.string()),
-  /** Active tools right after the switch. */
-  tools: z.array(z.string()),
-  /**
-   * Tools that the profile deferred; `tool_search` can load them. The tools of an array are a
-   * group, which loads together.
-   */
-  deferred: z.array(z.union([z.string(), z.array(z.string())]))
-});
+/** Old sessions keep their entries, and an entry that fails this schema is skipped without an error, so a change here loses those selections. */
+const selectionSchema = z
+  .object({
+    /** Absent when no profile is selected. */
+    name: z.string().optional(),
+    /** The settings scope of the profile; absent without `name`. */
+    scope: z.enum(["global", "project"]).optional(),
+    /** Active tools without the profile; the next switch starts from them again. */
+    base: z.array(z.string()),
+    /** Active tools right after the switch. */
+    tools: z.array(z.string()),
+    /**
+     * Tools that the profile deferred; `tool_search` can load them. The tools of an array are a group, which loads together.
+     */
+    deferred: z.array(z.union([z.string(), z.array(z.string())]))
+  })
+  .refine(({ name, scope }) => (name === undefined) === (scope === undefined));
 
 export type Selection = z.output<typeof selectionSchema>;
 
@@ -51,15 +60,11 @@ type ToolState = {
 export type ToolReport = {
   tool: ToolInfo;
   /**
-   * `active` in Pi's tool set, `deferred` by the latest selection, `searchable` by Pi's
-   * `tool_search`, `off`, or `hidden`. A saved deferral does not override the current `deny` list,
-   * which the extension's `tool_search` applies.
+   * `active` in Pi's tool set, `deferred` by the latest selection, `searchable` by Pi's `tool_search`, `off`, or `hidden`. A saved deferral does not override the current `deny` list, which the extension's `tool_search` applies.
    */
   status: "active" | "deferred" | "searchable" | "off" | "hidden";
   /**
-   * Whether the active `tool_search` can load the tool while it is inactive: `inactive` when no
-   * `tool_search` is active, and `cannot` for a `direct` or `model-only` tool when the active one
-   * is not the extension's copy.
+   * Whether the active `tool_search` can load the tool while it is inactive: `inactive` when no `tool_search` is active, and `cannot` for a `direct` or `model-only` tool when the active one is not the extension's copy.
    */
   search: "loads" | "cannot" | "inactive";
   /** The other tools of the deferred group that loads together with the tool. */
@@ -72,16 +77,14 @@ export type ToolReport = {
 
 type ProfileLists = {
   /**
-   * `selects`; `unlisted`; or `pattern` when an `allow` pattern matches the tool but does not select
-   * it. Undefined without `allow`.
+   * `selects`; `unlisted`; or `pattern` when an `allow` pattern matches the tool but does not select it. Undefined without `allow`.
    */
   allow: "selects" | "unlisted" | "pattern" | undefined;
   deny: boolean;
   /** The kind of the first `defer` entry that matches the tool: a name or pattern, or a group. */
   defer: "name" | "group" | undefined;
   /**
-   * Whether a profile that defers `direct` or `model-only` tools turns the tool on: it is the
-   * extension's `tool_search`, and the profile does not deny it.
+   * Whether a profile that defers `direct` or `model-only` tools turns the tool on: it is the extension's `tool_search`, and the profile does not deny it.
    */
   activatesSearch: boolean;
 };
@@ -90,9 +93,7 @@ type SwitchPlan = {
   /** The tools to set. */
   tools: string[];
   /**
-   * The tool change that the switch requests now, in the words of the switch notice. Pi ignores
-   * unknown and `hidden` names. Pi can still leave out an MCP tool that a `--tools` list does not
-   * name.
+   * The tool change that the switch requests now, in the words of the switch notice. Pi ignores unknown and `hidden` names. Pi can still leave out an MCP tool that a `--tools` list does not name.
    */
   change: string;
   /** The switch's result after Pi set the tools to `active`. */
@@ -122,9 +123,15 @@ type RestorePlan = {
 export const latestSelection = (branch: readonly SessionEntry[]) => latestEntry(branch)?.selection;
 
 /**
- * What a switch to the profile, or to no profile, does now. It undoes the latest selection's tool
- * changes, and resolves the profile's tools from the result, the base tools. The menu shows the
- * same plan's change.
+ * The selection's profile, when the current settings supply it from the settings scope that supplied it at the switch. In an untrusted project, a project profile is not supplied, also when a global profile has its name.
+ */
+export const selectedProfile = (selection: Selection | undefined, profiles: readonly Profile[]) =>
+  selection?.name === undefined
+    ? undefined
+    : profiles.find(({ name, scope }) => name === selection.name && scope === selection.scope);
+
+/**
+ * What a switch to the profile, or to no profile, does now. It undoes the latest selection's tool changes, and resolves the profile's tools from the result, the base tools. The menu shows the same plan's change.
  */
 export function planSwitch(profile: Profile | undefined, state: ToolState): SwitchPlan {
   const before = state.active;
@@ -149,8 +156,8 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
     settle: (active) => ({
       entry: {
         name: profile?.name,
-        // Code unit order, so that the entry does not follow load order. Restoration reads only
-        // which tools they name.
+        scope: profile?.scope,
+        // Code unit order, so that the entry does not follow load order. Restoration reads only which tools they name.
         base: [...base].sort(),
         tools: [...active].sort(),
         deferred
@@ -162,18 +169,44 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
 }
 
 /**
- * What to restore after Pi restored the branch on resume, `/fork`, `/tree`, or `/reload`: the
- * branch's latest selection, its rules, and the tools to set.
+ * What to restore after Pi restored the branch on resume, `/fork`, `/tree`, or `/reload`: the branch's latest selection, its rules, and the tools to set.
  */
 export function planRestore(state: ToolState, options: RestoreOptions): RestorePlan {
   const latest = latestEntry(state.branch);
   const selection = latest?.selection;
-  const profile = options.profiles.find(({ name }) => name === selection?.name);
+  const profile = selectedProfile(selection, options.profiles);
+  // The saved tools and deferral of a profile that the settings no longer supply restore nothing, as on a branch without a selection, so untrusted project settings cannot choose them. The same holds for the outgoing selection that tree navigation undoes.
+  const applies = (saved: Selection) =>
+    saved.name === undefined || selectedProfile(saved, options.profiles) !== undefined;
+  const applied = latest && applies(latest.selection) ? latest : undefined;
+  const previous = options.previous && applies(options.previous) ? options.previous : undefined;
+  const rules = { deferred: applied?.selection.deferred ?? [], deny: profile?.tools?.deny ?? [] };
 
   return {
     selection,
-    rules: { deferred: selection?.deferred ?? [], deny: profile?.tools?.deny ?? [] },
-    tools: restoreTarget(latest, state, options)
+    rules,
+    tools: restoreTarget(applied, state, { ...options, previous }, rules.deny)
+  };
+}
+
+/**
+ * How the registered MCP servers become the selected profile's. A server whose config serialises the same, as Pi compares it, is not registered again, so it keeps its connection and the server list does not change. Key order counts, because Pi tries `toolExposure` patterns in order. A changed server is unregistered first, so a failed registration leaves no server of the previous profile.
+ */
+export function planServers(
+  registered: ReadonlyMap<string, McpServerConfig>,
+  next: Readonly<Record<string, McpServerConfig>> | undefined
+): { unregister: string[]; register: [string, McpServerConfig][] } {
+  const target = new Map(Object.entries(next ?? {}));
+
+  const kept = (name: string) => {
+    const config = registered.get(name);
+
+    return config !== undefined && JSON.stringify(config) === JSON.stringify(target.get(name));
+  };
+
+  return {
+    unregister: [...registered.keys()].filter((name) => !kept(name)),
+    register: [...target].filter(([name]) => !kept(name))
   };
 }
 
@@ -186,9 +219,7 @@ export function enforcedTools(active: readonly string[], rules: Rules): string[]
 }
 
 /**
- * The registered tools as the extension's `tool_search` sees them: without the `deny` tools, which
- * stay off, and with the deferred `direct` and `model-only` tools as `deferred`, so it finds and
- * loads them.
+ * The registered tools as the extension's `tool_search` sees them: without the `deny` tools, which stay off, and with the deferred `direct` and `model-only` tools as `deferred`, so it finds and loads them.
  */
 export function searchableTools(tools: readonly ToolInfo[], rules: Rules): ToolInfo[] {
   const names = new Set(rules.deferred.flat());
@@ -202,20 +233,20 @@ export function searchableTools(tools: readonly ToolInfo[], rules: Rules): ToolI
 }
 
 /**
- * `names` with the rest of each deferred group whose tools it turns on, so that `tool_search`
- * loads a group's tools together.
+ * `names` with the rest of each deferred group whose tools it turns on, so that `tool_search` loads a group's tools together. A group's `deny` tools stay off.
  */
 export function withGroups(
   names: readonly string[],
   active: readonly string[],
-  { deferred }: Rules
+  { deferred, deny }: Rules
 ): string[] {
   const loading = names.filter((name) => !active.includes(name));
   const groups = deferred.filter(
     (entry) => typeof entry !== "string" && entry.some((name) => loading.includes(name))
   );
+  const denied = toolMatcher(deny);
 
-  return [...new Set([...names, ...groups.flat()])];
+  return [...new Set([...names, ...groups.flat().filter((name) => !denied(name))])];
 }
 
 /** How the model can reach each registered tool now, and which lists of `profile` name it. */
@@ -256,7 +287,10 @@ export function reportTools(
       tool,
       status: status(tool),
       search: search(tool),
-      group: typeof group === "object" ? group.filter((name) => name !== tool.name) : undefined,
+      group:
+        typeof group === "object"
+          ? group.filter((name) => name !== tool.name && !denied(name))
+          : undefined,
       used: used.has(tool.name),
       lists: lists(tool)
     };
@@ -278,10 +312,7 @@ function latestEntry(
 }
 
 /**
- * Whether a request followed the selection at `index`, so that the transcript records its tools.
- * Pi adds a system message before a request that changes the tools or the prompt, and can omit it
- * when both stay, so a response also counts. Without either, the recorded tools predate the
- * selection. A compaction checkpoint copies the earlier record, so it does not count.
+ * Whether a request followed the selection at `index`, so that the transcript records its tools. Pi adds a system message before a request that changes the tools or the prompt, and can omit it when both stay, so a response also counts. Without either, the recorded tools predate the selection. A compaction checkpoint copies the earlier record, so it does not count.
  */
 function loadoutRecordedAfter(branch: readonly SessionEntry[], index: number): boolean {
   return branch
@@ -326,8 +357,7 @@ const ownsToolSearch = ({ tools, searchReach }: ToolState) =>
   );
 
 /**
- * Undoes `previous` on the active tools: drops the tools it added and restores the ones it
- * removed. Changes made since that switch, such as tools that `tool_search` loaded, are kept.
+ * Undoes `previous` on the active tools: drops the tools it added and restores the ones it removed. Changes made since that switch, such as tools that `tool_search` loaded, are kept.
  */
 function baseTools(active: readonly string[], previous: Selection | undefined): string[] {
   if (!previous) return [...active];
@@ -341,8 +371,7 @@ function baseTools(active: readonly string[], previous: Selection | undefined): 
 }
 
 /**
- * Whether a tool name matches one of the entries: a name, or a pattern where `*` matches any
- * characters, as in Pi's `--tools`. Pi does not export its matcher.
+ * Whether a tool name matches one of the entries: a name, or a pattern where `*` matches any characters, as in Pi's `--tools`. Pi does not export its matcher.
  */
 function toolMatcher(entries: readonly string[]): (name: string) => boolean {
   const names = new Set(entries.filter((entry) => !entry.includes("*")));
@@ -377,9 +406,7 @@ const isDirect = (exposure: ToolExposure | undefined) =>
   exposure === "direct" || exposure === "model-only";
 
 /**
- * Whether a `*` pattern in `allow` selects a tool that it matches. As Pi's `--tools` does, a pattern
- * turns on only `direct` and `model-only` tools, so `codemode` exposure stays. It also keeps the
- * base tools, such as `codemode` tools that `tool_search` loaded.
+ * Whether a `*` pattern in `allow` selects a tool that it matches. As Pi's `--tools` does, a pattern turns on only `direct` and `model-only` tools, so `codemode` exposure stays. It also keeps the base tools, such as `codemode` tools that `tool_search` loaded.
  */
 const allowPatternSelects = (
   name: string,
@@ -424,9 +451,7 @@ function profileLists(
 }
 
 /**
- * The candidates' deferral units. A tool belongs to the first `defer` entry that matches it. A group
- * entry makes one unit of its tools; a name or pattern makes a unit of each tool. `tool_search`,
- * unregistered tools, and `hidden` tools have no unit, so they stay.
+ * The candidates' deferral units. A tool belongs to the first `defer` entry that matches it. A group entry makes one unit of its tools; a name or pattern makes a unit of each tool. `tool_search`, unregistered tools, and `hidden` tools have no unit, so they stay.
  */
 function deferUnits(
   candidates: readonly string[],
@@ -457,12 +482,7 @@ type ResolveState = {
 };
 
 /**
- * `allow` (or the base tools) without `deny`. A pattern in `allow` names the registered tools that
- * it matches and selects (see {@link allowPatternSelects}). A `defer` tool stays active when it is
- * active now and the branch has used it, or when no declared `tool_search` can load it again. Pi's
- * `tool_search` loads `codemode` and `deferred` tools; the extension's copy also loads `direct` and
- * `model-only` tools that a profile deferred, and a profile that defers them declares `tool_search`.
- * A group is deferred only as a whole, and only the extension's copy loads it together.
+ * `allow` (or the base tools) without `deny`. A pattern in `allow` names the registered tools that it matches and selects (see {@link allowPatternSelects}). A `defer` tool stays active when it is active now and the branch has used it, or when no declared `tool_search` can load it again. Pi's `tool_search` loads `codemode` and `deferred` tools; the extension's copy also loads `direct` and `model-only` tools that a profile deferred, and a profile that defers them declares `tool_search`. A group is deferred only as a whole, and only the extension's copy loads it together.
  */
 function profileTools(
   profile: Profile,
@@ -522,7 +542,8 @@ function profileTools(
 function restoreTarget(
   latest: ReturnType<typeof latestEntry>,
   state: ToolState,
-  { reload, previous, messages }: RestoreOptions
+  { reload, previous, messages }: RestoreOptions,
+  deny: readonly string[]
 ): string[] | undefined {
   if (!latest && !previous) return undefined;
 
@@ -541,12 +562,12 @@ function restoreTarget(
         recorded,
         reload,
         exposure,
-        ownsToolSearch: ownsToolSearch(state)
+        ownsToolSearch: ownsToolSearch(state),
+        searchDenied: toolMatcher(deny)(TOOL_SEARCH)
       })
     : baseTools(active, previous);
 
-  // A call that turns off a tool also drops Pi's pending tools, such as MCP tools that are
-  // still connecting, so the tools are set only when they change.
+  // A call that turns off a tool also drops Pi's pending tools, such as MCP tools that are still connecting, so the tools are set only when they change.
   const changed =
     active.some((name) => !tools.includes(name)) ||
     tools.some((name) => exposure.has(name) && !active.includes(name));
@@ -562,13 +583,12 @@ type RestoreState = {
   reload: boolean;
   exposure: ReadonlyMap<string, ToolExposure>;
   ownsToolSearch: boolean;
+  /** Whether the selected profile's `deny` list names `tool_search`, so that it stays off. */
+  searchDenied: boolean;
 };
 
 /**
- * The tools to declare after Pi restored a session. Pi declares the tools of the last request on
- * resume, `/fork`, and `/tree`, which predate the selection when no request followed it. Pi also
- * turns on the extension tools that the branch never recorded, as if they registered later. A tool
- * that the selection knew is not new, so it stays off unless the last request declared it.
+ * The tools to declare after Pi restored a session. Pi declares the tools of the last request on resume, `/fork`, and `/tree`, which predate the selection when no request followed it. Pi also turns on the extension tools that the branch never recorded, as if they registered later. A tool that the selection knew is not new, so it stays off unless the last request declared it.
  */
 function restoredTools(selection: Selection, state: RestoreState): string[] {
   const { recorded } = state;
@@ -583,10 +603,9 @@ function restoredTools(selection: Selection, state: RestoreState): string[] {
     tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
   } else tools = [...selection.tools];
 
-  const searchDeclared = declaresSearch(tools, state.exposure);
+  const searchDeclared = !state.searchDenied && declaresSearch(tools, state.exposure);
 
-  // Without a declared `tool_search`, no deferred tool can load again. Without the extension's
-  // copy, deferred `direct` tools and groups still need restoration.
+  // Without a declared `tool_search`, no deferred tool can load again. Without the extension's copy, deferred `direct` tools and groups still need restoration.
   if (!searchDeclared || !state.ownsToolSearch) {
     const unreachable = selection.deferred.flatMap((entry) =>
       typeof entry === "string" && searchDeclared

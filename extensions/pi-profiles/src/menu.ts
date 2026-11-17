@@ -48,8 +48,7 @@ function reach({ tool, status, search, group }: ToolReport): string[] {
       "Its exposure and Pi's codemode mode decide whether the model can call it directly."
     ];
 
-  // Codemode scripts call inactive `codemode` and `deferred` tools. Such a tool is off only when
-  // the profile denies it, so that pi-profiles' tool_search leaves it out.
+  // Codemode scripts call inactive `codemode` and `deferred` tools. Such a tool is off only when the profile denies it, so that pi-profiles' tool_search leaves it out.
   const scripted = tool.exposure === "codemode" || tool.exposure === "deferred";
 
   if (status === "off") {
@@ -69,7 +68,7 @@ function reach({ tool, status, search, group }: ToolReport): string[] {
   else if (search === "cannot") lines.push("The active tool_search cannot load it.");
   else lines.push("The model can load it with tool_search.");
   if (scripted) lines.push("Codemode scripts can call it while codemode is active.");
-  if (group) lines.push(`It loads together with ${group.join(", ")}.`);
+  if (group && group.length > 0) lines.push(`It loads together with ${group.join(", ")}.`);
 
   return lines;
 }
@@ -109,6 +108,8 @@ function toolItems(data: MenuData): ToolItem[] {
   const items = data.tools.map((report) => {
     const { tool, status } = report;
     const details = [
+      `Tool: ${tool.name}`,
+      `State: ${status}, exposure ${tool.exposure}`,
       ...reach(report),
       ...profileRule(report, data.profile),
       report.used ? "The model called it on this branch." : undefined,
@@ -132,10 +133,12 @@ function list(names: readonly string[] | undefined, absent: string): string {
   return names.length > 0 ? names.join(", ") : "none";
 }
 
-function profileDetails({ profile, change, modelAvailable }: ProfileChoice): string {
+function profileDetails({ name, current, profile, change, modelAvailable }: ProfileChoice): string {
+  const identity = `Profile: ${name}${current ? " (current)" : ""}`;
   if (!profile)
     return [
-      "Undoes the current profile's tool changes and adds no system prompts. The model and thinking level stay.",
+      identity,
+      "Undoes the current profile's tool changes, stops its MCP servers, and adds no system prompts. The model and thinking level stay.",
       "",
       `A switch now requests: ${change}`
     ].join("\n");
@@ -148,6 +151,7 @@ function profileDetails({ profile, change, modelAvailable }: ProfileChoice): str
     (profile.model ? "not set; a model change applies Pi's setting" : "unchanged");
 
   return [
+    identity,
     `Model: ${model}`,
     `Thinking: ${thinking}`,
     `Allow: ${list(profile.tools?.allow, "the base tools")}`,
@@ -158,6 +162,7 @@ function profileDetails({ profile, change, modelAvailable }: ProfileChoice): str
       ),
       "none"
     )}`,
+    `MCP servers: ${list(profile.mcpServers && Object.keys(profile.mcpServers), "none")}`,
     `A switch now requests: ${modelAvailable ? change : "nothing, because the profile cannot apply"}`,
     "",
     profile.prompts.length > 0 ? "Appended system prompts:" : "Appended system prompts: none",

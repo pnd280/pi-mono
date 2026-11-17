@@ -9,6 +9,10 @@ const widgetIdSchema = z
   .max(4096)
   .regex(/^(?:builtin:.+|(?:widget|status):.*)$/su);
 
+/** Git runs only for a placed widget, so git changes start hidden. */
+const defaultHidden = ["builtin:git-changes"];
+const maxHidden = 10000;
+
 const itemSchema = z.union([z.literal("separator"), z.literal("flex"), widgetIdSchema]);
 
 export const layoutSchema = z
@@ -16,7 +20,7 @@ export const layoutSchema = z
     aboveEditor: z.array(z.array(itemSchema).max(1000)).max(1000),
     belowEditor: z.array(z.array(itemSchema).max(1000)).max(1000),
     footer: z.array(z.array(itemSchema).max(1000)).max(1000),
-    hidden: z.array(widgetIdSchema).max(10000)
+    hidden: z.array(widgetIdSchema).max(maxHidden + defaultHidden.length)
   })
   .strict()
   .superRefine((layout, ctx) => {
@@ -33,6 +37,9 @@ export const layoutSchema = z
         for (const id of ids) placed.add(id);
       }
 
+    // Resolving a layout adds the default-hidden IDs, which must not push a valid layout over the limit.
+    if (layout.hidden.filter((id) => !defaultHidden.includes(id)).length > maxHidden)
+      ctx.addIssue({ code: "custom", message: "Too many hidden widget IDs." });
     if (new Set(layout.hidden).size !== layout.hidden.length)
       ctx.addIssue({ code: "custom", message: "Hidden widget IDs must be unique." });
     if (layout.hidden.some((id) => placed.has(id)))
@@ -55,7 +62,7 @@ export function defaultLayout(): Layout {
       ["builtin:cwd", "separator", "builtin:git-branch", "separator", "builtin:session-title"],
       ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]
     ],
-    hidden: []
+    hidden: [...defaultHidden]
   };
 }
 
@@ -66,7 +73,7 @@ function listedIds(layout: Layout): Set<string> {
   ]);
 }
 
-/** Unlisted contributions retain defaults; empty regions do not implicitly hide future registrations. */
+/** Unlisted contributions retain defaults, hidden ones included; empty regions do not implicitly hide future registrations. */
 export function resolveLayout(
   saved: Layout | undefined,
   contributions: readonly Placement[]
@@ -81,6 +88,11 @@ export function resolveLayout(
     for (const item of row) if (isWidget(item)) seen.add(item);
   }
 
+  for (const id of defaults.hidden) {
+    if (!seen.has(id)) layout.hidden.push(id);
+    seen.add(id);
+  }
+
   const statuses: string[] = [];
   const widgets: Placement[] = [];
 
@@ -91,8 +103,7 @@ export function resolveLayout(
     else widgets.push(contribution);
   }
 
-  // Sorted in code unit order, so the placement follows neither the registration order of
-  // extensions nor the locale. IDs are unique here, so no two compare equal.
+  // Sorted in code unit order, so the placement follows neither the registration order of extensions nor the locale. IDs are unique here, so no two compare equal.
   for (const { id, region } of widgets.sort((a, b) => (a.id < b.id ? -1 : 1)))
     layout[region].push([id]);
 

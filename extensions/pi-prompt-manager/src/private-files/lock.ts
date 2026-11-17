@@ -4,16 +4,12 @@ import { open, unlink, type FileHandle } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { hasErrorCode } from "@pi-mono/utils/errors";
-import { z } from "zod";
 
 import { LockTimeoutError, PrivateFileError } from "./errors.ts";
 import { checkHandle, privateOpen, sameFile } from "./privacy.ts";
 
-const durationSchema = z.number().nonnegative();
-
 /**
- * Release exactly once, even when cleanup fails: release closes the descriptor.
- * A changed lock is left in place, and release failure does not undo a committed write.
+ * Release exactly once, even when cleanup fails: release closes the descriptor. A changed lock is left in place, and release failure does not undo a committed write.
  */
 export type OwnedLock = { release(): Promise<void> };
 
@@ -35,8 +31,6 @@ export async function acquireLock(
   path: string,
   { signal, timeoutMs }: { signal: AbortSignal; timeoutMs: number }
 ): Promise<OwnedLock> {
-  if (!durationSchema.safeParse(timeoutMs).success)
-    throw new RangeError("Lock timeout must be a finite nonnegative duration.");
   const deadline = performance.now() + timeoutMs;
 
   for (;;) {

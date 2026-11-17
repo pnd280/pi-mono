@@ -2,12 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.5.0 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.4.0 to 1.5.0 changes to session management, startup, the session picker, the model registry and resolver, and thinking levels. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
-
-## Upgrade procedure
-
-1. Run the [package checks](../../../../docs/development.md#focused-validation). Model requests use offline fixture providers. The [coverage specification](testing.md) lists the unit, runtime, and installed-process checks for startup hooks, session replacement, naming, and clean protocol output.
-2. Work through the checklist below, then update the "Last verified" line.
+> Last verified against Pi 1.5.2 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.5.1 to 1.5.2 changes to session management, startup, the session runtime, `/resume`, and `/import`. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, `/sesh persist` after its working directory is removed, and manual checks of the session picker.
 
 ## Checklist
 
@@ -41,7 +36,7 @@ Naming stays independent of idle checks and session-operation locking.
 
 - [ ] Pi and extension imports share the `SessionManager` prototype.
 - [ ] CLI flag values aren't available while extension factories run.
-- [ ] The first `buildSessionContext()` runs after flags are filled in, but before JSON headers, extension binding, or prompts.
+- [ ] Pi calls `buildSessionContext()` on the startup session after it fills in CLI flags, and before JSON headers, extension binding, or prompts. Earlier calls from extension factories on scratch managers come before flag values exist, and the hook ignores them.
 - [ ] `getHeader()` returns the live, writable header before a new session file is written.
 - [ ] Pi turns failures while building the startup context into nonzero exits.
 - [ ] Reload and replacement don't apply the CLI flag again.
@@ -89,32 +84,38 @@ The [naming guide](naming.md#cancellation-and-retries) states what users see.
 - [ ] Results of a superseded or cancelled generation are discarded.
 - [ ] Naming events and metadata-only name updates work in TUI, print, JSON, and RPC modes, with no conversation messages or custom stdout.
 - [ ] Persistence and child creation replace sessions without leaking old naming callbacks.
+- [ ] `buildSessionProjection().messages` applies the latest `context_edit` for each target, so naming sends model context.
+- [ ] `switchSession()` awaits `session_before_switch` handlers before it opens the target file, so text and names that change during that wait stay in the replaced session.
 
 Naming holds a generated automatic title until its run settles, because Pi reports a late abort only in `agent_settled`. If a run never settles, its automatic title is never saved.
 
 ## Limitations
 
-These limits come from Pi behaviour. Recheck each one when Pi changes the behaviour it describes.
+These limits come from Pi behaviour.
 
 ### Startup parent
 
-In Pi 1.4.0 and 1.5.0, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+In Pi 1.4.0 to 1.5.2, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
 
 ### Option order
 
-In Pi 1.4.0 and 1.5.0, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
+In Pi 1.4.0 to 1.5.2, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
 
 ### Custom directories
 
-In Pi 1.4.0 and 1.5.0, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
+In Pi 1.4.0 to 1.5.2, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
 
 ### Path comparison
 
-Pi 1.5.0 compares session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
+Pi 1.5.2 compares session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
 
 ### Model references
 
-Pi 1.5.0 accepts `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
+Pi 1.5.2 accepts `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
+
+### Missing working directory
+
+In Pi 1.5.2, interactive `ctx.switchSession()` asks how to open a session whose stored working directory no longer exists: continue, fork, or cancel. `/sesh persist` saves the snapshot with the current working directory, so Pi asks only if that directory was removed during the session. Cancel removes the saved file, as before. Fork switches to a copy with a new session ID and keeps the saved file, and the confirmation still names the saved file.
 
 ### Copying JSONL
 
@@ -122,7 +123,7 @@ If Pi adds a public API to save in-memory sessions, use it instead of copying JS
 
 ### Cancellation
 
-Authentication and providers can ignore cancellation of a [title request](../src/auto-title/generate.ts). Revisit request cancellation before simplifying the outer deadline, and keep bounded waiting and stale-result protection.
+Authentication and providers can ignore cancellation of a [title request](../src/auto-title/generate.ts).
 
 ### Naming APIs
 

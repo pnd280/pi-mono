@@ -1,16 +1,17 @@
-import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { registeredBy } from "@pi-mono/utils/provenance";
+import type { ContextUsage, ToolInfo } from "@earendil-works/pi-coding-agent";
 import {
   compactAcknowledgement,
   compactDetailsSchema,
+  contextStatusSchema,
   contextUsageSchema
 } from "pi-smart-compact/result";
 import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
+import { registeredBy } from "../provenance.ts";
 
-const compactArgsSchema = z.strictObject({ instructions: z.string().nullish() });
+const compactArgsSchema = z.strictObject({ instructions: z.string().optional() });
 const compactParametersSchema = z.object({
   type: z.literal("object"),
   required: z.tuple([]).optional(),
@@ -23,10 +24,29 @@ const contextParametersSchema = z.object({
   required: z.tuple([]).optional(),
   properties: z.strictObject({})
 });
-// The first NumberFormat loads locale data (~2 ms), so build it at the first summary, not at startup.
+// The first NumberFormat loads locale data (~2 ms), so build it at the first usage text, not at startup.
 let numberFormat: Intl.NumberFormat | undefined;
-const formatNumber = (value: number) =>
-  (numberFormat ??= new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 })).format(value);
+
+function usageText(usage: ContextUsage): string {
+  const formatter = (numberFormat ??= new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2
+  }));
+  const capacity = formatter.format(usage.contextWindow);
+  const tokens =
+    usage.tokens === null
+      ? `Usage unknown · ${capacity}-token window`
+      : `${formatter.format(usage.tokens)} / ${capacity} tokens`;
+  const percent = usage.percent === null ? "" : ` · ${formatter.format(usage.percent)}% used`;
+
+  return tokens + percent;
+}
+
+/** Pure: the usage totals of a context status message; undefined when its details are invalid. */
+export function contextStatusText(details: unknown): string | undefined {
+  const status = contextStatusSchema.safeParse(details).data;
+
+  return status && usageText(status);
+}
 
 export const smartCompactDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-smart-compact:compact",
@@ -87,14 +107,8 @@ export const contextWindowDisplayAdapter: ToolDisplayAdapter = {
     if (outcome !== "success" || !contextArgsSchema.safeParse(args).success) return undefined;
     const usage = contextUsageSchema.safeParse(result.details).data;
     if (!usage) return undefined;
-    const capacity = formatNumber(usage.contextWindow);
-    const tokens =
-      usage.tokens === null
-        ? `Usage unknown · ${capacity}-token window`
-        : `${formatNumber(usage.tokens)} / ${capacity} tokens`;
-    const percent = usage.percent === null ? "" : ` · ${formatNumber(usage.percent)}% used`;
 
-    return { text: tokens + percent };
+    return { text: usageText(usage) };
   }
 };
 

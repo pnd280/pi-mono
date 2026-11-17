@@ -13,7 +13,7 @@ export type BrowserSelectionAction<Item> = {
   run(item: Item): boolean | Promise<boolean>;
 };
 
-export type BrowserRemoval<Item> = {
+type BrowserRemoval<Item> = {
   label: string;
   confirmation: string;
   pending: string;
@@ -54,8 +54,6 @@ export type BrowserOptions<Item> = BrowserPreview<Item> & {
   ): ReturnType<WindowedListOptions<Item>["format"]>;
   /** Short text shown below the results for the selected item. Rows that do not fit are cut. */
   details?(item: Item): string;
-  /** Shown when `load` rejects with a non-Error value; Error messages are shown directly. */
-  loadError?: string;
   /** Caller-owned diagnostic when no usable cancel binding exists. */
   cancelError?: Error;
 };

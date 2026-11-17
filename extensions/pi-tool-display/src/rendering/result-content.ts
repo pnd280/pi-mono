@@ -39,7 +39,7 @@ import {
 } from "./format.ts";
 import type { Projection } from "./types.ts";
 
-/** Families whose result text renders as details below the change. */
+/** Families whose result text continues the preceding tree item instead of forming its own items. */
 const detailFamilies: ReadonlySet<ToolFamily> = new Set(["edit", "write", "shell"]);
 
 // Mutable only while preparing a body; placements read measured items.
@@ -55,9 +55,7 @@ type ResultBody = Readonly<{
 const PREVIEW_LINES = 3;
 
 /**
- * The result placements of one prepared card: its body in the result slot, its
- * rows under a group member heading, and the collapsed progress preview. Each
- * placement is built on first use, so a hidden slot does no work.
+ * The result placements of one prepared card: its body in the result slot, its rows under a group member heading, and the collapsed progress preview. Each placement is built on first use, so a hidden slot does no work.
  */
 export class PreparedResult {
   private body: ResultBody | undefined;
@@ -111,13 +109,26 @@ export class PreparedResult {
     ]);
   }
 
-  /** The first logical lines of a collapsed completed progress card's retained result. */
+  /** The notices of a collapsed progress card without a result preview. */
+  progressNotices(): string[] {
+    const p = this.card;
+
+    return renderTreeContinuation(p.result ? notices(p.result, p) : [], {
+      width: p.width,
+      indent: 2,
+      style: (text) => p.theme.fg("dim", text),
+      hasChildren: false
+    });
+  }
+
+  /** The first logical lines of a collapsed completed progress card's retained result, then its notices. */
   progressPreview(): string[] {
     const p = this.card;
     const theme = p.theme;
     const width = Math.max(1, p.width - 4);
     const result = p.result;
     if (!result) return [];
+    const annotations = notices(result, p);
     const parts = textParts(result, p, false);
     const retained: ResultTextPart[] = [];
     let remaining = COMPACT_OUTPUT_CHARACTERS;
@@ -159,7 +170,8 @@ export class PreparedResult {
     const first = allLines.findIndex(hasText);
     const end = allLines.reduce((end, line, index) => (hasText(line) ? index + 1 : end), 0);
     const lines = allLines.slice(Math.max(0, first), end);
-    if (!lines.length && !truncated) return tree([{ rows: [theme.fg("dim", "(no output)")] }], p);
+    if (!lines.length && !truncated)
+      return tree([{ rows: [theme.fg("dim", "(no output)"), ...annotations] }], p);
     // A hint must save space, so it never replaces a single line.
     const shown = lines.length > PREVIEW_LINES + 1 ? PREVIEW_LINES : lines.length;
     const hidden = lines.length - shown;
@@ -180,7 +192,8 @@ export class PreparedResult {
                     )
                   )
                 ]
-              : [])
+              : []),
+            ...annotations
           ]
         }
       ],
@@ -259,9 +272,10 @@ function nestedCallRows(call: NestedCall, p: Projection): string[] {
   const line = fields.join(" ");
   if (!p.expanded) return [truncateToWidth(line, width, "…")];
   const rows = wrapRows(line, width);
+  const color = call.status === "cancelled" ? "warning" : "error";
   if (call.error !== undefined && call.error !== "")
     for (const errorLine of displayText(call.error).split("\n"))
-      rows.push(...wrapRows(p.theme.fg("error", errorLine), width - 2).map((row) => `  ${row}`));
+      rows.push(...wrapRows(p.theme.fg(color, errorLine), width - 2).map((row) => `  ${row}`));
 
   return rows;
 }
@@ -352,8 +366,7 @@ function patchCandidates(result: BorrowedToolResult, p: Projection): PatchCandid
   const suppliedPatch = record(result.details).patch;
   const published =
     p.adapter.patch && !p.context.isError && typeof suppliedPatch === "string" ? suppliedPatch : "";
-  const change = p.call?.change;
-  const observed = change && change.change !== "unavailable" ? change.patch : "";
+  const observed = p.call?.change?.patch ?? "";
 
   return [
     ...(published ? [{ patch: published, observed: false }] : []),
@@ -398,8 +411,8 @@ function changeRows(
 
   if (candidates.length) rows.push(...applicationFailure(p));
   const change = p.call?.change;
-  if (!selected.patch && change?.change === "unavailable")
-    rows.push(...message(changeReasonText(change.reason), p, "warning"));
+  if (!selected.patch && change?.unavailable)
+    rows.push(...message(changeReasonText(change.unavailable), p, "warning"));
 
   return { rows, patch: selected.patch };
 }
@@ -565,18 +578,17 @@ function trimShellTrailingRows(text: string, p: Projection): string {
   let end = text.length;
   const trailingStyles: string[] = [];
 
-  // Work backward through normalised rows before preview budgeting. Keep internal
-  // whitespace and move SGR resets off discarded blank rows onto the final row.
+  // Work backward through normalised rows before preview budgeting. Keep internal whitespace and move SGR resets off discarded blank rows onto the final row.
   while (end > 0) {
     const newline = text.lastIndexOf("\n", end - 1);
     const row = text.slice(newline + 1, end);
     if (stripTerminalSequences(row).trim()) break;
-    if (newline < 0) return "";
+    if (newline <= 0) return "";
     trailingStyles.push(row.replace(/\s/g, ""));
     end = newline;
   }
 
-  return end === 0 ? "" : text.slice(0, end) + trailingStyles.reverse().join("");
+  return text.slice(0, end) + trailingStyles.reverse().join("");
 }
 
 function resultPartRows(
@@ -674,8 +686,7 @@ function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
     return [...items, ...imageItems(result.content, p)];
   const parts = textParts(result, p, p.expanded);
 
-  // Consecutive text blocks share one compact budget, so output split across
-  // blocks (such as one block per codemode `text()` call) previews as one stream.
+  // Consecutive text blocks share one compact budget, so output split across blocks (such as one block per codemode `text()` call) previews as one stream.
   let run: ResultTextPart[] = [];
   let runAfterImage = false;
 
@@ -773,9 +784,7 @@ function notices(result: BorrowedToolResult, p: Projection): string[] {
 }
 
 function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
-  // Call-level notices follow the output, but must not become children of an unrelated
-  // final media/resource. With one result item they continue its body; with several,
-  // they form a final branch. Without items they continue the root.
+  // Call-level notices follow the output, but must not become children of an unrelated final media/resource. With one result item they continue its body; with several, they form a final branch. Without items they continue the root.
   if (items.length === 1) appendDetails(items, annotations);
   else if (items.length > 1 && annotations.length) items.push({ rows: [...annotations] });
   else return { items, annotations, panel: [] };

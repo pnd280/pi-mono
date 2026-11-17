@@ -8,20 +8,14 @@ const PATCHED = Symbol.for("pi-subagents.late-usage-patch");
 type Append = SessionManager["appendCustomMessageEntry"];
 
 /**
- * Adds a hidden usage entry after Pi persists a background result with late usage.
- * Pi's extension API has no usage writer; see docs/adr/0002-count-late-background-usage.md.
- * The patch is process-wide; the symbol guard prevents double counting after reload.
- * Returns a warning when Pi no longer has the patched methods.
+ * Adds a hidden usage entry after Pi persists a background result with late usage. Pi's extension API has no usage writer; see docs/adr/0002-count-late-background-usage.md. The patch is process-wide; the symbol guard prevents double counting after reload.
  */
-export function installLateUsagePatch(): string | undefined {
+export function installLateUsagePatch(): void {
   const proto = SessionManager.prototype as SessionManager & { [PATCHED]?: true };
-  if (proto[PATCHED]) return undefined;
+  if (proto[PATCHED]) return;
   // The wrapper below calls Pi's method with the session as its receiver.
   // oxlint-disable-next-line typescript/unbound-method
   const append = proto.appendCustomMessageEntry;
-  // The prototype patch needs both methods; a missing one leaves totals as before.
-  if (typeof append !== "function" || typeof proto.appendUsage !== "function")
-    return "pi-subagents: this Pi version cannot record late background usage; supervisor totals exclude it";
   proto[PATCHED] = true;
 
   proto.appendCustomMessageEntry = function <T>(
@@ -37,6 +31,4 @@ export function installLateUsagePatch(): string | undefined {
 
     return id;
   };
-
-  return undefined;
 }

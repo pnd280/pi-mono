@@ -2,17 +2,13 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.5.0 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.4.0 to 1.5.0 changes. Not covered: manual visual checks and live-provider usage reporting.
+> Last verified against Pi 1.5.2 with package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual visual checks; live-provider usage reporting; nested `bash` counting and virtual-model attribution in a real host; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [manual checks](testing.md#manual-checks).
-2. When affected, check the other file-mutation consumer (`pi-tool-display`) and working-message composition with `pi-todo`.
-3. Work through the checklist below, then update the "Last verified" line.
+Run the [manual checks](testing.md#manual-checks).
 
 ## Checklist
-
-Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file observations against the installed Pi version.
 
 ### Lifecycle
 
@@ -25,6 +21,8 @@ Confirm these items against [src/index.ts](../src/index.ts):
 - [ ] Manual shell input is excluded from the command count.
 - [ ] [Milestones and counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously.
 - [ ] Reload removes the old `pi.events` subscriptions.
+- [ ] A run that a quit or a session replacement cancels reaches the settle handler before the [shutdown revoke](../../../libs/src/lifecycle/phases.md#shutdown-phase), so its summary is saved.
+- [ ] Pi rejects a reload while a run is active.
 
 ### Answering models
 
@@ -41,24 +39,14 @@ Confirm the run metadata in [src/index.ts](../src/index.ts):
 
 Confirm these items against [src/throughput.ts](../src/throughput.ts):
 
-- [ ] Public assistant `message_start` and `message_end` events delimit response streams.
+- [ ] Assistant `message_end` messages carry `durationMs`, the time from the request start to the end of the response, including for cancelled and failed responses.
 - [ ] `message_update` carries `text_delta`, `thinking_delta`, and `toolcall_delta` events.
 - [ ] Empty text and tool-call deltas do not start the visible-output clock.
 - [ ] A completed `message.usage.output` includes reasoning exactly once.
 - [ ] Reported output usage from cancelled and failed responses contributes to throughput.
 - [ ] Tool and nested usage is excluded from throughput.
-- [ ] Throughput combines output tokens and streaming time across continuations.
+- [ ] Throughput combines output tokens and response times across continuations.
 - [ ] Summaries save throughput outside the TUI.
-
-### File statistics
-
-Confirm these items against [src/changes.ts](../src/changes.ts):
-
-- [ ] Only verified native operations contribute file statistics.
-- [ ] Concurrent operations use the first and last contents in write order.
-- [ ] Symlink aliases count as one file.
-- [ ] Statistics reflect net changes, with reverted changes omitted.
-- [ ] Unavailable statistics remain distinct from zero changes.
 
 ### Persistence and rendering
 
@@ -68,16 +56,8 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 - [ ] Resuming a session restores its summaries.
 - [ ] The tool-output shortcut expands and collapses all summaries.
 - [ ] In fullscreen mode, a mouse click expands and collapses one summary.
-- [ ] Saved summaries hold metadata without file contents or patches, also outside the TUI.
+- [ ] Outside the TUI, `appendEntry` still saves summaries.
 
 ## Limitations
 
-In Pi 1.5.0, these limits come from missing Pi APIs, as in Pi 1.4.0. Revisit them when Pi adds one.
-
-### Throughput
-
-The client measures saved [output throughput](summary-fields.md#output-throughput), so it depends on when the provider's stream starts and on reported usage. Keep live estimates out of saved summaries. If Pi adds a public timing or throughput API, use it.
-
-### File coverage
-
-[Observation skips bash changes, overrides, and custom tools](summary-fields.md#file-changes). Revisit public mutation or run-summary APIs that report trustworthy outcomes and ordering, while keeping bounded retention and saving outside model context. Changes to shared observation belong in libs.
+Pi 1.5.2 measures each response in `AssistantMessage.durationMs`, and the saved [output throughput](summary-fields.md#output-throughput) sums it, skipping responses without one: Pi leaves it absent for legacy messages and for deferred results fetched later. The rate also depends on reported usage.

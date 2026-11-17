@@ -1,3 +1,4 @@
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { displayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 
 import { NativeClipboardError } from "./clipboard.ts";
@@ -28,11 +29,13 @@ export type ViewRequest = {
 
 export type EditorPort = { read(): string; write(text: string): void };
 
+type Severity = NonNullable<Parameters<ExtensionContext["ui"]["notify"]>[1]>;
+
 export type ManagerPorts = {
   repository: Repository;
   editor: EditorPort;
   copy(text: string, signal: AbortSignal): Promise<void>;
-  notify(this: void, message: string, severity: "info" | "warning" | "error"): void;
+  notify(this: void, message: string, severity: Severity): void;
   open(request: ViewRequest): Promise<void>;
   now(): Date;
 };
@@ -52,6 +55,7 @@ export class PromptManager {
   private queueBytes = 0;
   private pumping = false;
   private warned = false;
+  private warnedCleanup = false;
   private saving = false;
   private copying = false;
   private restorationRevision = 0;
@@ -73,7 +77,7 @@ export class PromptManager {
     return mutation;
   }
 
-  notify(message: string, severity: "info" | "warning" | "error" = "info") {
+  notify(message: string, severity: Severity = "info") {
     if (this.isActive()) this.ports.notify(displayText(message), severity);
   }
 
@@ -120,20 +124,16 @@ export class PromptManager {
         if (!entry) break;
         this.queueBytes -= entry.bytes;
 
-        try {
-          const result = await this.mutate("history", {
-            kind: "add",
-            text: entry.text,
-            recordedAt: entry.recordedAt
-          });
+        const result = await this.mutate("history", {
+          kind: "add",
+          text: entry.text,
+          recordedAt: entry.recordedAt
+        });
 
-          if (
-            result.status === "failed" ||
-            (result.status === "committed" && result.warnings.length)
-          )
-            this.automaticWarning();
-        } catch {
-          this.automaticWarning();
+        if (result.status === "failed") this.automaticWarning();
+        else if (result.status === "committed" && result.warnings.length && !this.warnedCleanup) {
+          this.warnedCleanup = true;
+          this.reportMutation(result, "pi-prompt-manager: prompt history recorded.");
         }
       }
     } finally {
@@ -160,7 +160,7 @@ export class PromptManager {
         initialEditor: this.ports.editor.read(),
         signal: controller.signal,
         afterClose: async (restoration) => {
-          if (!restoration || controller.signal.aborted || this.ui !== controller) return;
+          if (!restoration || controller.signal.aborted) return;
           if (restoration.deleteAfterRestore) await this.restoreAndDelete(restoration.target);
           else this.restore(restoration.target);
         }
@@ -215,13 +215,8 @@ export class PromptManager {
       const result = await this.mutate("drafts", { kind: "add", text, recordedAt });
 
       if (!this.reportMutation(result, "Draft saved.") || !this.isActive()) return;
-
-      try {
-        if (this.restorationRevision === revision && this.ports.editor.read() === text)
-          this.ports.editor.write("");
-      } catch {
-        this.notify("Draft saved, but the editor could not be cleared.", "warning");
-      }
+      if (this.restorationRevision === revision && this.ports.editor.read() === text)
+        this.ports.editor.write("");
     } catch (error) {
       this.notify(errorMessage(error), "error");
     } finally {
@@ -274,14 +269,7 @@ export class PromptManager {
 
   async deleteOccurrence(collection: Collection, target: Occurrence): Promise<MutationResult> {
     if (!this.isActive()) return { status: "failed", message: "Session expired." };
-    let result: MutationResult;
-
-    try {
-      result = await this.mutate(collection, { kind: "delete", target });
-    } catch (error) {
-      result = { status: "failed", message: errorMessage(error) };
-    }
-
+    const result = await this.mutate(collection, { kind: "delete", target });
     this.reportMutation(result, "Entry deleted.");
 
     return result;
@@ -374,8 +362,7 @@ export class PromptManager {
   }
 
   /**
-   * Stops new writes, notifications, and views before it returns its promise. The promise settles
-   * when started mutations have committed or been cancelled, and have released their locks.
+   * Stops new writes, notifications, and views before it returns its promise. The promise settles when started mutations have committed or been cancelled, and have released their locks.
    */
   async dispose(): Promise<void> {
     const finishing = this.lifetime.dispose();

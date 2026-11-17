@@ -1,14 +1,10 @@
 import { spawn } from "node:child_process";
 import { release } from "node:os";
 
-import { z } from "zod";
-
 /** Safe diagnostics never include clipboard contents or helper output. */
 export class NativeClipboardError extends Error {}
 
 type NativeHelper = { command: string; args: string[]; env?: NodeJS.ProcessEnv };
-
-const timeoutSchema = z.int().nonnegative().max(2_147_483_647);
 
 function nativeHelpers(
   platform: string,
@@ -26,8 +22,7 @@ function nativeHelpers(
     throw new NativeClipboardError("Native clipboard supports Linux, macOS, and WSL only.");
 
   if (env.WSL_DISTRO_NAME || /microsoft/i.test(osRelease)) {
-    // clip.exe can perform code-page conversion. PowerShell decodes stdin explicitly
-    // and uses the native clipboard API without adding a newline.
+    // clip.exe can perform code-page conversion. PowerShell decodes stdin explicitly and uses the native clipboard API without adding a newline.
     return [
       {
         command: "powershell.exe",
@@ -61,13 +56,8 @@ function nativeHelpers(
 }
 
 function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
-
   return new Promise((resolve, reject) => {
-    // A clipboard owner such as wl-copy can stay as a daemon. In its own process group, it
-    // keeps running when Ctrl+Z suspends Pi's group, so a paste elsewhere does not wait for it.
-    // As in Pi, start from / : clipboard helpers ignore the directory, WSL cannot start
-    // powershell.exe from a path longer than MAX_PATH, and a daemon does not keep Pi's directory.
+    // Clipboard owners such as wl-copy can stay as daemons; their own process group keeps them running when Ctrl+Z suspends Pi, so pastes elsewhere do not wait. Like Pi, start from /: helpers ignore it, WSL cannot start powershell.exe from a path over MAX_PATH, and daemons do not hold Pi's directory.
     const child = spawn(helper.command, helper.args, {
       stdio: ["pipe", "ignore", "ignore"],
       cwd: "/",
@@ -103,23 +93,18 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
 }
 
 /**
- * Replace the native clipboard with exact UTF-8 text, without an OSC 52 fallback.
- * The timeout is in milliseconds and covers all helper attempts (default: 5,000);
- * expiry throws NativeClipboardError. Cancellation can throw the signal's reason;
- * only NativeClipboardError messages are safe for user-facing diagnostics.
+ * Send the UTF-8 text to the native clipboard helper's stdin, without an OSC 52 fallback. The WSL clipboard ends the text at the first NUL, and macOS `pbcopy` stores text with an RTF or EPS header as that format. `timeoutMs` covers all helper attempts (default: 5,000); expiry throws NativeClipboardError. Cancellation can throw the signal's reason; only NativeClipboardError messages are safe for user-facing diagnostics.
  */
 export async function copyNative(
   text: string,
   signal: AbortSignal,
-  options: { helpers?: NativeHelper[]; timeout?: number } = {}
+  options: { helpers?: NativeHelper[]; timeoutMs?: number } = {}
 ): Promise<void> {
-  const timeout = options.timeout ?? 5000;
-  if (!timeoutSchema.safeParse(timeout).success)
-    throw new RangeError("Clipboard timeout must be a supported nonnegative timer duration.");
+  const timeoutMs = options.timeoutMs ?? 5000;
   const deadline = new AbortController();
   const timer = setTimeout(
     () => deadline.abort(new NativeClipboardError("Native clipboard helper timed out.")),
-    timeout
+    timeoutMs
   );
   const operationSignal = AbortSignal.any([signal, deadline.signal]);
 

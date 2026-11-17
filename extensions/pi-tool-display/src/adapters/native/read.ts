@@ -18,8 +18,7 @@ import {
 } from "./result-presentation.ts";
 
 /**
- * Native read interpretation, shared by the native and selective-read adapters.
- * Each callback interprets its borrowed arguments and result again.
+ * Native read interpretation, shared by the native and selective-read adapters. Each callback interprets its borrowed arguments and result again.
  */
 
 /** One read item per requested file; selections of one file count once. */
@@ -33,12 +32,14 @@ export function readExploration(parts: InvocationPart[], path: string): Explorat
 
 /** Detail notices. Collapsed cards also keep the diagnostics of the retained text. */
 export function readNotices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[] {
-  return [...nativeResultNotices(result.details), ...(expanded ? [] : textDiagnostics(result))];
+  return [
+    ...nativeResultNotices(result.details, expanded),
+    ...(expanded ? [] : textDiagnostics(result))
+  ];
 }
 
 /**
- * The parts of one retained text block. `highlight` marks only completed source
- * text; diagnostics and image captions are never source coordinates.
+ * The parts of one retained text block. `highlight` marks only completed source text; diagnostics and image captions are never source coordinates.
  */
 export function readTextParts(
   text: string,

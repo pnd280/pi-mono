@@ -38,16 +38,13 @@ type ModelPromptConfig = {
 export type ModelPromptSnapshot = {
   readonly warnings: readonly string[];
   /**
-   * Matches `modelKey` as `provider/id` and returns the selected files' non-empty contents,
-   * joined in order. `undefined` means no text: no rule selects files, a selected file was not
-   * read, or every selected file is empty.
+   * Matches `modelKey` as `provider/id` and returns the selected files' non-empty contents, joined in order. `undefined` means no text: no rule selects files, a selected file was not read, or every selected file is empty.
    */
   appendTextFor(modelKey: string): string | undefined;
 };
 
 /**
- * Loads global settings and every configured file once for this session. Lookups use this
- * snapshot without rereading settings or files.
+ * Loads global settings and every configured file once for this session. Lookups use this snapshot without rereading settings or files.
  */
 export function loadModelPromptSnapshot(agentDir: string): ModelPromptSnapshot {
   const { rules, warnings } = loadModelPromptConfig(agentDir);
@@ -57,7 +54,9 @@ export function loadModelPromptSnapshot(agentDir: string): ModelPromptSnapshot {
     try {
       files.set(path, readPrompt(path));
     } catch {
-      warnings.push(`${path} could not be read; rules listing it add nothing`);
+      warnings.push(
+        `${path} must be a readable regular UTF-8 file up to 1 MiB; rules listing it add nothing until /reload`
+      );
     }
   }
 
@@ -82,8 +81,7 @@ export function loadModelPromptSnapshot(agentDir: string): ModelPromptSnapshot {
 }
 
 /**
- * Reads rules from the global settings file only; invalid rules are skipped with a warning.
- * `append` paths expand a leading `~`, then resolve relative to the settings file's directory.
+ * Reads rules from the global settings file only; invalid rules are skipped with a warning. `append` paths expand a leading `~`, then resolve relative to the settings file's directory.
  */
 function loadModelPromptConfig(agentDir: string): ModelPromptConfig {
   const warnings: string[] = [];
@@ -141,7 +139,7 @@ function loadModelPromptConfig(agentDir: string): ModelPromptConfig {
   return { rules, warnings };
 }
 
-/** The first matching rule that sets a field decides it; later rules may supply other fields. */
+/** Returns the append list of the first matching rule that sets one, including an empty list. */
 function selectAppendFiles(
   rules: readonly ModelRule[],
   modelKey: string
@@ -156,7 +154,7 @@ function selectAppendFiles(
 function readPrompt(path: string): string {
   // The shared reader opens without blocking, so a FIFO cannot stall session startup.
   const text = readSettingsFile(path);
-  if (text === undefined) throw new Error("Prompt must be a regular file up to 1 MiB.");
+  if (text === undefined) throw new Error();
 
   // Matches Pi's own loader for append files.
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;

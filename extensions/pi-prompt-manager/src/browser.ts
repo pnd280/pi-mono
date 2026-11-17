@@ -93,7 +93,6 @@ export async function openBrowser(
   ports: BrowserPorts,
   request: ViewRequest
 ): Promise<void> {
-  if (request.signal.aborted) return;
   let restoration: RestorationRequest | undefined;
 
   const requestRestoration = (item: PromptItem, deleteAfterRestore: boolean) => {
@@ -167,7 +166,7 @@ export async function openBrowser(
           }
         }),
     cancelError: new PromptError(
-      "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy and reload."
+      "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy, then /reload."
     )
   };
 

@@ -8,7 +8,7 @@ import type {
   SessionStats
 } from "@earendil-works/pi-coding-agent";
 
-import { lateUsage, type LateUsage } from "../background-result.ts";
+import { lateUsage, type LateUsage, type ModelIdentity } from "../background-result.ts";
 import type { PiInvocation } from "../child/invocation.ts";
 import type * as ChildModule from "../child/run.ts";
 import type { ChildResult, ChildRun, ChildStart } from "../child/run.ts";
@@ -30,8 +30,7 @@ import {
 } from "./records.ts";
 import type { ToolInput } from "./tool-schema.ts";
 
-// Process machinery loads at the first launch, not at startup. Concurrent launches share one
-// import, because Pi's loader can return a module that is still evaluating.
+// Process machinery loads at the first launch, not at startup. Concurrent launches share one import, because Pi's loader can return a module that is still evaluating.
 let child: Promise<typeof ChildModule> | undefined;
 const loadChild = () => (child ??= import("../child/run.ts"));
 
@@ -45,8 +44,18 @@ export type LaunchContext = {
   parentSession: string | undefined;
 };
 
-/** A call's model and thinking level, and the launch context they came from. */
-export type Selection = { launch: LaunchContext; model: string; thinking: string };
+/** A call's model, thinking level, and extra Pi arguments, and the launch context they came from. */
+export type Selection = {
+  launch: LaunchContext;
+  model: string;
+  thinking: string;
+  launchArgs: string[];
+};
+
+/** The details field of a run's launch arguments; empty arguments omit it. */
+function launchArgsDetails(launchArgs: string[]): Pick<ToolDetails, "launch_args"> {
+  return launchArgs.length ? { launch_args: launchArgs } : {};
+}
 
 /** Ask the user a child's dialog; no response means that the request needs no answer. */
 export type DialogHandler = (
@@ -65,8 +74,7 @@ export type CallHandlers = {
 };
 
 /**
- * One call that launches a run of a task that the caller claimed. With `request.task_id`, the run
- * resumes that inactive direct task.
+ * One call that launches a run of a task that the caller claimed. With `request.task_id`, the run resumes that inactive direct task.
  */
 export type RunCall = CallHandlers & { request: ToolInput; selection: Selection };
 
@@ -117,9 +125,7 @@ export type RunReport =
   /** The run moved to the background; `record` is the changed live record. */
   | { kind: "promoted"; record?: TaskRecord }
   /**
-   * The child and any forced stop of its process group are gone, the `end` entry exists, and the
-   * writer lease is released; the capacity slot is still held. `record` is a begun run's final
-   * record.
+   * The child and any forced stop of its process group are gone, and a begun run's `end` entry and lease release were attempted; the capacity slot is still held. `record` is a begun run's final record.
    */
   | { kind: "ended"; record?: TaskRecord }
   /** The capacity slot is released. */
@@ -150,12 +156,16 @@ export type RunHost = {
 /** An inactive direct task whose child file this process now holds the writer lease for. */
 type Resumed = { record: TaskRecord; lease: WriterLease };
 
-function queuedDetails(request: ToolInput, { model, thinking }: Selection): ToolDetails {
+function queuedDetails(
+  request: ToolInput,
+  { model, thinking, launchArgs }: Selection
+): ToolDetails {
   return {
     ...(request.task_id === undefined ? {} : { task_id: request.task_id }),
-    description: boundedText(request.description),
+    description: request.description,
     model: boundedText(model),
     thinking: boundedText(thinking),
+    ...launchArgsDetails(launchArgs),
     background: request.background ?? false,
     delivery: request.delivery ?? "follow_up",
     state: "queued",
@@ -177,14 +187,21 @@ function failure(details: ToolDetails, error: unknown, aborted: boolean): RunRet
   };
 }
 
-/** Take the writer lease of a claimed direct task, then check its child file under the lease. */
-async function resume(host: RunHost, taskId: string | undefined): Promise<Resumed | undefined> {
+/**
+ * Check the child file of a claimed direct task, take its writer lease, then check the file again under the lease. The first check refuses a file of another directory before the lease exists.
+ */
+async function resume(
+  host: RunHost,
+  taskId: string | undefined,
+  cwd: string
+): Promise<Resumed | undefined> {
   if (taskId === undefined) return;
   const record = host.owned(taskId);
+  await checkSession(record, cwd);
   const lease = await WriterLease.acquire(record.session_file, [process.pid]);
 
   try {
-    await checkSession(record);
+    await checkSession(record, cwd);
     host.lifetime.throwIfAborted();
   } catch (error) {
     await lease.release().catch(() => {});
@@ -195,11 +212,10 @@ async function resume(host: RunHost, taskId: string | undefined): Promise<Resume
 }
 
 /**
- * One run of a claimed task, from launch to exit. It keeps the order of the run lifecycle in ADR
- * 0003:
+ * One run of a claimed task, from launch to exit. It keeps the order of the run lifecycle in ADR 0003:
  *
  * 1. reserve a capacity slot;
- * 2. for a resume, take the writer lease, then check the child file;
+ * 2. for a resume, check the child file, take the writer lease, then check the file again;
  * 3. spawn the child and begin the run;
  * 4. for a new task, take the writer lease of the reported file; append `run`, then prompt;
  * 5. wait for the child's exit and for any forced stop of its process group;
@@ -226,6 +242,8 @@ export class Run {
   private started: TaskRecord | undefined;
   /** Statistics after `begin`; `end` counts this run's usage from here. */
   private usageStart: SessionStats | undefined;
+  /** The child's applied model, as the record's model; late usage needs its parts. */
+  private model: ModelIdentity | undefined;
   private starting: Promise<void> = Promise.resolve();
   /** Resolves when the run is in the background, from launch or after promotion. */
   private promotion = Promise.withResolvers<void>();
@@ -240,8 +258,7 @@ export class Run {
   private finished = false;
 
   /**
-   * Launch or resume a claimed task for one call. A foreground call returns the run's result; a
-   * background or promoted call returns when its run starts. Failures return as a result.
+   * Launch or resume a claimed task for one call. A foreground call returns the run's result; a background or promoted call returns when its run starts. Failures return as a result.
    */
   static async launch(host: RunHost, call: RunCall): Promise<RunReturn> {
     const { signal } = call;
@@ -272,7 +289,7 @@ export class Run {
       const { ChildRun } = await loadChild();
       reservation = await host.capacity.acquire(signal);
       if (signal?.aborted) throw new Error("Cancelled by turn abort");
-      resumed = await resume(host, call.request.task_id);
+      resumed = await resume(host, call.request.task_id, call.selection.launch.cwd);
       if (signal?.aborted) throw new Error("Cancelled by turn abort");
       details = { ...details, state: "running", started_at: Date.now() };
       run = new Run(ChildRun, host, call, reservation, resumed, change);
@@ -309,7 +326,7 @@ export class Run {
     if (host.lifetime.aborted) throw new Error("Subagent session ended");
     const {
       request,
-      selection: { launch, model, thinking }
+      selection: { launch, model, thinking, launchArgs }
     } = call;
     const depth = host.depth + 1;
     this.previous = resumed?.record;
@@ -317,9 +334,10 @@ export class Run {
     this.taskId = resumed?.record.task_id ?? randomUUID();
     this.details = {
       binding_id: host.bindingId,
-      description: boundedText(request.description),
+      description: request.description,
       model,
       thinking,
+      ...launchArgsDetails(launchArgs),
       background: request.background ?? false,
       delivery: request.delivery ?? "follow_up",
       state: "running",
@@ -334,6 +352,7 @@ export class Run {
       depth,
       model,
       thinking,
+      launchArgs,
       trusted: launch.trusted,
       ...(launch.parentSession === undefined ? {} : { parentSession: launch.parentSession }),
       prompt: request.prompt,
@@ -345,14 +364,11 @@ export class Run {
       taskId: this.taskId,
       runId: this.runId,
       previousRunId: resumed?.record.run_id ?? null,
-      // A descendant needs its full EOF/TERM/KILL interval before its supervisor
-      // can be forced down. Capacity also bounds the number of possible levels.
-      shutdownGraceMs: Math.min(
-        2_147_483_647,
+      // A descendant needs its full EOF/TERM/KILL interval before its supervisor can be forced down. Capacity also bounds the number of possible levels.
+      shutdownGraceMs:
         STOP_GRACE_MS +
-          Math.max(0, Math.min(host.config.maxDepth, host.config.maxConcurrent) - depth) *
-            (STOP_GRACE_MS + KILL_GRACE_MS)
-      ),
+        Math.max(0, Math.min(host.config.maxDepth, host.config.maxConcurrent) - depth) *
+          (STOP_GRACE_MS + KILL_GRACE_MS),
       onSpawn: async (pid) => {
         await resumed?.lease.add(pid);
       },
@@ -362,9 +378,10 @@ export class Run {
 
         return this.starting;
       },
-      onEvent: (event) => this.event(event),
       onUIRequest: (request) => this.dialog(request)
     });
+    // Registered before any record arrives, so the run sees each event right after the child's own state and before later readers.
+    this.child.events((event) => this.event(event));
     this.child.listen((message) => host.report(this, { kind: "message", message }));
     this.ended = this.child.done.then((result) => this.end(result));
     host.report(this, { kind: "spawned" });
@@ -397,8 +414,7 @@ export class Run {
   }
 
   /**
-   * Dismiss the run's dialogs and request a graceful stop. With `drop`, the cancellation result
-   * goes to nobody.
+   * Dismiss the run's dialogs and request a graceful stop. With `drop`, the cancellation result goes to nobody.
    */
   cancel(reason: string, { drop = false }: { drop?: boolean } = {}): Promise<RunEnd> {
     if (drop) this.drop = true;
@@ -416,7 +432,6 @@ export class Run {
     return this.done;
   }
 
-  /** A foreground call waits for the result; a background or promoted call returns once started. */
   private async returned(): Promise<RunReturn> {
     const started = await this.child.started;
     const interrupted = started?.interrupted ?? false;
@@ -471,9 +486,10 @@ export class Run {
     this.lease ??= await WriterLease.acquire(start.sessionFile, [process.pid, pid]);
     host.lifetime.throwIfAborted();
     this.usageStart = start.usageStart;
+    this.model = start.model;
     const {
       request: { description },
-      selection: { model, thinking }
+      selection: { model, thinking, launchArgs }
     } = this.call;
     const entry: RunRecord = {
       task_id: this.taskId,
@@ -484,13 +500,14 @@ export class Run {
       description,
       model,
       thinking,
+      launch_args: launchArgs,
       background: details.background,
       started_at: Date.now()
     };
     host.append(RUN_ENTRY, entry);
     details.task_id = this.taskId;
     const record = startRun(entry, host.parent, this.previous, {
-      model: start.model ?? model,
+      model: start.model ? `${start.model.provider}/${start.model.model}` : model,
       thinking: start.thinking,
       stats: start.usageStart
     });
@@ -522,6 +539,10 @@ export class Run {
     )
       return;
     const next = applyEvent(record, event);
+    const message = event.type === "message_end" ? event.message : undefined;
+    // As in `applyEvent`, a failed response can name a virtual model that never ran.
+    if (message?.role === "assistant" && message.stopReason !== "error")
+      this.model = { provider: message.provider, model: message.model };
 
     if (next !== record) {
       this.record = next;
@@ -587,7 +608,7 @@ export class Run {
     this.finished = true;
     host.report(this, { kind: "ended", ...(finished ? { record: finished } : {}) });
     this.reservation.release();
-    const late = lateUsage(this.reported, result.usageEnd, details.model);
+    const late = lateUsage(this.reported, result.usageEnd, this.model);
     const completion: RunCompletion = {
       details: { ...details },
       text: result.text,

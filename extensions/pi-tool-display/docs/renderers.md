@@ -50,7 +50,7 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 
 ### Callback inputs
 
-Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Cards read callbacks once for each update, so callbacks must depend only on their inputs.
+Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Callbacks must depend only on their inputs: cards reuse their results on unchanged redraws, but call them again after a resize, an expansion change, or an invalidation.
 
 ### Invocation parts
 
@@ -58,7 +58,7 @@ Validate borrowed arguments and results without modifying them, and never infer 
 
 Use `path` parts, and optionally `range`, only for concrete filesystem targets. Use `value` for literal filters and `pattern` for search patterns. Literal filters receive no filesystem resolution, home expansion, trimming, or case folding, so `src/**` and `./src/**` remain distinct.
 
-Use a `filter` exploration scope for opaque expressions, even when the expression resembles a path. Give the members of a filter group only their patterns, as FFF does with its patterns or `files`. Do not repeat the group's filter or add an `in <path>` phrase to their parts. Standalone and expanded cards keep the literal filter.
+Use a `filter` exploration scope for opaque expressions, even when the expression resembles a path. Give the members of a filter group only their patterns. Do not repeat the group's filter or add an `in <path>` phrase to their parts. Standalone and expanded cards keep the literal filter.
 
 ### Invalid and partial input
 
@@ -80,13 +80,13 @@ If a callback that a card uses throws, the whole card becomes generic. A card ne
 
 Items must resolve to one directory or identical filters; files can group with their parent directory. Missing, invalid, or mismatched scopes leave the call standalone, as does returning `undefined` or `[]`. Never derive scopes from summaries or treat arbitrary filters as directories.
 
-For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries and notices stay visible. Adjacent calls group only when both the normalised scope and title match, so titled and untitled groups never merge.
+For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries and notices stay visible.
 
-See [exploration groups](presentation.md#groups) for headings, boundaries, and expansion behaviour.
+See [exploration groups](presentation.md#groups) for matching, headings, boundaries, and expansion behaviour.
 
 ### Action wording
 
-Use `Listing <target>` while pending and `Listed <target>` after success, in standalone, grouped, and expanded cards, including an empty-pattern `fffind`. Never add `files in`. Separate a search pattern from its scope with a spaced em dash (U+2014), not `in`:
+Use `Listing <target>` while pending and `Listed <target>` after success, in standalone, grouped, and expanded cards. Never add `files in`. Separate a search pattern from its scope with a spaced em dash (U+2014), not `in`:
 
 ```ts
 { kind: "annotation", text: " \u2014 " }
@@ -96,19 +96,19 @@ Use `Listing <target>` while pending and `Listed <target>` after success, in sta
 
 ### Code and nested calls
 
-`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
+`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show the first rows within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source; [codemode cards](tools.md#codemode) give the row limit. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
 
-`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede ordinary output, including on compact read cards that hide successful text. When a card has a usable patch, nested calls and images follow the complete [diff panel](presentation.md#diff-viewer), including its failure output and notices. Compact cards show the latest 8 calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
+`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede ordinary output, including on compact read cards that hide successful text. When a card has a usable patch, nested calls and images follow the complete [diff panel](presentation.md#diff-viewer), including its failure output and notices. Compact cards show the latest calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
 
 ### Result summaries
 
 `summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Its `durationMs` is Pi's measured `execute()` time for the final result, or `undefined` when Pi recorded none. Distinguish collected matches from total matches, and failed operations from unfinished ones. Return `undefined` when the data is insufficient.
 
-Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure and cancellation output, notices, and images remain; expansion restores retained text.
+Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. [Results](presentation.md#results) lists what stays visible and what expansion restores.
 
 Failed and cancelled results show their summary in the outcome colour. Set `neutral: true` when the summary states no outcome, such as codemode's elapsed time, so it stays `dim`.
 
-Missing summaries, including those that display as blank after terminal-control sanitisation, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
+A summary that displays as blank after terminal-control sanitisation counts as missing, so the card shows its [result preview](presentation.md#results).
 
 Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Notices and colours](presentation.md#notices-and-colours) shows how each severity is styled.
 
@@ -144,9 +144,15 @@ Text and embedded resource bodies use the resolved outcome's colour: `error` for
 
 Generic rendering never infers missing transport or type information from names or error text. Arbitrary `details` are not displayed.
 
+### Progress cards and actions
+
+`progress(args, result)` supplies structured task status, identity, non-default expanded fields, and the collapsed result-preview choice to the shared progress card. Omit `status` until the task reports one; the renderer then shows the host call phase and owns colours, elapsed time, and wrapping. A final failure, cancellation, or unavailable outcome overrides a conflicting reported status. Like every callback, it follows the [callback input rules](#callback-inputs).
+
+`action(args, result)` supplies a pure event descriptor; the mounting host owns dispatch and authorisation. Neither callback performs effects. Progress cards also work with standalone adapters. Actions need the automatic host; the standalone factory does not dispatch them.
+
 ## Display budgets
 
-Patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behaviour). Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. The pending pulse changes only the heading marker. Running progress timers also refresh elapsed time.
+Patch generation runs off the UI thread under [shared worker limits](../src/bounded-diff/README.md#behaviour). Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. The pending pulse changes only the heading marker. Running progress timers also refresh elapsed time.
 
 In automatic CLI integration, parameters and generic arguments use the [validated copy of Pi's raw arguments](adapters.md#callback-arguments) when validation against the current tool schema succeeds. Otherwise, they use Pi's raw arguments. This applies to both compact previews and expanded parameters.
 

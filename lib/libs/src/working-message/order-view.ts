@@ -11,26 +11,26 @@ import { KeyControls, type KeybindingSource, type KeyControl } from "../tui/keyb
 
 type OrderSettingsItem = { id: string; label: string; description: string };
 
-export type OrderSettingsScope = {
-  id: string;
+export type OrderSettingsScope<Scope extends string> = {
+  id: Scope;
   label: string;
   destination: string;
   isSet: boolean;
   order: readonly string[];
-  inheritFrom?: string;
+  inheritFrom?: Scope;
 };
 
-type OrderSettingsOptions = {
+type OrderSettingsOptions<Scope extends string> = {
   title: string;
   items: readonly OrderSettingsItem[];
-  scopes: readonly OrderSettingsScope[];
-  initialScope: string;
+  scopes: readonly OrderSettingsScope<Scope>[];
+  initialScope: Scope;
   warnings?: readonly string[];
   theme: Pick<Theme, "fg" | "bold">;
   keys: KeybindingSource;
   rows(): number;
   requestRender(): void;
-  save(scope: string, order: readonly string[]): SettingsFeedback;
+  save(scope: Scope, order: readonly string[]): SettingsFeedback;
   close(): void;
 };
 
@@ -58,13 +58,14 @@ const orderControls: readonly KeyControl<OrderAction>[] = [
 ];
 
 /** Scoped reorder drafts. No persistence or live application happens before Ctrl+S. */
-export class OrderSettingsView implements Component {
+export class OrderSettingsView<Scope extends string> implements Component {
   private items = new Map<string, OrderSettingsItem>();
   private readonly drafts: {
-    scope: OrderSettingsScope;
+    scope: OrderSettingsScope<Scope>;
     order: string[];
     saved: string[];
     isSet: boolean;
+    inherits: boolean;
     selected: number;
   }[];
   private scopeIndex: number;
@@ -73,8 +74,7 @@ export class OrderSettingsView implements Component {
   private warning: SettingsFeedback | undefined;
   private closed = false;
 
-  constructor(private readonly options: OrderSettingsOptions) {
-    if (!options.scopes.length) throw new Error("Order settings require a save scope.");
+  constructor(private readonly options: OrderSettingsOptions<Scope>) {
     this.controls = new KeyControls(options.keys, orderControls);
     this.drafts = options.scopes.map((scope) => {
       const source = options.scopes.find((other) => other.id === scope.inheritFrom && other.isSet);
@@ -85,6 +85,7 @@ export class OrderSettingsView implements Component {
         order: [...order],
         saved: [...order],
         isSet: scope.isSet,
+        inherits: !scope.isSet,
         selected: 0
       };
     });
@@ -138,6 +139,7 @@ export class OrderSettingsView implements Component {
       if (selectedId !== undefined && nextId !== undefined) {
         [draft.order[draft.selected], draft.order[next]] = [nextId, selectedId];
         draft.selected = next;
+        draft.inherits = false;
         if (this.feedback?.severity !== "error") this.feedback = undefined;
       }
     } else if (draft.order.length && (action === "up" || action === "down")) {
@@ -203,7 +205,7 @@ export class OrderSettingsView implements Component {
     return draft;
   }
 
-  private isDirty(draft: ReturnType<OrderSettingsView["current"]>): boolean {
+  private isDirty(draft: ReturnType<OrderSettingsView<Scope>["current"]>): boolean {
     return (
       draft.order.length !== draft.saved.length ||
       draft.order.some((id, index) => id !== draft.saved[index])
@@ -217,10 +219,9 @@ export class OrderSettingsView implements Component {
         (other) => other.scope.id === draft.scope.inheritFrom && other.isSet
       );
       if (!source) continue;
-      const dirty = this.isDirty(draft);
       const selected = draft.order[draft.selected];
       draft.saved = [...source.saved];
-      if (dirty) continue;
+      if (!draft.inherits) continue;
       draft.order = [...source.saved];
       draft.selected = selected === undefined ? 0 : Math.max(0, draft.order.indexOf(selected));
     }

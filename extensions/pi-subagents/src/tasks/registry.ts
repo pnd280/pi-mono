@@ -13,6 +13,7 @@ import {
 import { Relay } from "../coordination/relay.ts";
 import type { ToolDetails } from "../details.ts";
 import type { RunConnection } from "../history/reader.ts";
+import { boundedText } from "../result.ts";
 import type { TaskRecord } from "./records.ts";
 import { Route, type Cancelled } from "./route.ts";
 import {
@@ -25,11 +26,12 @@ import {
   type RunReturn,
   type Selection
 } from "./run.ts";
+import { applyTemplate } from "./templates.ts";
 import type { ToolInput } from "./tool-schema.ts";
 import { TaskTree } from "./tree.ts";
 
 export type TaskEvent =
-  | { kind: "changed"; taskId?: string }
+  | { kind: "changed" }
   /** A direct task's run began; its child is not yet prompted. */
   | { kind: "run"; record: TaskRecord; run: RunConnection };
 
@@ -61,8 +63,7 @@ export class Tasks {
   private listeners = new Set<(event: TaskEvent) => void>();
   private closed = false;
   /**
-   * The background results of direct tasks. An active direct background task holds the run (ADR
-   * 0001); a stopped binding keeps its last records, so it holds nothing.
+   * The background results of direct tasks. An active direct background task holds the run (ADR 0001); a stopped binding keeps its last records, so it holds nothing.
    */
   readonly results = new ResultSource(
     () =>
@@ -96,8 +97,8 @@ export class Tasks {
     this.bindingId = options.sessionId;
     this.parent = options.depth === 0 ? null : (options.taskId ?? null);
     // Each change reaches observers, and a live record also this process's supervisor.
-    this.tree = new TaskTree(entries, this.parent, ({ taskId, publish }) => {
-      this.changed(taskId);
+    this.tree = new TaskTree(entries, this.parent, ({ publish }) => {
+      this.changed();
       if (publish) this.relay.publish(publish.record, publish.urgency);
     });
     this.relay = new Relay(
@@ -142,17 +143,11 @@ export class Tasks {
   private emit(event: TaskEvent): void {
     if (this.closed) return;
 
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch {
-        /* Observers cannot change process lifetime. */
-      }
-    }
+    for (const listener of this.listeners) listener(event);
   }
 
-  private changed(taskId?: string): void {
-    this.emit({ kind: "changed", ...(taskId ? { taskId } : {}) });
+  private changed(): void {
+    this.emit({ kind: "changed" });
   }
 
   /** The latest top-level tool of an active direct task; empty for other tasks. */
@@ -161,12 +156,13 @@ export class Tasks {
   }
 
   /**
-   * Run one call: input to an active task, or a launch or resume that waits for capacity. A
-   * foreground call returns the run's result; a background or promoted call returns when its run
-   * starts. Errors before the task is claimed throw; later failures return as a result.
+   * Run one call: input to an active task, or a launch or resume that waits for capacity; `Run.launch` gives when a launch returns. Errors before the task is claimed throw; later failures return as a result.
    */
-  async submit(request: ToolInput, handlers: CallHandlers): Promise<Submission> {
+  async submit(call: ToolInput, handlers: CallHandlers): Promise<Submission> {
     if (handlers.signal?.aborted) throw new Error("Cancelled by turn abort");
+    const expanded = applyTemplate(call, this.config.templates);
+    // One bounded label for the session name, details, and run record; recovery skips a record above `RECORD_MAX_BYTES`.
+    const request = { ...expanded, description: boundedText(expanded.description) };
 
     if (request.task_id !== undefined) {
       const delivery = request.delivery ?? "follow_up";
@@ -186,8 +182,7 @@ export class Tasks {
   }
 
   /**
-   * The requested model and thinking level. A resume reuses each omitted value from the task's
-   * latest run; a new task uses the supervisor's current one.
+   * The requested model, thinking level, and launch arguments. A resume reuses each omitted value from the task's latest run; a new task uses the supervisor's current selection and no arguments.
    */
   private selection(request: ToolInput): Selection {
     const launch = this.options.launch();
@@ -195,8 +190,9 @@ export class Tasks {
     const model = request.model ?? previous?.requested_model ?? launch.model;
     if (model === undefined) throw new Error("Select a model before launching a subagent");
     const thinking = request.thinking ?? previous?.requested_thinking ?? launch.thinking;
+    const launchArgs = request.launch_args ?? previous?.requested_launch_args ?? [];
 
-    return { launch, model, thinking };
+    return { launch, model, thinking, launchArgs };
   }
 
   private claim(taskId?: string): () => void {
@@ -216,9 +212,7 @@ export class Tasks {
   }
 
   /**
-   * The receiving half of the route: answer input, abort, or promotion from this process's
-   * supervisor for a task of this subtree through this process's own route. Input that reaches no
-   * run resumes a direct task in the background.
+   * The receiving half of the route: answer input, abort, or promotion from this process's supervisor for a task of this subtree through this process's own route. Input that reaches no run resumes a direct task in the background.
    */
   async control(value: Control, onUIRequest: DialogHandler): Promise<void> {
     let reply: ChildMessage;
@@ -281,26 +275,25 @@ export class Tasks {
         this.processes.add(run);
         break;
       case "message":
-        if (!this.closed) this.relay.receive(taskId, report.message);
+        this.relay.receive(taskId, report.message);
         break;
       case "began":
         this.live.set(taskId, run);
-        // The record must reach every ancestor before this child can request capacity: the run
-        // prompts its child only after this report returns.
+        // The record must reach every ancestor before this child can request capacity: the run prompts its child only after this report returns.
         this.tree.update(report.record, "immediate");
         // Readers observe the run before its prompt is sent.
         this.emit({ kind: "run", record: report.record, run: run.child });
         if (report.interrupted) this.warn(INTERRUPTED_WARNING);
         break;
       case "changed":
-        this.changed(run.details.task_id);
+        this.changed();
         break;
       case "event":
         this.tree.update(report.record, "debounced");
         break;
       case "promoted":
         if (report.record) this.tree.update(report.record, "immediate");
-        else this.changed(run.details.task_id);
+        else this.changed();
         break;
       case "ended":
         if (report.record) {
@@ -315,9 +308,7 @@ export class Tasks {
       case "completed": {
         const { completion } = report;
         if (this.closed) break;
-        // A call that ended with its run returned the result itself, and a dropped result goes
-        // to nobody. Either can change whether the run is held. The supervisor stops tasks at a
-        // session change.
+        // A call that ended with its run returned the result itself, and a dropped result goes to nobody. Either can change whether the run is held. The supervisor stops tasks at a session change.
         this.results.publish(
           completion.callReturned && !completion.dropped
             ? { kind: "result", message: taskResultMessage(completion), survivesChange: false }
@@ -339,11 +330,7 @@ export class Tasks {
       throw new Error("Subagent process has exited");
   }
 
-  /**
-   * Cancel an active task of this subtree. With `drop`, a direct task's cancellation result goes
-   * to nobody; a task that finished before the abort keeps its result. A failed cleanup of the
-   * task's processes throws after the task stops.
-   */
+  /** Cancel an active task of this subtree through `Route.cancel`. */
   abort(
     taskId: string,
     { reason = "Cancelled by user", drop = false }: { reason?: string; drop?: boolean } = {}
@@ -370,8 +357,7 @@ export class Tasks {
   }
 
   /**
-   * Stops every run and settles after each run ended. The binding is invalid, so no result reports
-   * a failed cleanup of a run's processes; the stop rejects with them after all runs ended.
+   * Stops every run and settles after each run ended. The binding is invalid, so no result reports a failed cleanup of a run's processes; the stop rejects with them after all runs ended.
    */
   async shutdown(immediate = false): Promise<void> {
     this.invalidate();
@@ -394,8 +380,7 @@ export class Tasks {
     const failed = failures.flat();
     if (!failed.length) return;
 
-    // Pi catches session_shutdown errors. The supervisor of this child supervisor reads the
-    // failures from its stderr.
+    // Pi catches session_shutdown errors. The supervisor of this child supervisor reads the failures from its stderr.
     if (this.options.depth > 0) await forwardStopFailures(failed);
     throw new Error(`Task cleanup failed: ${failed.join("; ")}`);
   }

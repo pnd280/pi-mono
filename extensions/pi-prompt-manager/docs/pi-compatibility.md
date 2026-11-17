@@ -2,20 +2,15 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.5.0 with package checks, offline API and installed-CLI tests, a source review of the Pi 1.4.0 to 1.5.0 changes, a randomised comparison of search scores with the installed `fuzzyMatch`, and the interaction measurement. Not covered: all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
-
-## Upgrade procedure
-
-1. Run the [package, API, CLI, terminal, and platform checks](validation.md). Shared mounting and interaction coverage belongs to [libs TUI](../../../libs/src/tui/README.md#validation).
-2. Work through the checklist below, then update the "Last verified" line.
+> Last verified against Pi 1.5.2 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised comparison of search scores with the installed `fuzzyMatch` and the interaction measurement, which both last ran on Pi 1.5.0; all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline or overlay browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
 
 ## Checklist
 
-Each item is a Pi contract that the extension relies on, with its expected result.
+Each item is a Pi contract that the extension relies on, with its expected result. Besides the checklist, run the [package, API, CLI, terminal, and platform checks](validation.md).
 
 ### Lifecycle and capture
 
-The extension starts in [`index.ts`](../src/index.ts). It must not touch settings or storage outside the TUI.
+The extension starts in [`index.ts`](../src/index.ts).
 
 - [ ] Pi emits `session_start` with `ctx.mode` set to `"tui"` only in the interactive TUI, after TUI startup.
 - [ ] Print, JSON, and RPC modes emit `session_start` with a different `ctx.mode`, so the extension reads neither settings nor storage.
@@ -28,10 +23,10 @@ The shutdown revoke then discards queued captures before the new session starts.
 
 ### Shortcuts and shutdown
 
-Shortcuts are [lifecycle claims](../../../libs/src/lifecycle/phases.md#shortcut-claims) made in the startup handler. The [shutdown phase](../../../libs/src/lifecycle/phases.md#shutdown-phase) revoke stops new writes and notifications synchronously, and the cleanup awaits started changes until they commit or release their locks after cancellation. Every workspace extension whose shutdown handler awaits is a participant, so only an extension from outside the workspace can await before the revoke. The user-visible effect is in [cancellation](storage.md#cancellation).
+Shortcuts are [lifecycle claims](../../../libs/src/lifecycle/phases.md#shortcut-claims) made in the startup handler. The [shutdown phase](../../../libs/src/lifecycle/phases.md#shutdown-phase) revoke stops new writes and notifications synchronously, and the cleanup awaits started changes until they commit or release their locks after cancellation. Every workspace extension whose shutdown handler awaits is a participant; the [version-mismatch rules](../../../libs/src/lifecycle/phases.md#version-mismatch) say when another participant can await before this revoke. The user-visible effect is in [cancellation](storage.md#cancellation).
 
 - [ ] Pi emits `resources_discover` before it sets up extension shortcuts, so claims that the first participant's handler registers work at once.
-- [ ] Pi runs `session_shutdown` handlers one after another in load order, so the first participant's handler revokes every participant before any later handler runs.
+- [ ] Pi runs `session_shutdown` handlers one after another in load order.
 
 ### Editor
 
@@ -47,6 +42,7 @@ The [editor host mapping](../src/index.ts) and the [source refusal](../src/manag
 - [ ] When the terminal shrinks from 19 to 18 rows, the inline browser remounts as an overlay, and back again when it grows, without losing its search or selection.
 - [ ] The cancel action closes the browser and returns to the editor, also while a collection loads.
 - [ ] Pi restores its inline editor snapshot before the browser host's `afterClose` runs, so restoring happens only after the final close.
+- [ ] That snapshot holds the editor text with large pastes expanded, so closing the browser never turns a paste into a literal paste marker.
 - [ ] With [fullscreen input routing](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership), resolved browser actions, including remapped ones, take priority over transcript controls while the inline browser has focus.
 - [ ] Search overlays and other focused dialogs receive input instead of the inline browser.
 - [ ] When the routing adapter finds missing capabilities, the browser shows the warning described in [fullscreen paging](controls.md#fullscreen-paging) and stays open.
@@ -56,16 +52,12 @@ The [editor host mapping](../src/index.ts) and the [source refusal](../src/manag
 
 [Native-only clipboard transport](../src/clipboard.ts), private storage, and capture exclusions are deliberate policies. Keep them when considering new host APIs or clipboard helpers.
 
-Like Pi 1.5.0's own clipboard commands (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
+Like Pi 1.5.2's own clipboard commands (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
 
 ### Search ranking
 
-Pi 1.5.0 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
+Pi 1.5.2 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
 
 ### Restoring
 
-[Restoring may normalise tabs and line endings](../README.md#restore-text). Revisit lossless editor APIs, as long as terminal safety and the exact stored and copied source are kept.
-
-### New APIs
-
-Compare any new history, browser, clipboard, and storage APIs with the checklist.
+[Restoring may normalise tabs and line endings](../README.md#restore-text). A lossless editor API can replace it only if terminal safety and the exact stored and copied source are kept.

@@ -1,10 +1,15 @@
-import type { ExtensionAPI, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionUIContext,
+  ToolExecutionEndEvent
+} from "@earendil-works/pi-coding-agent";
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import {
   getTodosArgumentCompletions,
   runTodosCommand,
   TodosCustomViewHost,
+  type TodosCommandContext,
   todosArgumentAutocompleteProvider
 } from "./commands.ts";
 import { loadTodoConfig } from "./config.ts";
@@ -25,7 +30,7 @@ type TodoEventHandlers = {
   session_tree: (event: object, ctx: TodoLifecycleContext) => void;
   session_shutdown: (event: object, ctx: TodoLifecycleContext) => void;
   tool_execution_end: (
-    event: { toolName: string; isError: boolean },
+    event: Pick<ToolExecutionEndEvent, "toolName" | "isError">,
     ctx: TodoLifecycleContext
   ) => void;
 };
@@ -35,7 +40,7 @@ export type TodoExtensionAPI = Pick<ExtensionAPI, "events"> & {
   registerCommand(
     name: string,
     definition: Omit<Parameters<ExtensionAPI["registerCommand"]>[1], "handler"> & {
-      handler(args: string, ctx: Parameters<typeof runTodosCommand>[1]): Promise<void>;
+      handler(args: string, ctx: TodosCommandContext): Promise<void>;
     }
   ): void;
   on<Event extends keyof TodoEventHandlers>(event: Event, handler: TodoEventHandlers[Event]): void;
