@@ -106,7 +106,6 @@ export function createSummaryRenderer() {
     return new MouseRegion(
       {
         render: (width) => {
-          if (width < 1) return [];
           if (cache?.width === width && cache.expanded === expansion.expanded) return cache.lines;
 
           const heading = summaryLine(parsed.data, expansion.expanded, theme);
