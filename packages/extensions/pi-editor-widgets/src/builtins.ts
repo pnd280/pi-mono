@@ -141,7 +141,13 @@ function context(session: AgentSession, theme: Theme, display: UsageDisplay): st
     auto = ` (auto ~${trigger})`;
   }
 
-  return theme.fg("dim", `${used}/${total}${share}${auto}`);
+  // Pi 1.5.2's footer.js colours context usage above 70% and 90%.
+  const text = `${used}/${total}${share}${auto}`;
+  const level = percent ?? 0;
+  if (level > 90) return theme.fg("error", text);
+  if (level > 70) return theme.fg("warning", text);
+
+  return theme.fg("dim", text);
 }
 
 /** Brackets set the staged counts apart only next to unstaged counts; `U` marks the untracked file count. */

@@ -21,9 +21,9 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
 
    | Key                          | Action                                                                             |
    | ---------------------------- | ---------------------------------------------------------------------------------- |
-   | **a**                        | Add a placement.                                                                   |
-   | **Shift+Up**, **Shift+Down** | Move a placement.                                                                  |
-   | **Delete**, **Backspace**    | Remove a placement. Removing the last copy hides that widget.                      |
+   | **a**                        | Add a row in the row list, or a placement in a row.                                |
+   | **Shift+Up**, **Shift+Down** | Move the selected row or placement.                                                |
+   | **Delete**, **Backspace**    | Remove the selected row or placement. Removing the last copy hides that widget.    |
    | **Tab**, **Shift+Tab**       | Switch between global and project layouts. Project layouts need a trusted project. |
 
    Edits preview live but aren't saved yet.
@@ -37,7 +37,7 @@ While the fullscreen menu has focus, its controls take priority over transcript 
 
 Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. For empty widgets, image widgets, and alignment, read [how rows render](docs/settings.md#how-rows-render).
 
-Regular mode always shows full token details and context percentages. In fullscreen mode, the token display and the context display each keep their own compact or detailed choice, and all copies of one display switch together. Each choice resets on session start or `/reload`, and is never saved.
+Regular mode shows full token details and, when known, context percentages. In fullscreen mode, both displays start compact, and the token display and the context display each keep their own compact or detailed choice, and all copies of one display switch together. Each choice resets on session start or `/reload`, and is never saved.
 
 ### Git changes
 
@@ -52,7 +52,7 @@ This example shows every field. Remove the comments before you copy it, because 
 ```jsonc
 {
   "ext.pi-editor-widgets": {
-    // Optional. Omit it to inherit the global layout, or in global settings to use the default layout. When present, all four regions are required and no other fields are allowed.
+    // Optional. Omit it to inherit the global layout, or in global settings to use the default layout. When present, aboveEditor, belowEditor, footer, and hidden are required, and no other fields are allowed.
     "layout": {
       // Rows above the editor. Each row lists widget:<key>, status:<key>, builtin:<name>, "separator", or "flex". Up to 1,000 rows, each with up to 1,000 entries. Default: no rows.
       "aboveEditor": [],
@@ -63,7 +63,7 @@ This example shows every field. Remove the comments before you copy it, because 
         ["builtin:cwd", "separator", "builtin:git-branch"],
         ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]
       ],
-      // IDs to show nowhere. Up to 10,000 unique IDs that are not placed in a row. Default: builtin:git-changes.
+      // IDs to show nowhere. Up to 10,000 unique IDs, not counting builtin:git-changes, that are not placed in a row. Default: builtin:git-changes.
       "hidden": ["builtin:session-title", "builtin:git-changes"]
     }
   }
