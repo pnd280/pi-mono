@@ -34,6 +34,10 @@ it.each(loadOrders)(
             } else {
               parts.hold(
                 released.then(() => {
+                  // A rejected hold only ends its own wait; its owner handles the error.
+                  const failed = Promise.reject(new Error("held failure"));
+                  failed.catch(() => undefined);
+                  parts.hold(failed);
                   // Added while the run waits, so the run must wait for this hold too.
                   parts.hold(
                     new Promise((resolve) => setTimeout(resolve, 0)).then(() => {

@@ -1,12 +1,13 @@
-import type { EventBus } from "@earendil-works/pi-coding-agent";
+import type { EventBus, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { errorMessage } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
+import { displayText } from "../tui/terminal-text/index.ts";
+
 export type Notify = (message: string, type: "warning" | "error") => void;
 
-type NotifyContext = {
-  hasUI: boolean;
-  ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
+type NotifyContext = Pick<ExtensionContext, "hasUI"> & {
+  ui: Pick<ExtensionContext["ui"], "notify">;
 };
 
 type Protocol = { readonly name: string; readonly version: number };
@@ -260,5 +261,5 @@ export function reportFailure(
   what: string,
   error: unknown
 ): void {
-  report(notify, `${participant.id}: ${what} failed: ${errorMessage(error)}`, "error");
+  report(notify, `${participant.id}: ${what} failed: ${displayText(errorMessage(error))}`, "error");
 }

@@ -6,6 +6,8 @@ An extension that temporarily replaces properties on host objects must restore t
 
 ## Behaviour
 
+`replace(target, key, value)` installs `value` as an own data property without invoking an inherited setter, and records how to restore it.
+
 ### Restoration
 
 - `restore()` reverses a replacement only where the installed value remains. It restores the descriptor, or removes a property that the replacement added.

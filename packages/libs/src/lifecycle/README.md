@@ -41,7 +41,7 @@ export default function notesExtension(pi: ExtensionAPI) {
         if (accepting) ctx.ui.notify("Note added.", "info");
       }
     });
-    arrival.commit(300, (ctx) => ctx.ui.notify("Notes are ready.", "info"));
+    arrival.commit(300, (ctx) => ctx.ui.notify("example-notes: notes are ready.", "info"));
   });
   lifecycle.onSessionShutdown(() => {
     accepting = false;
@@ -51,7 +51,7 @@ export default function notesExtension(pi: ExtensionAPI) {
   });
   lifecycle.onAgentSettled((_event, ctx, at) => {
     if (startedAt === undefined || !ctx.isIdle()) return;
-    ctx.ui.notify(`The run took ${Math.round(at - startedAt)} ms.`, "info");
+    ctx.ui.notify(`example-notes: the run took ${Math.round(at - startedAt)} ms.`, "info");
     startedAt = undefined;
   });
 }

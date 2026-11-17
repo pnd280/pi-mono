@@ -6,18 +6,14 @@ import {
   type OutputText
 } from "@pi-mono/utils/output-text";
 import { utf8Prefix, utf8Suffix } from "@pi-mono/utils/utf8";
-import { z } from "zod";
 
-const limitsSchema = z.object({
+export type OutputBufferOptions = {
   /** Retain full output up to this many raw input bytes. */
-  maxBytes: z.int().positive(),
+  maxBytes: number;
   /** Completed lines kept at each edge once full output exceeds maxBytes. */
-  edgeLines: z.int().positive(),
+  edgeLines: number;
   /** Bytes kept per line, divided between its head and tail. */
-  lineBytes: z.int().positive()
-});
-
-export type OutputBufferOptions = z.infer<typeof limitsSchema> & {
+  lineBytes: number;
   formatOmission: OmissionFormatter;
 };
 
@@ -74,8 +70,6 @@ export class OutputBuffer {
   private finished = false;
   private totalBytes = 0;
   constructor(private readonly options: OutputBufferOptions) {
-    if (!limitsSchema.safeParse(options).success)
-      throw new RangeError("Output buffer limits must be positive safe integers.");
     this.options = { ...options };
     this.line = new RetainedLine(this.options);
   }

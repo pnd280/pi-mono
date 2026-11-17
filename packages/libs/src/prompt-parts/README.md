@@ -10,7 +10,7 @@ Extensions that append to the system prompt in `before_agent_start` add their te
 2. It calls each part in ascending rank with the context and the event, and skips `undefined` and empty results.
 3. It appends the texts to `event.systemPromptOptions.appendSystemPrompt` once for the run, joined with a blank line. Text that Pi, `--append-system-prompt`, or earlier handlers put there stays first.
 
-A part that throws is [reported](../coordination/README.md#errors), and the other parts are still appended. A hold that never settles delays the run, as an awaited handler would. When a `before_agent_start` handler returns `systemPrompt`, Pi uses that prompt for the run and ignores `appendSystemPrompt`, so no part reaches the model.
+A part that throws is [reported](../coordination/README.md#errors), and the other parts are still appended. A hold that never settles delays the run, as an awaited handler would. When a `before_agent_start` handler returns `systemPrompt`, Pi uses that prompt for the run and ignores `appendSystemPrompt`, so the parts reach the model only when that prompt contains them, for example when the handler builds it from `event.systemPrompt` after the parts were appended.
 
 | When you…                                                        | Read                                            |
 | ---------------------------------------------------------------- | ----------------------------------------------- |

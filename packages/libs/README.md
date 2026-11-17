@@ -49,4 +49,7 @@ Each library has its own effects; none makes network requests.
 
 ## Validation
 
-The [test coverage](docs/testing.md) lists the invariants that must not regress.
+| When you…                             | Read                                                            |
+| ------------------------------------- | --------------------------------------------------------------- |
+| Change a library or its tests         | [Shared-library test coverage for maintainers](docs/testing.md) |
+| Upgrade Pi or check a host assumption | [Pi compatibility for maintainers](docs/pi-compatibility.md)    |

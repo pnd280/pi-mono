@@ -65,6 +65,7 @@ export class OrderSettingsView<Scope extends string> implements Component {
     order: string[];
     saved: string[];
     isSet: boolean;
+    inherits: boolean;
     selected: number;
   }[];
   private scopeIndex: number;
@@ -84,6 +85,7 @@ export class OrderSettingsView<Scope extends string> implements Component {
         order: [...order],
         saved: [...order],
         isSet: scope.isSet,
+        inherits: !scope.isSet,
         selected: 0
       };
     });
@@ -137,6 +139,7 @@ export class OrderSettingsView<Scope extends string> implements Component {
       if (selectedId !== undefined && nextId !== undefined) {
         [draft.order[draft.selected], draft.order[next]] = [nextId, selectedId];
         draft.selected = next;
+        draft.inherits = false;
         if (this.feedback?.severity !== "error") this.feedback = undefined;
       }
     } else if (draft.order.length && (action === "up" || action === "down")) {
@@ -216,10 +219,9 @@ export class OrderSettingsView<Scope extends string> implements Component {
         (other) => other.scope.id === draft.scope.inheritFrom && other.isSet
       );
       if (!source) continue;
-      const dirty = this.isDirty(draft);
       const selected = draft.order[draft.selected];
       draft.saved = [...source.saved];
-      if (dirty) continue;
+      if (!draft.inherits) continue;
       draft.order = [...source.saved];
       draft.selected = selected === undefined ? 0 : Math.max(0, draft.order.indexOf(selected));
     }

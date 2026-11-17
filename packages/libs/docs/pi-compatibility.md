@@ -58,11 +58,13 @@ The [coordinator protocol](../src/coordination/README.md) depends on these Pi ho
 - [ ] Every bind emits the session's stored `session_start` event. RPC binds a replaced session twice, so two emissions receive the same event object.
 - [ ] Every bind and `/reload` emits `resources_discover` after all `session_start` handlers, when any extension has a `resources_discover` handler.
 - [ ] `input` and `before_agent_start` keep the chain and error semantics that [input-chain](../src/input-chain/README.md#behaviour) and [prompt-parts](../src/prompt-parts/README.md#behaviour) copy.
+- [ ] `before_agent_start`, for both user and custom-message runs, exposes a writable `systemPromptOptions.appendSystemPrompt` that holds Pi's append text and earlier extensions' changes.
+- [ ] Pi builds new `systemPromptOptions` from its loaded append text for each run.
 - [ ] A `systemPrompt` result still makes Pi ignore `appendSystemPrompt`.
 - [ ] Interactive mode sets up extension shortcuts and commands after `resources_discover`.
 - [ ] Pi defers prompts sent during `agent_settled` until the emission ends.
 
-The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/phases.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/phases.md#run-marks) of one run apart from the next.
+The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/phases.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/phases.md#run-marks) of one run apart from the next. If Pi reused `systemPromptOptions` across runs, the additions would build up.
 
 ### Working message
 
@@ -80,8 +82,8 @@ The [offline fixtures](../README.md#offline-validation) depend on these Pi contr
 
 - [ ] Offline fixtures match the real provider message and stream contracts.
 - [ ] Offline fixtures isolate authentication.
-- [ ] Offline fixtures load the installed CLI.
-- [ ] Offline fixtures accept the launcher flags.
+- [ ] The [process fixture](../src/validation/pi-process/README.md) launches the executable in the installed Pi package's `bin.pi`.
+- [ ] Pi accepts the flags that offline launches pass, including `--offline`, `--approve`, and the terminal launcher's `--tui-mode regular` and `--tui-mode fullscreen`.
 - [ ] The [interactive host fixture](../src/validation/interactive-host/README.md) still finds the private containers, UI-context creation, renderer mounting, autocomplete setup, and `createChatViewport` it relies on.
 - [ ] Pi focuses `editor` at startup before the renderer starts, as `inputHostFixture` does. Custom-UI tests depend on this focus.
 

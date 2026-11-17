@@ -24,7 +24,7 @@ export type { WorkingMessageComponent, WorkingMessageHandle } from "./coordinato
 
 export type WorkingMessageRegistration = WorkingMessageComponent & {
   /**
-   * The live component with the lowest rank registers `/working-message` through its own extension.
+   * Lower ranks take priority to host `/working-message`. See `command-owner.md`.
    */
   ownerRank: number;
 };

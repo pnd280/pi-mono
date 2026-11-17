@@ -21,10 +21,13 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, integration:** A project skill-reference format overrides the global format only when it is valid and comes from the trusted current directory, not an ancestor.
 - **Critical, unit:** For complete input snapshots, `displayText` removes terminal escape and control bytes other than normalised whitespace.
 - **Critical, unit:** For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
+- **Critical, unit:** `highlightCodeSelection` output contains no source terminal commands, and each range is marked independently.
+- **Critical, e2e:** The browser calls `remove.run` only after two distinct Delete presses on the same target before the deadline.
 - **Critical, e2e:** In every load order, startup commits run once per `session_start` emission, in ascending rank, after every extension's `session_start` handler.
 - **Critical, e2e:** In every load order, every participant's shutdown revoke runs before any participant's shutdown handler awaits.
 - **High, e2e:** A model-only tool's declared description has the codemode notice exactly while `codemode` is declared.
 - **High, e2e:** A shared custom view receives each owned input once while focused, including controls remapped to transcript paging.
+- **High, e2e:** When listener interference invalidates priority routing, a shared custom view disables its priority callbacks, reports the failure once, and leaves host input usable.
 - **High, e2e:** Close, abort, and remount of a shared custom view make old callbacks inert, restore host input, and preserve unrelated overlays.
 - **High, e2e:** After-close effects of a shared custom view run once, after final closure only.
 - **High, e2e:** In every load order, input-chain observers receive the input before any participant's transform changes it.
@@ -42,7 +45,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 
 - Model-facing schema projection is not tested because consumers reject invalid domain input before side effects, and only live provider checks prove that providers accept a schema.
 - Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
-- [Coordinator](../src/coordination/README.md) liveness, coordinator version-mismatch behaviour, and working-message command ownership are not tested because no invariant is approved for them yet.
+- [Coordinator](../src/coordination/README.md) liveness, coordinator version-mismatch behaviour, working-message command ownership, and the timed-confirmation deadline are not tested because no invariant is approved for them yet.
 - TUI layout and settings-frame presentation are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation) for them.
 - Extensions own their collection formats and tool-card policies, and the validation, unreadable-file policy, and scope merge of their `readScopedSections` results.
 

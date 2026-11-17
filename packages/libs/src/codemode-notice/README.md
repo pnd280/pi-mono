@@ -6,7 +6,7 @@ The model can call a `model-only` tool only directly, never from a codemode scri
 
 ## Behaviour
 
-- The returned definition adds a `prepareLoadout` hook. While a tool named `codemode` is declared to the model, the hook ends the tool's declared description with "Call this tool directly. It is not available inside codemode."
+- The returned definition replaces any existing `prepareLoadout` hook; the previous hook is not called. While a tool named `codemode` is declared to the model, the hook ends the tool's declared description with "Call this tool directly. It is not available inside codemode."
 - While `codemode` is not declared, the description is the original one. Pi runs the hook each time the active tools change, so the notice follows them.
 - The notice goes only in the description. `promptSnippet` and `promptGuidelines` stay unchanged.
 - A codemode-like tool under another name does not add the notice. A hook that hides the `codemode` declaration does not remove it.
