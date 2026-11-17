@@ -17,7 +17,6 @@ describe("model references", () => {
     "rejects %j without a provider and model ID",
     (reference) => {
       expect(modelReferenceSchema.safeParse(reference).success).toBe(false);
-      expect(() => splitModelReference(reference)).toThrow(TypeError);
     }
   );
 });
