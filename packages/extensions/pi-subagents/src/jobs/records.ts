@@ -17,9 +17,7 @@ export const jobInputSchema = z.strictObject({
       "timeout must be more than 0 and at most 2147483 seconds"
     )
     .optional()
-    .describe(
-      "Timeout in seconds, more than 0 and at most 2147483 (optional, no default timeout)."
-    ),
+    .describe("Timeout in seconds (optional, no default timeout)."),
   hold_run: z
     .boolean()
     .optional()
@@ -69,12 +67,12 @@ export function jobHistory(entries: readonly SessionEntry[]): Map<string, JobRec
 
     if (entry.customType === JOB_ENTRY) {
       const job = jobEntrySchema.safeParse(entry.data).data;
-      if (job && !jobs.has(job.job_id)) jobs.set(job.job_id, stoppedJob(job));
+      if (job) jobs.set(job.job_id, stoppedJob(job));
     } else if (entry.customType === JOB_END_ENTRY) {
       const end = jobEndEntrySchema.safeParse(entry.data).data;
       const job = end && jobs.get(end.job_id);
 
-      if (end && job?.state === "inactive" && job.ended_at === null) {
+      if (end && job?.state === "inactive") {
         jobs.set(end.job_id, {
           ...job,
           outcome: end.outcome,

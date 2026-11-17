@@ -241,7 +241,7 @@ export function renderBoard(
     const room = Math.max(1, width - visibleWidth(first));
     const left = `${title}${theme.fg("muted", ` · ${model}`)}`;
     const alignRight = (row: string, used = 0) =>
-      `${" ".repeat(Math.max(0, room - used - visibleWidth(row)))}${row}`;
+      `${" ".repeat(room - used - visibleWidth(row))}${row}`;
     const gap = visibleWidth(metadata) ? 1 : 0;
     // A row that does not fit keeps the model and the details on their own rows, without a dangling separator. Wrapped details stay aligned to the right edge.
     const rows =

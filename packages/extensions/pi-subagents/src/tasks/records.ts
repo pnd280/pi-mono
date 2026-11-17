@@ -161,7 +161,6 @@ export function startRun(
  * An active run's record after a child event. A completed or aborted response sets the applied model and thinking level; a failed one can name a virtual model that never ran. A finished message adds its usage, including late background usage, and a model request with a prompt sets the cache hit rate. The context use changes as in {@link liveContext}. The run's `end` replaces these live values with exact statistics.
  */
 export function applyEvent(record: TaskRecord, event: JsonAgentSessionEvent): TaskRecord {
-  if (record.state !== "active") return record;
   if (event.type === "thinking_level_changed")
     return event.level === record.thinking ? record : { ...record, thinking: event.level };
   const context = liveContext(record.context, event);

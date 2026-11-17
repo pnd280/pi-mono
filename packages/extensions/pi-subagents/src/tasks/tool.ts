@@ -32,7 +32,7 @@ export function templateGuidance(templates: ReadonlyMap<string, Template>): stri
   if (!templates.size) return "";
 
   return [
-    "Templates (set `template` to use one, also with task_id; a call's background overrides the template's):",
+    "Templates:",
     ...[...templates].map(([name, template]) => {
       const values = [
         template.model === undefined ? "" : `model: ${template.model}`,
@@ -163,13 +163,7 @@ export function createSubagentTool({
 
       const update = () => {
         if (!callOpen || !details || !tasks.activeBinding) return;
-
-        // A presentation callback must not throw out of a timer or leak the running process.
-        try {
-          onUpdate?.({ content: [], details: { ...details } });
-        } catch {
-          /* The final result still carries the latest details. */
-        }
+        onUpdate?.({ content: [], details: { ...details } });
       };
 
       try {

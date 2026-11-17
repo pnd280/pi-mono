@@ -87,7 +87,6 @@ async function readEntry(path: string) {
     if (!stat.isFile() || stat.size > 1024) return undefined;
     const buffer = Buffer.alloc(1025);
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (bytesRead !== stat.size) return undefined;
 
     return {
       processes: pids(buffer.subarray(0, bytesRead).toString("utf8")),

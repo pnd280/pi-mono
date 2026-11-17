@@ -61,7 +61,7 @@ export default function subagents(
 ): void {
   const depth = getDepth();
   const taskId = getTaskId();
-  let lateUsageWarning = installLateUsagePatch();
+  installLateUsagePatch();
   const lifecycle = joinLifecycle(pi, { id: "pi-subagents" });
   if (depth > 0 && taskId) joinChildPrompt(pi);
   const waiting = registerWorkingMessage(pi, {
@@ -160,8 +160,6 @@ export default function subagents(
 
   /** The binding's view of the session in `ctx`, after the warnings of its settings. */
   const session = (ctx: ExtensionContext): BindingSession & { docs: string } => {
-    if (lateUsageWarning) ctx.ui.notify(lateUsageWarning, "warning");
-    lateUsageWarning = undefined;
     const { docs, warnings, ...config } = loadConfig(ctx.cwd, {
       projectTrusted: ctx.isProjectTrusted()
     });

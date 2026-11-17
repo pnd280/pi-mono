@@ -365,12 +365,10 @@ export class Run {
       runId: this.runId,
       previousRunId: resumed?.record.run_id ?? null,
       // A descendant needs its full EOF/TERM/KILL interval before its supervisor can be forced down. Capacity also bounds the number of possible levels.
-      shutdownGraceMs: Math.min(
-        2_147_483_647,
+      shutdownGraceMs:
         STOP_GRACE_MS +
-          Math.max(0, Math.min(host.config.maxDepth, host.config.maxConcurrent) - depth) *
-            (STOP_GRACE_MS + KILL_GRACE_MS)
-      ),
+        Math.max(0, Math.min(host.config.maxDepth, host.config.maxConcurrent) - depth) *
+          (STOP_GRACE_MS + KILL_GRACE_MS),
       onSpawn: async (pid) => {
         await resumed?.lease.add(pid);
       },

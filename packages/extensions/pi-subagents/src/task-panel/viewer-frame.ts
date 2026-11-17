@@ -321,7 +321,7 @@ export function renderViewer({
     })
   });
   const { lines, above, below } = body(height);
-  const padding = Array.from({ length: Math.max(0, height - lines.length) }, () => "");
+  const padding = Array.from({ length: height - lines.length }, () => "");
   const color = (text: string) => theme.fg("border", text);
 
   return {
