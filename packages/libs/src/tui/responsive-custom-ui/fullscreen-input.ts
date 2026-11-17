@@ -49,11 +49,6 @@ function capability(tui: TUI) {
   )
     return;
   const focus: unknown = getFocus.call(tui);
-  if (
-    focus !== null &&
-    (typeof focus !== "object" || !("render" in focus) || typeof focus.render !== "function")
-  )
-    return;
 
   // Pi can restore a visible overlay after listeners run, even when current focus names an inline component. Do not preempt that pending focus handoff.
   const restore: unknown = getRestore.call(tui);
@@ -146,13 +141,7 @@ export function fullscreenInputRouting(options: {
     options.onUnavailable();
   };
 
-  const inspect = () => {
-    try {
-      return capability(options.tui);
-    } catch {
-      return undefined;
-    }
-  };
+  const inspect = () => capability(options.tui);
 
   const active = () =>
     !disposed && !failed && options.eligible() && options.tui.mode === "fullscreen";

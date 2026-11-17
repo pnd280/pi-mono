@@ -109,7 +109,6 @@ export class BrowserController<Item> {
   }
 
   async activate(id = this.section.id): Promise<void> {
-    if (this.isClosed() || this.busy) return;
     const section = this.findSection(id);
     this.activation.abort();
     const activation = new AbortController();
@@ -152,10 +151,7 @@ export class BrowserController<Item> {
       if (activation.signal.aborted) return;
       this.preview = false;
       this.status = "unavailable";
-      this.error =
-        error instanceof Error
-          ? error.message
-          : (this.options.loadError ?? "Could not load items.");
+      this.error = error instanceof Error ? error.message : "Could not load items.";
       this.ports.changed();
     }
   }
@@ -219,7 +215,6 @@ export class BrowserController<Item> {
   }
 
   setQuery(query: string): void {
-    if (this.isClosed() || this.busy || this.preview || this.options.inspection) return;
     this.cancelConfirmation();
     this.state.query = query;
     void this.filter({ edited: true });
@@ -322,7 +317,6 @@ export class BrowserController<Item> {
   }
 
   action(action: BrowserAction, pageSize = 5): void {
-    if (this.isClosed() || action === "ignore") return;
     if (action !== "delete") this.cancelConfirmation();
     if (action === "cancel") {
       if (this.canReturnToList) {

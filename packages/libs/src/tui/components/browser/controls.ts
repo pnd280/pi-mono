@@ -1,4 +1,4 @@
-import { isKeyRelease, isKeyRepeat, matchesKey, type KeyId } from "@earendil-works/pi-tui";
+import { isKeyRepeat, matchesKey, type KeyId } from "@earendil-works/pi-tui";
 
 import { KeyControls, type KeybindingSource, type KeyControl } from "../../keybindings/index.ts";
 
@@ -54,7 +54,6 @@ export class BrowserControls {
   }
 
   actionFor(data: string): BrowserAction {
-    if (isKeyRelease(data)) return "ignore";
     const action = this.controls.actionFor(data);
     if (action) return action === "delete" && isKeyRepeat(data) ? "ignore" : action;
 

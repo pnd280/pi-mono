@@ -62,10 +62,6 @@ export class WorkingMessageCoordinator<Participant extends object, Owner> {
     owner: Owner
   ): WorkingMessageHandle {
     const parsed = componentSchema.parse(component);
-    // Other extensions' duplicates are resolved among live participants at session start.
-    for (const item of this.items)
-      if (item.participant === participant && item.component?.id === parsed.id)
-        throw new Error(`Duplicate working-message component: ${parsed.id}`);
 
     return this.track({ participant, component: parsed, owner, text: "" }, (text) =>
       oneLine(displayText(text))

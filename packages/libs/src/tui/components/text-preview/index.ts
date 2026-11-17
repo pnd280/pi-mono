@@ -65,8 +65,8 @@ export class ScrollableTextPreview {
   }
 
   setViewport({ height, scroll }: { height: number; scroll: number }): void {
-    this.height = Math.max(0, Math.floor(height));
-    this.offset = Math.max(0, Math.floor(scroll));
+    this.height = height;
+    this.offset = scroll;
   }
 
   get loading(): boolean {
@@ -86,9 +86,6 @@ export class ScrollableTextPreview {
   }
 
   render(width: number): string[] {
-    if (this.disposed || !this.options.current()) return [];
-    width = Math.max(0, Math.floor(width));
-    if (!width || !this.height) return [];
     if (this.layout?.width !== width) this.prepare(width);
     const lines = this.layout?.lines;
     if (lines === undefined) return [];

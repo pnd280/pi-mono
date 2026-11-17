@@ -15,7 +15,6 @@ export class LatestTask {
     commit: (value: Value) => void,
     fail: (error: unknown) => void
   ): Promise<void> {
-    if (this.disposed) return;
     const generation = ++this.generation;
     const current = () => !this.disposed && generation === this.generation;
     this.running = true;
