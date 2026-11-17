@@ -14,6 +14,7 @@ export const SELECTION_ENTRY = "pi-profiles.selection";
 /** Pi's tool that loads inactive tools. Pi does not export the name. */
 const TOOL_SEARCH = "tool_search";
 
+/** Old sessions keep their entries, and an entry that fails this schema is skipped without an error, so a change here loses those selections. */
 const selectionSchema = z
   .object({
     /** Absent when no profile is selected. */
