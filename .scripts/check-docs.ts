@@ -1,4 +1,6 @@
-// Check workspace Markdown: relative links and heading anchors must resolve, inline `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z" line must name the installed Pi version. Docs outside agent skills and prompt resources must also follow the structural conventions checked by checkConventions(). Every run also checks that each "N extensions" count in the README and the hero image source matches packages/extensions/.
+// Check workspace Markdown: relative links resolve with exact case and their heading anchors exist, inline `Class.prototype.member` names exist in the file's package source or the installed Pi declarations, and every "Last verified against Pi x.y.z" line names the installed Pi version.
+// Outside .agents/ and .resources/, also check the conventions that docs/documentation.md and docs/agents/testing.md#package-testing-guide state for bullet labels, package testing guides, compatibility docs, and extension README jsonc blocks.
+// Every run also checks each "N extensions" count in README.md and docs/assets/hero.html against packages/extensions/.
 // Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -224,7 +226,7 @@ function checkPrototypeNames(file: string, text: string, name: string): string[]
   return problems;
 }
 
-// The documentation conventions (docs/documentation.md) allow a bold label at the start of a bullet only as the severity and layer of a "Must not regress" invariant (docs/agents/testing.md#coverage), with Critical invariants before High ones in each group.
+// Bullet labels follow the emphasis convention in docs/documentation.md#writing-for-scanning.
 const bulletLabel = /^[ \t]*(?:[-*+]|\d+\.)[ \t]+\*\*([^*\n]+?)(?::\*\*|\*\*:)/;
 const severityLabel = /^(Critical|High), (?:e2e|integration|unit)$/;
 
@@ -280,7 +282,8 @@ function labelProblem(scope: RegressScope, label: string): string | undefined {
   }
 
   if (severity === "High") scope.seenHigh = true;
-  else if (scope.seenHigh) return "Critical invariant after a High one";
+  else if (scope.seenHigh)
+    return "Critical invariant after a High one; list Critical invariants first";
 
   return undefined;
 }
@@ -320,14 +323,17 @@ function checkTestingGuide(lines: string[], name: string): string[] {
   for (const { title, index } of sections) {
     const order = testingSections.indexOf(title);
 
-    if (order <= previous) problems.push(`${name}:${index + 1}: unexpected section "${title}"`);
-    else previous = order;
+    if (order <= previous) {
+      problems.push(
+        `${name}:${index + 1}: unexpected section "${title}"; the sections are ${testingSections.map((section) => `"${section}"`).join(", ")}, in that order`
+      );
+    } else previous = order;
   }
 
   return problems;
 }
 
-// A compatibility doc opens with one "Last verified" quote line before its first section (docs/documentation.md#writing-for-scanning).
+// Compatibility docs follow docs/documentation.md#writing-for-scanning.
 const verifiedLine = /^> Last verified against Pi \d+\.\d+\.\d+\b.* with .+\. Not covered: .+\.$/;
 
 function checkCompatibilityDoc(lines: string[], name: string): string[] {
@@ -359,7 +365,7 @@ function checkCompatibilityDoc(lines: string[], name: string): string[] {
   return problems;
 }
 
-// docs/documentation.md#extension-readmes: a jsonc block must be valid JSON once its comment lines are removed, because Pi reads settings.json as plain JSON. Only whole-line `//` comments are removed.
+// Extension README jsonc blocks follow docs/documentation.md#extension-readmes.
 function checkJsonc(text: string, name: string): string[] {
   return Array.from(text.matchAll(/^```jsonc\n([\s\S]*?)^```$/gm), ({ 1: body = "", index }) => {
     try {
