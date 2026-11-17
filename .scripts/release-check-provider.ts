@@ -5,18 +5,18 @@ import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
-const callable = z.custom<(options: object) => Promise<unknown>>(
+const callableSchema = z.custom<(options: object) => Promise<unknown>>(
   (value) => typeof value === "function"
 );
-const boundedDiff = z.object({ createBoundedPatch: callable });
-const collectionProcessing = z.object({ readCollectionAsync: callable });
-const ready = z.object({ status: z.literal("ready") });
+const boundedDiffSchema = z.object({ createBoundedPatch: callableSchema });
+const collectionProcessingSchema = z.object({ readCollectionAsync: callableSchema });
+const readySchema = z.object({ status: z.literal("ready") });
 
 async function probe(name: string, run: () => Promise<unknown>): Promise<string | undefined> {
   try {
     const result = await run();
 
-    return ready.safeParse(result).success ? undefined : `${name}: ${JSON.stringify(result)}`;
+    return readySchema.safeParse(result).success ? undefined : `${name}: ${JSON.stringify(result)}`;
   } catch (error) {
     return `${name}: ${error instanceof Error ? error.message : String(error)}`;
   }
@@ -25,7 +25,7 @@ async function probe(name: string, run: () => Promise<unknown>): Promise<string 
 async function probeWorkers(tree: string): Promise<string> {
   const failures = await Promise.all([
     probe("bounded-diff worker", async () => {
-      const { createBoundedPatch } = boundedDiff.parse(
+      const { createBoundedPatch } = boundedDiffSchema.parse(
         await import(join(tree, "extensions/pi-tool-display/src/bounded-diff/index.ts"))
       );
 
@@ -41,7 +41,7 @@ async function probeWorkers(tree: string): Promise<string> {
       });
     }),
     probe("pi-prompt-manager collection worker", async () => {
-      const { readCollectionAsync } = collectionProcessing.parse(
+      const { readCollectionAsync } = collectionProcessingSchema.parse(
         await import(join(tree, "extensions/pi-prompt-manager/src/storage/processing.ts"))
       );
       // The empty document that readCollection returns for a missing file, padded past `workerThreshold` (1 MiB) in processing.ts, so that the worker reads it.

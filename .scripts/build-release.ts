@@ -84,8 +84,8 @@ function prune(directory: string): void {
 }
 
 // `pnpm pack` replaces `workspace:` and `catalog:` specifiers, which npm rejects, with versions.
-const packResult = z.object({ filename: z.string() });
-const extensionManifest = z.object({ pi: z.object({ extensions: z.array(z.string()) }) });
+const packResultSchema = z.object({ filename: z.string() });
+const extensionManifestSchema = z.object({ pi: z.object({ extensions: z.array(z.string()) }) });
 const extensionEntries: string[] = [];
 const tarballs = mkdtempSync(join(tmpdir(), "pi-mono-release-"));
 
@@ -95,7 +95,7 @@ try {
       cwd: directory,
       encoding: "utf8"
     });
-    const { filename } = packResult.parse(JSON.parse(packed));
+    const { filename } = packResultSchema.parse(JSON.parse(packed));
     const destination = join(output, target);
 
     mkdirSync(destination, { recursive: true });
@@ -108,7 +108,7 @@ try {
     writeJson(join(destination, "package.json"), manifest);
 
     if (extension) {
-      for (const entry of extensionManifest.parse(manifest).pi.extensions) {
+      for (const entry of extensionManifestSchema.parse(manifest).pi.extensions) {
         extensionEntries.push(`./${posix.join(target, entry)}`);
       }
     }
@@ -161,7 +161,7 @@ try {
     stdio: "inherit"
   });
 
-  // Use the CLI because it maps host packages differently from the SDK. The CLI exits with an error when an extension fails to load. The offline model lets a good run finish, and it replies "ok" only when the worker threads start in the installed tree.
+  // Use the CLI because it maps host packages differently from the SDK. The CLI exits with an error when an extension fails to load.
   const pi = join(root, "node_modules/.bin/pi");
   const provider = join(import.meta.dirname, "release-check-provider.ts");
   const reply = execFileSync(

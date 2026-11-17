@@ -47,6 +47,7 @@ jobs:
           tree=$(git write-tree)
           commit=""
           parent=()
+          refs=()
           # No parent on the first run. If the fetch fails for another reason, the push below is not a fast-forward and fails.
           if git fetch --depth=1 origin release; then
             if [ "$tree" = "$(git rev-parse 'FETCH_HEAD^{tree}')" ]; then
@@ -58,13 +59,16 @@ jobs:
           fi
           if [ -z "$commit" ]; then
             commit=$(git commit-tree "$tree" "${parent[@]}" -m "chore(release): build $GITHUB_SHA")
-            git push origin "$commit:refs/heads/release"
+            refs+=("$commit:refs/heads/release")
           fi
-          # Tag the first build of each version. Tags never move: the push without --force fails instead of replacing a tag. This also runs for an unchanged tree, so a rerun adds a tag that an earlier run did not push.
+          # Tag the first build of each version. One atomic push publishes the branch and the tag together, so a failed tag push cannot leave that build untagged. Tags never move: the push without --force fails instead of replacing a tag. An unchanged tree pushes only a missing tag, so a rerun adds a tag that an earlier run did not push.
           tag="v$(node -p "require(process.env.RUNNER_TEMP + '/release/package.json').version")"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
             echo "Tag $tag already exists."
           else
             git tag -a "$tag" -m "$tag" "$commit"
-            git push origin "refs/tags/$tag"
+            refs+=("refs/tags/$tag")
+          fi
+          if [ "${#refs[@]}" -gt 0 ]; then
+            git push --atomic origin "${refs[@]}"
           fi
