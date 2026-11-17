@@ -49,7 +49,7 @@ class Rows implements Component {
   constructor(private build: (width: number) => string[]) {}
 
   render(width: number): string[] {
-    return width < 1 ? [] : this.build(width);
+    return this.build(width);
   }
 
   invalidate(): void {}
@@ -224,30 +224,22 @@ function createJobRenderers(
   };
 }
 
-const RESULT_ARRIVES =
-  "The result arrives automatically when the command exits; do not sleep or poll.";
-
 /**
- * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs that do not hold it.
+ * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs that do not hold it. The `hold_run` parameter describes held jobs.
  */
 function jobDelivery(delivers: boolean): string {
   return delivers
-    ? RESULT_ARRIVES
-    : "Set hold_run for a command whose result you need, such as a build or a test run: your run waits for the job, and the result arrives automatically; do not sleep or poll. Jobs without hold_run stop when your final reply ends this run, so use them only for processes that you need during the run, such as a server that you test.";
+    ? "The result arrives automatically when the command exits."
+    : "Jobs without hold_run stop when your final reply ends this run, so use them only for processes that you need during the run, such as a server that you test.";
 }
 
-/** What happens to the result of this job. */
+/** The log path, and the poll rule when a result will arrive. */
 function jobStarted(logFile: string, delivers: boolean, hold: boolean): string {
-  let result = RESULT_ARRIVES;
-  if (hold) result = `Your run waits for this job after your final reply. ${RESULT_ARRIVES}`;
-  else if (!delivers)
-    result =
-      "If the job still runs when your final reply ends this run, it stops, and you receive no result.";
+  const log = `Log file: ${logFile}`;
 
-  return [
-    `The job is running in the background. Its output goes to the log file ${logFile}`,
-    result
-  ].join("\n");
+  return delivers || hold
+    ? `${log}\n\nThe result arrives automatically when the command exits; do not sleep or poll.`
+    : log;
 }
 
 /** Guidance for the model; `delivers` is false where the run's end stops jobs without `hold_run`. */

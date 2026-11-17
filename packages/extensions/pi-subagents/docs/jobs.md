@@ -50,7 +50,7 @@ Edge cases:
 | Tree navigation to a different entry, parent-session fork, session switch, `/new`, `/resume`, `/reload`, or exit | All jobs of the session stop, and they deliver no result.                                                            |
 | A print or JSON supervisor or a child ends its run.                                                              | Its remaining jobs stop, and their results are lost. Before it ends, the run waits for [held jobs](#held-jobs).      |
 
-In print and JSON modes and in children, the [`job` description](../src/jobs/tool.ts) tells the model to set `hold_run` for a command whose result it needs.
+In print and JSON modes and in children, the [`job` description](../src/jobs/tool.ts) tells the model that jobs without `hold_run` stop when its final reply ends the run, so it uses them only for processes that it needs during the run, such as a server that it tests. In every mode, the [`hold_run` parameter description](../src/jobs/records.ts) tells the model to set it when it needs the result before it finishes.
 
 Edge cases:
 

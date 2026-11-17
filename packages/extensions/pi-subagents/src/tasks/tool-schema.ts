@@ -31,11 +31,7 @@ export const toolInputSchema = z.strictObject({
     .describe(
       "The detailed task for the child to perform, or new input for an existing conversation."
     ),
-  task_id: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("The full ID of a task you own. Active-task updates return immediately."),
+  task_id: z.string().min(1).optional().describe("The full ID of a task you own."),
   model: z
     .string()
     .min(1)
