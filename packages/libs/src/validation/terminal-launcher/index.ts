@@ -7,10 +7,6 @@ import { z } from "zod";
 import type { PiLaunch } from "../pi-process/index.ts";
 
 const modeSchema = z.enum(["regular", "fullscreen"]);
-const reuseDirectorySchema = z
-  .string()
-  .min(1)
-  .refine((path) => !path.startsWith("--"));
 
 type TerminalLauncherOptions = {
   args: readonly string[];
@@ -40,15 +36,15 @@ export async function runTerminalLauncher(options: TerminalLauncherOptions): Pro
 
   let directory: string;
   if (args[0] === "--reuse") {
-    const existing = reuseDirectorySchema.safeParse(args[1]);
+    const existing = args[1];
 
-    if (!existing.success) {
+    if (!existing) {
       console.error("--reuse requires a fixture directory; use --help for usage.");
 
       return 1;
     }
 
-    directory = resolve(existing.data);
+    directory = resolve(existing);
     args.splice(0, 2);
   } else directory = await options.createWorkspace();
   // Consumers validate the marker before any process starts, including reused directories.

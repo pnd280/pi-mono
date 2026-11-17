@@ -97,7 +97,7 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
           };
 
           checkLayout();
-          if (closed || options.signal.aborted) queueMicrotask(close);
+          if (closed) queueMicrotask(close);
 
           const adapter: Component & Focusable & { dispose(): void } = {
             render: (width) => {
