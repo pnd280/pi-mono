@@ -6,8 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [workspace checks](../../../../docs/development.md#focused-validation) and the [manual checks](testing.md#manual-checks).
-2. Work through the checklist below, then update the "Last verified" line.
+Run the [manual checks](testing.md#manual-checks).
 
 ## Checklist
 
