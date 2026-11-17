@@ -178,20 +178,17 @@ export class SavedCalls {
   private ended = new Map<DisplayCall, Outcome>();
   /** Warnings already reported. */
   private warned = new Set<string>();
-  private disposed = false;
 
   constructor(private options: SavedCallsOptions) {}
 
   /** Native observation of a live call started; only observed calls save operations. */
   observe(call: DisplayCall): void {
-    if (call.origin !== "live") return;
     this.sourceEntry(call);
     this.observed.set(call, this.observed.get(call) ?? {});
   }
 
   /** Apply a fact to the live card; keep operation and change facts for the call entry. */
   fact(call: DisplayCall, fact: DisplayFact): void {
-    if (this.disposed) return;
     this.options.coordinator.fact(call, fact);
     const observed = this.observed.get(call);
     if (!observed) return;
@@ -243,11 +240,6 @@ export class SavedCalls {
     if (change) coordinator.fact(call, change);
     const operation = replayedOperation(call, recorded);
     if (operation) coordinator.fact(call, operation);
-  }
-
-  /** Observation callbacks can outlive their session; facts they report afterwards are dropped. The disposed session makes no other calls. */
-  dispose(): void {
-    this.disposed = true;
   }
 
   /** The assistant entry is appended before tools run; resolve it again at the end. */

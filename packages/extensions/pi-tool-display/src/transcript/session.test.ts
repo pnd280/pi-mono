@@ -46,6 +46,8 @@ it("makes retained observation callbacks inert after session disposal, including
       "live"
     );
     const call = session.coordinator.byId("shell")!;
+    const row = { invalidate: vi.fn(), requestRender: vi.fn(), setExpanded: vi.fn() };
+    session.coordinator.attach(call, row);
     const observation = session.beginObservation("shell", "pi:bash")!;
     observation.started();
     observation.preview({ text: "live preview" });
@@ -54,11 +56,17 @@ it("makes retained observation callbacks inert after session disposal, including
     expect(call.liveOutput?.text).toBe("live preview");
     const retained = { ...call };
     session.dispose();
+    vi.clearAllMocks();
     observation.started();
     observation.preview({ text: "late preview" });
     observation.fact(operation({ outcome: "success", exitCode: 0 }));
+    observation.fact({ kind: "saved-output", path: "/late" });
+    observation.fact({ kind: "change", change: "modification", unavailable: "binary" });
     expect(call).toEqual(retained);
     expect(append).not.toHaveBeenCalled();
+    expect(row.invalidate).not.toHaveBeenCalled();
+    expect(row.requestRender).not.toHaveBeenCalled();
+    expect(row.setExpanded).not.toHaveBeenCalled();
     expect(session.beginObservation("shell", "pi:bash")).toBeUndefined();
     expect(session.coordinator.calls.size).toBe(0);
   } finally {

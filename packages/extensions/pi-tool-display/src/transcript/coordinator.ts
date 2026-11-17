@@ -91,7 +91,6 @@ type MutableRun = {
   ended: boolean;
 };
 
-/** A live call's row identity: its source message and tool-call ID. Pi keeps the row by tool-call ID when middleware moves or renames the call. */
 /** Inclusive sequence ranges, sorted, with overlapping and adjacent ranges merged. */
 function mergeRanges(ranges: readonly (readonly [number, number])[]): [number, number][] {
   const merged: [number, number][] = [];
@@ -105,6 +104,7 @@ function mergeRanges(ranges: readonly (readonly [number, number])[]): [number, n
   return merged;
 }
 
+/** A live call's row identity: its source message and tool-call ID. Pi keeps the row by tool-call ID when middleware moves or renames the call. */
 function liveIdentity(reference: DisplayCall["reference"]): string {
   return JSON.stringify([reference.messageTimestamp, reference.toolCallId]);
 }
@@ -141,7 +141,6 @@ export class TranscriptCoordinator implements TranscriptView {
   >();
   private evaluators = new WeakMap<DisplayCall, AdapterEvaluator>();
   private stopAnimation: (() => void) | undefined;
-  private disposed = false;
   phase = 0;
   mode: DisplayMode;
   /** Whether summary mode collapses runs; otherwise it renders like compact. */
@@ -195,7 +194,7 @@ export class TranscriptCoordinator implements TranscriptView {
         existing.reference.contentIndex !== reference.contentIndex ||
         existing.reference.toolCallId !== reference.toolCallId ||
         existing.reference.messageEntryId !== reference.messageEntryId;
-      if (referenceChanged) existing.reference = { ...reference };
+      if (referenceChanged) existing.reference = reference;
       this.rawArgs.set(existing, args);
       if (this.validate(existing, validated) || renamed) this.changed(existing);
 
@@ -204,7 +203,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     const call: MutableCall = {
       key,
-      reference: { ...reference },
+      reference,
       name,
       args: validated(name, args),
       adapter,
@@ -283,7 +282,7 @@ export class TranscriptCoordinator implements TranscriptView {
   /** Reconstruction can reveal a host-generated notice after later calls were indexed. */
   boundary(after?: DisplayCall): void {
     const key = after?.key ?? this.sequence.at(-1);
-    if (this.disposed || !key || !this.state.has(key) || this.separators.has(key)) return;
+    if (!key || !this.state.has(key) || this.separators.has(key)) return;
     const separated = this.separated(key);
     const runSeparated = this.separated(key, "run");
     this.separators.add(key);
@@ -299,7 +298,6 @@ export class TranscriptCoordinator implements TranscriptView {
     const key = after?.key;
     const previous = this.boundaries.get(owner);
     if (
-      this.disposed ||
       (key && !this.calls.has(key)) ||
       (previous?.key === key && (!key || previous?.kind === kind))
     )
@@ -419,12 +417,12 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   /** Mode changes reset opened runs and re-render every row once. */
   setMode(mode: DisplayMode): void {
-    if (this.disposed || this.mode === mode) return;
+    if (this.mode === mode) return;
     this.mode = mode;
     this.rerender();
   }
   setSummaries(enabled: boolean): void {
-    if (this.disposed || this.summaries === enabled) return;
+    if (this.summaries === enabled) return;
     this.summaries = enabled;
     if (this.mode === "summary") this.rerender();
   }
@@ -601,13 +599,11 @@ export class TranscriptCoordinator implements TranscriptView {
       this.options.onSavedOutputChange?.(member);
     }
   }
+  /** Disposal clears the state, so retained views become inert. */
   private mutable(view: DisplayCall): MutableCall | undefined {
-    const call = this.state.get(view.key);
-
-    return !this.disposed && call === view ? call : undefined;
+    return this.state.get(view.key);
   }
   private changed(call: MutableCall): void {
-    if (this.disposed) return;
     // Ending a run can invalidate the changed call again; render it once.
     this.invalidationDepth++;
 
@@ -686,7 +682,6 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   /** Rebuild runs around changed run boundaries, never thinking visibility changes. */
   private repartitionRuns(keys: readonly string[]): void {
-    if (this.disposed) return;
     const ranges: [number, number][] = [];
 
     for (const key of keys) {
@@ -766,12 +761,6 @@ export class TranscriptCoordinator implements TranscriptView {
     for (const row of this.rows.get(call.key) ?? []) row.invalidate();
   }
   private flushInvalidations(): void {
-    if (this.disposed) {
-      this.pendingInvalidations.clear();
-
-      return;
-    }
-
     const pending = [...this.pendingInvalidations];
     this.pendingInvalidations.clear();
 
@@ -865,7 +854,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.regroup(ranges);
   }
   private regroup(ranges: [number, number][]): void {
-    if (this.disposed || !ranges.length) return;
+    if (!ranges.length) return;
 
     if (this.groupingDepth) {
       this.regroupPending = true;
@@ -934,7 +923,7 @@ export class TranscriptCoordinator implements TranscriptView {
     }
   }
   private schedule(): void {
-    const active = !this.disposed && this.activeCalls.size > 0;
+    const active = this.activeCalls.size > 0;
     if (active && !this.stopAnimation)
       this.stopAnimation = (this.options.animationClock ?? clock).start(() => {
         this.phase = 1 - this.phase;
@@ -958,7 +947,6 @@ export class TranscriptCoordinator implements TranscriptView {
     }
   }
   dispose(): void {
-    this.disposed = true;
     this.stopAnimation?.();
     this.stopAnimation = undefined;
     this.rows.clear();

@@ -103,8 +103,6 @@ export class DisplaySession {
     this.output = new SavedOutputs(this.coordinator);
   }
   refreshAdapters(): void {
-    if (this.disposed) return;
-
     // Registration can finish after reconstruction. Upgrade contracts and validate arguments against the new schemas without replaying calls. Native provenance exists from session construction, so a late adapter is never native and has no observed facts or saved output to restore; cancellation was replayed with the generic card.
     const tools = this.options.tools();
     this.coordinator.batch(() => {
@@ -133,8 +131,7 @@ export class DisplaySession {
   }
   beginObservation(id: string, adapter: string): ObservationSink | undefined {
     const call = this.coordinator.byId(id);
-    if (this.disposed || !call || call.origin !== "live" || call.adapter.id !== adapter)
-      return undefined;
+    if (!call || call.origin !== "live" || call.adapter.id !== adapter) return undefined;
     this.saved.observe(call);
 
     return {
@@ -146,7 +143,7 @@ export class DisplaySession {
   /** Pi started the call; native observation may already have reported it executing. */
   queued(id: string): void {
     const call = this.coordinator.byId(id);
-    if (!call || this.disposed) return;
+    if (!call) return;
     if (call.lifecycle !== "executing") this.coordinator.update(call, "queued");
   }
   /**
@@ -162,7 +159,6 @@ export class DisplaySession {
     status: ResultStatus
   ): DisplayCall | undefined {
     const { outcome, partial = false } = status;
-    if (this.disposed) return;
     const call = this.coordinator.byId(id);
     if (!call) return;
     this.coordinator.batch(() => {
@@ -269,8 +265,8 @@ export class DisplaySession {
     });
   }
 
+  /** Disposal clears the coordinator, so retained observation callbacks find no call. */
   dispose(): void {
-    this.saved.dispose();
     this.disposed = true;
     this.coordinator.dispose();
     this.output.dispose();
