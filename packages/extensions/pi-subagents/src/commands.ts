@@ -4,6 +4,7 @@ import {
   type ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
@@ -191,16 +192,6 @@ export async function runCommand(
       throw new Error("Command result exceeds the output budget");
     ui.notify(json, "info");
   } catch (error) {
-    const json = displayText(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Subagent command failed"
-      })
-    );
-    ui.notify(
-      Buffer.byteLength(json) <= DEFAULT_MAX_BYTES
-        ? json
-        : '{"error":"Subagent command failed; diagnostic too large"}',
-      "error"
-    );
+    ui.notify(displayText(JSON.stringify({ error: errorMessage(error) })), "error");
   }
 }

@@ -8,7 +8,6 @@ import {
   type RpcCommand,
   type RpcExtensionUIRequest,
   type RpcResponse,
-  type RpcSessionState,
   type SessionStats
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
@@ -363,7 +362,7 @@ export class ChildRun {
     }
   }
 
-  private async begin(state: RpcSessionState): Promise<Begun> {
+  private async begin(): Promise<Begun> {
     const commands = await this.request({ type: "get_commands" });
     // Without the command, the begin request would reach the model as a prompt.
     if (
@@ -390,12 +389,6 @@ export class ChildRun {
     );
     if (!reply) throw new Error("Subagent launch cancelled");
     if (reply.kind === "begin-failed") throw new Error(reply.error);
-    if (
-      reply.task_id !== this.options.taskId ||
-      reply.session_id !== state.sessionId ||
-      reply.session_file !== state.sessionFile
-    )
-      throw new Error("Invalid subagent begin acknowledgement");
 
     return reply;
   }
@@ -413,7 +406,7 @@ export class ChildRun {
 
     if (this.options.sessionId !== undefined && state.data.sessionId !== this.options.sessionId)
       throw new Error("Subagent session identity does not match its task");
-    const begun = await this.begin(state.data);
+    const begun = await this.begin();
     if (this.closing) return;
     const usage = await this.request({ type: "get_session_stats" });
     if (usage.command !== "get_session_stats") throw new Error("Missing child usage");

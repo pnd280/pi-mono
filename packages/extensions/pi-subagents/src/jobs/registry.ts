@@ -131,11 +131,8 @@ function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
     };
   if (ABORTED.test(text))
     return { outcome: "cancelled", exit_code: null, error: "Cancelled", stated: true };
-  const line = firstLine(text);
 
-  return line
-    ? { outcome: "failed", exit_code: null, error: line, stated: true }
-    : { outcome: "failed", exit_code: null, error: "Job failed" };
+  return { outcome: "failed", exit_code: null, error: firstLine(text), stated: true };
 }
 
 /**
@@ -215,13 +212,7 @@ export class Jobs {
   private emit(): void {
     if (this.closed) return;
 
-    for (const listener of this.listeners) {
-      try {
-        listener();
-      } catch {
-        /* Observers cannot change process lifetime. */
-      }
-    }
+    for (const listener of this.listeners) listener();
   }
 
   /** Opens the job's log file, then starts the command without waiting for it. */
@@ -311,7 +302,7 @@ export class Jobs {
     return jobOperations({
       shellPath: this.options.shellPath,
       onData: (data) => {
-        if (live.writeError || live.log.destroyed || live.log.writableEnded) return;
+        if (live.writeError || live.log.destroyed) return;
 
         if (live.log.writableLength + data.length > MAX_PENDING_LOG_BYTES) {
           live.writeError = new Error("Pending log output exceeded 16 MiB");

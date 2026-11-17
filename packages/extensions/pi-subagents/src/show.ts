@@ -206,8 +206,5 @@ export async function showTask(reader: RunReader, id: string, tokens: string[]):
     else selected.pop();
   }
 
-  if (eligible.length && !selected.length)
-    throw new Error("Transcript item exceeds the output budget");
-
   return page();
 }

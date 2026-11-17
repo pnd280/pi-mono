@@ -70,7 +70,7 @@ export class Relay {
       } catch (error) {
         this.pending.get(requestId)?.dispose();
         this.pending.delete(requestId);
-        reject(error instanceof Error ? error : new Error("Cannot request subagent capacity"));
+        reject(error);
       }
     });
   }
@@ -135,7 +135,7 @@ export class Relay {
       if (!this.tree.accept(child, message.record)) return;
       if (message.record.state === "inactive") this.exited(message.record.task_id);
     } else if (message.kind === "slot-request") {
-      if (!this.tree.belongsTo(child, message.owner) || this.routes.has(message.request_id)) return;
+      if (!this.tree.belongsTo(child, message.owner)) return;
       this.routes.set(message.request_id, { child, owner: message.owner });
       if (this.host.self === undefined) this.grant(child, message.request_id, message.owner);
       else this.host.send(message);

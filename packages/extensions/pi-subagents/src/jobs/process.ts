@@ -96,8 +96,7 @@ export function jobOperations({
       const timer =
         timeout === undefined ? undefined : setTimeout(() => stop("timeout"), timeout * 1000);
       const abort = () => stop("aborted");
-      if (signal?.aborted) abort();
-      else signal?.addEventListener("abort", abort, { once: true });
+      signal?.addEventListener("abort", abort, { once: true });
 
       try {
         const code = await Promise.race([exit, failedStop.promise]);

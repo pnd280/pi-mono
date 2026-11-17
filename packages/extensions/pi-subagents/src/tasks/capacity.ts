@@ -10,7 +10,6 @@ type Waiter = {
 export class Capacity {
   private used = 0;
   private queue: Waiter[] = [];
-  private closed = false;
 
   constructor(
     private readonly maxConcurrent: number,
@@ -18,8 +17,6 @@ export class Capacity {
   ) {}
 
   acquire(signal?: AbortSignal): Promise<Slot> {
-    if (this.closed) return Promise.reject(new Error("Subagent session ended"));
-    if (signal?.aborted) return Promise.reject(new Error("Cancelled by turn abort"));
     if (this.used < this.maxConcurrent) return Promise.resolve(this.reserve());
     if (this.queue.length >= this.maxQueued)
       return Promise.reject(
@@ -46,7 +43,6 @@ export class Capacity {
   }
 
   shutdown(): void {
-    this.closed = true;
     const waiting = this.queue;
     this.queue = [];
 
@@ -58,16 +54,13 @@ export class Capacity {
 
   /** Nested launches never join a queue behind their own ancestors. */
   tryAcquire(): Slot | undefined {
-    return !this.closed && this.used < this.maxConcurrent ? this.reserve() : undefined;
+    return this.used < this.maxConcurrent ? this.reserve() : undefined;
   }
 
   private reserve(): Slot {
     this.used++;
-    let released = false;
 
     return () => {
-      if (released) return;
-      released = true;
       this.used--;
       const next = this.queue.shift();
       if (!next) return;

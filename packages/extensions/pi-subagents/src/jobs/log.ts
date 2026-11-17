@@ -138,15 +138,7 @@ export class JobLog extends Writable {
     const previousBytes = Math.max(0, RETAIN_LOG_BYTES - data.length);
     const previous = Buffer.alloc(previousBytes);
 
-    if (previousBytes) {
-      const { bytesRead } = await handle.read(
-        previous,
-        0,
-        previousBytes,
-        this.size - previousBytes
-      );
-      if (bytesRead !== previousBytes) throw new Error("Job log changed during compaction");
-    }
+    if (previousBytes) await handle.read(previous, 0, previousBytes, this.size - previousBytes);
 
     const tail = Buffer.concat([previous, data.subarray(-RETAIN_LOG_BYTES)]);
     this.omitted += BigInt(this.size - this.headerBytes + data.length - tail.length);
@@ -169,7 +161,6 @@ export class JobLog extends Writable {
         data.length - offset,
         position + offset
       );
-      if (!bytesWritten) throw new Error("Job log write made no progress");
       offset += bytesWritten;
     }
   }

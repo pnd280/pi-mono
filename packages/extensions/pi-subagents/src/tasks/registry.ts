@@ -143,13 +143,7 @@ export class Tasks {
   private emit(event: TaskEvent): void {
     if (this.closed) return;
 
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch {
-        /* Observers cannot change process lifetime. */
-      }
-    }
+    for (const listener of this.listeners) listener(event);
   }
 
   private changed(): void {
@@ -281,7 +275,7 @@ export class Tasks {
         this.processes.add(run);
         break;
       case "message":
-        if (!this.closed) this.relay.receive(taskId, report.message);
+        this.relay.receive(taskId, report.message);
         break;
       case "began":
         this.live.set(taskId, run);

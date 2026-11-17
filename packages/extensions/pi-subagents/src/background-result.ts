@@ -40,15 +40,9 @@ export class ResultSource {
     };
   }
 
-  /** Reports a finished task or job. A failing listener cannot change process lifetime. */
+  /** Reports a finished task or job. */
   publish(event: ResultEvent): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch {
-        /* Observers cannot change process lifetime. */
-      }
-    }
+    for (const listener of this.listeners) listener(event);
   }
 }
 

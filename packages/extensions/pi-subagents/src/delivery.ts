@@ -80,7 +80,6 @@ export class Delivery {
   }
 
   private receive(event: ResultEvent): void {
-    if (this.closed) return;
     // The work that holds the run changed, so a wait checks it again.
     if (event.kind === "changed") return this.wake?.();
     this.pending.push(event);
@@ -194,13 +193,12 @@ export class Delivery {
 
   /** Commits ready results in all modes; print, JSON, and nested supervisors can also wait. */
   async settle(): Promise<AgentBeforeSettleEventResult | undefined> {
+    // `next` and `ready` end the wait of a closed or suspended delivery.
     if (
-      this.closed ||
-      this.suspended ||
-      (!this.pending.length &&
-        this.depth === 0 &&
-        this.ctx.mode !== "print" &&
-        this.ctx.mode !== "json")
+      !this.pending.length &&
+      this.depth === 0 &&
+      this.ctx.mode !== "print" &&
+      this.ctx.mode !== "json"
     )
       return;
     this.waiting = true;

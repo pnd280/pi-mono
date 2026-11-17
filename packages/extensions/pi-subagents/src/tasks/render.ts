@@ -297,7 +297,7 @@ class CardRow {
 
   render(slot: "call" | "result", width: number): string[] {
     const view = this.view;
-    if (!view || width < 1) return [];
+    if (!view) return [];
     const details = detailsSchema.safeParse(view.result?.details).data;
     // Only a running card's clock changes between renders, once a second.
     const time =

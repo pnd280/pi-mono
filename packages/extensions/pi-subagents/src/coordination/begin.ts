@@ -4,7 +4,6 @@ import type {
   ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
 
-import { getTaskId } from "../child/depth.ts";
 import { MARKER_ENTRY, PROTOCOL_KEY, PROTOCOL_VERSION } from "../constants.ts";
 import { resumePoint } from "../history/sessions.ts";
 import { beginSchema, decode, encode, errorText, type ChildMessage } from "./protocol.ts";
@@ -29,9 +28,7 @@ async function start(
   ctx: ExtensionCommandContext
 ): Promise<Extract<ChildMessage, { kind: "begun" }>> {
   const request = decode(beginSchema, text);
-  if (!request || request.task_id !== getTaskId())
-    throw new Error("Invalid subagent begin request");
-  if (currentRun() !== undefined) throw new Error("Subagent run has already begun");
+  if (!request) throw new Error("Invalid subagent begin request");
   const sessionFile = ctx.sessionManager.getSessionFile();
   if (sessionFile === undefined) throw new Error("Subagent session is not saved");
   let leafId = ctx.sessionManager.getLeafId();
@@ -44,8 +41,7 @@ async function start(
 
     if (point.leafId !== leafId) {
       const result = await ctx.navigateTree(point.leafId, { summarize: false });
-      if (result.cancelled || ctx.sessionManager.getLeafId() !== point.leafId)
-        throw new Error("Subagent session could not continue its previous run");
+      if (result.cancelled) throw new Error("Subagent session could not continue its previous run");
     }
 
     leafId = point.leafId;
@@ -53,8 +49,7 @@ async function start(
 
   pi.appendEntry(MARKER_ENTRY, { task_id: request.task_id, run_id: request.run_id });
   const markerId = ctx.sessionManager.getLeafId();
-  if (markerId === null || markerId === leafId)
-    throw new Error("Subagent run marker was not saved");
+  if (markerId === null) throw new Error("Subagent run marker was not saved");
   // From here, navigation and session replacement are refused.
   Reflect.set(process, runKey, request.run_id);
 
