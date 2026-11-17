@@ -11,12 +11,36 @@ import {
   type ExtensionAPI,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
+import type * as FileRename from "@pi-mono/libs/file-rename";
 import { joinInputChain } from "@pi-mono/libs/input-chain";
-import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { isolateEnvironment, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import promptManager from "../index.ts";
 import { workspace } from "../src/test-fixture.ts";
+
+// Holds one atomic write before rename, so shutdown is observed while the write is in flight.
+const rename = vi.hoisted(() => ({
+  hold: undefined as { reached: PromiseWithResolvers<void>; release: Promise<void> } | undefined
+}));
+vi.mock("@pi-mono/libs/file-rename", async (importOriginal) => {
+  const actual = await importOriginal<typeof FileRename>();
+
+  return {
+    ...actual,
+    renameWithRetry: async (...args: Parameters<typeof actual.renameWithRetry>) => {
+      const hold = rename.hold;
+      rename.hold = undefined;
+
+      if (hold) {
+        hold.reached.resolve();
+        await hold.release;
+      }
+
+      return actual.renameWithRetry(...args);
+    }
+  };
+});
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -48,8 +72,7 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
       join(fixture.agentDir, "settings.json"),
       JSON.stringify({ "ext.pi-prompt-manager": { historyRetention: "invalid" } })
     );
-  vi.stubEnv("PI_CODING_AGENT_DIR", fixture.agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(fixture.directory);
   const settingsManager = SettingsManager.inMemory({
     compaction: { enabled: false },
     retry: { enabled: false }
@@ -125,7 +148,7 @@ it("does not register or touch feature storage/settings in RPC mode", async () =
   expect(fixture.errors).toEqual([]);
 });
 
-it("registers at startup and reload, keeps old callbacks inert, persists without native session storage", async () => {
+it("registers at startup and reload, keeps old callbacks inert, persists without native session storage, and shuts down after started writes", async () => {
   const fixture = await host("tui");
   const runner = fixture.session.extensionRunner;
   const oldCommand = runner.getCommand("prompts")!;
@@ -148,6 +171,25 @@ it("registers at startup and reload, keeps old callbacks inert, persists without
   await currentCommand!.handler("drafts add current", currentRunner.createCommandContext());
   expect(await fixture.repository.read("drafts")).toMatchObject({
     entries: [{ source: { text: "current" } }, { source: { text: "exact draft" } }]
+  });
+  const reached = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  rename.hold = { reached, release: release.promise };
+  const saving = currentCommand!.handler("drafts add held", currentRunner.createCommandContext());
+  await reached.promise;
+  let shutDown = false;
+  const shutdown = currentRunner
+    .emit({ type: "session_shutdown", reason: "quit" })
+    .then(() => (shutDown = true));
+  await new Promise(setImmediate);
+  expect(shutDown).toBe(false);
+  release.resolve();
+  await Promise.all([shutdown, saving]);
+  expect(await fixture.repository.read("drafts")).toMatchObject({
+    entries: [{ source: { text: "held" } }, { source: { text: "current" } }, {}]
+  });
+  await expect(readFile(join(fixture.storage, "drafts.json.lock"))).rejects.toMatchObject({
+    code: "ENOENT"
   });
   expect(fixture.errors).toEqual([]);
 });

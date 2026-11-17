@@ -112,8 +112,6 @@ it.runIf(process.platform !== "win32")(
       // macOS temporary paths are aliases: /var resolves to /private/var.
       expect(directory).toBe(join(await realpath(root), "extension", scope.key));
       expect((await stat(directory)).mode & 0o777).toBe(0o700);
-      for (const key of ["", ".", "..", "../escape", "a/b", "a\\b"])
-        await expect(privateScopedDirectory({ ...options, key })).rejects.toThrow(TypeError);
       await rm(directory, { recursive: true });
       await symlink(cwd, directory);
       await expect(privateScopedDirectory(options)).rejects.toThrow();

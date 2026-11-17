@@ -48,7 +48,7 @@ Supply a `path()` resolver that establishes trusted private parents, a `maxReadB
 
 Pass a [`WriteLifetime`](lifetime.ts) as `scope`.
 
-- `dispose()` aborts the signal, then waits for atomic writes and lock cleanup that already started. It does not wait for path resolution, reads, or `update`.
+- `dispose()` aborts the signal and waits for started atomic writes, including their lock cleanup. It does not wait for path resolution, reads, `update`, or lock cleanup outside the atomic phase; await outstanding `run()` promises to finish those.
 - The transaction checks cancellation before it replaces the file.
 - Long callbacks should check the signal themselves.
 - A custom `WriteScope` must check cancellation synchronously before it calls its atomic callback, and must track the whole returned promise.

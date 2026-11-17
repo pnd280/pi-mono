@@ -1,7 +1,6 @@
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
-import { NativeClipboardError } from "./clipboard.ts";
 import type { ManagerPorts } from "./manager.ts";
 import type { MutationResult, Repository } from "./model.ts";
 import { collection, entry, managerFixture } from "./test-fixture.ts";
@@ -23,31 +22,55 @@ it("keeps capture failure and queue overflow notifications generic", async () =>
   await fixture.manager.dispose();
 });
 
-it("reports safe clipboard diagnostics without exposing arbitrary helper errors", async () => {
-  for (const error of [
-    new NativeClipboardError("Safe native clipboard diagnostic."),
-    new Error("sensitive source text")
-  ]) {
-    const notify = vi.fn<ManagerPorts["notify"]>();
-    const fixture = managerFixture({
-      copy: async () => {
-        throw error;
-      },
-      notify
-    });
-
-    try {
-      await fixture.manager.copy(collection([entry("source")]).entries[0]!);
-      expect(notify).toHaveBeenCalledWith(expect.any(String), "error");
-      if (error instanceof NativeClipboardError)
-        expect(notify).toHaveBeenCalledWith(error.message, "error");
-      else
-        expect(notify.mock.calls.map(([message]) => message).join()).not.toContain(
-          "sensitive source text"
-        );
-    } finally {
-      await fixture.manager.dispose();
+it("keeps the first capture failure notification generic", async () => {
+  const fixture = managerFixture({
+    repository: {
+      read: vi.fn(),
+      mutate: async () => ({ status: "failed", message: "sensitive failure detail" })
     }
+  });
+
+  try {
+    fixture.manager.capture("prompt");
+    await vi.waitFor(() => expect(fixture.notices).toHaveLength(1), { timeout: STEP_TIMEOUT_MS });
+    expect(fixture.notices.join()).not.toContain("sensitive");
+  } finally {
+    await fixture.manager.dispose();
+  }
+});
+
+it("does not expose arbitrary host errors", async () => {
+  const fixture = managerFixture({
+    repository: {
+      read: async () => {
+        throw new Error("sensitive source text");
+      },
+      mutate: vi.fn()
+    }
+  });
+
+  try {
+    await fixture.manager.command("drafts copy 1");
+    expect(fixture.notices).toHaveLength(1);
+    expect(fixture.notices.join()).not.toContain("sensitive");
+  } finally {
+    await fixture.manager.dispose();
+  }
+});
+
+it("does not expose arbitrary clipboard helper errors", async () => {
+  const fixture = managerFixture({
+    copy: async () => {
+      throw new Error("sensitive source text");
+    }
+  });
+
+  try {
+    await fixture.manager.copy(collection([entry("source")]).entries[0]!);
+    expect(fixture.notices).toHaveLength(1);
+    expect(fixture.notices.join()).not.toContain("sensitive");
+  } finally {
+    await fixture.manager.dispose();
   }
 });
 

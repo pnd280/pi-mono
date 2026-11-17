@@ -26,7 +26,7 @@ Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_C
 
 | Default                             | Binding                                    | Action                                                               |
 | ----------------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| **Ctrl+C**                          | `tui.input.copy`                           | Copy the complete text and stay open.                                |
+| **Ctrl+C**                          | `tui.input.copy`                           | [Copy](../README.md#clipboard) the text and stay open.               |
 | **Escape**                          | `tui.select.cancel`                        | Close the preview or view.                                           |
 | **Enter**                           | `tui.select.confirm`                       | Restore and close. In inspection, only close.                        |
 | **Up**, **Down**                    | `tui.select.up`, `tui.select.down`         | Select, or scroll the preview.                                       |
@@ -98,7 +98,7 @@ You can keep browsing while a copy is in progress, but another copy is refused w
 
 ## Presentation
 
-Text is shown as terminal-safe plain text, never Markdown. Copying keeps the full original text, but [restoring](../README.md#restore-text) can reject unsafe text.
+Text is shown as terminal-safe plain text, never Markdown. [Copying](../README.md#clipboard) sends the stored text, but [restoring](../README.md#restore-text) can reject unsafe text.
 
 ### Tabs and status
 

@@ -24,10 +24,7 @@ function encode(document: Document): string {
   return JSON.stringify(document, null, 2) + "\n";
 }
 
-// Recovery accepts UUID-shaped IDs without imposing a UUID version or variant.
-const idSchema = z
-  .string()
-  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+const idSchema = z.guid();
 const documentEnvelopeSchema = documentSchema.extend({ entries: z.array(z.unknown()) });
 
 function validId(value: unknown): value is string {
@@ -46,7 +43,7 @@ function decode(raw: Buffer): unknown {
 }
 
 /**
- * A write would turn a non-finite number into null, so such a document must stay read-only. Every other parsed value is written back as the same JSON value, though not always with the same text or JavaScript value: negative zero, for example, is written as 0. Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
+ * A write would turn a non-finite number into null, so such a document must stay read-only. Every other parsed value is written back as the JavaScript value that `JSON.parse` produced, not always with the same text or JSON value: numbers beyond double precision are rounded, and negative zero is written as 0. Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
  */
 function finiteNumbers(value: unknown): boolean {
   const pending = [value];

@@ -17,7 +17,7 @@ it("writes complete Unicode/control/large payloads through stdin without shell i
   try {
     await copyNative(text, signal(), {
       // The deadline has its own test; a loaded suite can slow this helper past five seconds.
-      timeout: STEP_TIMEOUT_MS,
+      timeoutMs: STEP_TIMEOUT_MS,
       helpers: [
         {
           command: process.execPath,
@@ -44,7 +44,7 @@ it.runIf(process.platform !== "win32")(
 
     try {
       await copyNative("payload", signal(), {
-        timeout: STEP_TIMEOUT_MS,
+        timeoutMs: STEP_TIMEOUT_MS,
         helpers: [
           {
             command: process.execPath,

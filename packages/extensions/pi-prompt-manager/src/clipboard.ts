@@ -95,18 +95,18 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
 }
 
 /**
- * Replace the native clipboard with exact UTF-8 text, without an OSC 52 fallback. The timeout is in milliseconds and covers all helper attempts (default: 5,000); expiry throws NativeClipboardError. Cancellation can throw the signal's reason; only NativeClipboardError messages are safe for user-facing diagnostics.
+ * Send the UTF-8 text to the native clipboard helper's stdin, without an OSC 52 fallback. The WSL clipboard ends the text at the first NUL, and macOS `pbcopy` stores text with an RTF or EPS header as that format. `timeoutMs` covers all helper attempts (default: 5,000); expiry throws NativeClipboardError. Cancellation can throw the signal's reason; only NativeClipboardError messages are safe for user-facing diagnostics.
  */
 export async function copyNative(
   text: string,
   signal: AbortSignal,
-  options: { helpers?: NativeHelper[]; timeout?: number } = {}
+  options: { helpers?: NativeHelper[]; timeoutMs?: number } = {}
 ): Promise<void> {
-  const timeout = options.timeout ?? 5000;
+  const timeoutMs = options.timeoutMs ?? 5000;
   const deadline = new AbortController();
   const timer = setTimeout(
     () => deadline.abort(new NativeClipboardError("Native clipboard helper timed out.")),
-    timeout
+    timeoutMs
   );
   const operationSignal = AbortSignal.any([signal, deadline.signal]);
 

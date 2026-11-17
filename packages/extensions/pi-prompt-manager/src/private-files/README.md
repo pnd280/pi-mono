@@ -36,7 +36,11 @@ const maxBytes = 1024 * 1024;
 const transactions = new PrivateFileTransactions();
 const lifetime = new WriteLifetime();
 const path = async () => {
-  const scope = await privateScopedDirectory({ root: agentDir, namespace: "prompt-manager", key });
+  const scope = await privateScopedDirectory({
+    root: agentDir,
+    namespace: "pi-prompt-manager",
+    key
+  });
   return join(scope, "records.json");
 };
 
@@ -52,7 +56,7 @@ const result = await transactions.run("records", {
   update: (current) => ({ status: "replace", content: addRecord(current), value: undefined })
 });
 
-// On shutdown: abort, then wait for started writes and lock cleanup.
+// On shutdown: abort, then wait for started atomic writes and their lock cleanup. Await outstanding run() promises to finish other lock cleanup.
 await lifetime.dispose();
 ```
 

@@ -16,6 +16,12 @@ const samples = [
     count: 1,
     text: "x".repeat(7_999_800) + "a-b-c d-e-f g-h-i j-k-l m-n-o p-q-r s-t-u v-w-z",
     query: "abc def ghi jkl mno pqr stu vwz"
+  },
+  {
+    name: "overlapping-long-term",
+    count: 1,
+    text: "x" + "a".repeat(1_048_576),
+    query: "a".repeat(65_536) + " b"
   }
 ];
 
