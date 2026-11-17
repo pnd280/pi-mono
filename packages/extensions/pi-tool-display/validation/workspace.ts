@@ -8,12 +8,6 @@ const marker = ".pi-tool-display-fixture";
 
 export const UNPACED_ENV = "PI_TOOL_DISPLAY_FIXTURE_UNPACED";
 
-export async function assertFixtureWorkspace(cwd: string): Promise<void> {
-  const content = await readFile(join(cwd, marker), "utf8").catch(() => undefined);
-  if (content !== "disposable tool-display workspace\n")
-    throw new Error("Use the terminal fixture launcher to create a disposable workspace.");
-}
-
 export async function createFixtureWorkspace(): Promise<string> {
   return createValidationWorkspace("pi-tool-display-terminal-", async (directory) => {
     const work = join(directory, "work");
@@ -70,8 +64,10 @@ export async function createFixtureWorkspace(): Promise<string> {
 
 /** Unpaced launches skip the streaming pauses that make rows observable during manual checks. */
 export async function fixtureLaunch(directory: string, { paced = true }: { paced?: boolean } = {}) {
-  const cwd = join(directory, "work");
-  await assertFixtureWorkspace(cwd);
+  // `launch-terminal --reuse` accepts any directory that a maintainer types.
+  const content = await readFile(join(directory, "work", marker), "utf8").catch(() => undefined);
+  if (content !== "disposable tool-display workspace\n")
+    throw new Error("Use the terminal fixture launcher to create a disposable workspace.");
 
   return createPiLaunch({
     directory,
