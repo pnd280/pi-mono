@@ -1,7 +1,7 @@
-// Count the collected tests and test files of each workspace package, without running them.
+// Count the collected tests of each workspace package, without running them.
 // Usage: node .scripts/count-tests.ts
 import { execFileSync } from "node:child_process";
-import { globSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { globSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 
 import { z } from "zod";
@@ -10,92 +10,49 @@ const root = resolve(import.meta.dirname, "..");
 const manifestSchema = z.object({ name: z.string() });
 const collectionSchema = z.array(z.object({ file: z.string() }));
 
-type Owner = { name: string; directory: string; tests: number; files: Set<string> };
+type Owner = { name: string; directory: string; tests: number };
 
 function manifestOwner(manifest: string): Owner {
   return {
     name: manifestSchema.parse(JSON.parse(readFileSync(join(root, manifest), "utf8"))).name,
     directory: join(root, dirname(manifest)) + sep,
-    tests: 0,
-    files: new Set()
+    tests: 0
   };
 }
 
-function countTests(): void {
-  const packages = globSync(["packages/*/package.json", "packages/extensions/*/package.json"], {
-    cwd: root
-  })
-    .map(manifestOwner)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  // The root test include also collects workspace tooling tests, such as the pi-update scripts.
-  const owners = [...packages, manifestOwner("package.json")];
+const packages = globSync(["packages/*/package.json", "packages/extensions/*/package.json"], {
+  cwd: root
+})
+  .map(manifestOwner)
+  .sort((a, b) => a.name.localeCompare(b.name));
+// The root owns the rest of the root test include, such as the pi-update scripts.
+const workspace = manifestOwner("package.json");
+const owners = [...packages, workspace];
+const output = join(root, ".tmp/count-tests.json");
 
-  function owner(file: string): Owner {
-    const path = resolve(root, file);
-    const entry = owners.find((candidate) => path.startsWith(candidate.directory));
+mkdirSync(dirname(output), { recursive: true });
 
-    if (!entry) throw new Error(`No workspace package owns test file: ${file}`);
-
-    return entry;
-  }
-
-  const temporaryRoot = join(root, ".tmp");
-  mkdirSync(temporaryRoot, { recursive: true });
-  const temporaryDirectory = mkdtempSync(join(temporaryRoot, "count-tests-"));
-
-  function collect(name: string, options: string[]): z.infer<typeof collectionSchema> {
-    const output = join(temporaryDirectory, `${name}.json`);
-    execFileSync("vp", ["test", "list", "--passWithNoTests", ...options, `--json=${output}`], {
-      cwd: root,
-      stdio: ["ignore", "inherit", "inherit"]
-    });
-
-    return collectionSchema.parse(JSON.parse(readFileSync(output, "utf8")));
-  }
-
-  try {
-    // Runtime collection expands test.each and tests declared in loops.
-    for (const test of collect("tests", ["--staticParse=false"])) {
-      owner(test.file).tests += 1;
-    }
-
-    // File discovery also includes files whose tests are all skipped.
-    for (const test of collect("files", ["--filesOnly"])) {
-      owner(test.file).files.add(test.file);
-    }
-  } finally {
-    rmSync(temporaryDirectory, { recursive: true, force: true });
-  }
-
-  const rows = [
-    ["Package", "Tests", "Files"],
-    ...owners.map((entry) => [entry.name, String(entry.tests), String(entry.files.size)]),
-    [
-      "Total",
-      String(owners.reduce((sum, entry) => sum + entry.tests, 0)),
-      String(owners.reduce((sum, entry) => sum + entry.files.size, 0))
-    ]
-  ];
-  const widths = ["Package", "Tests", "Files"].map((_, column) =>
-    Math.max(...rows.map((row) => row[column]?.length ?? 0))
-  );
-
-  for (const row of rows) {
-    console.log(
-      row
-        .map((value, column) =>
-          column === 0 ? value.padEnd(widths[column] ?? 0) : value.padStart(widths[column] ?? 0)
-        )
-        .join("  ")
-    );
-  }
-
-  console.log("\nRuntime collection only; skipped/todo cases excluded. No tests ran.");
-}
+// Runtime collection expands test.each and tests declared in loops.
+execFileSync("vp", ["test", "list", "--staticParse=false", `--json=${output}`], {
+  cwd: root,
+  stdio: ["ignore", "inherit", "inherit"]
+});
 
 try {
-  countTests();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+  for (const { file } of collectionSchema.parse(JSON.parse(readFileSync(output, "utf8")))) {
+    const path = resolve(root, file);
+    (owners.find((owner) => path.startsWith(owner.directory)) ?? workspace).tests += 1;
+  }
+} finally {
+  rmSync(output, { force: true });
 }
+
+const rows = [
+  ...owners.map((owner) => [owner.name, String(owner.tests)]),
+  ["Total", String(owners.reduce((sum, owner) => sum + owner.tests, 0))]
+];
+const width = Math.max(...rows.map(([name = ""]) => name.length));
+
+for (const [name = "", tests = ""] of rows) console.log(`${name.padEnd(width)}  ${tests}`);
+
+console.log("\nRuntime collection only; skipped/todo cases excluded. No tests ran.");
