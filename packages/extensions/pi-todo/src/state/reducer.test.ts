@@ -42,23 +42,40 @@ describe("todo reducer", () => {
     assert.equal(parseTodoStateSnapshot(listed.details)?.tasks.length, taskCount);
   });
 
-  it("bounds limit errors without echoing offending params", () => {
-    const state = mutate(emptyTodoState(), "create", { subject: "One" }).state;
-    const result = mutate(state, "update", {
-      id: 1,
-      subject: "s".repeat(FIELD_LIMITS.subject.maximum + 100_000),
-      description: "d".repeat(10_000_000),
-      inProgressLabel: "a".repeat(FIELD_LIMITS.inProgressLabel.maximum + 1),
-      owner: "o".repeat(FIELD_LIMITS.owner.maximum + 1),
-      blockedBy: Array.from({ length: FIELD_LIMITS.blockedBy.maximum + 1 }, () => 1),
-      metadata: { value: "m".repeat(1_000_000) }
-    });
+  it("returns replayable snapshots for limit errors on a full state", () => {
+    const tasks: Task[] = Array.from({ length: 128 }, (_, index) => ({
+      id: index + 1,
+      subject: "x",
+      status: "pending",
+      description: "d".repeat(FIELD_LIMITS.description.maximum)
+    }));
+    const padding = { padding: "" };
+    const root = tasks[0];
+    assert.ok(root);
+    root.metadata = padding;
+    padding.padding = "m".repeat(
+      MAX_SNAPSHOT_BYTES - Buffer.byteLength(JSON.stringify({ tasks, nextId: 129 }))
+    );
+    const state = parseTodoStateSnapshot({ version: TASK_DETAILS_VERSION, tasks, nextId: 129 });
+    assert.ok(state);
 
-    assert.match(result.details.error ?? "", /subject.*characters/u);
-    assert.deepEqual(result.details.params, { id: 1 });
-    assert.deepEqual(result.details.tasks, state.tasks);
-    assert.equal(result.details.nextId, state.nextId);
-    assert.ok(Buffer.byteLength(JSON.stringify(result.details), "utf8") <= MAX_SNAPSHOT_BYTES);
+    for (const [result, error] of [
+      [
+        applyTaskInput(state, "update", { id: 1 }, { m: "m".repeat(1_000_000) }),
+        /metadata.*bytes/u
+      ],
+      [
+        mutate(state, "update", {
+          id: 1,
+          description: "\t".repeat(FIELD_LIMITS.description.maximum)
+        }),
+        /description.*characters/u
+      ]
+    ] as const) {
+      assert.match(result.details.error ?? "", error);
+      assert.deepEqual(result.state, state);
+      assert.deepEqual(parseTodoStateSnapshot(result.details), state);
+    }
   });
 
   it("returns replayable errors after a successful result fills the snapshot ceiling", () => {
@@ -75,8 +92,6 @@ describe("todo reducer", () => {
     const params = { subject: "x", parentId: 1 };
     const expected = {
       version: TASK_DETAILS_VERSION,
-      action: "create",
-      params,
       tasks: [...tasks, { id: 129, subject: "x", status: "pending", parentId: 1 }],
       nextId: 130
     };

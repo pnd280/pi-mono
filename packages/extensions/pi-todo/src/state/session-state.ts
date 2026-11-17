@@ -57,11 +57,12 @@ export function todoStateFromBranch<Entry>(entries: readonly Entry[]): TodoState
   return emptyTodoState();
 }
 
-export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefined {
+export function parseTodoStateSnapshot(value: unknown): TodoState | undefined {
+  // Deeply nested input can overflow the stack in the recursive metadata schema or in serialization; such a snapshot is skipped like any other invalid one.
   try {
     if (!versionEnvelopeSchema.safeParse(value).success) return undefined;
 
-    // Keep this budgeted preflight ahead of Zod cloning and metadata traversal.
+    // Size the original value, so that unknown fields that Zod drops still count, ahead of Zod cloning and metadata traversal.
     if (!serializedValueFitsLimit(value, MAX_SNAPSHOT_BYTES + MAX_DETAILS_OVERHEAD_BYTES)) {
       return undefined;
     }
@@ -69,7 +70,7 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
     const parsed = snapshotSchema.safeParse(value);
     if (!parsed.success) return undefined;
     const snapshot = { tasks: parsed.data.tasks, nextId: parsed.data.nextId };
-    // Envelope headroom cannot become additional todo capacity on repeated replay.
+    // Envelope headroom cannot become additional todo capacity, even when sanitization would shrink the state.
     if (!serializedValueFitsLimit(snapshot, MAX_SNAPSHOT_BYTES)) return undefined;
 
     const state: TodoState = {
@@ -87,24 +88,20 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
 }
 
 function parseTodoStateSnapshotEntry<Entry>(entry: Entry): TodoState | undefined {
-  try {
-    // Replay scans the whole branch; skip other entries before the costlier schema parse.
-    const message =
-      typeof entry === "object" && entry !== null && "message" in entry ? entry.message : undefined;
-    if (
-      typeof message !== "object" ||
-      message === null ||
-      !("toolName" in message) ||
-      message.toolName !== "todo"
-    )
-      return undefined;
-    const parsed = todoSnapshotEntrySchema.safeParse(entry);
-    if (!parsed.success) return undefined;
-
-    return parseTodoStateSnapshot(parsed.data.message.details);
-  } catch {
+  // Replay scans the whole branch; skip other entries before the costlier schema parse.
+  const message =
+    typeof entry === "object" && entry !== null && "message" in entry ? entry.message : undefined;
+  if (
+    typeof message !== "object" ||
+    message === null ||
+    !("toolName" in message) ||
+    message.toolName !== "todo"
+  )
     return undefined;
-  }
+  const parsed = todoSnapshotEntrySchema.safeParse(entry);
+  if (!parsed.success) return undefined;
+
+  return parseTodoStateSnapshot(parsed.data.message.details);
 }
 
 function isSemanticallyValidSnapshot(state: TodoState): boolean {

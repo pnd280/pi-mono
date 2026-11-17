@@ -29,15 +29,11 @@ describe("todo session state", () => {
   it("restores the latest valid todo tool snapshot from a branch", () => {
     const first: TaskDetails = {
       version: TASK_DETAILS_VERSION,
-      action: "create",
-      params: { subject: "First" },
       tasks: [{ id: 1, subject: "First", status: "pending" }],
       nextId: 2
     };
     const latest: TaskDetails = {
       version: TASK_DETAILS_VERSION,
-      action: "clear",
-      params: {},
       tasks: [],
       nextId: 1
     };
@@ -211,6 +207,18 @@ describe("todo session state", () => {
       }),
       undefined
     );
+
+    // Nesting this deep overflows the recursive metadata schema; replay must skip the snapshot, not throw.
+    let nested: Record<string, unknown> = {};
+    for (let level = 0; level < 1_500; level += 1) nested = { a: nested };
+    const valid = { version: TASK_DETAILS_VERSION, tasks: [task], nextId: 2 };
+    assert.deepEqual(
+      todoStateFromBranch([
+        todoResultEntry(valid),
+        todoResultEntry({ ...valid, tasks: [{ ...task, metadata: nested }] })
+      ]),
+      { tasks: [task], nextId: 2 }
+    );
   });
 
   it("keeps todo capacity separate from result overhead", () => {
@@ -226,6 +234,7 @@ describe("todo session state", () => {
     first.metadata = metadata;
     const state = { tasks, nextId: 129 };
     metadata.padding = "m".repeat(MAX_SNAPSHOT_BYTES - Buffer.byteLength(JSON.stringify(state)));
+    // Results saved by earlier versions also carry `action` and `params`.
     const details = { version: TASK_DETAILS_VERSION, action: "list", params: {}, ...state };
     assert.deepEqual(parseTodoStateSnapshot(details), state);
     assert.equal(
@@ -234,14 +243,34 @@ describe("todo session state", () => {
     );
     metadata.padding += "m";
     assert.equal(parseTodoStateSnapshot(details), undefined);
+
+    // An own `__proto__` key from JSON is dropped by Zod but still counts towards the details limit.
+    const protoKey: unknown = JSON.parse(
+      `{"version":${TASK_DETAILS_VERSION},"tasks":[],"nextId":1,"__proto__":"${"x".repeat(MAX_SNAPSHOT_BYTES + MAX_DETAILS_OVERHEAD_BYTES)}"}`
+    );
+    assert.equal(parseTodoStateSnapshot(protoKey), undefined);
+
+    // Saved state over the limit is rejected even when sanitization (here, of control characters) would shrink it below.
+    const unsanitized = {
+      tasks: Array.from({ length: 40 }, (_, index): Task => ({
+        id: index + 1,
+        subject: "x",
+        status: "pending",
+        description: "a\u0001".repeat(FIELD_LIMITS.description.maximum / 2)
+      })),
+      nextId: 41
+    };
+    assert.ok(Buffer.byteLength(JSON.stringify(unsanitized)) > MAX_SNAPSHOT_BYTES);
+    assert.equal(
+      parseTodoStateSnapshot({ version: TASK_DETAILS_VERSION, ...unsanitized }),
+      undefined
+    );
   });
 
   it("restores current domain-error detail snapshots", () => {
     const tasks = [{ id: 1, subject: "Domain snapshot", status: "pending" }];
     const domainError = {
       version: TASK_DETAILS_VERSION,
-      action: "update",
-      params: { id: 99 },
       error: "#99 not found",
       tasks,
       nextId: 2

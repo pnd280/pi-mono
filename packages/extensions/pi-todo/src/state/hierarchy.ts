@@ -48,7 +48,7 @@ function indexTasks(tasks: readonly Task[]): Map<number, Task> | undefined {
   const tasksById = new Map<number, Task>();
 
   for (const task of tasks) {
-    if (!isTaskId(task.id) || tasksById.has(task.id)) return undefined;
+    if (tasksById.has(task.id)) return undefined;
     tasksById.set(task.id, task);
   }
 
@@ -64,10 +64,7 @@ function groupChildrenByParent(
   for (const task of tasks) {
     const parentId = task.parentId;
 
-    if (
-      parentId !== undefined &&
-      (!isTaskId(parentId) || parentId === task.id || !tasksById.has(parentId))
-    ) {
+    if (parentId !== undefined && (parentId === task.id || !tasksById.has(parentId))) {
       return undefined;
     }
 

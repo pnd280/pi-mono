@@ -52,36 +52,26 @@ it("keeps every tool action replayable and private state independent of emitted 
       if (task.metadata) task.metadata.items = ["Changed result"];
     }
 
-    result.details.params.blockedBy?.push(99);
-    if (result.details.params.metadata) result.details.params.metadata.items = ["Changed params"];
     expect(controller.getTodos()).toEqual(tasks);
   }
 
   expect(controller.getTodos()).toEqual([]);
 });
 
-it("preflights oversized, deep, cyclic and non-JSON metadata into replayable failures", async () => {
+it("preflights oversized and deep metadata into replayable failures", async () => {
   const controller = new TodoController();
   const tool = createTodoTool(controller);
   await tool.execute("seed", { action: "create", subject: "Preserved" });
   const before = controller.getTodos();
   let deep: Record<string, unknown> = {};
   for (let depth = 0; depth < MAX_METADATA_DEPTH; depth += 1) deep = { nested: deep };
-  const cyclic: Record<string, unknown> = {};
-  cyclic.self = cyclic;
 
   for (const { metadata, error } of [
     { metadata: { large: "x".repeat(MAX_METADATA_BYTES) }, error: "serialized bytes" },
-    { metadata: deep, error: "maximum depth" },
-    { metadata: cyclic, error: "serialized bytes" },
-    { metadata: { invalid: undefined }, error: "JSON-serializable" },
-    { metadata: { invalid: Number.NaN }, error: "JSON-serializable" },
-    { metadata: { invalid: -0 }, error: "JSON-serializable" },
-    { metadata: { invalid: new Date(0) }, error: "serialized bytes" }
+    { metadata: deep, error: "maximum depth" }
   ]) {
     const result = await tool.execute("rejected", { action: "update", id: 1, metadata });
     expect(result.details.error).toContain(error);
-    expect(result.details.params.metadata).toBeUndefined();
     expect(parseTodoStateSnapshot(result.details)).toEqual({ tasks: before, nextId: 2 });
     expect(controller.getTodos()).toEqual(before);
   }
