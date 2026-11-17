@@ -37,19 +37,13 @@ const isObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * MCP servers with Pi's name rule. Pi does not export its validator, and checks each entry when the extension registers the server, so here an entry only has to be an object. A custom check keeps the supplied object: a Zod record drops an own `__proto__` key.
+ * MCP servers. Pi does not export its validator, and checks each name and entry when the extension registers the server, so here an entry only has to be an object. A custom check keeps the supplied object: a Zod record drops an own `__proto__` key.
  */
 const mcpServersSchema = z.custom<Record<string, McpServerConfig>>((value) => {
   if (!isObject(value)) return false;
-  const entries: [string, unknown][] = Object.entries(value);
-  const names = entries.map(([name]) => name);
+  const servers: unknown[] = Object.values(value);
 
-  return (
-    names.length <= MAX_SERVERS &&
-    entries.every(([name, server]) => /^[A-Za-z0-9_-]+$/.test(name) && isObject(server)) &&
-    // Pi gives names that differ only in `-` and `_` the same tool namespace.
-    new Set(names.map((name) => name.replaceAll("-", "_"))).size === names.length
-  );
+  return servers.length <= MAX_SERVERS && servers.every(isObject);
 });
 
 const profileSchema = z.strictObject({

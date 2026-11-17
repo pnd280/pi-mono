@@ -346,17 +346,11 @@ async function host(
     });
   }
 
-  const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
-  // Print and JSON runs bind no UI, as Pi's print mode does.
-  const ui = (
-    mode === "print" || mode === "json"
-      ? {}
-      : { uiContext: { ...session.extensionRunner.createContext().ui, notify } }
-  ) satisfies Partial<Pick<Parameters<AgentSession["bindExtensions"]>[0], "uiContext">>;
   await session.bindExtensions({
     mode,
-    ...ui,
+    // A copy of Pi's no-op UI, so that `ctx.hasUI` is true, as in TUI and RPC runs.
+    uiContext: { ...session.extensionRunner.createContext().ui },
     onError: (error) => {
       errors.push(error);
     }
@@ -371,7 +365,7 @@ async function host(
     diagnostics: []
   };
 
-  return { session, requests, errors, services, notify };
+  return { session, requests, errors, services };
 }
 
 it("applies the profile's model, thinking, tools, and prompts, and undoes them on the next switch, also to no profile; tool_search loads searchable tools without a defer list", async () => {
@@ -471,7 +465,7 @@ it("defers unused tools of any exposure only when tool_search can load them agai
 
   const resumed = await host(dirs, {
     extensions: [earlierExtension, modelOnly],
-    replies: [call("tool_search", { query: "alpha beta delta zeta" })],
+    replies: [call("tool_search", { query: "alpha delta zeta" })],
     sessionManager: SessionManager.open(file)
   });
   await resumed.session.prompt("search");

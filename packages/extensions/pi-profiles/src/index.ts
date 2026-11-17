@@ -112,8 +112,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       const render = editor.render.bind(editor);
 
       editor.render = (width) => {
-        // A copy, because an earlier editor can return the same array again.
-        const lines = [...render(width)];
+        const lines = render(width);
         const [top] = lines;
         if (label !== undefined && top !== undefined)
           lines[0] = labelBorder(top, label, (text) => editor.borderColor?.(text) ?? text);
@@ -287,7 +286,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       // Print, JSON, and RPC runs, such as subagents, apply no default profile, so a branch without a selection keeps the model and tools it was given.
       if (ctx.mode === "tui" && loaded.defaultProfile)
         applied = await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
-    } else if (ctx.hasUI && selection.name !== undefined && !selected(selection)) {
+    } else if (selection.name !== undefined && !selected(selection)) {
       ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
     }
 
@@ -301,9 +300,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const loaded = loadProfiles({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
     config = loaded;
 
-    if (ctx.hasUI) {
-      for (const warning of loaded.warnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
-    }
+    for (const warning of loaded.warnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
 
     if (loaded.profiles.length > 0) {
       arrival.claimShortcut(loaded.shortcut, {
@@ -421,21 +418,17 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
         const { ui } = ctx;
         const { signal } = session;
 
-        try {
-          const { openMenu } = await loadMenu();
-          if (signal.aborted) return;
-          await openMenu({
-            ui,
-            signal,
-            data: menuData(ctx),
-            onSwitch: async (profile) => {
-              await switchTo(profile, ctx);
-            },
-            notify: (message, type) => ui.notify(message, type)
-          });
-        } catch (error) {
-          if (!signal.aborted) ui.notify(displayText(errorMessage(error)), "error");
-        }
+        const { openMenu } = await loadMenu();
+        if (signal.aborted) return;
+        await openMenu({
+          ui,
+          signal,
+          data: menuData(ctx),
+          onSwitch: async (profile) => {
+            await switchTo(profile, ctx);
+          },
+          notify: (message, type) => ui.notify(message, type)
+        });
 
         return;
       }
