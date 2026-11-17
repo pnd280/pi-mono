@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { contentText } from "@earendil-works/pi-ai";
 import type { ExtensionContext, SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
@@ -43,7 +44,7 @@ type Ledger = {
   readUnchanged(file: string, stamp: string): boolean;
   /** A visible notice currently supplies this directory's instructions. */
   announced(directory: string): boolean;
-  /** Instructions for this directory reached the model by notice or a direct read of an existing file. */
+  /** Refresh treats this directory as delivered when a notice is visible or a surviving direct-read marker has a non-null stamp; the marker records an attempt, not a successful read. */
   delivered(directory: string): boolean;
   /** The visible notice already carries this instruction file and content. */
   current(directory: string, file: string, content: string): boolean;
@@ -100,8 +101,10 @@ export function ledger(session: SessionView): Ledger {
       const content = visible
         .get(entry.id)
         ?.flatMap((candidate) =>
-          candidate.role === "custom" && typeof candidate.content === "string"
-            ? [candidate.content]
+          candidate.role === "custom" &&
+          (typeof candidate.content === "string" ||
+            (candidate.content.length === 1 && candidate.content[0]?.type === "text"))
+            ? [contentText(candidate.content)]
             : []
         )
         .find((text) => digest(text) === notice.messageDigest);
@@ -125,17 +128,19 @@ export function ledger(session: SessionView): Ledger {
         JSON.stringify(origin.arguments) !== JSON.stringify(call.input)
       )
         return undefined;
-      const marker: ReadMarker = {
+      // Write only markers that the reader accepts.
+      const marker = readSchema.safeParse({
         version: 1,
         path: file,
         toolCallId: call.toolCallId,
         callEntryId: call.callEntryId,
         callDigest: callDigest(origin),
         stamp: stamp ?? null
-      };
-      reads.set(file, marker);
+      });
+      if (!marker.success) return undefined;
+      reads.set(file, marker.data);
 
-      return { type: "custom", customType: readType, data: marker };
+      return { type: "custom", customType: readType, data: marker.data };
     },
     wasRead: (file) => reads.has(file),
     readUnchanged: (file, stamp) => reads.get(file)?.stamp === stamp,

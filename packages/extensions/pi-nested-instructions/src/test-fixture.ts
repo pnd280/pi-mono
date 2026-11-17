@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { fauxAssistantMessage, type JsonObject } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxToolCall, type JsonObject } from "@earendil-works/pi-ai";
 import { SessionManager, type SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
 
 import type { Invocation } from "./scopes.ts";
@@ -32,9 +32,7 @@ export async function fixture() {
       call(toolName: string, input: JsonObject): Invocation {
         const toolCallId = `call-${++sequence}`;
         const callEntryId = manager.appendMessage(
-          fauxAssistantMessage([
-            { type: "toolCall", name: toolName, arguments: input, id: toolCallId }
-          ])
+          fauxAssistantMessage([fauxToolCall(toolName, input, { id: toolCallId })])
         );
 
         return { toolCallId, callEntryId, toolName, input };

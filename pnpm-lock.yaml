@@ -426,6 +426,9 @@ importers:
 
   packages/extensions/pi-nested-instructions:
     dependencies:
+      '@earendil-works/pi-ai':
+        specifier: catalog:pi-host
+        version: 1.5.2(@aws-sdk/credential-provider-node@3.972.94)(@smithy/signature-v4@5.7.5)(supports-color@7.2.0)(undici@8.12.3)(ws@8.22.1)(zod@4.6.7)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:pi-host
         version: 1.5.2(@aws-sdk/credential-provider-node@3.972.94)(@smithy/signature-v4@5.7.5)(supports-color@7.2.0)(ws@8.22.1)(zod@4.6.7)

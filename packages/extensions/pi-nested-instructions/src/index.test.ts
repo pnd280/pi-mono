@@ -14,14 +14,27 @@ import {
   DefaultResourceLoader,
   ModelRuntime,
   SettingsManager,
-  type ExtensionFactory
+  type ExtensionFactory,
+  type SessionEntry
 } from "@earendil-works/pi-coding-agent";
+import { isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import nestedInstructions from "../index.ts";
 import { readType } from "./ledger.ts";
 import { decodeNotice, noticeEntry, noticeType } from "./notices.ts";
 import { fixture } from "./test-fixture.ts";
+
+const parentRules = "AUTO PARENT RULES\n\n  indented line\n\ttabbed line\n";
+
+function noticesIn(entries: SessionEntry[]) {
+  return entries.flatMap((entry) => {
+    if (entry.type !== "custom_message" || entry.customType !== noticeType) return [];
+    const { notice, body } = decodeNotice(entry);
+
+    return [{ action: notice?.action, displayPath: notice?.displayPath, body }];
+  });
+}
 
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -37,12 +50,11 @@ async function host(responses: FauxResponseFactory[], before: ExtensionFactory[]
   await fs.write("../agent/AGENTS.md", "NATIVE GLOBAL RULES");
   await fs.write("../AGENTS.md", "NATIVE ANCESTOR RULES");
   await fs.write("AGENTS.md", "NATIVE ROOT RULES");
-  await fs.write("pkg/AGENTS.md", "AUTO PARENT RULES");
+  await fs.write("pkg/AGENTS.md", parentRules);
   await fs.write("pkg/deep/AGENTS.md", "DIRECT CHILD RULES");
   await fs.write("pkg/deep/file.ts", "decoy/AGENTS.md in tool output");
   await fs.write("decoy/AGENTS.md", "DO NOT FOLLOW OUTPUT PATHS");
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(fs.root);
   const settingsManager = SettingsManager.inMemory({
     compaction: { enabled: false },
     retry: { enabled: false }
@@ -142,7 +154,6 @@ it("does not interrupt sibling tools and delivers only unseen instructions befor
       }
     ]
   );
-  expect(h.session.extensionRunner.getMessageRenderer(noticeType)).toBeUndefined();
   await h.session.prompt("Run the batch");
   expect(h.errors).toEqual([]);
   expect(requests[0]?.match(/PRIOR BOUNDARY RULES/g)).toHaveLength(1);
@@ -211,7 +222,7 @@ it.each([
             fauxToolCall(
               "codemode",
               {
-                code: 'await Promise.allSettled([tools.read({path:"pkg/deep/AGENTS.md"}), tools.bash({command:"cat pkg/deep/file.ts"}), tools.read({path:"pkg/deep/file.ts", offset:"invalid"})]); text("filtered");'
+                code: 'await Promise.allSettled([tools.read({path:"pkg/deep/AGENTS.md"}), tools.bash({command:"cat bash/file.ts"}), tools.read({path:"invalid/AGENTS.md", offset:"invalid"})]); text("filtered");'
               },
               { id: "parent" }
             ),
@@ -234,34 +245,40 @@ it.each([
         }
       ]
     );
+    await h.fs.write("bash/AGENTS.md", "BASH CHILD RULES");
+    await h.fs.write("invalid/AGENTS.md", "INVALID CHILD RULES");
     await h.session.prompt("Discover nested scopes");
     expect(h.errors).toEqual([]);
-    expect(requests[0]).toContain("AUTO PARENT RULES");
-    expect(requests[0]).toContain("DIRECT CHILD RULES");
+    for (const rules of [
+      "AUTO PARENT RULES",
+      "DIRECT CHILD RULES",
+      "BASH CHILD RULES",
+      "INVALID CHILD RULES"
+    ])
+      expect(requests[0]).toContain(rules);
     expect(requests[0]).not.toContain("DO NOT FOLLOW OUTPUT PATHS");
     const branch = h.fs.manager.getBranch();
     expect(
-      branch.filter((entry) => entry.type === "custom" && entry.customType === readType)
-    ).toHaveLength(direct ? 1 : 0);
-    expect(
-      branch.filter((entry) => entry.type === "custom_message" && entry.customType === noticeType)
-    ).toHaveLength(direct ? 1 : 2);
-    expect(
       branch.flatMap((entry) =>
-        entry.type === "custom_message" && entry.customType === noticeType
-          ? [decodeNotice(entry).notice?.displayPath]
-          : []
+        entry.type === "custom" && entry.customType === readType ? [entry.data] : []
       )
-    ).toEqual(direct ? ["pkg/AGENTS.md"] : ["pkg/AGENTS.md", "pkg/deep/AGENTS.md"]);
+    ).toMatchObject(
+      direct ? [{ path: path.join(h.fs.cwd, "pkg/deep/AGENTS.md"), toolCallId: "direct" }] : []
+    );
+    const loaded = [
+      { action: "loaded", displayPath: "bash/AGENTS.md", body: "BASH CHILD RULES" },
+      { action: "loaded", displayPath: "invalid/AGENTS.md", body: "INVALID CHILD RULES" },
+      { action: "loaded", displayPath: "pkg/AGENTS.md", body: parentRules },
+      ...(direct
+        ? []
+        : [{ action: "loaded", displayPath: "pkg/deep/AGENTS.md", body: "DIRECT CHILD RULES" }])
+    ];
+    expect(noticesIn(branch)).toEqual(loaded);
     expect(
       branch.filter((entry) => entry.type === "message" && entry.message.role === "toolResult")
     ).toHaveLength(direct ? 2 : 1);
     await h.session.reload();
-    expect(
-      h.fs.manager
-        .getBranch()
-        .filter((entry) => entry.type === "custom_message" && entry.customType === noticeType)
-    ).toHaveLength(direct ? 1 : 2);
+    expect(noticesIn(h.fs.manager.getBranch())).toEqual(loaded);
   }
 );
 
@@ -281,10 +298,15 @@ it("refreshes changed scopes through a real host reload without repeating unchan
   expect(count()).toBe(1);
   await h.session.reload();
   expect(count()).toBe(1);
-  await h.fs.write("pkg/AGENTS.md", "CHANGED PARENT RULES");
+  const changedRules = "CHANGED PARENT RULES\n  kept indentation\n\n";
+  await h.fs.write("pkg/AGENTS.md", changedRules);
   await h.fs.write("../agent/AGENTS.md", "UPDATED GLOBAL RULES");
   await h.session.reload();
   expect(count()).toBe(2);
+  expect(noticesIn(h.fs.manager.getBranch())).toEqual([
+    { action: "loaded", displayPath: "pkg/AGENTS.md", body: parentRules },
+    { action: "updated", displayPath: "pkg/AGENTS.md", body: changedRules }
+  ]);
   expect(h.errors).toEqual([]);
   for (const rules of ["UPDATED GLOBAL RULES", "NATIVE ANCESTOR RULES", "NATIVE ROOT RULES"])
     expect(h.session.systemPrompt).toContain(rules);

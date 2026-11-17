@@ -10,7 +10,7 @@ Use the native `read`, `ls`, `grep`, `find`, and `bash` tools as usual. After ea
 
 The model receives each notice as a user message. The message starts with a note that Pi sent it automatically, not the user, and then gives the file in a `<project_instructions path="…">` tag, as Pi does for startup instructions.
 
-With [pi-tool-display](../pi-tool-display/README.md) loaded, notices show as compact cards you can expand; otherwise Pi shows the full messages.
+With [pi-tool-display](../pi-tool-display/README.md) loaded, notices show as compact cards you can expand; otherwise Pi's default renderer shows the full messages unsanitised, including any terminal control characters in the instruction files.
 
 In each directory below the working directory, discovery uses the first readable instruction file in Pi's order, starting with `AGENTS.override.md`. If the model reads an instruction file itself, no second copy is added. After compaction, branch navigation, or a context edit removes a notice, a later call can load the file again; startup, resume, and `/reload` refresh the files that the model's context still shows.
 
