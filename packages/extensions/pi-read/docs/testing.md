@@ -18,7 +18,6 @@ This package tests selection validation, the guard around Pi's native `read`, pr
 ## Not tested
 
 - Schema projection, preview formatting, empty-selection notices, highlight rendering, and native rendering of errors, partial results, and images are below the severity bar.
-- Pi owns its filesystem implementation.
 
 ## Manual checks
 
