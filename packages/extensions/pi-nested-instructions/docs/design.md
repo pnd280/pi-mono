@@ -54,7 +54,3 @@ The loading rules state the [rediscovery and refresh rules](loading.md#compactio
 Refresh sends its notices in a [lifecycle startup commit](../../../libs/src/lifecycle/phases.md#startup-barrier) at rank `100`, which runs after every extension's `session_start` handler. Pi appends them at once because the session is idle, so they precede the startup entries of pi-profiles (rank `200`) in every load order.
 
 The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract) defines which notice formats contribute scopes.
-
-## Shared scope extraction
-
-The [scope glob helpers](../src/scope-globs.ts), shared by scope inference and the Bash parser, expand brace alternatives and derive fixed glob prefixes without enumerating files. `alternatives` expands only comma-separated brace groups and throws above 64 alternatives or a fixed nesting limit; discovery catches the error and infers no scope for that tool call. `globRoot` returns the fixed prefix before the first glob segment, or `undefined` when the expression has no glob or starts with one. For a pattern expression that still contains a glob, inference skips it when no fixed prefix exists. Discovery retains lexical hints after access failures and keeps its own direct-read policy.

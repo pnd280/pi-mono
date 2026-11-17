@@ -4,11 +4,6 @@
 
 > Last verified against Pi 1.5.2 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual [notice](../GLOSSARY.md#delivery) presentation and Windows paths.
 
-## Upgrade procedure
-
-1. Run both package tasks, `check` and `test`, with the [focused validation commands](../../../../docs/development.md#focused-validation). The tests run offline without paid model requests.
-2. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
 Nested discovery must preserve Pi's native instruction loading and deduplicate against the surviving session context.
@@ -55,8 +50,6 @@ The reader validates the current schema strictly:
 - Notices with a version other than 3 or unknown metadata keys do not validate.
 - The [invalid-notice behaviour](loading.md#invalid-notice-metadata) applies when validation fails.
 - Direct-read markers use version 1 and hold filesystem revision stamps, originating-call identity, and call fingerprints.
-
-Keep discovery and the pi-tool-display adapter on the same notice contract. Contract changes need checks for strict validation, visible-message corruption, body equality, rendering, summaries, and host replay.
 
 ## Limitations
 
