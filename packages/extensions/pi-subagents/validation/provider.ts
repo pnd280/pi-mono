@@ -13,7 +13,8 @@ import {
   getCurrentTools,
   getCurrentSystemPrompt,
   type JsonObject,
-  type ProviderStreams
+  type ProviderStreams,
+  type SimpleStreamOptions
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
@@ -724,7 +725,7 @@ function createStream(
   dialogAnswer: () => boolean | string,
   idleWake: () => boolean
 ): ProviderStreams["streamSimple"] {
-  return (model, context, { signal, reasoning } = {}) => {
+  return (model, context, { signal, reasoning }: SimpleStreamOptions = {}) => {
     let userIndex = context.messages.length - 1;
 
     while (userIndex >= 0) {
