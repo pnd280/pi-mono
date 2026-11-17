@@ -7,8 +7,7 @@ Apply these domain checks after the [public API checks](public-apis.md). Inspect
 ## Helpers and types
 
 - Compare text-block extraction, formatting, key labels, path discovery, and terminal helpers with public Pi APIs.
-- Check handwritten contracts, including inline tool-renderer parameter shapes, against exported Pi types.
-- Trace changes to global themes and keybindings, package-directory environment overrides, clipboard transports, process execution, credentials, and network behaviour.
+- Trace changes to global themes and keybindings, package-directory environment overrides, and clipboard transports.
 
 ## Fixtures and providers
 
@@ -21,5 +20,3 @@ Apply these domain checks after the [public API checks](public-apis.md). Inspect
 - Compare selection, scrolling, wrapping, borders, highlighting, diff rendering, and layout composition with Pi components.
 - Distinguish standalone rendering from layout-engine participation. Check viewport clipping, controlled state, asynchronous preparation, mouse coordinates, image ownership, invalidation, disposal, and restoration.
 - Preserve bounded-output and diff policies, including head-and-tail retention, terminal sanitisation, UTF-8 and grapheme safety, cooperative layout, and cancellation during expensive work.
-
-Keep required consumer adapters or policy even when other behaviour can delegate to Pi.

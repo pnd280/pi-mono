@@ -16,7 +16,7 @@ Identify each surface's roles:
 | Supporting information | Counts, timestamps, dependencies, IDs, or annotations |
 | Available actions      | Controls and recovery                                 |
 
-Use these roles as a comparison aid rather than a fixed layout. Actionable failures or safety confirmations may need priority; different meanings need not share row counts, components, or colours.
+Use these roles as a comparison aid rather than a fixed layout. Actionable failures and safety confirmations can take priority.
 
 ## Checks
 
@@ -25,8 +25,7 @@ Use these roles as a comparison aid rather than a fixed layout. Actionable failu
 - Preserve relationships through connectors, indentation, wrapping, and continuations.
 - Attach status, counts, and diagnostics to the item they describe.
 - Preserve terminology and hierarchy during expansion.
-- Prioritise identity, outcome, and controls over metadata in constrained views.
 
 ## Evidence
 
-Annotate paired renders with roles and emphasis, including relevant selected, failed, narrow, and expanded states. Use role tables where useful and explain what distracts from the task. Preference alone is not a defect.
+Annotate paired renders with roles and emphasis, including relevant selected, failed, narrow, and expanded states. Use role tables where useful and explain what distracts from the task.
