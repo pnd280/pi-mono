@@ -261,7 +261,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       messages: () => ctx.sessionManager.buildSessionProjection().messages
     });
     rules = plan.rules;
-    showLabel(plan.selection?.name);
+    showLabel(selected(plan.selection)?.name);
     if (plan.tools) pi.setActiveTools(plan.tools);
 
     return plan.selection;
@@ -284,7 +284,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such as after /new, keep theirs, and use `--profile` in place of the default profile.
       applied = await switchTo(requested.profile, ctx);
     } else if (!selection) {
-      // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
+      // Print, JSON, and RPC runs, such as subagents, apply no default profile, so a branch without a selection keeps the model and tools it was given.
       if (ctx.mode === "tui" && loaded.defaultProfile)
         applied = await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
     } else if (ctx.hasUI && selection.name !== undefined && !selected(selection)) {
@@ -396,10 +396,16 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
   pi.registerCommand("profile", {
     description: "Switch profile",
-    getArgumentCompletions: (prefix) =>
-      choices()
-        .filter(({ name }) => name.startsWith(prefix.trim()))
-        .map(({ name, description }) => ({ value: name, label: name, description })),
+    getArgumentCompletions: (prefix) => {
+      const typed = prefix.trim();
+      const list = choices();
+      // An exact argument must submit, rather than accepting an identical completion first.
+      if (list.some(({ name }) => name === typed)) return null;
+
+      return list
+        .filter(({ name }) => name.startsWith(typed))
+        .map(({ name, description }) => ({ value: name, label: name, description }));
+    },
     handler: async (args, ctx) => {
       let name = args.trim();
 
@@ -451,7 +457,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       else
         ctx.ui.notify(
           `Usage: /profile <name> or /profile ${CLEAR}; no profile has that name`,
-          "warning"
+          "error"
         );
     }
   });

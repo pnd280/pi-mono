@@ -179,11 +179,12 @@ export function planRestore(state: ToolState, options: RestoreOptions): RestoreP
     saved.name === undefined || selectedProfile(saved, options.profiles) !== undefined;
   const applied = latest && applies(latest.selection) ? latest : undefined;
   const previous = options.previous && applies(options.previous) ? options.previous : undefined;
+  const rules = { deferred: applied?.selection.deferred ?? [], deny: profile?.tools?.deny ?? [] };
 
   return {
     selection,
-    rules: { deferred: applied?.selection.deferred ?? [], deny: profile?.tools?.deny ?? [] },
-    tools: restoreTarget(applied, state, { ...options, previous })
+    rules,
+    tools: restoreTarget(applied, state, { ...options, previous }, rules.deny)
   };
 }
 
@@ -231,19 +232,20 @@ export function searchableTools(tools: readonly ToolInfo[], rules: Rules): ToolI
 }
 
 /**
- * `names` with the rest of each deferred group whose tools it turns on, so that `tool_search` loads a group's tools together.
+ * `names` with the rest of each deferred group whose tools it turns on, so that `tool_search` loads a group's tools together. A group's `deny` tools stay off.
  */
 export function withGroups(
   names: readonly string[],
   active: readonly string[],
-  { deferred }: Rules
+  { deferred, deny }: Rules
 ): string[] {
   const loading = names.filter((name) => !active.includes(name));
   const groups = deferred.filter(
     (entry) => typeof entry !== "string" && entry.some((name) => loading.includes(name))
   );
+  const denied = toolMatcher(deny);
 
-  return [...new Set([...names, ...groups.flat()])];
+  return [...new Set([...names, ...groups.flat().filter((name) => !denied(name))])];
 }
 
 /** How the model can reach each registered tool now, and which lists of `profile` name it. */
@@ -284,7 +286,10 @@ export function reportTools(
       tool,
       status: status(tool),
       search: search(tool),
-      group: typeof group === "object" ? group.filter((name) => name !== tool.name) : undefined,
+      group:
+        typeof group === "object"
+          ? group.filter((name) => name !== tool.name && !denied(name))
+          : undefined,
       used: used.has(tool.name),
       lists: lists(tool)
     };
@@ -536,7 +541,8 @@ function profileTools(
 function restoreTarget(
   latest: ReturnType<typeof latestEntry>,
   state: ToolState,
-  { reload, previous, messages }: RestoreOptions
+  { reload, previous, messages }: RestoreOptions,
+  deny: readonly string[]
 ): string[] | undefined {
   if (!latest && !previous) return undefined;
 
@@ -555,7 +561,8 @@ function restoreTarget(
         recorded,
         reload,
         exposure,
-        ownsToolSearch: ownsToolSearch(state)
+        ownsToolSearch: ownsToolSearch(state),
+        searchDenied: toolMatcher(deny)(TOOL_SEARCH)
       })
     : baseTools(active, previous);
 
@@ -575,6 +582,8 @@ type RestoreState = {
   reload: boolean;
   exposure: ReadonlyMap<string, ToolExposure>;
   ownsToolSearch: boolean;
+  /** Whether the selected profile's `deny` list names `tool_search`, so that it stays off. */
+  searchDenied: boolean;
 };
 
 /**
@@ -593,7 +602,7 @@ function restoredTools(selection: Selection, state: RestoreState): string[] {
     tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
   } else tools = [...selection.tools];
 
-  const searchDeclared = declaresSearch(tools, state.exposure);
+  const searchDeclared = !state.searchDenied && declaresSearch(tools, state.exposure);
 
   // Without a declared `tool_search`, no deferred tool can load again. Without the extension's copy, deferred `direct` tools and groups still need restoration.
   if (!searchDeclared || !state.ownsToolSearch) {

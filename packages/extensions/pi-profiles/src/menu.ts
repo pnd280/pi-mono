@@ -68,7 +68,7 @@ function reach({ tool, status, search, group }: ToolReport): string[] {
   else if (search === "cannot") lines.push("The active tool_search cannot load it.");
   else lines.push("The model can load it with tool_search.");
   if (scripted) lines.push("Codemode scripts can call it while codemode is active.");
-  if (group) lines.push(`It loads together with ${group.join(", ")}.`);
+  if (group && group.length > 0) lines.push(`It loads together with ${group.join(", ")}.`);
 
   return lines;
 }
@@ -108,6 +108,8 @@ function toolItems(data: MenuData): ToolItem[] {
   const items = data.tools.map((report) => {
     const { tool, status } = report;
     const details = [
+      `Tool: ${tool.name}`,
+      `State: ${status}, exposure ${tool.exposure}`,
       ...reach(report),
       ...profileRule(report, data.profile),
       report.used ? "The model called it on this branch." : undefined,
@@ -131,9 +133,11 @@ function list(names: readonly string[] | undefined, absent: string): string {
   return names.length > 0 ? names.join(", ") : "none";
 }
 
-function profileDetails({ profile, change, modelAvailable }: ProfileChoice): string {
+function profileDetails({ name, current, profile, change, modelAvailable }: ProfileChoice): string {
+  const identity = `Profile: ${name}${current ? " (current)" : ""}`;
   if (!profile)
     return [
+      identity,
       "Undoes the current profile's tool changes, stops its MCP servers, and adds no system prompts. The model and thinking level stay.",
       "",
       `A switch now requests: ${change}`
@@ -147,6 +151,7 @@ function profileDetails({ profile, change, modelAvailable }: ProfileChoice): str
     (profile.model ? "not set; a model change applies Pi's setting" : "unchanged");
 
   return [
+    identity,
     `Model: ${model}`,
     `Thinking: ${thinking}`,
     `Allow: ${list(profile.tools?.allow, "the base tools")}`,
