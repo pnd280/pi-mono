@@ -17,13 +17,16 @@ export function SessionPanel() {
           <div>
             <span className="text-dim">•</span> <b className="text-accent">Subagent</b> Locate list
             parsing<span className="text-dim"> · </span>
-            <span className="text-add">✓ completed 38.2s</span>
+            <span className="text-add">✓ 38.2s</span>
           </div>
           <div className="text-dim">
             {"  │ anthropic/claude-haiku-5-5:xhigh · ↑48k ↓3.1k $0.21"}
           </div>
           <div className="text-dim">{"  └ Lists close in parseList, src/parser.ts:52."}</div>
-          <div>• Edited src/parser.ts</div>
+          <div>
+            <span className="text-accent">•</span> <b className="text-accent">Edited</b>{" "}
+            src/parser.ts
+          </div>
           <DiffRow tint="bg-dim/8">
             <span className="text-add">+1</span> <span className="text-del">-1</span>
           </DiffRow>
@@ -44,9 +47,10 @@ export function SessionPanel() {
             ;
           </DiffRow>
           <div>
-            • Ran vp test parser <span className="text-add">✓</span>{" "}
-            <span className="text-dim">2.1s</span>
+            <span className="text-accent">•</span> <b className="text-accent">Ran</b> vp test parser
           </div>
+          <div className="text-dim">{"  │ Exit 0 · 2.1s"}</div>
+          <div className="text-dim">{"  └ Tests  12 passed (12)"}</div>
           <div className="text-dim">• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s</div>
           <div className="text-dim">{"    ran 1 command · delegated 1 task"}</div>
         </div>
@@ -65,7 +69,7 @@ function Code({ children }: { children: ReactNode }) {
   return (
     <>
       <Keyword>if</Keyword> (at(<span className="text-string">"]"</span>)){" "}
-      <span className="bg-accent/16 font-bold">{children}</span>
+      <span className="bg-bg/40 font-bold">{children}</span>
     </>
   );
 }

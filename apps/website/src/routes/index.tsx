@@ -197,13 +197,16 @@ function GetStarted() {
         <SectionHeading title="Get started">
           Install the extensions as they are, or clone the workspace to change them.
         </SectionHeading>
-        <ol className="mt-12">
-          <Step number={1} title="Install" code={`pi install ${releaseSource}`}>
+        <ul className="mt-12">
+          <Step title="Install" code={`pi install ${releaseSource}`}>
             Installs every extension from the release branch as one Pi package. To load only some,
             turn the others off with pi config.
           </Step>
+        </ul>
+        <p className="mt-12 text-sm leading-6 text-dim">Or, to change them:</p>
+        <ol className="mt-4">
           <Step
-            number={2}
+            number={1}
             title="Make it your own"
             code={`git clone ${repositoryUrl}.git\ncd pi-mono\nvp install --frozen-lockfile`}
           >
@@ -214,7 +217,7 @@ function GetStarted() {
             and the <ExternalLink href="https://viteplus.dev/guide/">Vite+ CLI</ExternalLink> (vp).
           </Step>
           <Step
-            number={3}
+            number={2}
             title="Load your copy"
             code={
               "vp exec pi \\\n  -e ./packages/extensions/pi-tool-display \\\n  -e ./packages/extensions/pi-agent-summary"
@@ -238,14 +241,16 @@ function Step({
   code,
   children
 }: {
-  number: number;
+  number?: number;
   title: string;
   code: string;
   children: ReactNode;
 }) {
   return (
     <li className="grid gap-4 border-t border-panel-line py-8 lg:grid-cols-[3rem_minmax(0,2fr)_minmax(0,3fr)] lg:gap-8">
-      <span className="font-pixel text-[22px] leading-[24px] text-sub">0{number}</span>
+      <span className="font-pixel text-[22px] leading-[24px] text-sub">
+        {number === undefined ? null : `0${number}`}
+      </span>
       <div>
         <h3 className="font-bold text-ink">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-dim">{children}</p>
