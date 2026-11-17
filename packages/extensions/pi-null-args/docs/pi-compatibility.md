@@ -4,11 +4,6 @@
 
 > Last verified against Pi 1.5.2 with the package checks, the offline host test, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the direct `validateToolArguments` probe of the text `"null"`, which last ran on Pi 1.5.1; live providers, including their malformed-argument and `\u` escape repair paths.
 
-## Upgrade procedure
-
-1. Run the [workspace checks](../../../../docs/development.md#focused-validation). The host test runs the installed Pi offline.
-2. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
 [Handler](../src/index.ts):
