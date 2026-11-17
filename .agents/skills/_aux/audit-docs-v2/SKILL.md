@@ -59,7 +59,7 @@ Save a single report where the user asks, or in the project's artifacts or tempo
 Open with the shared root cause and a "reader question → what the docs give them" sketch. Then give one numbered section per issue:
 
 ````markdown
-## 3. Exceptions come before normal behavior
+## 3. Exceptions come before normal behaviour
 
 One sentence on the reader consequence.
 
@@ -99,6 +99,6 @@ Lead the reply with what to fix before committing, then the decisions the user n
 
 ## Apply changes
 
-Edit documentation only when the user asks. Write agent docs to writing-for-agents. Keep each fact and its conditions, update incoming links when moving or renaming headings, and rerun the link and format checks afterward.
+Edit documentation only when the user asks. Write agent docs to writing-for-agents. Keep each fact and its conditions, update incoming links when moving or renaming headings, and rerun the link and format checks afterwards.
 
 When parallel workers apply fixes, give each a disjoint set of files, keep shared root docs read-only, and make borderline decisions the same across workers before finishing.

@@ -2,7 +2,7 @@
   "_aux/audit-docs-v2": {
     "source": "$local",
     "skill": "audit-docs-v2",
-    "hash": "d1a62274830b7653f3fdb8d91186aaf46248d401a6c8c039867783a222b6171e"
+    "hash": "5c409bef132c0b4e0869deef073cde44df855fd06a69a2c27e50f611e33e96fe"
   },
   "_aux/code-review-expert": {
     "source": "https://github.com/sanyuan0704/sanyuan-skills",
@@ -22,12 +22,12 @@
   "_aux/typescript-review": {
     "source": "$local",
     "skill": "typescript-review",
-    "hash": "a7d932d864250d4ba85b34c0214b690cc265ed971c8ba41f71431a18c60a7201"
+    "hash": "d73e3840a7c2fc3443b5342e861f42aa2d892635c93f7b20d3f8ec7027881002"
   },
   "_aux/typescript-taste": {
     "source": "$local",
     "skill": "typescript-taste",
-    "hash": "334b87dd4beb70607d13a8ee37e92d3a54f492052cce7ddf9f418ba4eea1ba89"
+    "hash": "34c0d67f7b76c81869a19e2a0210a769a9fa34e9202f1f34ffe62d294700da6d"
   },
   "_aux/writing-for-agents": {
     "source": "https://github.com/mattpocock/skills",

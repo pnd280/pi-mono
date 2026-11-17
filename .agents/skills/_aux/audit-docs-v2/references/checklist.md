@@ -30,7 +30,7 @@ Readers may be users, maintainers, or coding agents. The folder should say which
 ```
 
 - [ ] Each doc has one primary reader, visible from its location.
-- [ ] User docs hold no private APIs, implementation details, or test policy. Crossover sections are labeled or moved.
+- [ ] User docs hold no private APIs, implementation details, or test policy. Crossover sections are labelled or moved.
 - [ ] Agent instruction files (`AGENTS.md`, `CLAUDE.md`) don't repeat the README.
 - [ ] A rule about writing a kind of doc lives where writers of that doc will see it.
 
@@ -71,9 +71,8 @@ link target
 
 - [ ] Sentence one states the problem, not the feature list.
 - [ ] One concrete example follows: a command, its output, or a screenshot.
-- [ ] Setup every reader needs is inline. Specialized guidance sits behind a link that says when to follow it.
+- [ ] Setup every reader needs is inline. Specialised guidance sits behind a link that says when to follow it.
 - [ ] Optional sections (Configuration, Side effects, Validation) appear only with real content.
-- [ ] Generic instructions shared by all packages live once, at the root.
 
 ## 4. Structure for scanning
 
@@ -83,15 +82,15 @@ Order inside a contract section:
 ## Settings file
   Example: one concrete case
   Must not regress          # security, data loss, trust, credentials
-  Reads                     # normal behavior, in task order
+  Reads                     # normal behaviour, in task order
   Updates
   Cleanup
-  Edge cases:               # leftovers, labeled
+  Edge cases:               # leftovers, labelled
 ```
 
 - [ ] One subject per heading, one checkable claim per bullet.
 - [ ] Rules whose violation causes harm come first, under an explicit heading.
-- [ ] Normal behavior comes before exceptions.
+- [ ] Normal behaviour comes before exceptions.
 - [ ] Option and flag combinations are a table.
 - [ ] Manual procedures are a setup line plus a Do / Expect table, one observable result per row.
 - [ ] Tables are for lookup or comparison. A table with one or two rows is a sentence.
@@ -119,7 +118,7 @@ Order inside a contract section:
 
 ```text
 rule: "files over 1 MiB are truncated"
-  defined in   README.md             # user-visible behavior
+  defined in   README.md             # user-visible behaviour
   linked from  AGENTS.md, docs/agents/testing.md
   never        restated in a third place
 ```
@@ -130,7 +129,7 @@ rule: "files over 1 MiB are truncated"
 - [ ] A step in a numbered procedure is not a repeat. Keep "Run the checks" as a step; remove only restated commands or policy.
 - [ ] Before removing an agent-doc copy, check how the agent reaches the original: an always-loaded "read X before Y" makes the copy redundant; a conditional routing row may not, so high-harm rules keep a one-line link where the agent works.
 - [ ] Copies that already disagree are reported first.
-- [ ] User-visible behavior is defined in user docs; maintainer docs link there.
+- [ ] User-visible behaviour is defined in user docs; maintainer docs link there.
 - [ ] Cross-layer ownership is one table; each package names only its own part.
 - [ ] Source links replace prose that repeats code, but non-obvious rationale and limits stay in prose.
 
@@ -146,13 +145,13 @@ rule: "files over 1 MiB are truncated"
 ```
 
 - [ ] Reference docs hold no version-by-version logs, only one "Last verified" line naming what wasn't covered.
-- [ ] Version-specific quirks are labeled with the version they were observed in.
+- [ ] Version-specific quirks are labelled with the version they were observed in.
 - [ ] Sample output, messages, and commands match what the code produces today.
 - [ ] No placeholders remain: `TODO`, `<your-name>`, `2025-xx-xx`, `example.com` where a real value belongs.
 
 ## 8. Stock patterns
 
-Generated text, and hurried human text, falls back on phrasing that fits any project. Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) catalogs these patterns. Its warning applies here too: they are signs of weak content, not the problem itself. Rewording a sign without adding the missing fact only hides it.
+Generated text, and hurried human text, falls back on phrasing that fits any project. Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) catalogues these patterns. Its warning applies here too: they are signs of weak content, not the problem itself. Rewording a sign without adding the missing fact only hides it.
 
 The most common one answers an objection nobody raised:
 
@@ -194,7 +193,7 @@ else
 
 ## Quick signals
 
-Use these to find files worth reading, and compare them before and after a revision.
+Use these to find files worth reading, and compare them before and after a revision. Pass the audit's paths to every command, and name hidden paths such as `.agents/` explicitly, because `rg` skips hidden directories.
 
 ```sh
 # Links into generated paths (any hit in a user doc is a bug)
