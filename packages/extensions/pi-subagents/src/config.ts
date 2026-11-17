@@ -26,8 +26,9 @@ const resultDeliverySchema = z.enum(["turn_end", "settle"]);
 export type ResultDelivery = z.output<typeof resultDeliverySchema>;
 
 const sectionSchema = z.object({
-  maxDepth: z.int().nonnegative().optional().catch(undefined),
-  maxConcurrent: z.int().positive().optional().catch(undefined),
+  // The bound keeps the shutdown grace period of `run.ts` within Node's timer maximum.
+  maxDepth: z.int().nonnegative().max(100).optional().catch(undefined),
+  maxConcurrent: z.int().positive().max(100).optional().catch(undefined),
   maxQueued: z.int().nonnegative().optional().catch(undefined),
   jobs: z.boolean().optional().catch(undefined),
   resultDelivery: resultDeliverySchema.optional().catch(undefined),
