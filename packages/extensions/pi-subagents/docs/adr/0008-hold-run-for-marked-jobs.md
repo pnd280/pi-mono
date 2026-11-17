@@ -27,8 +27,8 @@ ADR 0005 rejected a hold for all jobs, because a server or a watcher does not ex
 ### What the model and the user see
 
 - The working message reads "Waiting for background results" for tasks and held jobs.
-- The `job` description names `hold_run`. In children and in print and JSON modes, it tells the model to set `hold_run` for a command whose result it needs, and to use other jobs only for processes that it needs during the run.
-- The start text says whether the run waits for the job.
+- In every mode, the `hold_run` parameter description tells the model to set it when it needs the result before it finishes, and only for a command that exits by itself. In children and in print and JSON modes, the `job` description tells the model that jobs without `hold_run` stop when its final reply ends the run, so it uses them only for processes that it needs during the run.
+- The start text gives the log file. For a held job, and in modes that deliver job results, it adds that the result arrives automatically, so the model does not sleep or poll.
 - The job card and the pi-tool-display card do not show the flag.
 
 ## Considered options
