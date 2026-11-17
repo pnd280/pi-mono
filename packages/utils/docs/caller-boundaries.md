@@ -24,7 +24,7 @@
 
 ## Model references
 
-[`modelReferenceSchema`](../src/model-reference.ts) trims and validates a `provider/model-id` setting; the model ID may contain slashes. `splitModelReference` splits a valid reference at its first slash and throws `TypeError` otherwise. Callers own registry lookup, availability errors, and thinking-level support.
+[`modelReferenceSchema`](../src/model-reference.ts) trims and validates a `provider/model-id` setting; the model ID may contain slashes. `splitModelReference` splits a reference that `modelReferenceSchema` accepted at its first slash. Callers own registry lookup, availability errors, and thinking-level support.
 
 ## Skill references
 

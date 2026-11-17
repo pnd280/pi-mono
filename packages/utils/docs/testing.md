@@ -23,5 +23,7 @@ This package tests pure validation and transformation. [Libs](../../libs/docs/te
 ## Not tested
 
 - Missing-newline markers are below the severity bar.
+- The line text, coordinates, and counts of a successful patch parse are below the severity bar, because pi-tool-display only displays them in its diff view.
+- Job envelopes have no case of their own, because they share their framing parser with task envelopes.
 - Libs or consumers own filesystem path resolution, Git inspection, wall-clock timers, and UI interactions.
 - Zod owns its generic type machinery.

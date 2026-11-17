@@ -16,11 +16,12 @@ export type TaskEnvelope = {
 export type JobOutcome = "completed" | "failed" | "cancelled";
 
 /** An active job has no outcome; `exit_code` is omitted when it is unknown. */
-export type JobEnvelope = {
-  id: string;
-  state: "active" | "inactive";
-  outcome?: JobOutcome | undefined;
-  exit_code?: number | null | undefined;
+type JobAttributes = { id: string } & (
+  | { state: "active"; outcome?: undefined; exit_code?: undefined }
+  | { state: "inactive"; outcome: JobOutcome; exit_code?: number | null | undefined }
+);
+
+export type JobEnvelope = JobAttributes & {
   /** Escaped inside the summary element; omitted when empty. */
   summary?: string | undefined;
   /** Written unescaped, so it may contain any text, including closing tags. */
@@ -68,7 +69,7 @@ function taskFrame(id: string | undefined, state: TaskState): Frame {
   );
 }
 
-function jobFrame({ id, state, outcome, exit_code }: Omit<JobEnvelope, "summary" | "body">): Frame {
+function jobFrame({ id, state, outcome, exit_code }: JobAttributes): Frame {
   return frame(
     "job",
     [
@@ -124,9 +125,6 @@ export function formatJobEnvelope({ summary, body, ...attributes }: JobEnvelope)
 }
 
 /** Like `parseTaskEnvelope`: the identity, state, outcome, and exit code must all match. */
-export function parseJobEnvelope(
-  text: string,
-  expected: Omit<JobEnvelope, "summary" | "body">
-): string | undefined {
+export function parseJobEnvelope(text: string, expected: JobAttributes): string | undefined {
   return parse(text, jobFrame(expected));
 }
