@@ -6,8 +6,6 @@ This package tests credential isolation, session ownership of compaction request
 
 ## Must not regress
 
-E2e checks never use personal settings or credentials.
-
 ### Model and credential isolation
 
 - **Critical, e2e:** Only valid settings from global or trusted project scopes select the summary provider and model. Invalid participating settings disable requested compaction.
@@ -55,10 +53,6 @@ E2e checks never use personal settings or credentials.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
 - The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and output size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
 - Pi owns threshold detection and the full overflow retry scheduler.
-- Interactive mounting and terminal appearance are not tested automatically. The [manual checks](#manual-checks) cover them.
+- Interactive mounting and terminal appearance are not tested automatically. The [manual checks](pi-compatibility.md#manual-checks) cover them.
 - Pi owns RPC display.
 - Undoing Pi's earlier overflow-recovery edits, atomic metadata and compaction writes, and combinations of third-party patches and reloads are not tested, because the extension does not guarantee them. The [compatibility limits](pi-compatibility.md#limitations) explain why.
-
-## Manual checks
-
-Use the [compatibility manual checks](pi-compatibility.md#manual-checks) for interactive progress, **Escape** behaviour, and real-provider summary quality.
