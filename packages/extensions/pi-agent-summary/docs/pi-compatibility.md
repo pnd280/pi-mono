@@ -6,12 +6,9 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [manual checks](testing.md#manual-checks).
-2. Work through the checklist below, then update the "Last verified" line.
+Run the [manual checks](testing.md#manual-checks).
 
 ## Checklist
-
-Recheck [run](../GLOSSARY.md) lifecycle boundaries and attribution against the installed Pi version.
 
 ### Lifecycle
 
@@ -63,4 +60,4 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 ## Limitations
 
-Pi 1.5.2 measures each response in `AssistantMessage.durationMs`, and the saved [output throughput](summary-fields.md#output-throughput) sums it, skipping responses without one: Pi leaves it absent for legacy messages and for deferred results fetched later. The rate also depends on reported usage. Keep live estimates out of saved summaries.
+Pi 1.5.2 measures each response in `AssistantMessage.durationMs`, and the saved [output throughput](summary-fields.md#output-throughput) sums it, skipping responses without one: Pi leaves it absent for legacy messages and for deferred results fetched later. The rate also depends on reported usage.
