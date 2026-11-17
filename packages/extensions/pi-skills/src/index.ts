@@ -63,7 +63,7 @@ export default function skills(pi: ExtensionAPI): void {
       if (!completeInlineSlash(editor) && !warned) {
         warned = true;
         ctx.ui.notify(
-          "pi-skills: typing / mid-prompt doesn't open skill completion with this Pi version or another extension's editor. Tab after /skill: still completes.",
+          "pi-skills: typing / mid-prompt doesn't open skill completion with this Pi version or another extension's editor.",
           "warning"
         );
       }

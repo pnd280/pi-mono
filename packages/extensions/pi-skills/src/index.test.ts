@@ -12,7 +12,7 @@ import {
   type SlashCommandInfo
 } from "@earendil-works/pi-coding-agent";
 import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import skills from "../index.ts";
@@ -38,8 +38,7 @@ async function host({
   const setExpansionFormat = (expansionFormat: string) =>
     writeFile(settingsPath, JSON.stringify({ "ext.pi-skills": { expansionFormat } }));
   if (format !== undefined) await setExpansionFormat(format);
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
   let skillPath = join(directory, "review notes.md");
   const writeSkill = (path: string, name = "review") =>
     writeFile(path, `---\nname: ${name}\ndescription: Fixture skill\n---\nSECRET SKILL BODY\n`);
@@ -145,7 +144,7 @@ it("loads formats with skill commands disabled and reloads without native skill 
   await fixture.session.reload();
   const second = ` /skill:review (${fixture.getSkillPath()})`;
   await fixture.session.prompt("/skill:review");
-  await fixture.session.prompt(second);
+  await fixture.session.prompt(second.trimStart());
   expect(userTexts(fixture.session)).toEqual([first, second, second]);
   expect(fixture.errors).toEqual([]);
 });

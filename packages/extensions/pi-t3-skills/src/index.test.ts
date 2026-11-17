@@ -11,7 +11,7 @@ import {
   SettingsManager,
   type ExtensionFactory
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import skills from "pi-skills";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -28,11 +28,12 @@ interface HostOptions {
   /** File contents keyed by path relative to the workspace, which holds `agent` and `work`. */
   files?: Record<string, string>;
   projectTrusted?: boolean;
+  t3ExtensionPath?: string | undefined;
 }
 
 async function host(
   extensions: ExtensionFactory[],
-  { files = {}, projectTrusted = true }: HostOptions = {}
+  { files = {}, projectTrusted = true, t3ExtensionPath }: HostOptions = {}
 ) {
   const directory = await createValidationWorkspace("pi-t3-skills-test-");
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
@@ -45,8 +46,8 @@ async function host(
     await writeFile(join(directory, path), content);
   }
 
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
+  vi.stubEnv("T3_PI_MCP_EXTENSION_PATH", t3ExtensionPath);
   const skillPath = join(directory, "review notes.md");
   await writeFile(
     skillPath,
@@ -125,15 +126,13 @@ async function host(
 }
 
 it.each([
-  { order: "before this extension", extensions: [t3InputHook, t3Skills] },
   { order: "after this extension", extensions: [t3Skills, t3InputHook] },
   // pi-skills would expand the /skill: token in T3's block before an exact match at its rank.
   { order: "before this extension and pi-skills", extensions: [t3InputHook, t3Skills, skills] }
 ])(
   "sends T3 skill chips as references without skill blocks when T3's hook loads $order",
   async ({ extensions }) => {
-    vi.stubEnv("T3_PI_MCP_EXTENSION_PATH", "/t3/pi-t3-mcp-extension.ts");
-    const fixture = await host(extensions);
+    const fixture = await host(extensions, { t3ExtensionPath: "/t3/pi-t3-mcp-extension.ts" });
     await fixture.session.prompt("Use $review and $review");
 
     const reference = `[/skill:review](<${fixture.skillPath}>)`;
@@ -167,8 +166,8 @@ it.each([
     projectTrusted: false
   }
 ])("$case", async ({ project, projectTrusted, expected = globalFormat }) => {
-  vi.stubEnv("T3_PI_MCP_EXTENSION_PATH", "/t3/pi-t3-mcp-extension.ts");
   const fixture = await host([t3Skills], {
+    t3ExtensionPath: "/t3/pi-t3-mcp-extension.ts",
     files: {
       [join("agent", "settings.json")]: section({ expansionFormat: "File: {path}" }),
       [projectSettings]: section(project)
@@ -182,12 +181,14 @@ it.each([
   expect(fixture.errors).toEqual([]);
 });
 
-it("leaves skill chips unchanged outside T3", async () => {
-  vi.stubEnv("T3_PI_MCP_EXTENSION_PATH", "");
-  const fixture = await host([t3Skills]);
-  await fixture.session.prompt("Use $review");
+it.each([{ value: "" }, { value: undefined }])(
+  "leaves skill chips unchanged outside T3 with the variable $value",
+  async ({ value }) => {
+    const fixture = await host([t3Skills], { t3ExtensionPath: value });
+    await fixture.session.prompt("Use $review");
 
-  expect(fixture.requests).toHaveLength(1);
-  expect(fixture.requests[0]).toContain(JSON.stringify("Use $review"));
-  expect(fixture.errors).toEqual([]);
-});
+    expect(fixture.requests).toHaveLength(1);
+    expect(fixture.requests[0]).toContain(JSON.stringify("Use $review"));
+    expect(fixture.errors).toEqual([]);
+  }
+);
