@@ -56,7 +56,10 @@ it("keeps multi-block selected-read results unchanged during interpretation", ()
       { type: "text", text: second },
       { type: "text", text: "model preview" }
     ],
-    details: { selectiveRead: { sourceBlocks: 2 }, truncation: { outputLines: 4, truncated: true } }
+    details: {
+      selectiveRead: { sourceBlocks: 2, offset: 10, limit: 1 },
+      truncation: { outputLines: 4, truncated: true }
+    }
   };
   const before = structuredClone(value);
   const args = {

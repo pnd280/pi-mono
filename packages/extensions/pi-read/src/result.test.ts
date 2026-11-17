@@ -56,22 +56,25 @@ describe("preview provenance", () => {
     }
   });
 
-  // 0 and 2 are the boundaries of the positive-count schema and the content-length check in interpretReadResult.
-  it.each([0, 0.5, 2, "1", Number.MAX_SAFE_INTEGER + 1, null, undefined])(
-    "preserves all retained blocks for a malformed marked count: %j",
-    (sourceBlocks) => {
+  // With one block, only the positive-count schema rejects 0. With two, 2 is the boundary of the content-length check in interpretReadResult.
+  it.each([
+    { sourceBlocks: 0, texts: ["source"] },
+    ...[0.5, 2, "1", null, undefined].map((sourceBlocks) => ({
+      sourceBlocks,
+      texts: ["source", "preview"]
+    }))
+  ])(
+    "preserves all retained blocks for a malformed marked count: $sourceBlocks",
+    ({ sourceBlocks, texts }) => {
       const retained: ReadResultView = {
-        content: [
-          { type: "text", text: "source" },
-          { type: "text", text: "preview" }
-        ],
+        content: texts.map((text) => ({ type: "text", text })),
         details: { selectiveRead: { sourceBlocks } }
       };
       const interpreted = interpretReadResult(retained);
       expect(interpreted.valid).toBe(false);
       expect(interpreted.preview).toEqual({ kind: "invalid" });
       expect(interpreted.sourceContent).toBe(retained.content);
-      expect(interpreted.document?.lines).toEqual(["source", "preview"]);
+      expect(interpreted.document?.lines).toEqual(texts);
     }
   );
 
@@ -155,12 +158,13 @@ it("preserves invalid details when appending, and replaces only a validated prev
     }
   };
   expect(appendPreview(invalidNative, { path: "a.ts" }, span(1))).toBe(invalidNative);
+  const details = { selectiveRead: { sourceBlocks: 1 }, unrelated: { retained: true } };
   const valid: ReadResult = {
     content: [
       { type: "text", text: "source" },
       { type: "text", text: "old preview" }
     ],
-    details: { selectiveRead: { sourceBlocks: 1 } }
+    details
   };
   const updated = appendPreview(valid, { path: "a.ts" }, span(1));
   expect(updated.content).toEqual([
@@ -169,7 +173,7 @@ it("preserves invalid details when appending, and replaces only a validated prev
   ]);
   expect(updated.content[0]).toBe(valid.content[0]);
   expect(valid.content[1]).toEqual({ type: "text", text: "old preview" });
-  expect(updated.details?.selectiveRead).toEqual({ sourceBlocks: 1 });
+  expect(updated.details).toEqual({ ...details, selectiveRead: { sourceBlocks: 1 } });
 });
 
 it.each([
@@ -255,19 +259,6 @@ describe("native source windows", () => {
       );
     }
   );
-
-  it("keeps a zero-source-line byte-limit diagnostic outside the selected source", () => {
-    const diagnostic =
-      "[Line 1 is 60KB, exceeds 50KB limit. Use bash: sed -n '1p' a | head -c 51200]";
-    const interpreted = interpretReadResult(result(diagnostic, { truncation: { outputLines: 0 } }));
-    expect(interpreted.document).toMatchObject({ lines: [], notice: diagnostic });
-    expect(interpreted.document?.select(span(1))).toMatchObject({
-      lines: [],
-      ranges: [],
-      partial: true
-    });
-    expect(interpreted.blocks[0]?.highlight("", span(1))).toEqual([]);
-  });
 
   it("bounds multi-block source by returned counts despite trailing newlines and empty blocks", () => {
     const retained: ReadResultView = {

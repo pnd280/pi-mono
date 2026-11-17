@@ -1,4 +1,4 @@
-import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
 import type {
   AgentToolResult,
   ReadToolDetails,
@@ -31,15 +31,33 @@ export const retainedSelectionSchema = selectionInputSchema
   })
   .pipe(selectionSchema);
 
+/** Pi coerces numeric strings before execution and in its call label, but renderers receive the arguments that the model sent. */
+export const windowArgumentSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
+  z.number()
+);
+
 const detailsSchema = z
   .object({
-    selectiveRead: z.object({ sourceBlocks: z.int().positive() }).optional(),
+    selectiveRead: z
+      .object({
+        sourceBlocks: z.int().positive(),
+        offset: z.number().optional(),
+        limit: z.number().optional()
+      })
+      .optional(),
     truncation: z.object({ outputLines: z.int().nonnegative() }).optional()
   })
   .optional();
 
+export type ReadWindow = {
+  offset?: number | undefined;
+  limit?: number | undefined;
+};
+
 export type SelectiveReadDetails = ReadToolDetails & {
-  selectiveRead?: { sourceBlocks: number };
+  /** The window is the one the tool executed with, after Pi's argument coercion. */
+  selectiveRead?: { sourceBlocks: number } & ReadWindow;
 };
 
 export type ReadResult = AgentToolResult<SelectiveReadDetails | undefined>;
@@ -48,11 +66,6 @@ export type ReadResult = AgentToolResult<SelectiveReadDetails | undefined>;
 export type ReadResultView = {
   readonly content: readonly Readonly<TextContent | ImageContent>[];
   readonly details?: unknown;
-};
-
-export type ReadWindow = {
-  offset?: number | undefined;
-  limit?: number | undefined;
 };
 
 export type ReadHighlight = {
@@ -79,6 +92,8 @@ export type ReadInterpretation = {
   valid: boolean;
   preview: { kind: "absent" } | { kind: "invalid" } | { kind: "valid"; contentIndex: number };
   sourceContent: ReadResultView["content"];
+  /** The recorded window for a valid preview, otherwise the window the caller passed. */
+  window: ReadWindow;
   document: ReadDocument | undefined;
   /** Indexed by original content position, without flattening text or images. */
   blocks: readonly (ReadTextWindow | undefined)[];
@@ -110,7 +125,8 @@ export function interpretReadResult(
   args: ReadWindow = {}
 ): ReadInterpretation {
   const parsed = detailsSchema.safeParse(result.details);
-  const count = parsed.data?.selectiveRead?.sourceBlocks;
+  const recorded = parsed.data?.selectiveRead;
+  const count = recorded?.sourceBlocks;
   const marked =
     typeof result.details === "object" &&
     result.details !== null &&
@@ -126,9 +142,11 @@ export function interpretReadResult(
         : { kind: "invalid" };
   const sourceContent =
     preview.kind === "valid" ? result.content.slice(0, preview.contentIndex) : result.content;
-  const start = Math.max(0, (args.offset ?? 1) - 1);
+  const window =
+    preview.kind === "valid" ? { offset: recorded?.offset, limit: recorded?.limit } : args;
+  const start = Math.max(0, (window.offset ?? 1) - 1);
   const firstLine = Math.trunc(start) + 1;
-  const end = args.limit === undefined ? Infinity : Math.trunc(start + args.limit);
+  const end = window.limit === undefined ? Infinity : Math.trunc(start + window.limit);
   const relativeEnd = end < 0;
   const requested = relativeEnd ? Infinity : Math.max(0, end - Math.trunc(start));
   const allText = sourceContent.length > 0 && sourceContent.every((block) => block.type === "text");
@@ -149,11 +167,11 @@ export function interpretReadResult(
     valid: parsed.success && preview.kind !== "invalid",
     preview,
     sourceContent,
+    window,
     // Recognition and notices need no source splitting. Interpret only the requested view.
     get document(): ReadDocument | undefined {
       if (!allText) return undefined;
-      // Same newline joins as Pi's contentText, including empty and newline-terminated blocks.
-      const text = sourceContent.map((block) => block.text).join("\n");
+      const text = contentText(sourceContent);
       // Pi emits a text-only image note when decoding fails. Literal prefixes are ambiguous.
       if (text.startsWith("Read image file [image/")) return undefined;
       const all = sourceLines(text);
@@ -203,7 +221,11 @@ export function appendPreview(
     content: [...interpreted.sourceContent, { type: "text", text: preview }],
     details: {
       ...result.details,
-      selectiveRead: { sourceBlocks: interpreted.sourceContent.length }
+      selectiveRead: {
+        sourceBlocks: interpreted.sourceContent.length,
+        offset: interpreted.window.offset,
+        limit: interpreted.window.limit
+      }
     }
   };
 }
