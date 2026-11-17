@@ -18,6 +18,7 @@ Use [/skill:review](</skills/review/SKILL.md>) then [/skill:review](</skills/rev
 
 | Control                                    | Effect                                                                                                                                                       |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/skill:<name>` in a prompt                | Becomes a link to the skill's file in the configured format, anywhere in the prompt, including at its start, instead of Pi pasting in the skill.             |
 | Type `/` at the start of a token           | Open the skill picker, except at the start of the first line. The text after `/` filters the skills.                                                         |
 | **Tab** after `/skill:` at a token start   | Complete the skill name, also mid-prompt or on a later line. With the picker closed, **Tab** on other tokens, such as `/usr/lo`, keeps Pi's file completion. |
 | **Up** after `/reload` or a session switch | Recall only the prompts sent since then, because the extension's editor starts with an empty prompt history.                                                 |
@@ -30,7 +31,7 @@ Pi's `enableSkillCommands` setting controls completion; see [completion](docs/ru
 
 ## Configuration
 
-Put the `ext.pi-skills` section in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). A trusted project's format overrides the global one. Run `/reload` after you edit settings.
+Put the `ext.pi-skills` section in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), or in `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). A trusted project's format overrides the global one. Run `/reload` after you edit settings.
 
 This example shows every field. Remove the comments before you copy it, because Pi reads `settings.json` as plain JSON:
 

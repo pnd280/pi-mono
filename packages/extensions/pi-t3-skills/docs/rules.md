@@ -19,7 +19,7 @@ Matching covers prompts, steering, and follow-up messages, and extension `sendUs
 
 ## Skill blocks
 
-T3 Code's Pi extension adds one `<skill name="…" location="…">` block with the skill contents for each chip. T3 Code loads its extension from its launch arguments, and Pi loads those extensions before installed ones, so T3 Code's extension normally runs first. The extension handles both load orders:
+T3 Code's Pi extension adds one `<skill name="…" location="…">` block for each distinct registered skill named by a chip, except a skill that a leading `/skill:<name>` command already names, and except unreadable files. T3 Code loads its extension from its launch arguments, and Pi loads those extensions before installed ones, so T3 Code's extension normally runs first. The extension handles both load orders:
 
 - When T3 Code's extension runs first, this extension removes the blocks only when the end of the prompt is exactly the text that T3 Code adds for the chips before it. It removes them before other pi-mono extensions change the prompt, and changes the chips later.
 - When this extension runs first, for example in a custom launch through Pi's SDK, it changes the chips before T3 Code's extension sees the prompt. T3 Code's extension then finds no chips and adds no blocks, apart from the edge case below.
@@ -47,7 +47,7 @@ This order needs the same input-chain version in both extensions. After a [versi
 
 ## Expansion format
 
-Put the `ext.pi-t3-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
+Put the `ext.pi-t3-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `.pi/settings.json` in the current directory of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
 
 `expansionFormat` sets what each chip becomes. The default is `"[{command}](<{path}>)"`. The angle brackets keep paths with spaces or parentheses inside the Markdown link. Paths that contain `<`, `>`, or a line break don't make a valid link.
 
@@ -58,4 +58,4 @@ Put the `ext.pi-t3-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CO
 
 - Placeholders may repeat. Everything else, including spaces, is literal.
 - If a leading reference could invoke a registered skill or prompt-template command, a space is added before it to keep it literal. This includes formats such as `"{command} ({path})"` with a leading chip.
-- Formats are limited to 512 Unicode code points. Invalid sections, and settings files larger than 1 MiB, are ignored.
+- Formats are limited to 512 Unicode code points. Invalid sections, including a section with an unknown field, and settings files larger than 1 MiB, are ignored without a warning.
