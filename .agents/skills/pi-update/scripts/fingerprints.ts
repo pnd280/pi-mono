@@ -3,7 +3,7 @@
 // Keep this file TypeScript: the bundled CLI maps Pi imports in .ts extensions to its bundled classes, but loads .mjs natively, which would hash the API build twice.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,9 +73,14 @@ const owners = {
   "packages/extensions/pi-tool-display/src/host/assistant.ts": () => ({
     updateContent: assistant("updateContent")
   }),
+  // Called, not replaced.
   "packages/extensions/pi-skills/src/editor.ts": () => ({
     tryTriggerAutocomplete: Reflect.get(Editor.prototype, "tryTriggerAutocomplete"),
     requestAutocomplete: Reflect.get(Editor.prototype, "requestAutocomplete")
+  }),
+  // Called, not replaced.
+  "packages/libs/src/tui/responsive-custom-ui/fullscreen-input.ts": () => ({
+    getVisibleOverlayFocusRestore: Reflect.get(TuiAltScreen.prototype, "getVisibleOverlayFocusRestore")
   })
 } satisfies Record<string, () => Methods>;
 
@@ -86,10 +91,10 @@ const inspectedVersions: Partial<Record<string, string>> = {
 
 // Every 64-hex string literal in non-test TypeScript under packages/, by file.
 function listedHashes(): Map<string, Set<string>> {
-  const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "packages/*.ts"], {
+  const files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "packages/*.ts"], {
     encoding: "utf8"
   })
-    .split("\n")
+    .split("\0")
     .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
   const listed = new Map<string, Set<string>>();
 
@@ -189,8 +194,7 @@ function cliFingerprints(): Fingerprints {
   }
 }
 
-// The module URL is a real path; argv[1] keeps symlinks such as macOS /tmp -> /private/tmp. Without realpath the check would print nothing and pass.
-if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   const builds = { api: fingerprints(), cli: cliFingerprints() };
   const listed = listedHashes();
   let changed = 0;

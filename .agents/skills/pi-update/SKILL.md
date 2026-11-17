@@ -18,12 +18,12 @@ Follow the six stages in order. Audit and planning requests skip stages 4 and 5:
 
 1. Read package instructions, [development guidance](../../../docs/development.md), and the [Pi API contracts](../../../docs/agents/pi-apis.md). Inspect staged, unstaged, and untracked work. Treat changes for the same target as an in-progress migration to verify and continue, reported separately in the handoff; preserve all other changes.
 2. Record target, declared workspace, and consumer-resolved versions. Run executable, terminal, and API checks against workspace-resolved Pi (`node_modules/.bin/pi` or `resolvePiExecutable`); a global CLI is not target evidence. Global Pi updates require an explicit request.
-3. Read every intervening changelog section and linked migration note. Fetch the published Pi family of the current and target versions with the [release fetch](references/compatibility-checks.md#fetch-a-release), which installs each package, with its `CHANGELOG.md`, `docs/`, and `dist/`, into `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`. Give subagents these paths, and keep `.tmp/pi-releases/` until the session ends. Use `gh` for tagged source on GitHub.
-4. Read relevant [Pi documentation](../../../docs/agents/pi-docs.md) fully and inspect examples, then declarations, exports, and implementation for unsettled contracts. Record source versions. Never edit installed or upstream Pi.
+3. Read every intervening changelog section and linked migration note. Fetch the published Pi family of the current and target versions with the [release fetch](references/compatibility-checks.md#fetch-a-release), which installs each package's published files into `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`; only `pi-coding-agent` ships `CHANGELOG.md` and `docs/`, so read other packages' changelogs from the GitHub tag. Give subagents these paths, and keep `.tmp/pi-releases/` until the session ends. Use `gh` for tagged source on GitHub.
+4. Read relevant [Pi documentation](../../../docs/agents/pi-docs.md) fully and inspect examples, then declarations, exports, and implementation for unsettled contracts. Record source versions.
 5. Inventory imports, events, provider streams, helpers, private hooks, manifests, settings, tests, launchers, and compatibility claims, following [shared consumers](../../../docs/agents/architecture.md#reuse-decision). Read existing package `docs/pi-compatibility.md` guides, including shared packages. Where no guide exists, inspect the owning code and tests for Pi contracts; report unverified contracts rather than missing documents.
 6. Run relevant baseline checks to distinguish existing failures from regressions.
 
-**Complete when:** versions, release evidence, package coverage, shared consumers, and baseline results are recorded, with missing evidence or checks identified.
+Complete when: versions, release evidence, package coverage, shared consumers, and baseline results are recorded, with missing evidence or checks identified.
 
 ### 2. Classify release changes
 
@@ -33,14 +33,16 @@ Give each Pi-family package that the target introduces a disposition: whether ex
 
 For every package, record affected paths and consumers, old and target contracts, versioned evidence, and performed or proposed checks. Classify each result:
 
-- **Required migration:** needed to preserve the supported contract.
-- **Optional adoption:** a verified target API can replace local code while preserving policy. Identify the API and removable code.
-- **Unaffected:** target-version evidence establishes continued compatibility.
-- **Unresolved:** missing evidence prevents a conclusion.
+| Classification     | Meaning                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Required migration | Needed to preserve the supported contract.                                                                 |
+| Optional adoption  | A verified target API can replace local code while preserving policy. Identify the API and removable code. |
+| Unaffected         | Target-version evidence establishes continued compatibility.                                               |
+| Unresolved         | Missing evidence prevents a conclusion.                                                                    |
 
 Keep target-specific results in the handoff. Reusable checklist changes belong to an authorised migration when contracts or limitations change.
 
-**Complete when:** every package, new Pi-family package, and relevant release change has a disposition supported by target-version evidence or a named evidence gap.
+Complete when: every package, new Pi-family package, and relevant release change has a disposition supported by target-version evidence or a named evidence gap.
 
 ### 3. Resolve consequential decisions
 
@@ -48,7 +50,7 @@ Pause material policy or significant user-visible choices, such as billable back
 
 Personal-setting changes and validation with paid providers or real credentials require explicit authorisation. Report consequential cache defaults rather than silently changing them. Prior-release decisions do not authorise changes for another release.
 
-**Complete when:** every consequential choice is resolved or recorded as blocking only the affected work. For audit or planning requests, proceed to handoff with recommendations and unresolved choices, without applying changes.
+Complete when: every consequential choice is resolved or recorded as blocking only the affected work. For audit or planning requests, proceed to handoff with recommendations and unresolved choices, without applying changes.
 
 ### 4. Apply the migration
 
@@ -59,18 +61,18 @@ Personal-setting changes and validation with paid providers or real credentials 
 5. Preserve policy outside approved changes, including policies recorded in affected packages' `AGENTS.md` and `docs/pi-compatibility.md`: no model fallback, native-only clipboard, cancellation, and sanitisation.
 6. Update documentation and reusable compatibility checklists with target-version evidence. Keep historical external results and limitations version-qualified; local fixtures do not prove live-provider or external-adapter compatibility.
 
-**Complete when:** all authorised migrations, affected consumers, dependency records, tests, and documentation are updated. Record unresolved or blocked work rather than treating it as complete.
+Complete when: all authorised migrations, affected consumers, dependency records, tests, and documentation are updated. Record unresolved or blocked work rather than treating it as complete.
 
 ### 5. Verify the result
 
 Follow [required verification](../../../docs/agents/verification.md). Start with [focused checks](../../../docs/development.md#focused-validation), fix migration failures, then run the documented workspace-wide checks and tests for the shared upgrade.
 
-Select behavioural checks from the affected [compatibility areas](references/compatibility-checks.md). Distinguish source, automated, terminal, and external evidence; report unavailable checks. Review the final diff, including the lockfile, for correctness and scope.
+Select behavioural checks from the affected [compatibility areas](references/compatibility-checks.md). Distinguish source, automated, terminal, and external evidence; report unavailable checks.
 
-**Complete when:** required checks pass, affected contracts and consumers have verification evidence, and unverified terminal, external, or platform behaviour is explicitly identified. Failed required checks leave the migration incomplete.
+Complete when: required checks pass, affected contracts and consumers have verification evidence, and unverified terminal, external, or platform behaviour is explicitly identified. Failed required checks leave the migration incomplete.
 
 ### 6. Hand off the result
 
 Report target and resolved versions, per-package dispositions, migrations and adoption opportunities, private hooks without a full public replacement and the Pi APIs they need, each consequential decision with its options and recommendation as stage 3 requires, preserved policies, personal-setting and upstream-default changes, red/green evidence, and [verification results](../../../docs/agents/verification.md). Separate completed work from proposed work and blockers.
 
-**Complete when:** the handoff accounts for every package, consequential decision, and evidence gap, with exact check commands and results.
+Complete when: the handoff accounts for every package, consequential decision, and evidence gap.

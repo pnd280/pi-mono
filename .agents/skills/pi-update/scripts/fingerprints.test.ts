@@ -4,7 +4,7 @@ import { expect, it } from "vite-plus/test";
 
 import { fingerprintProbe } from "./fingerprints.ts";
 
-it("isolates fingerprint inspection from implicit extensions, credentials, and model prompts", () => {
+it("builds a probe with only its explicit extension and an allow-listed environment", () => {
   const parentEnv = Object.freeze({
     PATH: "/system/bin",
     SystemRoot: "C:\\Windows",

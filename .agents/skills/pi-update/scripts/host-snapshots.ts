@@ -10,7 +10,7 @@ const snapshots = new Map<string, string[]>(hosts.map((name) => [name, []]));
 let inSnapshots = false;
 let entries = 0;
 
-for (const line of readFileSync(lockfile, "utf8").split("\n")) {
+for (const line of readFileSync(lockfile, "utf8").split(/\r?\n/)) {
   if (/^\S/.test(line)) {
     inSnapshots = line === "snapshots:";
     continue;
@@ -40,7 +40,7 @@ if (duplicated) {
   console.log(
     [
       "Each snapshot installs its own copy, so workspace packages and Pi load two instances of the package.",
-      "`vp dedupe`, `vp install --fix-lockfile`, and `vp update -r` do not remove a snapshot for a stale peer variant. Remove it by hand:",
+      "If the snapshots are different versions, align the declared versions and reinstall. If they differ only in a peer suffix, `vp dedupe`, `vp install --fix-lockfile`, and `vp update -r` do not remove the stale variant; remove it by hand:",
       "1. Find the stale peer with `vp why <peer>`.",
       "2. In pnpm-lock.yaml, delete the `snapshots:` entries whose key contains the stale peer version, replace each remaining `(<peer>@<stale version>)` reference with the current version, and delete the stale package entry when nothing references it.",
       "3. Run `vp install --frozen-lockfile` and this check again. Confirm that node_modules/.pnpm/ has one directory for the package.",
@@ -48,4 +48,6 @@ if (duplicated) {
   );
 }
 
-process.exitCode = duplicated ? 1 : 0;
+if (!entries) console.log("No snapshots found: check that pnpm-lock.yaml has a `snapshots:` section.");
+
+process.exitCode = duplicated || !entries ? 1 : 0;
