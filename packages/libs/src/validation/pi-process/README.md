@@ -8,6 +8,8 @@ Validation tests must launch installed Pi without the user's credentials or sett
 
 - `createPiLaunch` prepares installed Pi but never starts it. The launch inherits no user credentials or settings.
 - Storage and offline settings override supplied environment additions.
+- The launch options kill a run that exceeds its `timeout` with `SIGKILL`, because Pi waits for its shutdown on `SIGTERM`.
+- `isolateEnvironment(directory)` stubs `process.env` for an in-process Pi fixture the same way: it keeps no user credentials, and points `HOME` and Pi's agent directory into `directory`. Restore it with `vi.unstubAllEnvs()`.
 - Environment isolation does not restrict filesystem access or tool execution.
 
 ## Shared compile caches

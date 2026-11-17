@@ -1,16 +1,12 @@
-import { access, mkdtemp, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, it, vi } from "vite-plus/test";
 
-import { isolateEnvironment } from "./environment.ts";
-import { createPiLaunch, createValidationWorkspace } from "./index.ts";
+import { createPiLaunch, createValidationWorkspace, isolateEnvironment } from "./index.ts";
 
 it("creates private fixture directories and prepares credential-free offline Pi launches and in-process environments", async () => {
   const directory = await createValidationWorkspace("pi-libs-validation-");
-  // isolateEnvironment creates its own home child, which the workspace already has.
-  const inProcess = await mkdtemp(join(tmpdir(), "pi-libs-isolation-"));
   vi.stubEnv("ANTHROPIC_API_KEY", "must-not-inherit");
   vi.stubEnv("HOME", "/must-not-use");
   vi.stubEnv("PI_CODING_AGENT_DIR", "/must-not-use/agent");
@@ -32,6 +28,10 @@ it("creates private fixture directories and prepares credential-free offline Pi 
         PATH: "/fixture/bin",
         DISPLAY: ":fixture",
         HOME: "/override-refused",
+        USERPROFILE: "/override-refused",
+        TMPDIR: "/override-refused",
+        TMP: "/override-refused",
+        TEMP: "/override-refused",
         PI_CODING_AGENT_DIR: "/override-refused",
         PI_OFFLINE: "0",
         PI_TELEMETRY: "1"
@@ -58,18 +58,17 @@ it("creates private fixture directories and prepares credential-free offline Pi 
     const defaults = await createPiLaunch({ directory, args: [] });
     expect(defaults.options.env).not.toHaveProperty("DISPLAY");
 
-    isolateEnvironment(inProcess);
+    isolateEnvironment(directory);
     expect(process.env).not.toHaveProperty("ANTHROPIC_API_KEY");
     expect(process.env).not.toHaveProperty("SSH_CONNECTION");
     expect(process.env).toMatchObject({
-      HOME: join(inProcess, "home"),
-      USERPROFILE: join(inProcess, "home"),
-      PI_CODING_AGENT_DIR: join(inProcess, "agent"),
+      HOME: join(directory, "home"),
+      USERPROFILE: join(directory, "home"),
+      PI_CODING_AGENT_DIR: join(directory, "agent"),
       PI_OFFLINE: "1"
     });
   } finally {
     vi.unstubAllEnvs();
     await rm(directory, { recursive: true, force: true });
-    await rm(inProcess, { recursive: true, force: true });
   }
 });

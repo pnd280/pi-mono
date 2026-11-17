@@ -15,7 +15,9 @@ import {
   type AgentSessionRuntime,
   type ExtensionAPI,
   type ExtensionContext,
-  type ReadonlyFooterDataProvider
+  type ExtensionError,
+  type ReadonlyFooterDataProvider,
+  type TuiMode
 } from "@earendil-works/pi-coding-agent";
 import {
   type Component,
@@ -36,11 +38,7 @@ type FixtureHost = {
   session: AgentSession;
   ui: TUI;
   renderer: TuiAltScreen | TuiMainScreen;
-  switchTuiMode(
-    mode: "regular" | "fullscreen",
-    restoreProgress?: boolean,
-    startRenderer?: boolean
-  ): boolean;
+  switchTuiMode(mode: TuiMode, restoreProgress?: boolean, startRenderer?: boolean): boolean;
   resetExtensionUI(): void;
   documentContainer: Container;
   fullscreenLayoutRoot: Component;
@@ -63,9 +61,27 @@ type FixtureHost = {
   setExtensionFooter: ExtensionContext["ui"]["setFooter"];
 };
 
+/** Binds the session's extensions and throws the errors that their handlers reported meanwhile. */
+async function bindExtensions(session: AgentSession, uiContext: ExtensionContext["ui"]) {
+  const errors: ExtensionError[] = [];
+  const unsubscribe = session.extensionRunner.onError((error) => errors.push(error));
+
+  try {
+    await session.bindExtensions({ uiContext, mode: "tui" });
+  } finally {
+    unsubscribe();
+  }
+
+  if (errors.length)
+    throw new AggregateError(
+      errors.map(({ extensionPath, event, error }) => `${extensionPath} (${event}): ${error}`),
+      "Extension handlers failed while binding."
+    );
+}
+
 export async function hostFixture(
   factories: ((pi: ExtensionAPI) => void)[] = [],
-  tuiMode: "regular" | "fullscreen" = "regular"
+  tuiMode: TuiMode = "regular"
 ) {
   const directory = await mkdtemp(join(tmpdir(), "pi-interactive-host-"));
   const agentDir = join(directory, "agent");
@@ -115,6 +131,12 @@ export async function hostFixture(
       extensionFactories: factories
     });
     await loader.reload();
+    const { errors } = loader.getExtensions();
+    if (errors.length)
+      throw new AggregateError(
+        errors.map(({ path, error }) => `${path}: ${error}`),
+        "Extensions failed to load."
+      );
     const modelRuntime = await ModelRuntime.create({
       authPath: join(agentDir, "auth.json"),
       modelsPath: null,
@@ -205,7 +227,7 @@ export async function hostFixture(
       terminal,
       transcript: viewport.transcript,
       async bind() {
-        await session.bindExtensions({ uiContext: ui, mode: "tui" });
+        await bindExtensions(session, ui);
         host.setupAutocompleteProvider();
       },
       dispose
@@ -216,7 +238,7 @@ export async function hostFixture(
 }
 
 /** Opt-in terminal input for tests of the installed host's custom-UI lifecycle. */
-export async function inputHostFixture(tuiMode: "regular" | "fullscreen" = "fullscreen") {
+export async function inputHostFixture(tuiMode: TuiMode = "fullscreen") {
   const fixture = await hostFixture([], tuiMode);
   onTestFinished(fixture.dispose);
   const faux = fauxProvider({ provider: "interactive-input", models: [{ id: "offline" }] });
@@ -242,7 +264,7 @@ export async function inputHostFixture(tuiMode: "regular" | "fullscreen" = "full
         return component;
       }, options)
   };
-  await fixture.session.bindExtensions({ uiContext: ui, mode: "tui" });
+  await bindExtensions(fixture.session, ui);
   fixture.host.documentContainer.addChild({
     render: () => Array.from({ length: 100 }, (_, index) => `Transcript ${index}`),
     invalidate() {}

@@ -41,7 +41,13 @@ export async function runTerminalLauncher(options: TerminalLauncherOptions): Pro
   let directory: string;
   if (args[0] === "--reuse") {
     const existing = reuseDirectorySchema.safeParse(args[1]);
-    if (!existing.success) throw new Error("--reuse requires a fixture directory.");
+
+    if (!existing.success) {
+      console.error("--reuse requires a fixture directory; use --help for usage.");
+
+      return 1;
+    }
+
     directory = resolve(existing.data);
     args.splice(0, 2);
   } else directory = await options.createWorkspace();
