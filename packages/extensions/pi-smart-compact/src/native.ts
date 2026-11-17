@@ -91,13 +91,11 @@ function classifySummary(
 function recordSummaryBeforeCompaction({
   session,
   registration,
-  result,
   signal,
   entry
 }: {
   session: NativeSession;
   registration: Registration;
-  result: Awaited<ReturnType<DefaultCompaction>>;
   signal: AbortSignal;
   entry: SummaryModelEntry;
 }) {
@@ -125,15 +123,9 @@ function recordSummaryBeforeCompaction({
   signal.addEventListener("abort", clear, { once: true });
 
   try {
+    // Only this attempt's append can run between Pi's final abort check and compaction_end.
     hooks.replace(manager, "appendCompaction", function (this: typeof manager, ...args) {
-      if (
-        !active ||
-        this !== manager ||
-        args[4] ||
-        args[0] !== result.summary ||
-        args[1] !== result.firstKeptEntryId
-      )
-        return append.apply(this, args);
+      if (!active) return append.apply(this, args);
 
       clear();
       if (registration.active && !signal.aborted) registration.onSummarized(entry);
@@ -214,7 +206,6 @@ export function bindNativeCompaction(
         recordSummaryBeforeCompaction({
           session: this,
           registration,
-          result,
           signal: args[3],
           entry: { ...summarySelection, trigger }
         });
@@ -276,16 +267,11 @@ export function bindNativeCompaction(
     }
   }
 
-  if (patch.registrations.has(manager)) {
-    throw new Error("pi-smart-compact: already bound to this session.");
-  }
-
   const registration: Registration = { active: true, selection, onSummarized };
   patch.registrations.set(manager, registration);
 
   return {
     request(instructions?: string, signal?: AbortSignal) {
-      signal?.throwIfAborted();
       registration.pending = { instructions, signal };
     },
     clear() {
