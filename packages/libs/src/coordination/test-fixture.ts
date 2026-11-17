@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  contentText,
   fauxAssistantMessage,
   fauxProvider,
   getCurrentSystemPrompt,
-  type FauxResponseFactory
+  type FauxResponseFactory,
+  type ImageContent
 } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
@@ -19,6 +21,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { expect, onTestFinished, vi } from "vite-plus/test";
 
+import { isolateEnvironment } from "../validation/pi-process/environment.ts";
+
 /** Both orders in which Pi can load two participants. */
 export const loadOrders: ["a" | "b", "a" | "b"][] = [
   ["a", "b"],
@@ -28,7 +32,7 @@ export const loadOrders: ["a" | "b", "a" | "b"][] = [
 /** Rank order (`b`, `a`) is opposite to ID order, so an order by ID or by load fails a row. */
 export const ranks = { a: 200, b: 100 };
 
-type ProviderRequest = { systemPrompt: string; userText: string };
+type ProviderRequest = { systemPrompt: string; userText: string; images: ImageContent[] };
 
 /**
  * An offline SDK session that loads `extensions` in order and binds them with a UI, so coordinator warnings reach `notify`. Records what each provider request contains.
@@ -43,8 +47,7 @@ export async function coordinationHost(
   const agentDir = join(directory, "agent");
   await mkdir(cwd);
   await mkdir(agentDir);
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
   onTestFinished(() => {
     vi.unstubAllEnvs();
   });
@@ -78,10 +81,11 @@ export async function coordinationHost(
       const content = user?.content ?? "";
       requests.push({
         systemPrompt: getCurrentSystemPrompt(context.messages),
-        userText:
+        userText: contentText(content, ""),
+        images:
           typeof content === "string"
-            ? content
-            : content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("")
+            ? []
+            : content.filter((part): part is ImageContent => part.type === "image")
       });
 
       return fauxAssistantMessage("Offline response");

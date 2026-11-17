@@ -5,12 +5,14 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
+export { isolateEnvironment } from "./environment.ts";
+
 const manifestSchema = z.object({ bin: z.object({ pi: z.string().min(1) }) });
 
 export type PiLaunch = {
   command: string;
   args: string[];
-  options: { cwd: string; env: NodeJS.ProcessEnv };
+  options: { cwd: string; env: NodeJS.ProcessEnv; killSignal: NodeJS.Signals };
 };
 
 /**
@@ -108,7 +110,9 @@ export async function createPiLaunch(options: {
         PI_CODING_AGENT_DIR: join(directory, "agent"),
         PI_OFFLINE: "1",
         PI_TELEMETRY: "0"
-      }
+      },
+      // Pi awaits its shutdown on SIGTERM, so a stalled shutdown would outlive a run timeout.
+      killSignal: "SIGKILL"
     }
   };
 }

@@ -25,7 +25,7 @@ export function isolateEnvironment(directory: string): void {
     if (!inheritedEnvironment.has(name.toUpperCase())) vi.stubEnv(name, undefined);
   // A private home also hides file credentials, such as Google's application defaults.
   const home = join(directory, "home");
-  mkdirSync(home);
+  mkdirSync(home, { recursive: true });
   vi.stubEnv("HOME", home);
   vi.stubEnv("USERPROFILE", home);
   vi.stubEnv("PI_CODING_AGENT_DIR", join(directory, "agent"));
