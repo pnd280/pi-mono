@@ -91,21 +91,18 @@ export type RunSummary = {
   readonly changes: readonly ChangedFile[];
 };
 
-/**
- * Built-in, then adapter-declared categories. Other IDs count per tool name; an undeclared adapter category counts under its ID.
- */
+/** Built-in, then adapter-declared categories. Other IDs count per tool name. */
 function resolveCategory(
   id: string,
   declared: ReadonlyMap<string, SummaryCategory>
 ): Pick<SummarySegment, "category" | "toolNamed"> {
   const category = builtinCategories.get(id) ?? declared.get(id);
-  if (category) return { category, toolNamed: id.startsWith(TOOL_PREFIX) };
-  const tool = id.startsWith(TOOL_PREFIX) ? id.slice(TOOL_PREFIX.length) : id;
-  const name = compactDisplayText(tool);
+  if (category) return { category, toolNamed: false };
+  const name = compactDisplayText(id.slice(TOOL_PREFIX.length));
 
   return {
     category: {
-      id: `${TOOL_PREFIX}${tool}`,
+      id,
       count: { one: `${name} ×{n}`, other: `${name} ×{n}` }
     },
     toolNamed: true

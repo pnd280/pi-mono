@@ -16,13 +16,9 @@ const literal = (value: unknown): string => (typeof value === "string" ? value :
 const UNAVAILABLE_PARAMETERS = "<parameters unavailable>";
 
 export function serializeParameters(input: unknown, indentation?: number): string {
-  try {
-    const serialized = JSON.stringify(input, undefined, indentation) as string | undefined;
+  const serialized = JSON.stringify(input, undefined, indentation) as string | undefined;
 
-    return serialized ?? UNAVAILABLE_PARAMETERS;
-  } catch {
-    return UNAVAILABLE_PARAMETERS;
-  }
+  return serialized ?? UNAVAILABLE_PARAMETERS;
 }
 
 /** Serialize a JSON prefix without traversing omitted argument values. The depth and visit budgets also bound deeply nested or entirely omitted properties. */
@@ -31,7 +27,7 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
   let text = "";
   let truncated = false;
   let visits = 0;
-  const ancestors = new Set<object>();
+  let depth = 0;
 
   const exhausted = () => {
     if (text.length >= maximum || ++visits > maximum) truncated = true;
@@ -63,25 +59,12 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
     return append(serialized);
   };
 
-  const normalize = (value: unknown, key: string): unknown => {
-    if (value !== null && typeof value === "object") {
-      const toJSON: unknown = Reflect.get(value, "toJSON");
-      if (typeof toJSON === "function") value = toJSON.call(value, key);
-    }
-
-    if (value instanceof Number || value instanceof String || value instanceof Boolean)
-      return value.valueOf();
-
-    if (value !== null && typeof value === "object") {
-      if (ancestors.has(value)) throw new TypeError("Circular parameters");
-      if (ancestors.size >= 64) truncated = true;
-    }
+  // Arguments are parsed JSON, so only nesting depth needs a bound.
+  const nested = (value: unknown): unknown => {
+    if (value !== null && typeof value === "object" && depth >= 64) truncated = true;
 
     return value;
   };
-
-  const omitted = (value: unknown) =>
-    value === undefined || typeof value === "function" || typeof value === "symbol";
 
   const write = (value: unknown): void => {
     if (truncated) return;
@@ -99,7 +82,7 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       return;
     }
 
-    ancestors.add(value);
+    depth++;
 
     if (Array.isArray(value)) {
       append("[");
@@ -107,8 +90,8 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       for (let index = 0; index < value.length; index++) {
         if (exhausted()) break;
         if (index && !append(",")) break;
-        const item = normalize(value[index], String(index));
-        write(omitted(item) ? null : item);
+        const item = nested(value[index]);
+        write(item === undefined ? null : item);
       }
 
       append("]");
@@ -119,8 +102,8 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       for (const key in value) {
         if (exhausted()) break;
         if (!Object.hasOwn(value, key)) continue;
-        const item = normalize(Reflect.get(value, key), key);
-        if (omitted(item)) continue;
+        const item = nested(Reflect.get(value, key));
+        if (item === undefined) continue;
         if (!first && !append(",")) break;
         first = false;
         if (!quoted(key) || !append(":")) break;
@@ -130,19 +113,12 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
       append("}");
     }
 
-    ancestors.delete(value);
+    depth--;
   };
 
-  try {
-    if (!exhausted()) write(normalize(input, ""));
+  if (!exhausted()) write(input);
 
-    return { text, truncated };
-  } catch {
-    // Match expanded serialization for invalid borrowed values, including cycles.
-    const marker = sliceTerminalText(UNAVAILABLE_PARAMETERS, 0, maximum).text;
-
-    return { text: marker, truncated: marker.length < UNAVAILABLE_PARAMETERS.length };
-  }
+  return { text, truncated };
 }
 
 type ParametersPart = Extract<InvocationPart, { kind: "parameters" }>;

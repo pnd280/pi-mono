@@ -456,10 +456,7 @@ export function heading(p: PreparedCard): string[] {
     rows.push(
       ...headingContinuation(
         wrapRows(
-          styleParameters(
-            displayText(serializeParameters(p.context.args === undefined ? {} : p.context.args, 2)),
-            p.theme
-          ),
+          styleParameters(displayText(serializeParameters(p.context.args, 2)), p.theme),
           bodyWidth(p.width)
         ),
         p

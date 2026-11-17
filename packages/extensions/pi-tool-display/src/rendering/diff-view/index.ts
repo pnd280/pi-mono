@@ -376,7 +376,6 @@ function selectPreviewRows(
  */
 export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): string[] {
   const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
-  if (options.width < 1) return [];
   const { width, theme, expanded } = options;
   const palette = panelPalette(theme);
   // One column of panel padding on each side, when the width leaves room for content.

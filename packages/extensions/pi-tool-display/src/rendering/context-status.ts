@@ -13,7 +13,6 @@ export const renderContextStatus: MessageRenderer = (message, _options, theme) =
 
   return {
     render(width) {
-      if (width < 1) return [];
       const [first = "", ...wrapped] = wrapHangingRows(row, width, Math.max(1, width - 4));
 
       return [

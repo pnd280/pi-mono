@@ -100,7 +100,6 @@ export function createNoticeRenderer() {
     return new MouseRegion(
       {
         render(width) {
-          if (width < 1) return [];
           const innerWidth = Math.max(1, width - 4);
           const label = notice ? labels[notice.action] : "Nested instructions";
           // The explanation describes the notice itself, so it continues the heading; only the instruction body or empty-file note is a child branch.

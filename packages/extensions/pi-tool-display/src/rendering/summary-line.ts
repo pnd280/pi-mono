@@ -176,7 +176,7 @@ function fileRows(files: readonly ChangedFile[], width: number, theme: DisplayTh
  */
 export function renderRunSummary(summary: RunSummary, options: SummaryLineOptions): string[] {
   const { width, theme, open, calls } = options;
-  if (width < 1 || !summary.segments.length) return [];
+  if (!summary.segments.length) return [];
   const contentWidth = Math.max(1, width - INDENT.length);
   const separator = theme.fg("dim", SEPARATOR);
   const items = summary.segments.map((segment, index) =>
@@ -204,7 +204,6 @@ export function renderRunSummary(summary: RunSummary, options: SummaryLineOption
 
 /** The bar below an opened run. A click on it returns the run to its summary line. */
 export function renderRunFooter(width: number, theme: DisplayTheme): string[] {
-  if (width < 1) return [];
   const label = `${theme.fg("muted", TUI_GLYPHS.collapse)} ${theme.fg("dim", "collapse")}`;
 
   return [barRow(label, width, theme)];
