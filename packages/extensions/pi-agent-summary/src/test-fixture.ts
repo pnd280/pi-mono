@@ -32,7 +32,6 @@ export function fixture() {
     session_shutdown: [],
     agent_start: [],
     agent_settled: [],
-    message_start: [],
     message_update: [],
     message_end: [],
     tool_execution_start: []
@@ -40,7 +39,6 @@ export function fixture() {
   const ctx: SummaryContext = {
     cwd: directory,
     mode: "tui",
-    isIdle: () => true,
     isProjectTrusted: () => false,
     ui: { setWorkingMessage: vi.fn(), notify: vi.fn() }
   };

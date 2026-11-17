@@ -10,17 +10,17 @@ When the agent finishes, the transcript shows a summary such as:
 
 ## Controls
 
-| Control            | Effect                                                                                                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Click a summary    | In fullscreen mode only, expand or collapse that summary to show its local finish time.                                                                                                            |
-| **Ctrl+O**         | Pi's tool-output shortcut (the default key) also expands or collapses all summaries, in regular and fullscreen modes.                                                                              |
-| `/working-message` | Reorder the live timer and rate among the other working-message contributions. Interactive TUI mode only. This extension or another extension that uses the working message registers the command. |
+| Control            | Effect                                                                                                                                                                                                                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Click a summary    | In fullscreen mode only, expand or collapse that summary to show its local finish time.                                                                                                                                                                                                               |
+| **Ctrl+O**         | Pi's tool-output shortcut (the default key) also expands or collapses all summaries, in regular and fullscreen modes.                                                                                                                                                                                 |
+| `/working-message` | Reorder the live timer and rate among the other working-message contributions, and save the order. Interactive TUI mode only. This extension or another extension that uses the working message registers the command; see [menu controls](../../libs/src/working-message/ordering.md#settings-menu). |
 
 ## Usage
 
 pi-agent-summary saves summaries in the session but never sends them to the model.
 
-A _run_ is everything from your prompt until the agent settles, including retries, follow-ups, and time spent waiting for your input. Cancelled and failed runs get summaries too, so a summary doesn't mean the run succeeded.
+A _run_ lasts from the prompt or extension message that starts the agent, such as a pi-subagents background result, until the agent settles, including retries, follow-ups, and time spent waiting for your input. Cancelled and failed runs get summaries too, so a summary doesn't mean the run succeeded.
 
 - Saved summaries show again when you resume a session with the extension loaded.
 - With [pi-tool-display](../pi-tool-display/README.md), the summary marker lines up with other message markers.
@@ -28,14 +28,14 @@ A _run_ is everything from your prompt until the agent settles, including retrie
 - Quitting Pi or switching sessions during a run cancels the run, and the cancelled run gets a summary.
 - A run gets no summary when Pi is killed before the run settles.
 
-pi-agent-summary has no settings or environment variables. It shows the live timer and rate in the working message as `pi-agent-summary.elapsed` and `pi-agent-summary.throughput`, alongside other contributions such as `pi-todo` activity.
+pi-agent-summary has no settings or environment variables. It shows the live timer and rate in the working message, listed in `/working-message` as "Elapsed time" and "Output rate" (saved as `pi-agent-summary.elapsed` and `pi-agent-summary.throughput`), alongside other contributions such as `pi-todo` activity.
 
 ### What the summary shows
 
 | Segment          | Meaning                                                                                                 |
 | ---------------- | ------------------------------------------------------------------------------------------------------- |
 | Model prefix     | Each model that answered, with the thinking level Pi requested, in order of first use.                  |
-| `tok/s`          | Approximate output rate, including reasoning, over the time the assistant spent streaming.              |
+| `tok/s`          | Approximate output rate, including reasoning, over the response time Pi measured.                       |
 | Duration         | The length of the run.                                                                                  |
 | `ran N commands` | Each `bash` call the agent made, counted once. Commands you run yourself with `!` or `!!` are excluded. |
 | Counters         | Segments that other extensions add, such as `delegated 3 tasks`. See [counters](#counters).             |
@@ -67,7 +67,8 @@ Other extensions can add to a _counter_, such as delegated tasks, during the act
 - Appends one `pi-agent-summary.summary` entry per run, hidden from the model. It stores timing, answering models and throughput when known, milestones, counters, and the command count. Entries don't start turns.
 - Never scans directories, writes extra files, runs Git, or makes network requests.
 - When a run finishes or Pi shuts down, it clears only its own timer and rate from the working message.
-- Reads the working-message order from Pi's global and trusted-project settings, and writes it there only when you save an order in `/working-message`.
+- Reads the working-message order from Pi's global and trusted project `settings.json`.
+- Saving in `/working-message` writes the order to the global or trusted project `settings.json` shown in the menu, and keeps other settings.
 
 ## Docs
 

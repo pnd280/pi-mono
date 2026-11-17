@@ -33,12 +33,12 @@ function countSegment(
 
 function summaryLine(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const parts: string[] = [];
-  let throughput: string | undefined;
-
-  if (summary.throughput) {
-    const { outputTokens, durationMs } = summary.throughput;
-    throughput = `${theme.bold(((outputTokens / durationMs) * 1000).toFixed(1))} tok/s`;
-  }
+  const rate =
+    summary.throughput &&
+    ((summary.throughput.outputTokens / summary.throughput.durationMs) * 1000).toFixed(1);
+  // Bold's reset also ends dim, so the text after the rate takes its own dim style.
+  const throughput = (value: string, before: string, after: string) =>
+    `${before && theme.fg("dim", before)}${theme.bold(theme.fg("dim", value))}${theme.fg("dim", ` tok/s${after}`)}`;
 
   if (summary.models) {
     const model = compactDisplayText(
@@ -49,7 +49,7 @@ function summaryLine(summary: RunSummary, expanded: boolean, theme: SummaryTheme
         )
         .join(" → ")
     );
-    parts.push(theme.fg("dim", `${model}${throughput ? ` (${throughput})` : ""}`));
+    parts.push(rate ? throughput(rate, `${model} (`, ")") : theme.fg("dim", model));
   }
 
   parts.push(
@@ -59,7 +59,7 @@ function summaryLine(summary: RunSummary, expanded: boolean, theme: SummaryTheme
     )
   );
 
-  if (!summary.models && throughput) parts.push(theme.fg("dim", throughput));
+  if (!summary.models && rate) parts.push(throughput(rate, "", ""));
 
   if (summary.bashCalls)
     parts.push(

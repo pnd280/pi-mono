@@ -29,6 +29,8 @@ export const summarySchema = z.object({
       outputTokens: countSchema.positive(),
       durationMs: z.number().positive()
     })
+    // The renderer shows this rate.
+    .refine(({ outputTokens, durationMs }) => Number.isFinite((outputTokens / durationMs) * 1000))
     .optional(),
   // Models that answered, in order of first use. Absent in runs without a response.
   models: z
