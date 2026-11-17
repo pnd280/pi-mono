@@ -1,5 +1,10 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { interpretReadResult, retainedSelectionSchema, selectionLabel } from "pi-read/result";
+import {
+  interpretReadResult,
+  retainedSelectionSchema,
+  selectionLabel,
+  windowArgumentSchema
+} from "pi-read/result";
 import { z } from "zod";
 
 import type {
@@ -26,8 +31,8 @@ function optionalArgument<T extends z.ZodType>(schema: T) {
 // Read execution ignores unknown top-level fields; keep selection validation strict.
 const argsSchema = z.object({
   path: z.string().min(1),
-  offset: optionalArgument(z.number()),
-  limit: optionalArgument(z.number()),
+  offset: optionalArgument(windowArgumentSchema),
+  limit: optionalArgument(windowArgumentSchema),
   selection: optionalArgument(retainedSelectionSchema)
 });
 

@@ -12,7 +12,9 @@ import { z } from "zod";
 import {
   interpretReadResult,
   retainedSelectionSchema,
+  windowArgumentSchema,
   type ReadDocument,
+  type ReadWindow,
   type SelectiveReadDetails
 } from "./result.ts";
 import { selectionLabel, type Selection } from "./selection.ts";
@@ -28,14 +30,12 @@ type ReadRenderers = Required<
 
 const renderArgsSchema = z.object({
   path: z.string().optional().catch(undefined),
-  offset: z.number().optional().catch(undefined),
-  limit: z.number().optional().catch(undefined),
+  offset: windowArgumentSchema.optional().catch(undefined),
+  limit: windowArgumentSchema.optional().catch(undefined),
   selection: retainedSelectionSchema.optional().catch(undefined)
 });
 
-type RenderArgs = z.output<typeof renderArgsSchema>;
-
-function readWindow(args: RenderArgs): string | undefined {
+function readWindow(args: ReadWindow): string | undefined {
   if (args.offset === undefined && args.limit === undefined) return undefined;
   const start = Math.max(0, (args.offset ?? 1) - 1);
   const first = Math.trunc(start) + 1;
@@ -64,7 +64,6 @@ function renderDocument({
   selection,
   theme,
   expanded,
-  windowed,
   hints
 }: {
   document: ReadDocument;
@@ -72,7 +71,6 @@ function renderDocument({
   selection: Selection | undefined;
   theme: Theme;
   expanded: boolean;
-  windowed: boolean;
   hints: KeybindingHints;
 }): Component {
   const ranges = selection ? document.select(selection).ranges : [];
@@ -94,12 +92,7 @@ function renderDocument({
     if (expanded && styled) {
       rows.push(...styled.text.split("\n").map((line) => theme.fg("toolOutput", line)));
     } else {
-      const count = document.lines.length;
-      const summary =
-        selection || windowed
-          ? ""
-          : theme.fg("muted", `loaded ${count} ${count === 1 ? "line" : "lines"} · `);
-      rows.push(summary + hints.keyHint("app.tools.expand", "to expand"));
+      rows.push(hints.keyHint("app.tools.expand", "to expand"));
     }
 
     if (document.notice) rows.push(theme.fg("warning", displayText(document.notice)));
@@ -142,7 +135,12 @@ export function createReadRenderers(base: NativeRead): ReadRenderers {
           : result;
       const document = interpreted.document;
 
-      if (context.isError || options.isPartial || !document) {
+      if (
+        context.isError ||
+        options.isPartial ||
+        !document ||
+        (!args.selection && !readWindow(interpreted.window))
+      ) {
         return (
           base.renderResult?.(source, options, theme, { ...context, lastComponent: undefined }) ??
           new Container()
@@ -155,7 +153,6 @@ export function createReadRenderers(base: NativeRead): ReadRenderers {
         selection: args.selection,
         theme,
         expanded: options.expanded,
-        windowed: readWindow(args) !== undefined,
         hints: context
       });
     }

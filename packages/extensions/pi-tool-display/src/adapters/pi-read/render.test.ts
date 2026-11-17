@@ -73,7 +73,7 @@ it("keeps a selected-source result unchanged through public cards", () => {
       },
       { type: "text", text: "Selected source preview:\n界" }
     ],
-    details: { selectiveRead: { sourceBlocks: 1 } }
+    details: { selectiveRead: { sourceBlocks: 1, offset: 8, limit: 2 } }
   };
   const before = structuredClone(result);
 
