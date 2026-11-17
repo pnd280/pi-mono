@@ -8,7 +8,7 @@ metadata:
 
 # Code review
 
-Review code in two separate phases. The Audit phase runs the six audits below and changes no project files. The Revise phase then applies the audit findings. Invocation authorises evidence-backed, in-scope revisions, including test cleanup. Under explicit audit-only instructions, stop after the Audit phase and report.
+Review code in two separate phases. The Audit phase runs the six audits below and changes no project files. The Revise phase then applies the audit findings. Invocation authorises evidence-backed, in-scope revisions, including test cleanup.
 
 ## Scope
 
@@ -21,15 +21,15 @@ Review code in two separate phases. The Audit phase runs the six audits below an
 
 ## Preparation
 
-Read applicable repository instructions and [workspace development guidance](../../../docs/development.md). When the scope uses Pi APIs, also read the [Pi API contracts](../../../docs/agents/pi-apis.md). Record the initial Git state, scope, and relevant baseline diagnostics.
+Record the initial Git state, scope, and relevant baseline diagnostics.
 
 ## Audits
 
-Resolve relative skill links from this file. Each audit names the skill steps that run in each phase. This split overrides the skills' default modes:
+Each audit names the skill steps that run in each phase. This split overrides the skills' default modes:
 
 - In the Audit phase, every skill runs audit-only, including a skill that edits on invocation or under the invoking workflow's authorisation.
 - In the Revise phase, this skill's invocation authorises the revise steps without repeat approval, including for a skill that edits only on user request.
-- Skip the skills' confirmation steps. This skill's [Finish](#finish) replaces their verify-and-report steps, and the scope above replaces their default scope.
+- Skip the skills' confirmation steps. This skill's [Finish](#finish) replaces their report steps, and the scope above replaces their default scope.
 - Repository-required approvals still apply, including approval for new invariants under the [testing policy](../../../docs/agents/testing.md#coverage).
 
 1. [UI consistency](../_aux/audit-ui-consistency/SKILL.md): Audit with stages 1 to 3; revise with stage 4. If no UI surfaces are relevant, record why this audit is not applicable.

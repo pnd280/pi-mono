@@ -14,7 +14,7 @@ Use [code review](../code-review/SKILL.md) for each chunk. Read it first; its ph
 
 Inventory the current first-party repository, including unchanged code, non-ignored untracked files, packages, shared libraries, tests, scripts, tooling, configuration, examples, and documentation. Exclude dependencies, vendored and generated output, build artefacts, and temporary state; record user-specified exclusions. Git changes help preserve existing work, not select the review target.
 
-Identify entry points, shared owners, dependency relationships, and user-facing flows. Inspect enough structure to plan coverage before diving into the first implementation; do not try to load the entire repository into context.
+Identify entry points, shared owners, dependency relationships, and user-facing flows. Inspect enough structure to plan coverage before diving into the first implementation.
 
 ## Plan manageable chunks
 
@@ -22,11 +22,11 @@ Identify entry points, shared owners, dependency relationships, and user-facing 
 2. Size chunks so their contracts, implementation, consumers, and verification fit in one focused review. Split again when unrelated responsibilities or a large consumer set make the work hard to reason about. Do not use arbitrary file counts or separate production code from the tests needed to understand it.
 3. Review shared foundations before dependent features where practical. Identify consumers as context even when they belong to later chunks. Give root-level tooling, configuration, and standalone documentation explicit chunks rather than leaving them as leftovers.
 4. Plan bounded cross-cutting chunks for contracts that span packages: comparable UI surfaces, repeated implementations, shared API consumers, and common documentation. Name the specific contract and participating paths rather than reopening the whole repository at once.
-5. Maintain a coverage ledger for the review:
+5. Keep a resumable coverage ledger in `.tmp/`:
 
-   - Record each chunk's purpose, owned paths, contextual dependencies, status, findings, checks, and next action.
+   - Start it with a short Resume section: the current chunk, phase, and audit, the next action, shared decisions, and open blockers.
+   - Below it, keep one row per chunk with its purpose, owned paths, contextual dependencies, status (pending, in progress, completed, or blocked), findings, checks, and next action.
    - Assign every in-scope file a primary chunk; overlap for consumer tracing and cross-cutting comparisons is intentional.
-   - Track pending, in-progress, completed, and blocked work separately.
 
 ## Review one chunk at a time
 
@@ -40,9 +40,7 @@ For each ready chunk:
 
 When collaboration tools are available, delegate independent chunks with explicit targets, shared decisions, evidence requirements, and disjoint edit ownership. Keep dependent chunks ordered and reconcile shared-owner changes before consumers rely on them.
 
-Keep a resumable ledger in `.tmp/`. Start it with a short Resume section: the current chunk, phase, and audit, the next action, shared decisions, and open blockers. Below it, keep one row per chunk. Before a pause or context reset, update the Resume section and the finished chunk's row.
-
-After a context reset, read the Resume section and the current chunk's row, then reload only the guidance and references for the current phase. Read the full ledger and inventory only to reconcile coverage at the end. Resume from that record and current source rather than repeating the inventory or treating a summary as fresh verification.
+Before a pause or context reset, update the Resume section and the finished chunk's row. After a context reset, read the Resume section and the current chunk's row, then reload only the guidance and references for the current phase. Read the full ledger and inventory only to reconcile coverage at the end. Resume from that record and current source rather than repeating the inventory or treating a summary as fresh verification.
 
 ## Reconcile and finish
 
