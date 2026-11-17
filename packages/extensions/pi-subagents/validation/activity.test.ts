@@ -8,7 +8,7 @@ import { ChildRun } from "../src/child/run.ts";
 import { RunReader } from "../src/history/reader.ts";
 import type { TaskRecord } from "../src/tasks/records.ts";
 import type { TaskEvent } from "../src/tasks/registry.ts";
-import { taskList, withFixture } from "./background-fixture.ts";
+import { bounded, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureLaunch } from "./workspace.ts";
 
 test.skipIf(process.platform !== "linux")(
@@ -45,8 +45,10 @@ test.skipIf(process.platform !== "linux")(
       });
 
       try {
-        expect(await run.started).toMatchObject({ sessionId: task.session_id });
-        await run.connection.request({ type: "get_state" });
+        expect(await bounded(run.started, "child start")).toMatchObject({
+          sessionId: task.session_id
+        });
+        await bounded(run.connection.request({ type: "get_state" }), "child state");
         await expect.poll(() => run.connection.pendingCount, { timeout: STEP_TIMEOUT_MS }).toBe(0);
         // The reader follows this run as `Tasks` would report it; the run itself is real.
         const live: TaskRecord = { ...task, session_file: sessionFile, run_id: runId };
@@ -106,7 +108,7 @@ test.skipIf(process.platform !== "linux")(
             .poll(() => snapshots, { timeout: STEP_TIMEOUT_MS })
             .toBeGreaterThanOrEqual(1);
           // A subsequent round trip also lets the earlier snapshot continuation finish.
-          await run.connection.request({ type: "get_state" });
+          await bounded(run.connection.request({ type: "get_state" }), "child state");
           expect(first.transcript).toBeUndefined();
           expect(first.unavailable).toBeUndefined();
           expect(disposedUpdates).toBe(0);
@@ -120,7 +122,7 @@ test.skipIf(process.platform !== "linux")(
           reader.dispose();
         }
       } finally {
-        await run.terminate("Activity fixture finished");
+        await bounded(run.terminate("Activity fixture finished"), "child termination");
       }
     });
   }

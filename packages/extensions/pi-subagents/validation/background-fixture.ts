@@ -28,6 +28,25 @@ export async function release(
   await writeFile(join(directory, "work", name), "");
 }
 
+/** Fails the step when `promise` outlives `STEP_TIMEOUT_MS`, so the test still reaches its teardown. */
+export async function bounded<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Timed out waiting for ${label}`)),
+          STEP_TIMEOUT_MS
+        );
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fixture(
   body: (host: Supervisor, directory: string) => Promise<void>,
   {

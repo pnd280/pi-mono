@@ -24,22 +24,14 @@
 
 - Talk to [children](GLOSSARY.md#tasks-and-processes) through `ChildConnection`. Pi's `RpcClient` stays out: it cannot answer child dialogs or stop process trees, and its environment merging breaks fixture isolation.
 - `ChildRun` spawns Pi, owns the RPC connection and timers, and stops the process tree directly, without a transport port. See [ADR 0004](docs/adr/0004-no-child-transport-seam.md).
-- [index.ts](src/index.ts) only maps Pi events, tools, and commands to the [session binding](GLOSSARY.md#tasks-and-processes). Tools, commands, and views get the current tasks and jobs from the binding at each use and keep no reference.
+- [index.ts](src/index.ts) only maps Pi events, tools, and commands to the [session binding](GLOSSARY.md#tasks-and-processes). Tools and commands get the current binding at each use and keep no reference. Views belong to one binding and are disposed with it.
 - Register the tools and the open-event listener in the extension factory. A later registration sets only the session's docs, template list, delivery text, and `hidden` or `model-only` exposure, and runs only when one of them changed since the last registration. The [registration contracts](docs/pi-compatibility.md#extension-ui-and-registration) give the `--tools` reasons.
 - Add a child's [result instructions](docs/children.md#result-instructions) only through the [prompt part](../../libs/src/prompt-parts/README.md) at rank `300`, which keeps the text that Pi and earlier handlers append. Never force `systemPrompt`.
 - Claim the panel shortcut through the lifecycle startup arrival ([shortcut claims](../../libs/src/lifecycle/phases.md#shortcut-claims)), not `registerShortcut`.
-- Stop new work in the lifecycle shutdown revoke, through `SessionBinding.revoke`, and stop processes only in its cleanup. The revoke runs before any workspace extension's shutdown handler awaits, so only an extension from outside the workspace can await before it; see the [shutdown phase](../../libs/src/lifecycle/phases.md#shutdown-phase).
+- Stop new work in the lifecycle shutdown revoke, through `SessionBinding.revoke`, and stop processes only in its cleanup. For the order against other extensions, see the [shutdown phase](../../libs/src/lifecycle/phases.md#shutdown-phase) and its [version-mismatch limit](../../libs/src/lifecycle/phases.md#version-mismatch).
 - Preserve the [supervisor](GLOSSARY.md#tasks-and-processes)'s project-trust decision, and pass only the explicitly selected child arguments.
 - Hold [capacity](GLOSSARY.md#tasks-and-processes) until a child exits, including during forced shutdown. After a forced stop, also hold it until the child's process group is gone or the failure is reported. Claim inactive tasks before waiting for capacity to prevent concurrent resumes.
 - Claim a live connection before sending input; retry only when no prompt was sent.
 - A task keeps one [child file](GLOSSARY.md#history), and only a child holding the task's [writer lease](GLOSSARY.md#history) writes it.
 - Readers keep the child file in memory and never repair it. See [ADR 0003](docs/adr/0003-keep-task-history-in-child-sessions.md).
 - The [tool-display adapter](../pi-tool-display/src/adapters/pi-subagents/README.md) validates tool details and job results with the `pi-subagents/details` [contract](src/details.ts), which imports only Zod. Both packages use the [task envelope](../../utils/src/task-envelope.ts) for result text.
-
-## Validation
-
-| When you…                                                 | Read                                                                        |
-| --------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Change tests, fixtures, or invariants                     | [Test coverage](docs/testing.md) and [test fixtures](validation/README.md). |
-| Change terminal behaviour                                 | [Manual checks](docs/validation.md)                                         |
-| Change RPC requests, child-file reads, or session changes | [Installed Pi API references](../../../docs/agents/pi-docs.md)              |

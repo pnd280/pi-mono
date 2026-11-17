@@ -202,7 +202,7 @@ export default function subagents(
         foreignBash
       },
       append: (type, data) => pi.appendEntry(type, data),
-      warn: (message) => ctx.ui.notify(message, "warning"),
+      warn: (message) => ctx.ui.notify(displayText(message), "warning"),
       delivery: new Delivery(pi, ctx, depth, waiting, config.resultDelivery),
       ui: ctx
     };

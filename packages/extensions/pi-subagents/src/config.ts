@@ -65,7 +65,7 @@ export type SubagentsConfig = {
   maxDepth: number;
   maxConcurrent: number;
   maxQueued: number;
-  /** Registers the `job` and `job_abort` tools. */
+  /** Offers `job` and `job_abort` to the model, unless another extension owns `bash`. */
   jobs: boolean;
   resultDelivery: ResultDelivery;
   /** Opens the task panel. */

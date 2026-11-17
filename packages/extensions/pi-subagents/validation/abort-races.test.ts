@@ -16,44 +16,42 @@ import {
   ModelRuntime,
   SessionManager,
   SettingsManager,
+  ToolExecutionComponent,
   type AgentSession,
-  type ExtensionFactory
+  type ExtensionAPI,
+  type ExtensionFactory,
+  type ExtensionUIContext,
+  type KeybindingsManager,
+  type Theme
 } from "@earendil-works/pi-coding-agent";
+import {
+  getKeybindings,
+  TuiMainScreen,
+  type Component,
+  type Terminal,
+  type TUI
+} from "@earendil-works/pi-tui";
+import { hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { ResultSource, type ResultEvent } from "../src/background-result.ts";
 import { ChildRun } from "../src/child/run.ts";
-import { DEPTH_ENV, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
+import { DEPTH_ENV, OPEN_EVENT, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
 import type { ChildMessage } from "../src/coordination/protocol.ts";
-import { detailsSchema } from "../src/details.ts";
+import { detailsSchema, jobDetailsSchema } from "../src/details.ts";
 import { WriterLease } from "../src/history/lease.ts";
 import { branchTo } from "../src/history/sessions.ts";
 import subagents from "../src/index.ts";
 import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
-import { release as releaseBarrier } from "./background-fixture.ts";
+import { bounded, release as releaseBarrier } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
-import { FIXTURE_MODEL } from "./provider.ts";
+import { CONTROL_TEXT, FIXTURE_MODEL } from "./provider.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 const test = caseTest.skipIf(process.platform !== "linux");
 const WAIT_MS = STEP_TIMEOUT_MS;
-
-async function bounded<T>(promise: Promise<T>, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(`Timed out waiting for ${label}`)), WAIT_MS);
-      })
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 function savedResults(session: AgentSession) {
   return session.sessionManager
@@ -113,13 +111,17 @@ type SDKFixture = {
   selections: readonly AbortSignal[];
 };
 
+/**
+ * Without `tui`, the supervisor binds in RPC mode. With it, it binds in TUI mode with `tui`'s dialogs and custom UI, and with jobs turned on.
+ */
 async function fixture(
   body: (host: SDKFixture) => Promise<void>,
   release: () => void,
-  afterSubagents?: ExtensionFactory
+  afterSubagents?: ExtensionFactory,
+  tui?: Pick<ExtensionUIContext, "select" | "custom">
 ): Promise<void> {
   const directory = await createFixtureWorkspace({
-    settings: { "ext.pi-subagents": { maxConcurrent: 2, maxDepth: 2 } }
+    settings: { "ext.pi-subagents": { maxConcurrent: 2, maxDepth: 2, jobs: tui !== undefined } }
   });
   let session: AgentSession | undefined;
 
@@ -191,7 +193,7 @@ async function fixture(
     const selections: AbortSignal[] = [];
     const runner = session.extensionRunner;
     await session.bindExtensions({
-      mode: "rpc",
+      mode: tui ? "tui" : "rpc",
       uiContext: {
         ...runner.createContext().ui,
         notify: (message) => notes.push(message),
@@ -203,7 +205,8 @@ async function fixture(
             if (!signal || signal.aborted) resolve(undefined);
             else signal.addEventListener("abort", () => resolve(undefined), { once: true });
           });
-        }
+        },
+        ...tui
       },
       onError: (error) => errors.push(error)
     });
@@ -626,6 +629,62 @@ test("keeps a late abort command of a replaced binding out of the replacement", 
   );
 });
 
+// A tool call captures its binding; a tree navigation replaces the binding while the child's acknowledgement of the call's input waits.
+test("fails active-task input of a replaced binding that the child acknowledges after the change", async () => {
+  const changed = Promise.withResolvers<void>();
+  await fixture(
+    async (host) => {
+      const { session } = host;
+      host.queue(fauxAssistantMessage("Anchor reply"));
+      await bounded(session.prompt("Anchor"), "anchor prompt");
+      const anchor = session.sessionManager.getLeafId()!;
+      const returned = Promise.withResolvers<void>();
+      host.queue(launchCall("slow"), () => {
+        returned.resolve();
+
+        return fauxAssistantMessage("Waiting for the slow task");
+      });
+      const prompt = session.prompt("Start the slow background task");
+      const run = await bounded(host.started, "child run creation");
+      const id = (await bounded(run.started, "real child launch"))!.taskId;
+      // After the call returned, an abort ends the background wait and leaves the task running.
+      await bounded(returned.promise, "returned background call");
+      await bounded(session.abort(), "turn abort");
+      await bounded(prompt, "prompt settlement");
+      expect(await host.records()).toMatchObject([{ task_id: id, state: "active" }]);
+      const acknowledged = Promise.withResolvers<void>();
+      // The spy calls the real method with each run as its receiver.
+      // oxlint-disable-next-line typescript/unbound-method
+      const input = ChildRun.prototype.input;
+      vi.spyOn(ChildRun.prototype, "input").mockImplementation(async function (
+        this: ChildRun,
+        ...args
+      ) {
+        const disposition = await input.apply(this, args);
+        acknowledged.resolve();
+        await changed.promise;
+
+        return disposition;
+      });
+      const sending = session
+        .getToolDefinition("subagent")!
+        .execute(
+          "late-input",
+          { description: "Late input", prompt: "reply", task_id: id },
+          undefined,
+          undefined,
+          session.extensionRunner.createToolContext("late-input", undefined)
+        );
+      await bounded(acknowledged.promise, "held input acknowledgement");
+      await bounded(session.navigateTree(anchor), "tree navigation");
+      changed.resolve();
+      await expect(bounded(sending, "late input")).rejects.toThrow("Subagent session ended");
+      expect(await host.records()).toEqual([]);
+    },
+    () => changed.resolve()
+  );
+});
+
 // RPC mode does not report a dismissed dialog to its client, so this case uses the SDK fixture's dialog signals.
 test("closes a child dialog that is still open when its run ends", async () => {
   await fixture(
@@ -659,4 +718,154 @@ test("closes a child dialog that is still open when its run ends", async () => {
     },
     () => {}
   );
+});
+
+// Child replies and dialogs, and job output, carry terminal controls; Pi draws cards, dialogs, and custom UI as given.
+test("keeps terminal controls of child and job text out of cards, dialogs, the panel, and its viewers", async () => {
+  const terminal = {
+    columns: 120,
+    rows: 40,
+    kittyProtocolActive: false,
+    async drainInput() {},
+    setProgress() {},
+    setProgramStatus() {},
+    start() {},
+    stop() {},
+    write() {},
+    moveBy() {},
+    hideCursor() {},
+    showCursor() {},
+    clearLine() {},
+    clearFromCursor() {},
+    clearScreen() {},
+    setTitle() {}
+  } satisfies Terminal;
+  const tui = new TuiMainScreen(terminal);
+  const dialogs: string[] = [];
+  const views: Component[] = [];
+  let theme: Theme | undefined;
+  let events: ExtensionAPI["events"] | undefined;
+  let opened: Promise<void> | undefined;
+  // An erase, a window title, or a C1 control introducer. Pi's own styling uses none of them.
+  const unsafe = (lines: string[]) =>
+    lines.filter((line) =>
+      ["\u001b[2J", "\u001b]0;", "\u009b"].some((marker) => line.includes(marker))
+    );
+
+  await fixture(
+    async (host) => {
+      const { session } = host;
+      theme = session.extensionRunner.createContext().ui.theme;
+      host.queue(
+        fauxAssistantMessage(
+          [
+            fauxToolCall("subagent", {
+              description: `Control task ${CONTROL_TEXT}`,
+              prompt: "control-text",
+              model: FIXTURE_MODEL
+            }),
+            fauxToolCall("job", {
+              description: "Control job",
+              command: "printf '\\033[2J\\033]0;job title\\007\\302\\2332Jjob output\\n'"
+            })
+          ],
+          { stopReason: "toolUse" }
+        ),
+        fauxAssistantMessage("Control tasks started"),
+        fauxAssistantMessage("Job result received")
+      );
+      await bounded(session.prompt("Start the control tasks"), "control tasks");
+      const entries = session.sessionManager.getEntries();
+      const calls = new Map(
+        entries.flatMap((entry) =>
+          entry.type === "message" && entry.message.role === "assistant"
+            ? entry.message.content.flatMap((part) =>
+                part.type === "toolCall" ? [[part.id, part.arguments] as const] : []
+              )
+            : []
+        )
+      );
+      const results = entries.flatMap((entry) =>
+        entry.type === "message" && entry.message.role === "toolResult" ? [entry.message] : []
+      );
+      expect(results.map((result) => result.toolName).sort()).toEqual(["job", "subagent"]);
+      const cards = results.map((result) => {
+        const card = new ToolExecutionComponent(
+          result.toolName,
+          result.toolCallId,
+          calls.get(result.toolCallId),
+          undefined,
+          session.getToolDefinition(result.toolName),
+          tui,
+          host.directory
+        );
+        card.markExecutionStarted();
+        card.setArgsComplete();
+        card.updateResult(result);
+        card.setExpanded(true);
+
+        return card.render(120);
+      });
+      const task = detailsSchema.parse(
+        results.find((result) => result.toolName === "subagent")!.details
+      );
+      const job = jobDetailsSchema.parse(
+        results.find((result) => result.toolName === "job")!.details
+      );
+      expect(task.state).toBe("completed");
+      expect(cards.flat().join("\n")).toContain("Control reply");
+
+      expect(dialogs.length).toBeGreaterThan(1);
+      expect(dialogs.filter(hasUnsafeTerminalControls)).toEqual([]);
+
+      const runner = session.extensionRunner;
+      opened = runner.getCommand("subagents")!.handler("", runner.createCommandContext());
+
+      const shown = async (text: string) => {
+        await vi.waitFor(() => expect(views[0]?.render(120).join("\n")).toContain(text), {
+          timeout: WAIT_MS
+        });
+
+        return views[0]!.render(120);
+      };
+
+      const board = await shown("Control task");
+      events!.emit(OPEN_EVENT, { task_id: task.task_id, binding_id: task.binding_id });
+      const transcript = await shown("Control reply");
+      events!.emit(OPEN_EVENT, { job_id: job.job_id, binding_id: job.binding_id });
+      const log = await shown("job output");
+
+      expect(views).toHaveLength(1);
+      expect(unsafe([...cards.flat(), ...board, ...transcript, ...log])).toEqual([]);
+    },
+    () => {},
+    (pi) => {
+      events = pi.events;
+    },
+    {
+      select: async (title, options) => {
+        dialogs.push(title, ...options);
+
+        return options[0];
+      },
+      async custom<T>(
+        factory: (
+          tui: TUI,
+          theme: Theme,
+          keys: KeybindingsManager,
+          done: (result: T) => void
+        ) => Component | Promise<Component>
+      ) {
+        const done = Promise.withResolvers<T>();
+        // Pi's interactive keybindings extend this manager; the panel reads only its keys.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const keys = getKeybindings() as KeybindingsManager;
+        views.push(await factory(tui, theme!, keys, done.resolve));
+
+        return done.promise;
+      }
+    }
+  );
+  // The session's end closes the panel.
+  await bounded(opened!, "panel close");
 });

@@ -70,6 +70,11 @@ export class PanelControls {
     return this.controls.hint(action, label);
   }
 
+  /** The forward view key, or the reverse key when a remapping takes the forward one. */
+  viewHint(): string {
+    return this.hint(this.controls.label("nextView") ? "nextView" : "previousView", "view");
+  }
+
   navigationHints(label: string): string[] {
     return this.controls.navigationHints("up", "down", label);
   }

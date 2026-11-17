@@ -96,14 +96,16 @@ export function branchTo(entries: readonly SessionEntry[], leafId: string | null
 }
 
 /**
- * Entries that no response answered. Pi records a changed model or thinking level when the next run starts, which can follow an unanswered prompt.
+ * Entries that no response answered, and state-only entries that can follow them. Pi records a changed model or thinking level when the next run starts, and an extension can name the session or label an entry after an unanswered prompt.
  */
 function unanswered(entry: SessionEntry): boolean {
   return (
     (entry.type === "message" && entry.message.role === "user") ||
     entry.type === "custom_message" ||
     entry.type === "model_change" ||
-    entry.type === "thinking_level_change"
+    entry.type === "thinking_level_change" ||
+    entry.type === "session_info" ||
+    entry.type === "label"
   );
 }
 
@@ -248,7 +250,7 @@ export type RunHistory = {
 };
 
 /**
- * Read a run's history from its task's child file. The read keeps the file in memory and never repairs it. An active task's history is empty while its file does not exist, because Pi writes a new session file with its first response. With `descendants`, the history names the task's descendants: an active run's history then ends before its marker, because the file names the run before the run's live record arrives, and that run's descendants come only from live records.
+ * Read a run's history from its task's child file. The read keeps the file in memory and never repairs it. An active task's history is empty while its file does not exist, because Pi writes a new session file when it saves the first user or assistant message. With `descendants`, the history names the task's descendants: an active run's history then ends before its marker, because the file names the run before the run's live record arrives, and that run's descendants come only from live records.
  */
 export async function readRunFile(
   task: TaskRecord,

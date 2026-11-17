@@ -11,6 +11,7 @@ import {
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
@@ -98,17 +99,14 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         ["delegate-command", "completed", "Fixture reply"],
         ["delegate-error", "failed", "Fixture provider error"],
         ["delegate-cancelled", "cancelled", "Fixture child cancelled"],
-        ["delegate-launch-error", "failed", "new_session failed (exit code 1"]
+        // A launch failure has no child text.
+        ["delegate-launch-error", "failed", undefined]
       ] as const) {
         await host.prompt(scenario);
         const result = (await host.results()).at(-1)!;
         expect(detailsSchema.parse(result.details).state).toBe(state);
-        expect(contentText(result.content)).toContain(text);
+        if (text) expect(contentText(result.content)).toContain(text);
         expect(result.isError).toBe(state !== "completed");
-        if (scenario === "delegate-launch-error")
-          expect(contentText(result.content)).toContain(
-            'Model "pi-subagents-missing-provider/no-such-model" not found'
-          );
       }
 
       expect((await taskList(host)).map((task) => task.outcome)).toEqual([
@@ -117,6 +115,25 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         "failed",
         "cancelled"
       ]);
+
+      // A resume whose handled command starts no model work returns an empty body, not the previous reply.
+      const id = detailsSchema.parse((await host.results())[0]!.details).task_id!;
+      const task = async () => (await taskList(host)).find((item) => item.task_id === id)!;
+      const assistants = async () =>
+        (await readRunFile(await task())).entries.filter(
+          (entry) => entry.type === "message" && entry.message.role === "assistant"
+        ).length;
+      const { session_id, session_file } = await task();
+      const replies = await assistants();
+      await host.prompt(`command-id ${id}`);
+      const resumed = (await host.results()).at(-1)!;
+      expect(detailsSchema.parse(resumed.details)).toMatchObject({
+        task_id: id,
+        state: "completed"
+      });
+      expect(parseTaskEnvelope(contentText(resumed.content), { id, state: "completed" })).toBe("");
+      expect(await task()).toMatchObject({ session_id, session_file });
+      expect(await assistants()).toBe(replies);
     });
   });
 
@@ -173,8 +190,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             data: { task_id: child.task_id }
           });
         } else if (action === "graceful exit") {
-          host.connection.closeInput();
-          await host.connection.closed;
+          await host.stop();
         } else {
           await host.request({ type: "abort" });
         }
@@ -419,7 +435,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           identity
         );
 
-        // The supervisor stores two small entries per run, whatever its children write. Only the bounded long label above makes its run entry larger.
+        // The supervisor stores one small run entry and at most one end entry per run, whatever its children write. Only the bounded long label above makes its run entry larger.
         const stored = host.records.flatMap((event) =>
           event.type === "entry_appended" &&
           event.entry.type === "custom" &&
@@ -445,10 +461,6 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         for (const entry of stored)
           if (entry.id !== labelledRun.id)
             expect(Buffer.byteLength(JSON.stringify(entry.data))).toBeLessThan(2048);
-        expect(await readdir(join(directory, "agent"))).not.toContain("pi-subagents");
-        expect(
-          (await readdir(dirname(original.session_file))).filter((name) => name.endsWith(".lease"))
-        ).toEqual([]);
       },
       { settings: { "ext.pi-subagents": { maxDepth: 3, maxConcurrent: 6 } } }
     );

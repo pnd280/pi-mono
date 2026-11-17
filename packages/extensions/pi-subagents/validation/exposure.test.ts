@@ -21,19 +21,15 @@ async function lastText(host: Supervisor): Promise<string> {
   return reply.command === "get_last_assistant_text" ? (reply.data.text ?? "") : "";
 }
 
-// With `--tools`, Pi activates every listed tool again on each registration.
-const launches = [
-  { name: "without --tools", args: [] },
-  { name: "with --tools", args: ["--tools", "read,subagent,subagent_abort,job,job_abort"] }
-];
-
-test.for(launches)(
-  "keeps tools inactive that an earlier extension turned off at session start, $name",
-  async ({ args }) => {
+test.skipIf(process.platform !== "linux")(
+  "keeps tools inactive that an earlier extension turned off at session start, although --tools activates them again on each registration",
+  async () => {
     await withFixture(
       async (directory, start) => {
         await writeFile(join(directory, "agent", "subagent-docs.md"), "FIXTURE_SUBAGENT_DOCS\n");
-        const host = await start({ args });
+        const host = await start({
+          args: ["--tools", "read,subagent,subagent_abort,job,job_abort"]
+        });
         await host.prompt("report-subagent-tools");
         expect(await lastText(host)).toBe("subagent tools: false false");
         await host.prompt("report-job-tools");

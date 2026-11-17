@@ -125,7 +125,7 @@ export type RunReport =
   /** The run moved to the background; `record` is the changed live record. */
   | { kind: "promoted"; record?: TaskRecord }
   /**
-   * The child and any forced stop of its process group are gone, the `end` entry exists, and the writer lease is released; the capacity slot is still held. `record` is a begun run's final record.
+   * The child and any forced stop of its process group are gone, and a begun run's `end` entry and lease release were attempted; the capacity slot is still held. `record` is a begun run's final record.
    */
   | { kind: "ended"; record?: TaskRecord }
   /** The capacity slot is released. */

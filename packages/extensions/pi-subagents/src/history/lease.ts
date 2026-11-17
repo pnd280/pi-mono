@@ -24,7 +24,7 @@ async function ignoreMissing(operation: Promise<unknown>): Promise<void> {
   }
 }
 
-/** A new session file can be absent until Pi writes its first response. */
+/** A new session file can be absent until Pi saves the first user or assistant message. */
 async function canonical(file: string): Promise<string> {
   try {
     return await realpath(file);

@@ -54,7 +54,9 @@ export function jobOperations({
       const child = startShell(shellPath, command, cwd, env);
       const release = onSpawn(child);
       let forced: Promise<void> | undefined;
-      const state = { exited: false, closed: false, timedOut: false, lastData: Date.now() };
+      const state = { exited: false, closed: false, lastData: Date.now() };
+      // The first stop request before the shell exits classifies the exit; a later one does not replace it.
+      let cause: "timeout" | "aborted" | undefined;
       let stopError: Error | undefined;
       const failedStop = Promise.withResolvers<never>();
 
@@ -63,7 +65,8 @@ export function jobOperations({
         onStopError(error);
       };
 
-      const stop = () => {
+      const stop = (reason: "timeout" | "aborted") => {
+        if (!state.exited) cause ??= reason;
         forced ??= state.exited
           ? stopRemainingGroup(child, stopFailed)
           : forceStop(child, stopFailed, { reportTaskkillFailure: true });
@@ -91,36 +94,29 @@ export function jobOperations({
         });
       });
       const timer =
-        timeout === undefined
-          ? undefined
-          : setTimeout(() => {
-              state.timedOut = true;
-              stop();
-            }, timeout * 1000);
-      if (signal?.aborted) stop();
-      else signal?.addEventListener("abort", stop, { once: true });
+        timeout === undefined ? undefined : setTimeout(() => stop("timeout"), timeout * 1000);
+      const abort = () => stop("aborted");
+      if (signal?.aborted) abort();
+      else signal?.addEventListener("abort", abort, { once: true });
 
       try {
         const code = await Promise.race([exit, failedStop.promise]);
-        // Timeout and cancellation classify the shell's exit, not the later group cleanup.
-        const aborted = signal?.aborted;
-        const timeoutAtExit = state.timedOut;
         clearTimeout(timer);
-        signal?.removeEventListener("abort", stop);
+        signal?.removeEventListener("abort", abort);
         await forced;
         release();
         await drainOutput(state);
         if (!state.closed)
           onStopError(new Error("Output can be incomplete: job pipes did not reach EOF"));
-        if (aborted) throw new Error("aborted");
-        if (timeoutAtExit) throw new Error(`timeout:${timeout}`);
+        if (cause === "aborted") throw new Error("aborted");
+        if (cause === "timeout") throw new Error(`timeout:${timeout}`);
 
         return {
           exitCode: code ?? (child.signalCode ? 128 + constants.signals[child.signalCode] : 1)
         };
       } finally {
         clearTimeout(timer);
-        signal?.removeEventListener("abort", stop);
+        signal?.removeEventListener("abort", abort);
         await forced;
         release();
         if (stopError && !state.exited) child.unref();

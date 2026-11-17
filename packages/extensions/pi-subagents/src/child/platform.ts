@@ -109,7 +109,7 @@ export function terminateTree(
 }
 
 /**
- * Begin the platform's forced stop; the caller already waited the stdin grace period. It resolves when the stop ends: on Linux and macOS, when the child's process group is gone or its failure was reported, also after the child itself exited.
+ * Begin the platform's forced stop. It resolves when the stop ends: on Linux and macOS, when the child's process group is gone or its failure was reported, also after the child itself exited.
  */
 export function forceStop(
   child: ChildProcess,
