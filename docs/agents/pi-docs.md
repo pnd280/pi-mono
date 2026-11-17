@@ -25,7 +25,7 @@ Check Pi contracts against the installed documentation below, which matches the 
 | Check a field the docs don't cover              | [Extension types](../../node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts) and [pi-ai types](../../node_modules/@earendil-works/pi-ai/dist/types.d.ts)     |
 | Check runtime order that no doc or type states  | The [compiled core](../../node_modules/@earendil-works/pi-coding-agent/dist/core/), as described below the table                                                                      |
 
-Follow links in installed documentation to the contracts that the change needs, and resolve them relative to that document, not the workspace root. The Markdown docs omit some contracts, such as `ToolDefinition.constrainedSampling` for grammar tools, so read the type declarations before you state that Pi lacks a capability.
+Follow links in installed documentation to the contracts that the change needs, and resolve them relative to that document, not the workspace root. The Markdown docs omit some contract details, such as the grammar configuration of `ToolDefinition.constrainedSampling`, so read the type declarations before you state that Pi lacks a capability.
 
 In the compiled core, `extensions/runner.js` emits events in load order and ends a `session_before_*` event at the first cancel. `agent-session.js` and `agent-session-runtime.js` run prompts, commands, and session changes. Search the workspace copy, such as `dist/core/` and `dist/modes/`, not `dist/bundle/` or the global CLI: the bundle puts whole modules on single lines, and the global CLI can have another Pi version.
 
