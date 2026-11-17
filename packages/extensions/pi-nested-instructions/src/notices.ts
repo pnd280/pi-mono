@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 
+import { contentText } from "@earendil-works/pi-ai";
 import type { CustomMessageEntryDraft } from "@earendil-works/pi-coding-agent";
 import { relativeDisplayPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
@@ -88,13 +89,7 @@ export function noticeEntry(
 export function decodeNotice(message: NoticeMessage): { notice: Notice | undefined; body: string } {
   const parsed = noticeSchema.safeParse(message.details);
   const notice = parsed.success ? parsed.data : undefined;
-  const content =
-    typeof message.content === "string"
-      ? message.content
-      : message.content
-          .filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join("\n");
+  const content = contentText(message.content);
 
   return { notice, body: noticeBody(content, notice) };
 }

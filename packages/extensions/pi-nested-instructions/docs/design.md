@@ -51,7 +51,7 @@ The ledger accepts a notice only when its complete projected message matches `me
 
 The loading rules state the [rediscovery and refresh rules](loading.md#compaction-branching-and-reload) that users see. Metadata-only markers do not add instruction content. Refresh uses only scopes that canonical context still represents, and unchanged direct-read revisions suppress content reads.
 
-Refresh sends its notices in a [lifecycle](../../../libs/src/lifecycle/phases.md#recommended-ranks-and-registrations) startup commit at rank `100`. Commits run in the first participant's `resources_discover` handler, which Pi emits after every extension's `session_start` handler has run. Pi appends them at once because the session is idle, so they precede the startup entries of pi-profiles (rank `200`) in every load order.
+Refresh sends its notices in a [lifecycle startup commit](../../../libs/src/lifecycle/phases.md#startup-barrier) at rank `100`, which runs after every extension's `session_start` handler. Pi appends them at once because the session is idle, so they precede the startup entries of pi-profiles (rank `200`) in every load order.
 
 The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract) defines which notice formats contribute scopes.
 

@@ -1,8 +1,8 @@
-import { mkdir, symlink } from "node:fs/promises";
+import { mkdir, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 
 import type { JsonObject } from "@earendil-works/pi-ai";
-import type { SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
+import type { ContextEditableContent, SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { discover, refresh } from "./discovery.ts";
@@ -83,26 +83,36 @@ it("marks failed attempts too, and never treats directory listings as loaded con
 });
 
 it.each([
-  "shortened",
-  noticeEntry("/altered", { action: "loaded", path: "/altered/AGENTS.md", content: "rules" }, "/")
-    .content
-])(
-  "reloads notices replaced with %j, omitted by context edits, or compacted away",
-  async (replacement) => {
+  ["shortened", (): ContextEditableContent => "shortened", 1],
+  [
+    "another notice",
+    (): ContextEditableContent =>
+      noticeEntry(
+        "/altered",
+        { action: "loaded", path: "/altered/AGENTS.md", content: "rules" },
+        "/"
+      ).content,
+    1
+  ],
+  ["an equal text block", (text: string): ContextEditableContent => [{ type: "text", text }], 0]
+] as const)(
+  "after a replacement with %s, reloads notices omitted by context edits, compaction, or branch navigation",
+  async (_name, replace, reloaded) => {
     await fs.write("pkg/AGENTS.md", "rules");
-    const entries = await discover(
-      [fs.call("read", { path: "pkg/file" })],
-      fs.cwd,
-      fs.manager,
-      files
-    );
+    const call = fs.call("read", { path: "pkg/file" });
+    const entries = await discover([call], fs.cwd, fs.manager, files);
     const [id] = fs.append(entries);
-    fs.manager.appendContextEdit(id!, { content: replacement });
-    expect(notices(await run())).toHaveLength(1);
-    const visible = fs.manager.getLeafId()!;
+    const [entry] = entries;
+    if (entry?.type !== "custom_message" || typeof entry.content !== "string")
+      throw new Error("Expected a notice");
+    fs.manager.appendContextEdit(id!, { content: replace(entry.content) });
+    expect(notices(await run())).toHaveLength(reloaded);
+    const visible = reloaded ? fs.manager.getLeafId()! : id!;
     fs.manager.appendContextEdit(visible, null);
     expect(notices(await run())).toHaveLength(1);
     fs.manager.appendCompaction("summary", null, 1);
+    expect(notices(await run())).toHaveLength(1);
+    fs.manager.branch(call.callEntryId!);
     expect(notices(await run())).toHaveLength(1);
   }
 );
@@ -213,4 +223,9 @@ it("an empty preferred instruction file still suppresses lower-priority content"
   expect(emptied.map((entry) => decodeNotice(entry).body)).toEqual([""]);
   fs.append(emptied);
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  await fs.write("pkg/AGENTS.md", "");
+  await rm(path.join(fs.cwd, "pkg/AGENTS.override.md"));
+  expect(notices(await refresh(fs.cwd, fs.manager, files))).toMatchObject([
+    { action: "updated", path: path.join(fs.cwd, "pkg/AGENTS.md") }
+  ]);
 });

@@ -33,7 +33,7 @@ type CommandSpec = {
   scriptFiles?: readonly string[];
   /** Options whose positive values are path patterns. */
   globs?: readonly string[];
-  /** Filename-only output modes, which do not read content into the result. */
+  /** Output modes that return no file content, such as filename, count, and quiet modes. */
   listing?: readonly string[];
   /** Options that make every positional a path. */
   filesOnly?: readonly string[];
@@ -128,13 +128,16 @@ function supportedPart(part: WordPart): boolean {
       return true;
     case "DoubleQuoted":
       return part.parts.every((child) => child.type === "Literal");
+    case "Glob":
+      return part.parts?.every(supportedPart) ?? true;
     case "BraceExpansion":
       // Scope alternatives do not interpret shell quotes or escapes inside braces.
       return (
-        !part.text.includes("\\") &&
+        !/[\\"']/.test(part.text) &&
         (part.parts?.every(
           (child) =>
-            child.type === "Literal" || (child.type === "BraceExpansion" && supportedPart(child))
+            child.type === "Literal" ||
+            ((child.type === "BraceExpansion" || child.type === "Glob") && supportedPart(child))
         ) ??
           true)
       );
@@ -200,7 +203,9 @@ function wordPattern(word: Word): boolean {
   return word.parts
     ? word.parts.some(
         (part) =>
-          part.type === "BraceExpansion" || (part.type === "Literal" && unescapedGlob(part.text))
+          part.type === "BraceExpansion" ||
+          part.type === "Glob" ||
+          (part.type === "Literal" && unescapedGlob(part.text))
       )
     : unescapedGlob(word.text);
 }
@@ -378,14 +383,15 @@ export function bashHints(
     return true;
   }
 
-  // Negation, `time`, and redirected compound commands are separate nodes and stay unsupported.
+  // Negation and `time` are pipeline prefixes, and redirected compound commands are separate nodes; all stay unsupported.
   function visit(node: Statement | AndOr | PipelineNode, separator = "", piped = false): boolean {
     switch (node.type) {
       case "Statement":
         return !node.background && visit(node.command, separator, piped);
       case "Pipeline":
       case "AndOr":
-        if (node.type === "Pipeline" && node.operators.includes("|&")) return false;
+        if (node.type === "Pipeline" && (node.prefixes.length > 0 || node.operators.includes("|&")))
+          return false;
 
         return node.commands.every((child, index) =>
           visit(child, node.operators[index] ?? separator, piped || node.type === "Pipeline")

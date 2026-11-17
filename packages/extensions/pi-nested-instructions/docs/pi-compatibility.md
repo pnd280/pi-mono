@@ -53,7 +53,7 @@ The [notice interface](../src/notices.ts) writes version 3. Display extensions d
 The reader validates the current schema strictly:
 
 - Notices with a version other than 3 or unknown metadata keys do not validate.
-- Invalid notices keep their original model-facing content, and display falls back to the supplied text. They provide no deduplication or refresh [scope](../GLOSSARY.md#discovery) tracking, no structured notice rendering, and no run-summary counts. [Invalid notice metadata](loading.md#invalid-notice-metadata) states what users see, including that resume and reload don't eagerly restore their scopes.
+- The [invalid-notice behaviour](loading.md#invalid-notice-metadata) applies when validation fails.
 - Direct-read markers use version 1 and hold filesystem revision stamps, originating-call identity, and call fingerprints.
 
 Keep discovery and the pi-tool-display adapter on the same notice contract. Contract changes need checks for strict validation, visible-message corruption, body equality, rendering, summaries, and host replay.
