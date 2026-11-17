@@ -18,14 +18,7 @@ Fix implementation diagnostics without weakening shared checks; explain narrow e
 
 Run checks from the repository root. Tests require Bash and Git. FIFO tests on Unix also require `mkfifo`, and Linux ACL tests require `getfacl` and `setfacl`.
 
-Use `vpr` (`vp run`) with the package's `package.json` name:
-
-```sh
-vpr '<package-name>#check'
-vpr '<package-name>#test'
-```
-
-Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
+Use `vpr` (`vp run`) with the package's `package.json` name. The [verification workflow](agents/verification.md) gives the `#check` and `#test` commands to run for each changed package. Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
 
 To run one-off TypeScript against workspace source, put a `*.test.ts` file in a `.tmp/<probe>/` directory and run `vp test run --root .tmp/<probe> --silent=false`. Plain `node` strips types only, so it rejects workspace code that uses TypeScript-only syntax, such as parameter properties.
 
@@ -87,20 +80,24 @@ Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` 
 
 ### Release branch
 
-Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed.
+Users [install](../README.md#install) the generated `release` branch.
+
+Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first.
+
+When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed.
 
 - Workflow runs can reach the `release` job out of order, so the job publishes only when its commit is still the head of `master`.
 - The job's concurrency group keeps all pending jobs (`queue: max`), so a late older run cannot cancel the pending job for the current commit.
 - The job never force-pushes, so commits that users installed stay available.
 
-To release a version, follow the [release procedure](release.md), which raises `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
+To release a version, follow the [release procedure](release.md). The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet, and pushes the branch and the tag in one atomic push, so a failed push publishes neither. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
 
 The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. It runs these steps:
 
 1. Pack each package with `pnpm pack`, which replaces the `workspace:` and `catalog:` specifiers that npm rejects.
 2. Remove tests, `validation/` fixtures, `AGENTS.md`, `tsconfig.json`, scripts, and development dependencies.
 3. Install a copy outside the workspace with Pi's npm command.
-4. Start the Pi CLI with every extension and an offline model. An extension that fails to load fails the job. The offline model also starts both worker threads from the installed copy, because this startup-only print run would not otherwise start them, and it fails the job when one does not answer.
+4. Start the Pi CLI with every extension and an offline model. An extension that fails to load fails the job, and so does a worker thread that does not start and answer in the installed copy.
 
 Must not regress ([testing policy](agents/testing.md#coverage)):
 
