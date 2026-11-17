@@ -2,11 +2,11 @@
 
 [Pi-update skill](../SKILL.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This skill tests the fingerprint probe's argument and environment builder without starting Pi; package tests own extension behaviour.
+This skill tests the fingerprint probe's argument and environment builder; package tests own extension behaviour.
 
 ## Must not regress
 
-- **High, unit:** Fingerprint inspection loads only its explicit extension, receives no provider credentials, and sends no model requests.
+- **High, unit:** The fingerprint probe builder passes only its explicit extension and an allow-listed environment.
 
 ## Not tested
 
