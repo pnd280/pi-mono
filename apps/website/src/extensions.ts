@@ -132,7 +132,7 @@ export const extensionGroups: ExtensionGroup[] = [
           'Drops optional tool arguments that a model sent as the text "null", so Pi doesn\'t reject the call.',
         sample: {
           kind: "output",
-          text: 'Validation failed for tool "subagent":\n  - thinking: must be equal to one of the allowed values'
+          text: 'Validation failed for tool "subagent":\n  - thinking: expected one of ["off","minimal","low","medium","high","xhigh","max"]'
         }
       }
     ]

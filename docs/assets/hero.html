@@ -5,7 +5,7 @@
 
   for theme in dark light; do
     google-chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 \
-      --window-size=1280,400 --default-background-color=00000000 \
+      --window-size=1280,440 --default-background-color=00000000 \
       --screenshot="docs/assets/hero-$theme.png" "file://$PWD/docs/assets/hero.html?theme=$theme"
   done
 
@@ -80,7 +80,7 @@
       .banner {
         position: relative;
         width: 1280px;
-        height: 400px;
+        height: 440px;
         overflow: hidden;
         border-radius: 12px;
         color: var(--ink);
@@ -120,7 +120,7 @@
 
       .session {
         position: absolute;
-        top: 38px;
+        top: 32px;
         left: 520px;
         width: 712px;
         background: var(--panel);
@@ -190,11 +190,13 @@
 
       <div class="session">
         <pre><span class="accent">›</span> Accept trailing commas in the parser, then test.
-<span class="dim">•</span> <b class="accent">Subagent</b> Locate list parsing<span class="dim"> · </span><span class="add">✓ completed 38.2s</span>
+<span class="dim">•</span> <b class="accent">Subagent</b> Locate list parsing<span class="dim"> · </span><span class="add">✓ 38.2s</span>
 <span class="dim">  │ anthropic/claude-haiku-5-5:xhigh · ↑48k ↓3.1k $0.21</span>
 <span class="dim">  └ Lists close in parseList, src/parser.ts:52.</span>
-• Edited src/parser.ts
-<span class="diff"><span class="add">+1</span> <span class="del">-1</span></span><span class="diff removed"><span class="dim">54</span> <span class="del">-</span>    <span class="accent">if</span> (at(<span class="string">"]"</span>)) <span class="change"><span class="accent">throw</span> unexpected(<span class="string">","</span>)</span>;</span><span class="diff added"><span class="dim">54</span> <span class="add">+</span>    <span class="accent">if</span> (at(<span class="string">"]"</span>)) <span class="change"><span class="accent">break</span></span>;</span>• Ran vp test parser <span class="add">✓</span> <span class="dim">2.1s</span>
+<span class="accent">•</span> <b class="accent">Edited</b> src/parser.ts
+<span class="diff"><span class="add">+1</span> <span class="del">-1</span></span><span class="diff removed"><span class="dim">54</span> <span class="del">-</span>    <span class="accent">if</span> (at(<span class="string">"]"</span>)) <span class="change"><span class="accent">throw</span> unexpected(<span class="string">","</span>)</span>;</span><span class="diff added"><span class="dim">54</span> <span class="add">+</span>    <span class="accent">if</span> (at(<span class="string">"]"</span>)) <span class="change"><span class="accent">break</span></span>;</span><span class="accent">•</span> <b class="accent">Ran</b> vp test parser
+<span class="dim">  │ Exit 0 · 2.1s</span>
+<span class="dim">  └ Tests  12 passed (12)</span>
 <span class="dim">• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s</span>
 <span class="dim">    ran 1 command · delegated 1 task</span></pre>
       </div>

@@ -23,16 +23,6 @@ export const Route = createRootRoute({
       {
         name: "description",
         content: `${extensionCount} extensions for the Pi coding agent: compact tool cards, subagents, self-compaction, profiles, and guards against small mistakes.`
-      },
-      {
-        name: "theme-color",
-        media: "(prefers-color-scheme: dark)",
-        content: "#161d27"
-      },
-      {
-        name: "theme-color",
-        media: "(prefers-color-scheme: light)",
-        content: "#ebe7e4"
       }
     ],
     links: [
@@ -55,6 +45,8 @@ function RootDocument({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161d27" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ebe7e4" />
       </head>
       <body>
         {children}
