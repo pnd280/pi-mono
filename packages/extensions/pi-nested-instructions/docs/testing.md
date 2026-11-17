@@ -6,7 +6,7 @@ This package tests nested-input delivery, [read-marker](../GLOSSARY.md#discovery
 
 ## Must not regress
 
-E2e checks drive a Pi host with its faux provider and network access disabled. They also exercise sibling batching and reload diffing within the invariants below. Integration checks use real instruction files and the installed `SessionManager` without a host.
+E2e checks drive a Pi host and also exercise sibling batching and reload diffing within the invariants below. Integration checks use real instruction files and the installed `SessionManager` without a host.
 
 - **Critical, integration:** Inferred scopes stay strictly inside the lexical cwd and never include symlink-target ancestor scopes.
 - **Critical, integration:** Selecting a file symlink keeps its lexical scope.
@@ -23,7 +23,7 @@ E2e checks drive a Pi host with its faux provider and network access disabled. T
 ## Not tested
 
 - Host-driven context edits, compaction, and branch navigation are not tested in a host. The canonical-context lifetime scenarios use `SessionManager` integration checks. Separate [offline host tests](../src/index.test.ts) cover reading `turn_end.context.contextEntries`, preserving earlier notice drafts, and creating direct-read markers with the host entry ID. The [compatibility checklist](pi-compatibility.md#session) covers the remaining wiring.
-- File selection order, the [scope glob helpers](design.md#shared-scope-extraction), and Bash input inference cases outside the invariants above are below the severity bar. Inference rejects unsupported syntax by design, as the [Bash inference rules](input-discovery.md#bash-inference) state.
+- File selection order, the [scope glob helpers](../src/scope-globs.ts), and Bash input inference cases outside the invariants above are below the severity bar. Inference rejects unsupported syntax by design, as the [Bash inference rules](input-discovery.md#bash-inference) state.
 - Pi's default notice renderer when discovery loads alone is below the severity bar.
 - Arbitrary shell evaluation is not tested because discovery never runs commands.
 - Real provider calls are not tested because the e2e checks run offline with the faux provider.
