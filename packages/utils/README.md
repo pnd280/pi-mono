@@ -27,5 +27,4 @@ Choose the [exported module](package.json) for your task:
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Call a helper                                     | Its [caller boundaries](docs/caller-boundaries.md): inputs, failure results, and the duties that stay with the caller     |
 | Sanitise terminal text or normalise shortcut keys | [Terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md) in libs |
-| Change a helper or its tests                      | [Utility test coverage for maintainers](docs/testing.md)                                                                  |
 | Upgrade Pi or check a host assumption             | [Pi compatibility for maintainers](docs/pi-compatibility.md)                                                              |
