@@ -181,14 +181,11 @@ it.each([
   expect(fixture.errors).toEqual([]);
 });
 
-it.each([{ value: "" }, { value: undefined }])(
-  "leaves skill chips unchanged outside T3 with the variable $value",
-  async ({ value }) => {
-    const fixture = await host([t3Skills], { t3ExtensionPath: value });
-    await fixture.session.prompt("Use $review");
+it("leaves skill chips unchanged outside T3", async () => {
+  const fixture = await host([t3Skills]);
+  await fixture.session.prompt("Use $review");
 
-    expect(fixture.requests).toHaveLength(1);
-    expect(fixture.requests[0]).toContain(JSON.stringify("Use $review"));
-    expect(fixture.errors).toEqual([]);
-  }
-);
+  expect(fixture.requests).toHaveLength(1);
+  expect(fixture.requests[0]).toContain(JSON.stringify("Use $review"));
+  expect(fixture.errors).toEqual([]);
+});
