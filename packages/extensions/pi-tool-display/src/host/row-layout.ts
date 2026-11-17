@@ -82,33 +82,31 @@ export function bindRowChrome(
     }
 
     const theme = options.theme();
-    const chrome = rowChrome(
-      call,
-      coordinator,
+    const chrome = rowChrome(call, coordinator, {
       width,
       theme,
-      (open) => summaryLine(width, theme, open),
+      summaryLine: (open) => summaryLine(width, theme, open),
       notice,
-      options.tail?.() ?? true
-    );
+      tail: options.tail?.() ?? true
+    });
     // Summary chrome replaces the entire row. Do not prepare hidden cards or images. For visible cards, Pi updates selfRenderHeight while rendering.
     const imageHooks = new OwnedHooks();
 
-    if (chrome.kind === "card") {
-      const indent = visibleWidth(chrome.imagePrefix);
-
-      // Pi renders these same public Image children after its card. Constrain only their width, keeping Pi's image IDs, conversion, caching, and reserved rows.
-      for (const child of this.children) {
-        if (!(child instanceof Image)) continue;
-        // oxlint-disable-next-line typescript/unbound-method
-        const previousImageRender = child.render;
-        imageHooks.replace(child, "render", function (this: Image, imageWidth) {
-          return previousImageRender.call(this, Math.max(1, imageWidth - indent));
-        });
-      }
-    }
-
     try {
+      if (chrome.kind === "card") {
+        const indent = visibleWidth(chrome.imagePrefix);
+
+        // Pi renders these same public Image children after its card. Constrain only their width, keeping Pi's image IDs, conversion, caching, and reserved rows.
+        for (const child of this.children) {
+          if (!(child instanceof Image)) continue;
+          // oxlint-disable-next-line typescript/unbound-method
+          const previousImageRender = child.render;
+          imageHooks.replace(child, "render", function (this: Image, imageWidth) {
+            return previousImageRender.call(this, Math.max(1, imageWidth - indent));
+          });
+        }
+      }
+
       const rows = chrome.kind === "card" ? previousRender.call(this, width) : [];
       // CustomMessageComponent is a one-row Spacer followed by our notice renderer.
       const height = notice ? Math.max(0, rows.length - 1) : record(this).selfRenderHeight;

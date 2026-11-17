@@ -46,7 +46,7 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
 // Native read accepts number-valued windows and prints their arithmetic without rounding.
 const readNumber = String.raw`-?\d+(?:\.\d+)?(?:e[+-]?\d+)?`;
 const readTrailer = new RegExp(
-  String.raw`(?:^|\n\n)(\[(?:Showing lines ${readNumber}-${readNumber} of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=${readNumber} to continue\.|${readNumber} more lines in file\. Use offset=${readNumber} to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$`
+  String.raw`(?:^|\n\n)(\[(?:Showing lines ${readNumber}-${readNumber} of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=${readNumber} to continue\.|${readNumber} more lines in file\. Use offset=${readNumber} to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: sed -n '\d+p' [\s\S]+ \| head -c \d+)\])$`
 );
 
 function splitTrailer(text: string, pattern: RegExp | undefined) {
@@ -101,7 +101,7 @@ export function nativeResultParts(
   else if (name === "read") trailerPattern = readTrailer;
   else if (name === "grep" || name === "find" || name === "ls")
     trailerPattern =
-      /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
+      /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.?|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
   const trailer = splitTrailer(text, trailerPattern);
 
   if (trailer) {
@@ -159,24 +159,21 @@ function nativeContentParts(
 }
 
 const noticesSchema = z.object({
-  truncation: z
-    .object({ truncated: z.boolean().optional().catch(undefined) })
-    .optional()
-    .catch(undefined),
-  fullOutputPath: z.string().optional().catch(undefined),
-  matchLimitReached: z.number().optional().catch(undefined),
-  resultLimitReached: z.number().optional().catch(undefined),
-  entryLimitReached: z.number().optional().catch(undefined),
-  linesTruncated: z.boolean().optional().catch(undefined)
+  truncation: z.object({ truncated: z.boolean().optional() }).optional(),
+  fullOutputPath: z.string().optional(),
+  matchLimitReached: z.number().optional(),
+  resultLimitReached: z.number().optional(),
+  entryLimitReached: z.number().optional(),
+  linesTruncated: z.boolean().optional()
 });
 
 /** Backend omissions remain visible even when the successful read body is collapsed. */
-export function nativeResultNotices(details: unknown): DisplayNotice[] {
+export function nativeResultNotices(details: unknown, expanded: boolean): DisplayNotice[] {
   const data = noticesSchema.safeParse(details).data;
   if (!data) return [];
   const notices: DisplayNotice[] = [];
   const warning = (text: string) => notices.push({ kind: "warning", text });
-  if (data.truncation?.truncated)
+  if (data.truncation?.truncated && !expanded)
     warning("Tool output truncated by pi; expand to inspect retained output.");
 
   // Raw, so the card can match the call's saved path; rendering sanitises the value.

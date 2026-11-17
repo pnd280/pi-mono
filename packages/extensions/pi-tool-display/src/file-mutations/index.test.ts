@@ -177,6 +177,18 @@ it("isolates observer errors and reports committed writes even if cancellation h
   expect(await fs.readFile(join(directory, "file"), "utf8")).toBe("written");
   expect(changes[0]?.outcome).toBe("success");
   expect(changes[0]?.after).toEqual({ status: "ready", text: "written" });
+
+  // A cancellation during the pre-write read stops the write, as in Pi's own tool.
+  const capture = new AbortController();
+  vi.mocked(fs.open).mockImplementationOnce(async (path, flags) => {
+    capture.abort();
+
+    return fs.open(path, flags);
+  });
+  await expect(
+    tool.execute("capture", { path: "file", content: "never" }, capture.signal, undefined, context)
+  ).rejects.toThrow("aborted");
+  expect(await fs.readFile(join(directory, "file"), "utf8")).toBe("written");
 });
 
 it("does not report a mutation when an edit fails before attempting a disk write", async () => {

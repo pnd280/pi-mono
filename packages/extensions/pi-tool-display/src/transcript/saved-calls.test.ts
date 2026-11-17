@@ -167,12 +167,6 @@ it.each([
     saved: { operation: true }
   },
   {
-    case: "a nonzero exit code",
-    facts: [operation({ outcome: "failure", exitCode: 2 })],
-    outcome: "failure",
-    saved: { operation: true, exitCode: 2 }
-  },
-  {
     case: "a timeout",
     facts: [operation({ outcome: "failure", timedOut: true })],
     outcome: "failure",
@@ -221,14 +215,14 @@ it.each([
     case: "a write applied although Pi reported failure",
     name: "write",
     facts: [
-      { kind: "change", change: "unavailable", reason: "binary" },
+      { kind: "change", change: "creation", unavailable: "binary" },
       operation({ outcome: "success" })
     ],
     outcome: "failure",
     saved: {
       operation: true,
       applied: true,
-      change: { kind: "unavailable", reason: "binary" }
+      change: { kind: "creation", unavailable: "binary" }
     }
   }
 ] as const)(
@@ -303,7 +297,7 @@ it.each([
     try {
       const change = restored.coordinator.byId("write")?.change;
       expect(change).toMatchObject({ kind: "change", change: "creation" });
-      expect(parseRetainedPatch(change?.change === "creation" ? change.patch : "")?.hunks).toEqual(
+      expect(parseRetainedPatch(change?.patch ?? "")?.hunks).toEqual(
         parseRetainedPatch(observed)?.hunks
       );
     } finally {
@@ -315,36 +309,21 @@ it.each([
 const piPatch = "--- a.ts\n+++ a.ts\n@@ -1,1 +1,1 @@\n-before\n+after\n";
 
 it.each([
-  { case: "a successful edit with the same patch", outcome: "success", persisted: false },
-  { case: "an error result", outcome: "failure", persisted: true },
-  { case: "a result without details.patch", outcome: "success", details: {}, persisted: true },
+  { case: "an error result", outcome: "failure" },
+  { case: "a result without details.patch", outcome: "success", details: {} },
   {
     case: "a result with invalid details.patch",
     outcome: "success",
-    details: { patch: "not a unified patch" },
-    persisted: true
+    details: { patch: "not a unified patch" }
   },
   {
     case: "different hunks",
     outcome: "success",
-    observed: "@@ -1,1 +1,1 @@\n-before\n+other\n",
-    persisted: true
-  },
-  {
-    case: "a CRLF file with the same change",
-    outcome: "success",
-    observed: "--- /work/a.ts\r\n+++ /work/a.ts\r\n@@ -1,1 +1,1 @@\r\n-before\r\n+after\r\n",
-    persisted: false
-  },
-  {
-    case: "a BOM file with the same change",
-    outcome: "success",
-    observed: "@@ -1,1 +1,1 @@\n-\uFEFFbefore\n+\uFEFFafter\n",
-    persisted: false
+    observed: "@@ -1,1 +1,1 @@\n-before\n+other\n"
   }
 ] as const)(
-  "persists the observed edit change only when the result cannot replace it: $case",
-  ({ outcome, observed = piPatch, persisted, ...input }) => {
+  "persists the observed edit change when the result cannot replace it: $case",
+  ({ outcome, observed = piPatch, ...input }) => {
     const history = SessionManager.inMemory("/tmp");
     const append = vi.fn();
     const live = fixture(history, { append });
@@ -364,20 +343,16 @@ it.each([
     }
 
     const entry = assistantEntry(history, "edit");
-    expect(append.mock.calls.filter(([type]) => type === CALL_TYPE)).toEqual(
-      persisted
-        ? [
-            [
-              CALL_TYPE,
-              {
-                entry,
-                toolCallId: "edit",
-                change: { kind: "modification", patch: observed }
-              }
-            ]
-          ]
-        : []
-    );
+    expect(append.mock.calls.filter(([type]) => type === CALL_TYPE)).toEqual([
+      [
+        CALL_TYPE,
+        {
+          entry,
+          toolCallId: "edit",
+          change: { kind: "modification", patch: observed }
+        }
+      ]
+    ]);
   }
 );
 

@@ -5,8 +5,9 @@ import {
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
-import { beforeAll, expect, it } from "vite-plus/test";
+import { assert, beforeAll, expect, it } from "vite-plus/test";
 
+import type { ToolDisplayAdapter } from "../../../contracts.ts";
 import { keybindingHints, plainTheme as theme } from "../../../test-fixture.ts";
 import { builtinCodemodeAdapter } from "./index.ts";
 
@@ -18,7 +19,6 @@ const info: ToolInfo = {
   parameters: { type: "object", required: ["code"], properties: { code: { type: "string" } } },
   sourceInfo: { path: "builtin:codemode", source: "builtin", scope: "user", origin: "top-level" }
 };
-const adapter = builtinCodemodeAdapter(info)!;
 const HEADER = "Script completed\nWall time 0.1 seconds\nOutput:\n";
 const code = [
   'await tools.read({ path: "nested.txt" });',
@@ -60,7 +60,11 @@ function renderContext(expanded: boolean) {
   };
 }
 
-function render(supplied: AgentToolResult<unknown>, expanded: boolean) {
+function render(
+  adapter: ToolDisplayAdapter,
+  supplied: AgentToolResult<unknown>,
+  expanded: boolean
+) {
   const renderers = createToolDisplayRenderers("codemode", adapter);
   const context = renderContext(expanded);
   const call = renderers.renderCall(args, theme, context);
@@ -71,7 +75,9 @@ function render(supplied: AgentToolResult<unknown>, expanded: boolean) {
 
 beforeAll(() => initTheme("dark", false));
 
-it("keeps codemode arguments unchanged while rendering compact and expanded cards", () => {
+it("keeps codemode arguments and results unchanged while rendering compact and expanded cards", () => {
+  const adapter = builtinCodemodeAdapter(info);
+  assert(adapter, "the built-in codemode adapter matches");
   const before = structuredClone(args);
   const supplied: AgentToolResult<unknown> = {
     content: [
@@ -80,7 +86,9 @@ it("keeps codemode arguments unchanged while rendering compact and expanded card
     ],
     details: { calls } satisfies CodemodeToolDetails
   };
-  render(supplied, false);
-  render(supplied, true);
+  const suppliedBefore = structuredClone(supplied);
+  render(adapter, supplied, false);
+  render(adapter, supplied, true);
   expect(args).toEqual(before);
+  expect(supplied).toEqual(suppliedBefore);
 });

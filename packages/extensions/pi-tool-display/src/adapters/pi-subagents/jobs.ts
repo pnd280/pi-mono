@@ -91,12 +91,17 @@ const envelopeText: NonNullable<ToolDisplayAdapter["textParts"]> = (text, _args,
   const details = jobDetailsSchema.safeParse(context.result.details).data;
   const body =
     details &&
-    parseJobEnvelope(text, {
-      id: details.job_id,
-      state: details.state,
-      outcome: details.state === "inactive" ? details.outcome : undefined,
-      exit_code: details.exit_code
-    });
+    parseJobEnvelope(
+      text,
+      details.state === "inactive"
+        ? {
+            id: details.job_id,
+            state: details.state,
+            outcome: details.outcome,
+            exit_code: details.exit_code
+          }
+        : { id: details.job_id, state: details.state }
+    );
 
   return [{ kind: context.isError ? "error" : "output", text: body ?? text }];
 };

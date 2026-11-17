@@ -26,6 +26,7 @@ Pi's own tools get shell previews with status and duration, file diffs, and grou
 - Observed shells show the recorded status and Pi's measured duration. A missing exit code stays unknown. Output text alone never sets the status.
 - Image omission warnings and fallbacks stay visible when Pi cannot display images.
 - Pi's read continuation and byte-limit instructions stay visible in compact cards and groups, including fractional, negative, and exponent-form continuation values. Expansion shows them once, in the retained text.
+- When Pi truncated the output, compact cards add a "Tool output truncated by pi; expand to inspect retained output." warning. Expanded cards omit it.
 - Diagnostic bodies and failure markers use error styling, without recolouring the process output before them.
 - Text that exactly matches one of Pi's generated placeholders, trailers, or truncation notices looks like the generated text and gets its styling. It never changes the call's outcome. Similar phrases inside the content of a read file stay ordinary text.
 
@@ -33,7 +34,7 @@ Pi's own tools get shell previews with status and duration, file diffs, and grou
 
 Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted script and a list of the calls that it made. Only the `codemode` of Pi's built-in extension gets this card. A `codemode` that the SDK or another extension registers keeps any supplied renderer, or gets a generic card if it has none.
 
-- Headings read "Running script", "Ran script", or "Script failed".
+- Headings read "Running script" while pending, "Ran script" after success, and "Script failed" after failure. Other outcomes follow the shared [outcome rules](presentation.md#outcomes).
 - The script follows as JavaScript-highlighted code. Compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](presentation.md#resource-limits). An expansion hint marks omitted source.
 - The result lists the calls that the script made, also while the script runs. Each row shows a status icon (`…` running, `✓` success, `✗` failure, `⊘` cancelled), the tool name, Pi's argument preview, and any reported duration or model-call cost.
 - Compact cards show the latest 8 calls, one row each. Expansion shows every call with wrapped arguments and error previews.
@@ -73,12 +74,12 @@ Limits:
 
 Calls to Pi's built-in `tool_search` appear as cards that name the tools each search loaded.
 
-- Cards read "Searching tools" while pending and "Searched tools" afterwards, followed by the query after a spaced em dash.
+- Cards read "Searching tools" while pending and "Searched tools" after success, followed by the query after a spaced em dash. Other outcomes follow the shared [outcome rules](presentation.md#outcomes).
 - Raw parameters, including `limit`, stay hidden unless `showParameters: true`.
 - After a successful search, the compact body reads "Loaded N tools: a, b" or "No matching tools". Expansion shows only the original text, without that line.
 - Errors, cancellations, and results without valid loaded names keep the ordinary output preview. Unrecognised arguments fall back to generic cards.
 
-Only ended [runs](../GLOSSARY.md#transcript-structure) have [summary lines](presentation.md#when-a-run-collapses). Loaded tools count once per name (`loaded 1 tool`, `loaded 3 tools`). Calls without a valid, nonempty list of loaded names, including Pi's error results, count as `tool_search ×N`.
+In [summary lines](presentation.md#summary-mode), loaded tools count once per name (`loaded 1 tool`, `loaded 3 tools`). Calls without a valid, nonempty list of loaded names, including Pi's error results, count as `tool_search ×N`.
 
 A `tool_search` that the SDK registers through `createToolSearchExtension()` gets a generic card. Other replacements keep any supplied renderer, or get a generic card if they have none. The pi-profiles replacement gets the dedicated card.
 
@@ -113,7 +114,7 @@ Completed scripts summarise their recorded operations. Calls, searches, descript
 - Malformed operation records give an output preview without a summary.
 - Failed or cancelled scripts keep their operation count and diagnostic output, even if their recorded operations succeeded.
 
-Every call counts once in the shared MCP category of summary lines, together with built-in [MCP tools](#mcp-tools). MCP-like tools from the SDK or other packages keep any supplied renderer, or get generic cards if they have none.
+It shares the [MCP summary category](#mcp-tools). MCP-like tools from the SDK or other packages keep any supplied renderer, or get generic cards if they have none.
 
 ## Selective read
 
@@ -167,7 +168,7 @@ Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as pro
 
 - The first line shows the description and the task state. Queued, failed, and cancelled tasks name their state; running tasks show elapsed time, and completed tasks show `✓`. Returned calls use the fixed labels below. Before details exist, the line shows `preparing`, `waiting to run`, or `starting`.
 - Elapsed time appears only when a start time is known.
-- The second line shows the `model` and `thinking` that the call requested, if any, as `model:thinking` before details exist, then the resolved model, with `Waiting for capacity` or usage such as `↑48k ↓3.1k $0.21`.
+- The second line shows the `model` and `thinking` that the call requested, if any, as `model:thinking` before details exist, then the resolved model, with `Waiting for capacity` or usage such as `↑48k ↓3.1k $0.210`.
 - Usage omits cache counts and appears only when a value is positive.
 - A failed or cancelled call shows usage before its error text. Line breaks in the error become spaces before wrapping.
 - The card does not show running activity.
@@ -209,7 +210,7 @@ A delivered `pi-subagents.result` message uses the task card layout: the descrip
 
 ### Job results
 
-A delivered `pi-subagents.job-result` message shows the outcome, the run time, the command, the exit code, any recorded error, and the log path.
+A delivered `pi-subagents.job-result` message shows the outcome, the run time, the command, the exit code when the shell exited, any recorded error, and the log path.
 
 - A failed or cancelled job colours the card like a failed or cancelled call.
 - Collapsed cards preview the first output lines. Expansion shows the job ID and the full retained output.
@@ -241,7 +242,7 @@ Todo calls from [`pi-todo`](../../pi-todo/README.md) appear as `Todos` cards wit
 - Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 - After a result exists, incompatible arguments give ungrouped generic cards, for example `Call failed todo({})`.
 
-Todo calls are left out of [summary lines](presentation.md#notices-and-todo-calls-in-runs), including incompatible calls with generic cards.
+Todo calls add no items to [summary lines](presentation.md#notices-and-todo-calls-in-runs), including incompatible calls with generic cards, but the run's call count includes them.
 
 ## Nested instructions
 

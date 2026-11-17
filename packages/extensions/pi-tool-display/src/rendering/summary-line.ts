@@ -83,8 +83,7 @@ function segmentText(segment: SummarySegment, theme: DisplayTheme, first: boolea
 
 /** Pad a styled row to the full width on the bar surface. Inline resets restart the surface. */
 function barRow(row: string, width: number, theme: DisplayTheme): string {
-  const clipped = truncateToWidth(row, width, "");
-  const padded = clipped + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
+  const padded = truncateToWidth(row, width, "", true);
 
   return padded
     .split(RESET)

@@ -41,17 +41,14 @@ export type OperationFact = {
 /** Why an observed change has no patch; display text comes from the code. */
 export type ChangeUnavailableReason = Exclude<MutationPatch["status"], "ready">;
 
-export type ChangeFact =
-  | {
-      readonly kind: "change";
-      readonly change: "creation" | "modification";
-      readonly patch: string;
-    }
-  | {
-      readonly kind: "change";
-      readonly change: "unavailable";
-      readonly reason: ChangeUnavailableReason;
-    };
+/** The observed effect of a mutation, with its patch or the reason it has none. */
+export type ChangeFact = {
+  readonly kind: "change";
+  readonly change: "creation" | "modification";
+} & (
+  | { readonly patch: string; readonly unavailable?: undefined }
+  | { readonly patch?: undefined; readonly unavailable: ChangeUnavailableReason }
+);
 
 export type SavedOutputFact = {
   readonly kind: "saved-output";
@@ -319,7 +316,7 @@ export type ToolDisplayAdapter = {
   /** When true, show parameters regardless of `showParameters`. Otherwise, follow that setting. */
   alwaysShowParameters?: boolean;
   /**
-   * Validate retained data in the automatic CLI integration after a result exists, including partial updates. Validated `args` contain no optional nulls that the schema rejects; a call whose validation fails keeps its raw arguments. False uses generic rendering and excludes the call from exploration groups; a later supported result restores its presentation. Omission accepts all results. The selected contract and retained data stay unchanged. Standalone factories use their explicit adapter without this check.
+   * Validate retained data in the automatic CLI integration after a result exists, including partial updates. False uses generic rendering and excludes the call from exploration groups; a later supported result restores its presentation. Omission accepts all results. The selected contract and retained data stay unchanged.
    */
   supports?(args: unknown, result: BorrowedToolResult): boolean;
   /**
@@ -339,7 +336,7 @@ export type ToolDisplayAdapter = {
    */
   nestedCalls?(result: BorrowedToolResult): readonly NestedCall[] | undefined;
   /**
-   * Supply ordered group items for the automatic CLI integration. Handle partial arguments before a result exists; undefined, empty items, or missing/mixed scopes exclude the call. Scope runs compare normalized directories or exact literal filters. Result updates can remove or restore membership without changing source order. Standalone renderers never invoke this callback.
+   * Supply ordered group items for the automatic CLI integration. Handle partial arguments before a result exists; undefined, empty items, or missing/mixed scopes exclude the call. Scope runs compare normalized directories or exact literal filters. Result updates can remove or restore membership without changing source order.
    */
   exploration?(args: unknown, result?: BorrowedToolResult): ExplorationItem[] | undefined;
   /**

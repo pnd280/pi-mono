@@ -8,7 +8,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ### Settings and selection
 
-- **Critical, unit:** Untrusted project settings are excluded before validation, so an invalid untrusted section cannot disable display.
+- **Critical, e2e:** Untrusted project settings are excluded before validation, so an invalid untrusted section cannot disable display.
 - **High, unit:** An invalid global or trusted project section keeps original tool renderers and disables [native observation](../GLOSSARY.md#interpretation), even if a later section overrides its values.
 - **High, unit:** Renderer overrides match exact tool names, including prototype-like names, before automatic adapter selection.
 - **High, e2e:** Under automatic selection, tools without a verified adapter keep a supplied renderer slot, from their definition or a `registerToolRenderer` resolver, and receive generic cards only when neither slot exists.
@@ -37,7 +37,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, and change facts and bounded patches.
 - **Critical, unit:** Call records above the whole-record byte limit are rejected, including when unknown fields cause the excess.
-- **High, unit:** An `edit` change fact is saved only when the result cannot replace it: a non-successful result, or a missing, invalid or different `details.patch`. Line endings, file headers, and a BOM do not count as differences.
+- **High, unit:** An `edit` change fact is saved when the result cannot replace it: a non-successful result, or a missing, invalid or different `details.patch`.
 - **High, unit:** A `write` creation entry without a patch replays the same diff as the observed patch. When they differ, the entry keeps the observed patch.
 - **High, e2e:** Call facts use custom session entries, not model-context messages.
 
@@ -63,6 +63,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 - Live MCP requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.
 - Pi owns native persistence internals.
+- A FIFO source that could block a native write, and a diff worker that misses the parent deadline, are not tested because no observed failure has made either reach a broken session.
 - The [release check](../../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks

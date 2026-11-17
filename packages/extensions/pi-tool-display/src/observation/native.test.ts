@@ -23,7 +23,7 @@ import { displayMutationSink, observeNativeDefinition, type ObservationSink } fr
 vi.mock("node:fs/promises", { spy: true });
 
 function patchOf(fact: DisplayFact | undefined): string | undefined {
-  return fact?.kind === "change" && fact.change !== "unavailable" ? fact.patch : undefined;
+  return fact?.kind === "change" ? fact.patch : undefined;
 }
 
 function observeMutation(
@@ -273,7 +273,11 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
         undefined,
         context
       );
-      expect(facts[0]).toMatchObject({ kind: "change", change: "unavailable" });
+      expect(facts[0]).toMatchObject({
+        kind: "change",
+        change: "modification",
+        unavailable: "source-unavailable"
+      });
       expect(facts.at(-1)).toMatchObject({ kind: "operation", outcome: "success" });
       await chmod(path, 0o600);
       expect(await readFile(path, "utf8")).toBe("written\n");
@@ -349,7 +353,10 @@ it("preserves edit aliases, CRLF, cancellation, and write change facts", async (
       undefined,
       context
     );
-    expect(facts.get("oversized")?.[0]).toMatchObject({ change: "unavailable" });
+    expect(facts.get("oversized")?.[0]).toMatchObject({
+      change: "modification",
+      unavailable: "source-unavailable"
+    });
     expect((await readFile(join(directory, "file"))).length).toBe(OBSERVATION_BYTES + 1);
     await write.execute(
       "created",

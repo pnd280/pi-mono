@@ -63,7 +63,7 @@ export function loadDisplaySettings(sources: readonly SettingsSource[]): Display
         for (const path of paths)
           warnings.push(
             compactDisplayText(
-              `${source.path}: invalid ${[SETTINGS_KEY, ...path].join(".")}; keeping original rendering and disabling display observation.`
+              `${source.path}: invalid ${[SETTINGS_KEY, ...path].join(".")}; keeping original rendering and disabling display observation. Fix the setting, then run /reload.`
             )
           );
       }

@@ -22,8 +22,13 @@ it("allows small changes in large files but bounds source, patch, and edit dista
   expect(result.status).toBe("ready");
   if (result.status !== "ready") throw new Error(result.status);
   expect(parsePatch(result.patch, budgets.maxPatchBytes)).toMatchObject({ added: 1, removed: 1 });
+  // Limits count UTF-8 bytes, not UTF-16 code units, on both sides.
   expect((await change("", "éé", { maxSourceBytes: 3 })).status).toBe("source-too-large");
+  expect((await change("éé", "", { maxSourceBytes: 3 })).status).toBe("source-too-large");
   expect((await change("before", "after", { maxPatchBytes: 1 })).status).toBe("patch-too-large");
+  expect((await change("", "界".repeat(50), { maxPatchBytes: 200 })).status).toBe(
+    "patch-too-large"
+  );
   // 500 line edits exceed the edit budget; a smaller budget keeps the search cheap.
   expect(
     (await change("old\n".repeat(250), "new\n".repeat(250), { maxEditLength: 200 })).status

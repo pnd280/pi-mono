@@ -169,6 +169,8 @@ class RowBinding {
   private bound = new WeakSet<ToolExecutionComponent>();
   private assistants = new WeakSet<AssistantMessageComponent>();
   private notices = new WeakSet<CustomMessageComponent>();
+  /** Components whose boundaries this binding set; release withdraws them. */
+  private boundaryOwners = new Set<Component>();
   private trailingNotices = new Map<DisplayCall, CustomMessageComponent>();
   private pendingCalls = new Map<string, { calls: DisplayCall[]; next: number }>();
   private unindexedCalls: MapIterator<DisplayCall>;
@@ -313,6 +315,7 @@ class RowBinding {
     this.disposers.push(release);
     this.notices.add(row);
     this.trailingNotices.set(anchor, row);
+    this.boundaryOwners.add(row);
     this.coordinator.setBoundary(row, anchor, "group");
     if (summary) this.coordinator.addSummaryNotice(anchor, summary);
     this.disposers.push(
@@ -357,6 +360,7 @@ class RowBinding {
     }
 
     const kind = assistantBoundaryKind(component);
+    this.boundaryOwners.add(component);
     this.coordinator.setBoundary(component, kind ? this.precedingCall(component) : undefined, kind);
   }
   bind(): void {
@@ -469,6 +473,10 @@ class RowBinding {
       }
     }
 
+    this.coordinator.batch(() => {
+      for (const owner of this.boundaryOwners) this.coordinator.setBoundary(owner);
+    });
+    this.boundaryOwners.clear();
     this.pendingCalls.clear();
     this.pendingRows.clear();
     this.trailingNotices.clear();

@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.5.2 with a source review of the Pi 1.5.1 to 1.5.2 changes, which leave the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the native tools, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages unchanged, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, user `!` rows that Pi moves into the chat when a run settles, and the other manual [terminal checks](validation.md); idle cache-warming notices, which need a live provider; a shell timeout whose background processes outlive the shell; physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP services; and other platforms.
+> Last verified against Pi 1.5.2 with a source review of the Pi 1.5.1 to 1.5.2 changes, the fingerprint check, and the offline package checks with the API and CLI suites on Linux. Not covered: any tmux or terminal run, including fullscreen, mode cycling with **Ctrl+O**, cancellation, replay, reload, thinking toggles, streaming, user `!` rows that Pi moves into the chat when a run settles, and the other manual [terminal checks](validation.md); idle cache-warming notices, which need a live provider; a shell timeout whose background processes outlive the shell; physical mouse and image protocols; the Rex terminal; a live `registerToolRenderer` resolver; live MCP services; and other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports the inspected Pi version as `inspectedPiVersion`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
@@ -37,7 +37,7 @@ Check each item in the API build and in the installed CLI build.
 
 The reload and disposal items follow the [hook and disposal invariants](testing.md#hooks-and-disposal).
 
-Adapter selection treats the `resolveToolRenderers` chain as the owner's renderers. Pi uses the same chain for HTML export. Pi's MCP resolver answers every `mcp__` name, but servers register their tools after `/reload` reconstructs rows, and only generic rows can upgrade.
+Adapter selection treats the `resolveToolRenderers` chain as the owner's renderers. Pi uses the same chain for HTML export. Pi's MCP resolver supplies fallback renderers for names that match `^mcp__(.+?)__(.+)$`, but servers register their tools after `/reload` reconstructs rows, and only generic rows can upgrade.
 
 ### Assistant presentation
 
@@ -55,6 +55,8 @@ Adapter selection treats the `resolveToolRenderers` chain as the owner's rendere
 - [ ] Disposal restores Pi's assistant presentation in the API and installed CLI builds.
 - [ ] Streaming completion uses event content indices, not shared mutable partials.
 - [ ] Pi rebuilds the row after it records the event.
+
+The `updateContent` [fingerprint](../src/host/assistant.ts) is checked at installation. On a mismatch, assistant rows keep Pi's presentation, and the host warns once that prose markers and early thinking hiding are disabled.
 
 ### Mode cycling
 
@@ -80,7 +82,7 @@ See the [source](../src/host/row-layout.ts). The [glossary](../GLOSSARY.md#trans
 
 Without Pi's padding, cards keep their own layout. The modifier flags let cards ignore modified clicks. Because images are `Image` children, width constraints keep Pi's IDs, conversion, caching, and reserved rows.
 
-The `render` and `handleMouse` [fingerprints](../src/host/compatibility.ts) need review in the API and installed CLI builds. On a mismatch, rows keep Pi's chrome (groups keep margin rows), summaries turn off, and the host warns once.
+The `render` and `handleMouse` [fingerprints](../src/host/compatibility.ts) need review in the API and installed CLI builds. On a mismatch, rows keep Pi's chrome (groups keep margin rows), and the host warns once that summaries, card actions, and click modifiers are disabled.
 
 ### Native tools
 
@@ -90,7 +92,7 @@ The `render` and `handleMouse` [fingerprints](../src/host/compatibility.ts) need
 - [ ] Wrapped native tools keep their provenance.
 - [ ] Borrowed definitions and results reach observers unchanged.
 - [ ] Teardown restores only replacements that the module still owns.
-- [ ] Aborts and timeouts reject.
+- [ ] The local Bash and PowerShell backends reject an abort with an `Error` whose message is `aborted`, and a timeout with `timeout:<seconds>`.
 - [ ] Reload activates newly added `defaultTools`.
 - [ ] Reload keeps existing active tools when defaults are removed.
 - [ ] Reload wraps surviving observers exactly once.
@@ -103,7 +105,7 @@ Verify [native observation](../GLOSSARY.md#interpretation) against [native tools
 - [ ] Native observation preserves tool definitions, including exposure and output schemas.
 - [ ] Native observation preserves structured results.
 - [ ] Native observation preserves active tools.
-- [ ] Pi's mutation queue keeps its ordering around the shared [file mutation](../src/file-mutations/README.md) source capture, so native observation preserves mutation ordering.
+- [ ] `createEditToolDefinition` and `createWriteToolDefinition` call the injected `readFile` and `writeFile` operations of the shared [file mutation](../src/file-mutations/README.md) source capture inside Pi's per-path mutation queue, and keep the queue locked until an in-flight operation settles after an abort.
 - [ ] Other subscribers still receive their events.
 - [ ] A nonzero Bash exit resolves an error result with its exit code.
 - [ ] Cancellation and timeout stay distinct.
@@ -134,7 +136,7 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - [ ] Timestamp associations refresh after appends, branch changes, and resets.
 - [ ] Replay never runs tools or observes files again.
 - [ ] Public listeners receive a tool result's `message_end` after extension replacement and before Pi appends the result entry, so call entries precede their results.
-- [ ] Copies and forks keep entry IDs and entry order.
+- [ ] Copies and forks keep the IDs of assistant-message entries, and the order of call entries and their tool results.
 - [ ] Session changes and shutdown discard pending saved-output reads.
 - [ ] Quit and session changes abort the active run and wait for it to settle before `session_shutdown`.
 - [ ] `reload()` rejects during a run or a compaction.
@@ -184,7 +186,7 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 ## Limitations
 
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
-- Public component methods such as `setExpanded` and `invalidate`, and public session and renderer-resolver calls, retain their declared contracts. They do not need private-method fingerprints. Existing row and assistant fingerprints also guard the private child-layout assumptions that display changes.
+- Public component methods such as `setExpanded` and `invalidate`, and public session and renderer-resolver calls, retain their declared contracts. They do not need private-method fingerprints. Row and assistant fingerprints also guard the tool-row and assistant child layouts that display changes; the custom-message layout is checked under [nested-instruction messages](#nested-instruction-messages).
 - A public Pi mode-change API could replace the mode-switch wrappers shared with editor widgets.
 - When a `message_end` handler changes a streamed call from a tool that this extension displays to one that keeps its original renderer, or the reverse, the row keeps the rendering it had while streaming.
 - The host hooks belong to one extension runtime per process: a second runtime replaces the first one's hooks. Until Pi announces a session with `session_start`, collection accepts any session manager; after that, it ignores every other one.
@@ -198,15 +200,13 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 - In Pi 1.5.1 and 1.5.2, the built-in MCP extension takes tool naming and input-schema normalisation from the `pi-mcp` package. Registered names, parameter schemas, source info, and MCP result details keep the shapes that the [built-in MCP adapter](../src/adapters/builtin/mcp/README.md) matches. Codemode result details and the `tool_search` result also keep their shapes.
 - In Pi 1.5.1 and 1.5.2, `validateToolArguments` runs on `@earendil-works/pi-schema`. It still clones its input, drops optional nulls that the schema rejects, converts values, and truncates fractional integers. Its messages read like `expected integer, got string`. The `pi-agent-core` agent loop is unchanged.
 - In Pi 1.5.1 and 1.5.2, tool render contexts and message and entry renderer options supply `keyText` and `keyHint`, and the subagent result renderer forwards them. Expansion hints in `rendering/format.ts` and the mode-cycling warning still import `keyText`. Pi's extension loader resolves that import to the host copy, as the host hooks also require.
-- In Pi 1.5.2, native construction matches the recorded fingerprints.
 - In Pi 1.5.2, transcript restoration also activates extension tools that the branch never added or removed. It reads only the names of `_baseToolDefinitions`, so native observation stays independent of it.
 - In Pi 1.5.2, `setActiveTools` keeps the current order of tools that stay active. Native observation does not depend on that order.
-- In Pi 1.5.1 and 1.5.2, the API suite covers session reload and later wrappers. The CLI suite checks native construction and host-hook installation and restoration.
 - In Pi 1.4.0 to 1.5.2, `registerToolRenderer` can replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. The extension keeps its lookup hook because Pi also calls resolvers for HTML export, resolvers run in extension load order, and a resolver receives no host to claim the row's call.
-- In Pi 1.4.0 to 1.5.2, `durationMs` measures the whole `execute()` call, not only the shell or file operation, so shell and mutation durations include tool setup.
 - In Pi 1.5.1 and 1.5.2, a shell timeout status also names the shell's exit code when the shell exited but its background processes kept writing output until the timeout. The [native adapter](../src/adapters/native/README.md) styles that whole status as Pi's trailer. The observed fact stays a timeout without an exit code.
 - In Pi 1.5.1 and 1.5.2, `edit` diffs only the lines around each replacement, so `details.patch` can align runs of repeated lines differently from a whole-file diff. When its hunks differ from the observed patch, the extension saves its own patch, as [session history](recording.md#session-history) describes.
 - In Pi 1.5.1 and 1.5.2, a codemode script that cannot get a worker fails with Pi's `Script failed` header and empty `details.calls`. A source review shows that the card hides the header and keeps the error.
+- In Pi 1.5.2, the source changes from 1.5.1 leave the hooked Pi methods (API build and CLI bundle), the row, assistant, and custom-message components, the extension types, the native tools, the built-in MCP, codemode, and `tool_search` extensions, and the `pi-mcp` and `pi-codemode` packages unchanged.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalised-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 
 Pi 1.5.2 supplies `KeybindingHints` in renderer contexts, `messageId` and `timestamp` in `MarkdownTransformContext`, Markdown transformers for custom messages, summaries, and changelogs, and `Component.capturesViewportInput` for focused viewport keys. None of them replaces a private hook: a Markdown transformer changes only Markdown text, not padding, the prose marker, or thinking rows. No public API replaces a private hook yet:
@@ -226,6 +226,6 @@ Pi 1.5.2 supplies `KeybindingHints` in renderer contexts, `messageId` and `times
 
 ## Coverage notes
 
-- No automated test covers built-in MCP discovery through codemode, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, or original server and tool identities. Recheck them with the [nested-execution contracts](#nested-execution).
+- No automated test covers discovery through the real built-in MCP extension, including codemode discovery, deferred exposure, normalised namespaces, collision-suffixed names, and original identities. Synthetic registrations cover adapter selection and result-identity display. Recheck them with the [nested-execution contracts](#nested-execution).
 - No automated test covers rows that Pi inserts on `agent_settled`, a cache-warming notice that Pi extends in place, or the shell timeout status that names the shell's exit code.
 - External adapter fixtures don't establish compatibility with the live adapters.

@@ -14,4 +14,4 @@ The [adapter contract](contract.md) covers patches, target normalisation, and te
 
 ## Validation
 
-Run the [shared terminal scenarios and host interaction checks](../../../docs/validation.md), including the [platform-specific checks](../../../docs/validation.md#platform-limitations) for images and PowerShell.
+The [package tests](../../../docs/testing.md) cover native selection, borrowed data, and replay. Run the [shared terminal scenarios and host interaction checks](../../../docs/validation.md), and note the [platform limitations](../../../docs/validation.md#platform-limitations) for images and PowerShell.

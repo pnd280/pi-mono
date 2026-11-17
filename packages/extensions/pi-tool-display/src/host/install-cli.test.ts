@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import {
+  createPiLaunch,
   createValidationWorkspace,
-  resolvePiExecutable,
   STEP_TIMEOUT_MS
 } from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
@@ -15,7 +15,6 @@ it("recognizes native construction through the installed pi executable, not just
   const directory = await createValidationWorkspace("display-cli-contract-");
 
   try {
-    const executable = await resolvePiExecutable();
     const integration = fileURLToPath(new URL("./install.ts", import.meta.url));
     const collection = fileURLToPath(new URL("./collection.ts", import.meta.url));
     const compatibility = fileURLToPath(new URL("./compatibility.ts", import.meta.url));
@@ -54,10 +53,9 @@ it("recognizes native construction through the installed pi executable, not just
       }
     `
     );
-    const execution = promisify(execFile)(
-      process.execPath,
-      [
-        executable,
+    const launch = await createPiLaunch({
+      directory,
+      args: [
         "--no-extensions",
         "--no-skills",
         "--no-prompt-templates",
@@ -66,20 +64,12 @@ it("recognizes native construction through the installed pi executable, not just
         fixture,
         "--print",
         "/verify-display"
-      ],
-      {
-        cwd: join(directory, "work"),
-        env: {
-          PATH: process.env.PATH,
-          HOME: join(directory, "home"),
-          USERPROFILE: join(directory, "home"),
-          PI_CODING_AGENT_DIR: join(directory, "agent"),
-          TMPDIR: join(directory, "tmp"),
-          PI_OFFLINE: "1"
-        },
-        timeout: STEP_TIMEOUT_MS
-      }
-    );
+      ]
+    });
+    const execution = promisify(execFile)(launch.command, launch.args, {
+      ...launch.options,
+      timeout: STEP_TIMEOUT_MS
+    });
     execution.child.stdin?.end();
     const { stdout, stderr } = await execution;
     const report = (stdout + stderr)

@@ -267,7 +267,9 @@ class CardRow {
       }
 
       if (!card.expanded)
-        return progress.resultPreview ? card.preparedResult.progressPreview() : [];
+        return progress.resultPreview
+          ? card.preparedResult.progressPreview()
+          : card.preparedResult.progressNotices();
     }
 
     return slot === "call" ? heading(card) : card.preparedResult.rows();
@@ -345,13 +347,11 @@ export function createToolDisplayRenderers(
     theme: DisplayTheme,
     result?: BorrowedToolResult
   ): Component => {
-    const state = context.state;
-    const key = state !== null && typeof state === "object" ? state : undefined;
-    let row = key ? states.get(key) : undefined;
+    let row = states.get(context.state);
 
     if (!row) {
       row = new CardRow(title, adapter, options, context, theme);
-      if (key) states.set(key, row);
+      states.set(context.state, row);
     }
 
     row.update(slot, context, theme, result);

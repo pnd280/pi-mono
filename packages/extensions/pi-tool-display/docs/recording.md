@@ -2,11 +2,11 @@
 
 [pi-tool-display](../README.md) · [Glossary](../GLOSSARY.md)
 
-pi-tool-display saves a few facts about tool calls in Pi's session history, so that a reopened session shows the same cards. It writes no files of its own, keeps no durable output archive, and makes no network requests.
+pi-tool-display saves a few facts about tool calls in Pi's session history, so that a reopened session shows the same cards. It keeps no durable output archive.
 
 ## Observation
 
-In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, outcomes, and file contents from before each write. Display failures never change a tool's outcome.
+In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. Invalid display settings, or a `rendererOverrides` value other than `auto` for the tool, turn observation off; see [configuration](../README.md#configuration). It collects shell previews, outcomes, and file contents from before each write. Display failures never change a tool's outcome.
 
 - Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
 - Another process writing the same file can race with the observation.
@@ -20,7 +20,8 @@ Session history stores only facts that Pi's own entries lack. The extension keep
 - a shell exit code or timeout when the call did not succeed;
 - a change applied although Pi reported failure;
 - an operation failure that Pi's result or call cancellation cannot preserve;
-- bounded patches.
+- whether a write created or modified its file, with a bounded patch when replay needs it;
+- why a change has no patch.
 
 The extension saves a call's facts when Pi publishes the call's final result. Under Pi's [quit, session-change, and reload contracts](pi-compatibility.md#transcript), only a killed process leaves a call without them.
 
@@ -33,9 +34,9 @@ The extension saves patches only when replay needs them:
 
 ## Record size limits
 
-A call entry is limited to 160 KiB, and the size includes unknown fields. The extension does not save a larger entry, and replay does not apply one.
+The JSON data of a call entry is limited to 160 KiB, including unknown fields. The extension does not save a larger entry, and replay does not apply one.
 
-Other display budgets are listed under [resource limits](presentation.md#resource-limits).
+Change observation reads at most 8 MiB of each file version, keeps patches up to 128 KiB, and stops a comparison after 2,000 changed lines or 50 ms. A change over a limit shows as unavailable; the edit or write itself is unaffected. Other display effects are under [resource limits](presentation.md#resource-limits).
 
 ## Replay
 
@@ -47,4 +48,4 @@ Reopening a session restores matching facts for calls on the selected branch, wi
 
 ### Saved output
 
-Expanding a finished shell card reads a bounded preview from Pi's temporary output file. Saved-output paths that the extension observed are never saved. After `/reload` or reopening a session, an aborted or timed-out shell call shows no preview, because Pi saves no output path with its result. [Saved-output previews](presentation.md#saved-output-previews) describes path sources, loading, and retry.
+For saved-output paths, expansion, reload, and retry, see [saved-output previews](presentation.md#saved-output-previews).

@@ -50,7 +50,7 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 
 ### Callback inputs
 
-Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Cards read callbacks once for each update, so callbacks must depend only on their inputs.
+Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Callbacks must depend only on their inputs: cards reuse their results on unchanged redraws, but call them again after a resize, an expansion change, or an invalidation.
 
 ### Invocation parts
 
@@ -80,9 +80,9 @@ If a callback that a card uses throws, the whole card becomes generic. A card ne
 
 Items must resolve to one directory or identical filters; files can group with their parent directory. Missing, invalid, or mismatched scopes leave the call standalone, as does returning `undefined` or `[]`. Never derive scopes from summaries or treat arbitrary filters as directories.
 
-For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries and notices stay visible. Adjacent calls group only when both the normalised scope and title match, so titled and untitled groups never merge.
+For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries and notices stay visible.
 
-See [exploration groups](presentation.md#groups) for headings, boundaries, and expansion behaviour.
+See [exploration groups](presentation.md#groups) for matching, headings, boundaries, and expansion behaviour.
 
 ### Action wording
 
@@ -104,11 +104,11 @@ Use `Listing <target>` while pending and `Listed <target>` after success, in sta
 
 `summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Its `durationMs` is Pi's measured `execute()` time for the final result, or `undefined` when Pi recorded none. Distinguish collected matches from total matches, and failed operations from unfinished ones. Return `undefined` when the data is insufficient.
 
-Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure and cancellation output, notices, and images remain; expansion restores retained text.
+Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. [Results](presentation.md#results) lists what stays visible and what expansion restores.
 
 Failed and cancelled results show their summary in the outcome colour. Set `neutral: true` when the summary states no outcome, such as codemode's elapsed time, so it stays `dim`.
 
-Missing summaries, including those that display as blank after terminal-control sanitisation, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
+A summary that displays as blank after terminal-control sanitisation counts as missing, so the card shows its [result preview](presentation.md#results).
 
 Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Notices and colours](presentation.md#notices-and-colours) shows how each severity is styled.
 
@@ -143,6 +143,12 @@ Media entries retain ordered MIME labels, not result-block indices or copied bas
 Text and embedded resource bodies use the resolved outcome's colour: `error` for failures, `warning` for cancellations, and `toolOutput` otherwise. Resource labels use `dim`, and URIs use normal foreground.
 
 Generic rendering never infers missing transport or type information from names or error text. Arbitrary `details` are not displayed.
+
+### Progress cards and actions
+
+`progress(args, result)` supplies structured task status, identity, non-default expanded fields, and the collapsed result-preview choice to the shared progress card. Omit `status` until the task reports one; the renderer then shows the host call phase and owns colours, elapsed time, and wrapping. A final failure, cancellation, or unavailable outcome overrides a conflicting reported status. Like every callback, it follows the [callback input rules](#callback-inputs).
+
+`action(args, result)` supplies a pure event descriptor; the mounting host owns dispatch and authorisation. Neither callback performs effects. Progress cards also work with standalone adapters. Actions need the automatic host; the standalone factory does not dispatch them.
 
 ## Display budgets
 

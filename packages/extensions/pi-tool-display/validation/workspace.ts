@@ -9,7 +9,8 @@ const marker = ".pi-tool-display-fixture";
 export const UNPACED_ENV = "PI_TOOL_DISPLAY_FIXTURE_UNPACED";
 
 export async function assertFixtureWorkspace(cwd: string): Promise<void> {
-  if ((await readFile(join(cwd, marker), "utf8")) !== "disposable tool-display workspace\n")
+  const content = await readFile(join(cwd, marker), "utf8").catch(() => undefined);
+  if (content !== "disposable tool-display workspace\n")
     throw new Error("Use the terminal fixture launcher to create a disposable workspace.");
 }
 

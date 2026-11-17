@@ -39,7 +39,7 @@ import {
 } from "./format.ts";
 import type { Projection } from "./types.ts";
 
-/** Families whose result text renders as details below the change. */
+/** Families whose result text continues the preceding tree item instead of forming its own items. */
 const detailFamilies: ReadonlySet<ToolFamily> = new Set(["edit", "write", "shell"]);
 
 // Mutable only while preparing a body; placements read measured items.
@@ -109,13 +109,26 @@ export class PreparedResult {
     ]);
   }
 
-  /** The first logical lines of a collapsed completed progress card's retained result. */
+  /** The notices of a collapsed progress card without a result preview. */
+  progressNotices(): string[] {
+    const p = this.card;
+
+    return renderTreeContinuation(p.result ? notices(p.result, p) : [], {
+      width: p.width,
+      indent: 2,
+      style: (text) => p.theme.fg("dim", text),
+      hasChildren: false
+    });
+  }
+
+  /** The first logical lines of a collapsed completed progress card's retained result, then its notices. */
   progressPreview(): string[] {
     const p = this.card;
     const theme = p.theme;
     const width = Math.max(1, p.width - 4);
     const result = p.result;
     if (!result) return [];
+    const annotations = notices(result, p);
     const parts = textParts(result, p, false);
     const retained: ResultTextPart[] = [];
     let remaining = COMPACT_OUTPUT_CHARACTERS;
@@ -157,7 +170,8 @@ export class PreparedResult {
     const first = allLines.findIndex(hasText);
     const end = allLines.reduce((end, line, index) => (hasText(line) ? index + 1 : end), 0);
     const lines = allLines.slice(Math.max(0, first), end);
-    if (!lines.length && !truncated) return tree([{ rows: [theme.fg("dim", "(no output)")] }], p);
+    if (!lines.length && !truncated)
+      return tree([{ rows: [theme.fg("dim", "(no output)"), ...annotations] }], p);
     // A hint must save space, so it never replaces a single line.
     const shown = lines.length > PREVIEW_LINES + 1 ? PREVIEW_LINES : lines.length;
     const hidden = lines.length - shown;
@@ -178,7 +192,8 @@ export class PreparedResult {
                     )
                   )
                 ]
-              : [])
+              : []),
+            ...annotations
           ]
         }
       ],
@@ -257,9 +272,10 @@ function nestedCallRows(call: NestedCall, p: Projection): string[] {
   const line = fields.join(" ");
   if (!p.expanded) return [truncateToWidth(line, width, "…")];
   const rows = wrapRows(line, width);
+  const color = call.status === "cancelled" ? "warning" : "error";
   if (call.error !== undefined && call.error !== "")
     for (const errorLine of displayText(call.error).split("\n"))
-      rows.push(...wrapRows(p.theme.fg("error", errorLine), width - 2).map((row) => `  ${row}`));
+      rows.push(...wrapRows(p.theme.fg(color, errorLine), width - 2).map((row) => `  ${row}`));
 
   return rows;
 }
@@ -350,8 +366,7 @@ function patchCandidates(result: BorrowedToolResult, p: Projection): PatchCandid
   const suppliedPatch = record(result.details).patch;
   const published =
     p.adapter.patch && !p.context.isError && typeof suppliedPatch === "string" ? suppliedPatch : "";
-  const change = p.call?.change;
-  const observed = change && change.change !== "unavailable" ? change.patch : "";
+  const observed = p.call?.change?.patch ?? "";
 
   return [
     ...(published ? [{ patch: published, observed: false }] : []),
@@ -396,8 +411,8 @@ function changeRows(
 
   if (candidates.length) rows.push(...applicationFailure(p));
   const change = p.call?.change;
-  if (!selected.patch && change?.change === "unavailable")
-    rows.push(...message(changeReasonText(change.reason), p, "warning"));
+  if (!selected.patch && change?.unavailable)
+    rows.push(...message(changeReasonText(change.unavailable), p, "warning"));
 
   return { rows, patch: selected.patch };
 }

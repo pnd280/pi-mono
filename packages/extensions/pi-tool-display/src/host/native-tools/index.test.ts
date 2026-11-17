@@ -11,6 +11,7 @@ import {
   type AgentSession,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
+import { isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { observeNativeTools } from "./index.ts";
@@ -66,7 +67,8 @@ it("shares wrappers through default-tool reloads and restores after the last sub
   const firstRead = observeNativeTools(readObserver);
   const secondRead = observeNativeTools(readObserver);
   let session: AgentSession | undefined;
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
+  vi.stubEnv("PI_CODING_AGENT_DIR", directory);
 
   try {
     await writeFile(join(directory, "file"), "first\n");
@@ -153,7 +155,8 @@ it("deactivates subscribers disposed by another callback during dispatch", async
     })
   });
   let session: AgentSession | undefined;
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
+  vi.stubEnv("PI_CODING_AGENT_DIR", directory);
 
   try {
     await writeFile(join(directory, "file"), "written\n");

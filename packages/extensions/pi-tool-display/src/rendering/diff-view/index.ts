@@ -15,7 +15,6 @@ import fastDiff from "fast-diff";
  * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on each width change, so this limits the synchronous fast-diff time of each render.
  */
 const INLINE_DIFF_WORK_LIMIT = 250_000;
-const INLINE_DIFF_LINE_LIMIT = 1000;
 /** Work per line character for fast-diff's cleanup passes, in middle-search units. */
 const CLEANUP_WORK_PER_CHARACTER = 12;
 
@@ -165,7 +164,6 @@ function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, ChangedSpans> {
     // Compare terminal-safe text so tabs and stripped controls cannot shift range offsets.
     const before = displayText(row.old.text),
       after = displayText(row.new.text);
-    if (Math.max(before.length, after.length) >= INLINE_DIFF_LINE_LIMIT) continue;
     const work = comparisonWork(before, after);
     if (work > remaining) continue;
     remaining -= work;
@@ -345,9 +343,8 @@ function selectPreviewRows(
   const selected = new Set<PatchRow>(),
     excerpts = new Set<PatchRow>();
   let remaining = options.compactRows;
-  const changed = rows.filter(isChangedRow);
 
-  for (const row of changed.length ? changed : rows.slice(0, 1)) {
+  for (const row of rows.filter(isChangedRow)) {
     // Count only changed display rows; context and structural rows are additional. Preserve complete wrapped pairs whenever they fit. Excerpt only as needed.
     const excerpt = height(row, false) > remaining;
     const size = height(row, excerpt);
@@ -515,23 +512,31 @@ export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): 
   };
 
   const heights = new Map<PatchLine, { width: number; height: number }>();
+  const excerptHeights = new Map<PatchLine, { width: number; height: number }>();
 
+  // Missing-newline markers are structural rows, not source changes. Charging them here could prevent even the first replacement from being selected.
   const lineHeight = (line: PatchLine | undefined, cellWidth: number, excerpt: boolean) => {
     if (!line) return 0;
     const contentWidth = Math.max(1, cellWidth - digits - 2);
-    // Missing-newline markers are structural rows, not source changes. Charging them here could prevent even the first replacement from being selected.
-    if (excerpt) return 1;
-    const cached = heights.get(line);
+    const cache = excerpt ? excerptHeights : heights;
+    const cached = cache.get(line);
     let height = cached?.width === contentWidth ? cached.height : undefined;
 
     if (height === undefined) {
-      const source = sourceText(line);
-      // Only a fit decision is needed. Do not fully wrap a huge line just to discover it exceeds the compact budget; expanded rendering stays exact.
-      height =
-        visibleWidth(source) > contentWidth * (options.compactRows + 4)
-          ? options.compactRows + 5
-          : Math.max(1, wrapRows(source, contentWidth).length);
-      heights.set(line, { width: contentWidth, height });
+      if (excerpt) {
+        const { source, styled } = presentation(line);
+        const content = excerptLine(source, styled, contentWidth, columns.get(line) ?? 0, theme);
+        height = Math.max(1, wrapRows(content, contentWidth).length);
+      } else {
+        const source = sourceText(line);
+        // Only a fit decision is needed. Do not fully wrap a huge line just to discover it exceeds the compact budget; expanded rendering stays exact.
+        height =
+          visibleWidth(source) > contentWidth * (options.compactRows + 4)
+            ? options.compactRows + 5
+            : Math.max(1, wrapRows(source, contentWidth).length);
+      }
+
+      cache.set(line, { width: contentWidth, height });
     }
 
     return height;
@@ -648,6 +653,8 @@ export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): 
   const preview = selectPreviewRows(first, rowHeight, options);
   ranges = changeRanges([...preview.rows]);
   columns = changeColumns([...preview.excerpts]);
+  // Selection measured excerpts before the changed ranges existed; style those lines again.
+  presentations.clear();
 
   return finish(
     renderHunk(0, preview),

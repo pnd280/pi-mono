@@ -35,9 +35,9 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   joinLifecycle(pi, { id: "pi-tool-display" }).onSessionShutdown(
     () => {
       // Stops observation before any participant awaits. Warnings wait for cleanup, which knows whether the terminal has stopped.
-      dispose?.();
       live = notify;
       notify = undefined;
+      dispose?.();
       collection.dispose();
     },
     // The session context stays valid until the handler ends, so flush warnings still show.
@@ -57,7 +57,7 @@ export default function toolDisplay(pi: ExtensionAPI): void {
     if (context.mode !== "tui") dispose?.();
     else if (!dispose)
       warnings.push(
-        "pi-tool-display: private TUI display lookup unavailable; keeping original rendering."
+        "pi-tool-display: private TUI host hooks unavailable; keeping original rendering."
       );
     warnings.splice(0).forEach(notify);
   });

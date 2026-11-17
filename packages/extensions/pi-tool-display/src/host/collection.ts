@@ -125,6 +125,14 @@ export class DisplayCollector {
           ? event.assistantMessageEvent.contentIndex
           : undefined;
       const message = this.messages.read(event.message, index, event.type !== "message_start");
+      // Pi labels the pending calls of an aborted retry with the attempt count, which it resets after this event.
+      const attempts = this.session.retryAttempt;
+      if (
+        message?.kind === "assistant" &&
+        message.interruption?.outcome === "cancelled" &&
+        attempts > 0
+      )
+        message.interruption.text = `Aborted after ${attempts} retry attempt${attempts > 1 ? "s" : ""}`;
       this.display.message(message, "live", event.type === "message_end");
     }
 
@@ -169,8 +177,8 @@ export class DisplayCollectors {
   /** Display policy only; native provenance and mutation I/O are shared with other observers. */
   private native;
   private mutations;
-  /** Failure kinds and adapter IDs already reported. */
-  private failures = new Set<string>();
+  /** Warnings already shown; each text shows once. */
+  private warned = new Set<string>();
   /** The session manager that this runtime's `session_start` announced. The append callback writes to this runtime's session, so collection rejects every other manager. */
   private manager: object | undefined;
 
@@ -210,6 +218,9 @@ export class DisplayCollectors {
   }
 
   warning(text: string): void {
+    if (this.warned.has(text)) return;
+    this.warned.add(text);
+
     try {
       this.warn(`pi-tool-display: ${text}`);
     } catch {
@@ -218,9 +229,6 @@ export class DisplayCollectors {
   }
 
   failure({ kind, adapter }: DisplayFailure): void {
-    const key = JSON.stringify([kind, adapter.id]);
-    if (this.failures.has(key)) return;
-    this.failures.add(key);
     this.warning(
       kind === "adapter"
         ? `display adapter ${adapter.id} failed; its calls render generically.`

@@ -25,19 +25,29 @@ const callRecordSchema = z.object({
   operation: z.literal(true).optional(),
   /** The observed operation failed, independently of Pi's result and call cancellation. */
   outcome: z.literal("failure").optional(),
-  /** Shell only, when success does not imply exit 0; null when the process had no exit code. */
+  /** Shell only: the observed exit code, omitted when Pi's success implies 0; null when the process had no exit code. */
   exitCode: z.int().nullable().optional(),
   timedOut: z.literal(true).optional(),
   /** edit and write: the change was applied although Pi reported failure. */
   applied: z.literal(true).optional(),
   change: z
-    .discriminatedUnion("kind", [
-      // Replay derives the patch from the content argument when this omits it.
-      z.object({ kind: z.literal("creation"), patch: patchSchema.optional() }),
-      z.object({ kind: z.literal("modification"), patch: patchSchema }),
+    .union([
+      // Replay derives a creation's patch from the content argument when the record omits it.
       z.object({
-        kind: z.literal("unavailable"),
-        reason: z.custom<ChangeUnavailableReason>(isChangeUnavailableReason)
+        kind: z.literal("creation"),
+        patch: patchSchema.optional(),
+        unavailable: z.undefined().optional()
+      }),
+      z.object({
+        kind: z.literal("modification"),
+        patch: patchSchema,
+        unavailable: z.undefined().optional()
+      }),
+      z.object({
+        kind: z.enum(["creation", "modification"]),
+        patch: z.undefined().optional(),
+        /** Why the change has no patch. */
+        unavailable: z.custom<ChangeUnavailableReason>(isChangeUnavailableReason)
       })
     ])
     .optional()

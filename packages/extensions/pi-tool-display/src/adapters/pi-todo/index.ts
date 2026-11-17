@@ -230,7 +230,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     if (parsed.action === "list" && (parsed.status !== undefined || parsed.includeDeleted)) {
       const matching = tasks.filter(
         (task) =>
-          (parsed.includeDeleted || task.status !== "deleted") &&
+          (parsed.includeDeleted || parsed.status === "deleted" || task.status !== "deleted") &&
           (parsed.status === undefined || task.status === parsed.status)
       ).length;
 

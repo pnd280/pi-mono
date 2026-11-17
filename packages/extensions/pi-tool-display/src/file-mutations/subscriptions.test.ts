@@ -10,6 +10,7 @@ import {
   SettingsManager,
   type AgentSession
 } from "@earendil-works/pi-coding-agent";
+import { isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { observeFileMutations, type FileMutation, type MutationObserver } from "./index.ts";
@@ -82,7 +83,8 @@ it.each([0, 1])(
     const firstRepeated = observeFileMutations(repeatedObserver);
     const secondRepeated = observeFileMutations(repeatedObserver);
     let session: AgentSession | undefined;
-    vi.stubEnv("PI_OFFLINE", "1");
+    isolateEnvironment(directory);
+    vi.stubEnv("PI_CODING_AGENT_DIR", directory);
 
     try {
       session = await createSession(directory, manager);
@@ -150,6 +152,7 @@ it("deactivates subscriptions disposed by another callback during dispatch", asy
   const manager = SessionManager.inMemory(directory);
   const eligible = (candidate: AgentSession) => candidate.sessionManager === manager;
   let retireMutation: (() => void) | undefined;
+  let retireStarted: (() => void) | undefined;
   const changes: FileMutation[] = [];
   const firstMutation = observeFileMutations({
     eligible,
@@ -160,6 +163,12 @@ it("deactivates subscriptions disposed by another callback during dispatch", asy
 
       return {
         maxSourceBytes: 1024,
+        // A sink captured for this call is retired before its own callbacks run.
+        started: () => {
+          const retire = retireStarted;
+          retireStarted = undefined;
+          retire?.();
+        },
         completed: (mutation) => {
           changes.push(mutation);
         }
@@ -168,22 +177,29 @@ it("deactivates subscriptions disposed by another callback during dispatch", asy
   });
   const retiredBegin = vi.fn(() => ({ maxSourceBytes: 1024, completed: vi.fn() }));
   const retiredMutation = observeFileMutations({ eligible, begin: retiredBegin });
+  const capturedSink = { maxSourceBytes: 1024, started: vi.fn(), completed: vi.fn() };
+  const capturedMutation = observeFileMutations({ eligible, begin: () => capturedSink });
   let session: AgentSession | undefined;
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
+  vi.stubEnv("PI_CODING_AGENT_DIR", directory);
 
   try {
     session = await createSession(directory, manager);
     retireMutation = () => retiredMutation.dispose();
+    retireStarted = () => capturedMutation.dispose();
     const write = session.agent.state.tools.find((tool) => tool.name === "write");
     if (!write) throw new Error("Missing native write");
     await write.execute("write", { path: "file", content: "written\n" });
     expect(retiredBegin.mock.calls.length).toBe(0);
+    expect(capturedSink.started).not.toHaveBeenCalled();
+    expect(capturedSink.completed).not.toHaveBeenCalled();
     expect(changes.map((mutation) => mutation.after)).toEqual([
       { status: "ready", text: "written\n" }
     ]);
   } finally {
     firstMutation.dispose();
     retiredMutation.dispose();
+    capturedMutation.dispose();
     session?.dispose();
     vi.unstubAllEnvs();
     await rm(directory, { recursive: true, force: true });
