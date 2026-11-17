@@ -10,8 +10,7 @@ export function createTodoTool(controller: TodoController) {
     name: "todo",
     exposure: "model-only",
     label: "Todos",
-    description:
-      "Manage a todo hierarchy. Hierarchy is organizational; statuses and dependencies are independent.",
+    description: "Manage a todo hierarchy.",
     promptGuidelines: [
       "Use todo for multi-step or user-listed work; skip trivial work and chat-only requests.",
       "With todo, mark work in_progress before starting and completed immediately after finishing."
