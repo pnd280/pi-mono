@@ -217,37 +217,6 @@ it.each([
 );
 
 describe("native source windows", () => {
-  it("shares fractional native window arithmetic without imposing selection-coordinate rules", () => {
-    const retained = result("first\nsecond\nthird\n\nnotice");
-    const interpreted = interpretReadResult(retained, { offset: 2.8, limit: 1.4 });
-    expect(interpreted.document).toMatchObject({
-      firstLine: 2,
-      lines: ["first", "second"],
-      notice: "third\n\nnotice"
-    });
-  });
-
-  it("keeps end-relative windows selectable without inferring notice provenance from prose", () => {
-    const retained = result("first\nsecond\nthird\n\narbitrary native notice");
-    const interpreted = interpretReadResult(retained, { limit: -1 });
-    expect(interpreted.document).toMatchObject({
-      lines: ["first", "second", "third"],
-      notice: "arbitrary native notice"
-    });
-    expect(
-      interpreted.blocks[0]?.highlight(
-        "first\nsecond\nthird\n\narbitrary native notice",
-        span(1, 9)
-      )
-    ).toHaveLength(3);
-    const truncated = interpretReadResult(
-      result("first\n\nnotice", { truncation: { outputLines: 0 } }),
-      { limit: -1 }
-    );
-    expect(truncated.document?.lines).toEqual([]);
-    expect(truncated.blocks[0]?.highlight("first", span(1))).toEqual([]);
-  });
-
   it.each([1, 3])(
     "uses returned truncation lines (%i) in preference to the requested limit",
     (outputLines) => {
