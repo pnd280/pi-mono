@@ -1,8 +1,6 @@
 import type {
   ExtensionAPI,
-  ExtensionContext,
   MessageEndEvent,
-  MessageStartEvent,
   MessageUpdateEvent,
   ToolExecutionStartEvent
 } from "@earendil-works/pi-coding-agent";
@@ -16,14 +14,13 @@ import { summaryEntryType, type RunSummary } from "./summary.ts";
 import { RunThroughput } from "./throughput.ts";
 import { AgentTimer } from "./timer.ts";
 
-export type SummaryContext = WorkingMessageContext & Pick<ExtensionContext, "isIdle">;
+export type SummaryContext = WorkingMessageContext;
 
 export type SummaryEvents = {
   session_start: unknown;
   session_shutdown: unknown;
   agent_start: unknown;
   agent_settled: unknown;
-  message_start: MessageStartEvent;
   message_update: MessageUpdateEvent;
   message_end: MessageEndEvent;
   tool_execution_start: Pick<ToolExecutionStartEvent, "type" | "toolName" | "toolCallId" | "args">;
@@ -97,7 +94,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     revoked = false;
     reset();
   });
-  // Run marks time the run from the first agent_start to agent_settled, so slow handlers that run before these ones in load order do not change the duration.
+  // Run marks time the run from the first agent_start to agent_settled. The earliest lifecycle participant takes each mark, so only handlers loaded before every participant can delay it.
   lifecycle.onAgentStart((_event, ctx, at) => {
     if (revoked) return;
     run ??= {
@@ -109,14 +106,11 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     };
     timer.start(at, ctx.mode === "tui");
   });
-  pi.on("message_start", (event) => {
-    if (event.message.role === "assistant") run?.throughput.start();
-  });
   pi.on("message_update", (event) => run?.throughput.update(event));
   pi.on("message_end", (event) => {
     const message = event.message;
     if (message.role !== "assistant" || !run) return;
-    run.throughput.end(message.usage.output);
+    run.throughput.end(message.usage.output, message.durationMs);
     // Assistant messages name the physical model a virtual selection routed to. Failed requests did not answer, and routing that fails or is aborted leaves the virtual model on the message.
     if (message.stopReason === "error" || message.api === virtualModelApi) return;
     const { provider, model: id, thinkingLevel } = message;
@@ -131,9 +125,8 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
   pi.on("tool_execution_start", (event) => {
     if (event.toolName === "bash") run?.bashCalls.add(event.toolCallId);
   });
-  lifecycle.onAgentSettled((_event, ctx, at) => {
-    // A preceding extension handler may already have started another run.
-    if (!ctx.isIdle() || !run) return;
+  lifecycle.onAgentSettled((_event, _ctx, at) => {
+    if (!run) return;
     // The wall-clock time of the settle mark.
     const finishedAt = Math.round(Date.now() - (performance.now() - at));
     const finished = run;

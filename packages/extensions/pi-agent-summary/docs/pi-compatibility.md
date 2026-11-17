@@ -42,13 +42,13 @@ Confirm the run metadata in [src/index.ts](../src/index.ts):
 
 Confirm these items against [src/throughput.ts](../src/throughput.ts):
 
-- [ ] Public assistant `message_start` and `message_end` events delimit response streams.
+- [ ] Assistant `message_end` messages carry `durationMs`, the time from the request start to the end of the response, including for cancelled and failed responses.
 - [ ] `message_update` carries `text_delta`, `thinking_delta`, and `toolcall_delta` events.
 - [ ] Empty text and tool-call deltas do not start the visible-output clock.
 - [ ] A completed `message.usage.output` includes reasoning exactly once.
 - [ ] Reported output usage from cancelled and failed responses contributes to throughput.
 - [ ] Tool and nested usage is excluded from throughput.
-- [ ] Throughput combines output tokens and streaming time across continuations.
+- [ ] Throughput combines output tokens and response times across continuations.
 - [ ] Summaries save throughput outside the TUI.
 
 ### Persistence and rendering
@@ -63,4 +63,4 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 ## Limitations
 
-Pi 1.4.0 to 1.5.2 has no public timing or throughput API. The client measures saved [output throughput](summary-fields.md#output-throughput), so it depends on when the provider's stream starts and on reported usage. Keep live estimates out of saved summaries. If Pi adds a public timing or throughput API, use it.
+Pi 1.5.2 measures each response in `AssistantMessage.durationMs`, and the saved [output throughput](summary-fields.md#output-throughput) sums it, skipping responses without one: Pi leaves it absent for legacy messages and for deferred results fetched later. The rate also depends on reported usage. Keep live estimates out of saved summaries.

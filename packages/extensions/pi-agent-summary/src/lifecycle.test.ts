@@ -5,6 +5,7 @@ import {
   type FauxResponseFactory
 } from "@earendil-works/pi-ai";
 import type { AgentSession, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
@@ -28,19 +29,22 @@ it("saves one summary per settled run, also when quit cancels it, and none for a
   let duringShutdown: (() => Promise<void>) | undefined;
   let settledRuns = 0;
   const fixture = await hostFixture([
-    agentSummary,
     (pi) => {
       helper = pi;
-      // Loaded after pi-agent-summary, like another extension whose cleanup awaits during shutdown.
-      pi.on("session_shutdown", async () => {
-        const action = duringShutdown;
-        duringShutdown = undefined;
-        await action?.();
-      });
+      // Loaded before pi-agent-summary, like another lifecycle participant whose cleanup awaits during shutdown.
+      joinLifecycle(pi, { id: "fixture" }).onSessionShutdown(
+        () => {},
+        async () => {
+          const action = duringShutdown;
+          duringShutdown = undefined;
+          await action?.();
+        }
+      );
       pi.on("agent_settled", () => {
         settledRuns++;
       });
-    }
+    },
+    agentSummary
   ]);
   const { session } = fixture;
   const releases: (() => void)[] = [];

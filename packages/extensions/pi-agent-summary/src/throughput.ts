@@ -3,19 +3,12 @@ import type { MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 import type { RunSummary } from "./summary.ts";
 
 export class RunThroughput {
-  private startedAt: number | undefined;
   /** Visible output only: providers hide or summarise thinking differently. */
   private visible: { at: number; chars: number } | undefined;
   private outputTokens = 0;
   private durationMs = 0;
 
-  start(): void {
-    this.startedAt = performance.now();
-    this.visible = undefined;
-  }
-
   update({ assistantMessageEvent: event }: MessageUpdateEvent): void {
-    if (this.startedAt === undefined) return;
     if (event.type !== "text_delta" && event.type !== "toolcall_delta") return;
     if (!event.delta) return;
     // The first visible delta starts the clock; count only characters received after it.
@@ -23,15 +16,12 @@ export class RunThroughput {
     else this.visible = { at: performance.now(), chars: 0 };
   }
 
-  end(outputTokens: number): void {
-    const startedAt = this.startedAt;
-    this.startedAt = undefined;
+  /** Add one response, timed by Pi; untimed responses are skipped. */
+  end(outputTokens: number, durationMs: number | undefined): void {
     this.visible = undefined;
-    if (startedAt === undefined) return;
-
-    const durationMs = performance.now() - startedAt;
     // Zero usage can mean the provider did not report it, especially on cancellation.
-    if (!Number.isSafeInteger(outputTokens) || outputTokens <= 0 || durationMs <= 0) return;
+    if (!Number.isSafeInteger(outputTokens) || outputTokens <= 0) return;
+    if (durationMs === undefined || durationMs <= 0) return;
     this.outputTokens += outputTokens;
     this.durationMs += durationMs;
   }

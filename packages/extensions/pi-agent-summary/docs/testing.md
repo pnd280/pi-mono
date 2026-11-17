@@ -10,10 +10,10 @@ The e2e [lifecycle scenario](../src/lifecycle.test.ts) drives retried runs, relo
 
 Following Pi's [lifecycle contracts](pi-compatibility.md#lifecycle), the scenario reloads only after a run settles, and its last step disposes the [shared host fixture](../../../libs/src/validation/interactive-host/README.md) during a run, as a quit does.
 
-The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events. It covers two cases that the host does not produce on demand. The first is a busy session at settlement, because Pi 1.5.2 defers prompts that handlers send during settlement. The second is a session reset or shutdown during an active run, because Pi 1.5.2 rejects a reload and settles a cancelled run first.
+The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events for a session reset or shutdown during an active run, which the host does not produce on demand, because Pi 1.5.2 rejects a reload and settles a cancelled run first. These two cases are an exception to the e2e layer: only they cover the session-reset clause of run isolation and the session-reset and shutdown clauses of stopping the timer.
 
 - **High, e2e:** Appending a summary with `appendEntry` leaves the model's session context unchanged.
-- **High, e2e:** A started run appends exactly one summary at an idle `agent_settled`.
+- **High, e2e:** A started run appends exactly one summary at `agent_settled`.
 - **High, e2e:** A run started after settlement or session reset begins without the previous run's accumulated summary data.
 - **High, e2e:** After shutdown, an `agent_start` before the next `session_start` starts no run and saves no summary.
 - **High, e2e:** Settlement, session reset, and shutdown stop the live timer's interval.

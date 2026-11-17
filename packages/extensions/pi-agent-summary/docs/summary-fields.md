@@ -14,9 +14,9 @@ The prefix lists each model that answered, with the thinking level Pi requested,
 
 ## Output throughput
 
-`tok/s` is the reported output tokens, including reasoning, divided by the time the assistant spent streaming. Tool execution and gaps between responses are excluded.
+`tok/s` is the reported output tokens, including reasoning, divided by the response time Pi measured, from each request to the end of its response. Tool execution and gaps between responses are excluded.
 
-It's an approximate rate seen from the client, not the provider's generation speed. Responses with no output usage or no streaming time are left out, and a run with nothing to measure shows no rate.
+It's an approximate rate seen from the client, not the provider's generation speed. Responses with no output usage or no measured response time are left out, and a run with nothing to measure shows no rate.
 
 While the agent works, the working message refreshes the rate once a second in whole tokens per second, such as `160/s`:
 
