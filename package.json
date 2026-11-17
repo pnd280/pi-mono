@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "format": "vp fmt .",
     "lint": "vp lint --format stylish .",
     "docs:check": "node .scripts/check-docs.ts",
     "fingerprints:check": "node .agents/skills/pi-update/scripts/fingerprints.ts",
