@@ -14,7 +14,7 @@ After a [version mismatch](../coordination/README.md#version-mismatch), each par
 
 ## Recommended ranks
 
-Leave gaps between ranks so that new participants can fit between existing ones. Each participant states its reasons in its own documentation.
+Leave gaps between ranks so that new participants can fit between existing ones. The pi-t3-skills reasons also place pi-skills.
 
 | Participant       | Registration                                                                                                   |
 | ----------------- | -------------------------------------------------------------------------------------------------------------- |

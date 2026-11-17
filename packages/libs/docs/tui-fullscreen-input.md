@@ -8,14 +8,14 @@ This guide is for maintainers who change the [priority input adapter](../src/tui
 
 The [compatibility checklist](pi-compatibility.md#tui) records the Pi version last checked. The private adapter depends on these internal renderer properties:
 
-- An ordered `inputListeners` Set that Pi fills only through `addInputListener`. Installation must not reorder the Set during traversal, which could deliver input twice.
+- An ordered `inputListeners` Set that Pi fills only through `addInputListener`.
 - `getFocusedComponent()` and `getVisibleOverlayFocusRestore()` to avoid intercepting dialog input, including during focus restoration. The adapter calls `getVisibleOverlayFocusRestore()` only when its source matches a [host fingerprint](../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints).
 - Property reads through the stable TUI proxy, whose descriptors may be replaced independently of the current renderer.
 
 ## Registration lifetime
 
-Registrations belong to host presentations, not the logical component retained across remounts. Cleanup must preserve unrelated listeners.
+Registrations belong to host presentations, not the logical component retained across remounts.
 
 ## Why the adapter is private
 
-Public terminal listeners append after Pi's fullscreen transcript listener and cannot preempt it. Replace this adapter when a public API provides equivalent focus-scoped priority.
+Public terminal listeners append after Pi's fullscreen transcript listener and cannot preempt it. The [compatibility limitations](pi-compatibility.md#limitations) say when a public API can replace the adapter.

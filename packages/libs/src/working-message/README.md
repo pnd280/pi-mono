@@ -56,7 +56,7 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 - Register each component once during the extension factory, before installing handlers that publish its text.
 - Pass the required numeric `ownerRank`; the [recommended owner ranks](command-owner.md#recommended-owner-ranks) list the ranks in use.
-- Use a globally unique, stable ID such as `extension-name.component-name`. The [component schema](coordinator.ts) sets the character and length limits. Invalid components, an `ownerRank` that is not a number, an ID that the extension already registered, and registration after shutdown throw.
+- Use a globally unique, stable ID such as `extension-name.component-name`. The [component schema](coordinator.ts) sets the character and length limits. A component whose ID is registered more than once is not shown. Invalid components, an `ownerRank` that is not a number, and registration after shutdown throw.
 - Register overrides in the extension factory too. Use them only for short, urgent text that must hide all contributions.
 - Keep handles runtime-local. Publish restored state in `session_start` and update it on state changes. Text stays when Pi emits `session_start` again in the same runtime.
 - For temporary inactivity, clear the text instead of disposing the handle, so the component stays visible in settings.
