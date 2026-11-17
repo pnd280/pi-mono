@@ -42,18 +42,17 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 
 The tool refuses a call that would exceed one of these limits and leaves the todos unchanged. Lengths count UTF-16 code units. Pi checks the submitted text against these limits, and the tool checks the stored text again after it cleans it for terminal display.
 
-| Limit                     | Value                                                                                                    |
-| ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Todos                     | 1,000, including deleted todos until `clear`                                                             |
-| Nesting depth             | 8 levels, counting the top level                                                                         |
-| `subject`                 | 200 code units                                                                                           |
-| `description`             | 4,000 code units                                                                                         |
-| `inProgressLabel`         | 200 code units                                                                                           |
-| `owner`                   | 200 code units                                                                                           |
-| Blocking todos            | 100 IDs in each of `blockedBy`, `addBlockedBy`, and `removeBlockedBy`, and 100 stored                    |
-| `metadata`                | 16 KiB of JSON and 8 levels of nesting, for the submitted object and, on `update`, for the merged result |
-| Saved todo state          | 512 KiB of JSON                                                                                          |
-| Result parameters, errors | 64 KiB of JSON on top of the saved todo state                                                            |
+| Limit             | Value                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| Todos             | 1,000, including deleted todos until `clear`                                                             |
+| Nesting depth     | 8 levels, counting the top level                                                                         |
+| `subject`         | 200 code units                                                                                           |
+| `description`     | 4,000 code units                                                                                         |
+| `inProgressLabel` | 200 code units                                                                                           |
+| `owner`           | 200 code units                                                                                           |
+| Blocking todos    | 100 IDs in each of `blockedBy`, `addBlockedBy`, and `removeBlockedBy`, and 100 stored                    |
+| `metadata`        | 16 KiB of JSON and 8 levels of nesting, for the submitted object and, on `update`, for the merged result |
+| Saved todo state  | 512 KiB of JSON                                                                                          |
 
 `list` returns at most 200 lines and 32,768 characters, including any omission notice. `get` returns the saved metadata as one line of JSON, shortened to 4,000 characters. In both cases the result details keep the full snapshot.
 
