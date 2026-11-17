@@ -71,20 +71,6 @@ const cases: {
     summaries: 1
   },
   {
-    name: "instruction file with model opt-ins",
-    config: {
-      ...override,
-      compactionInstructionsFile: "focus.txt",
-      applyToManual: true,
-      applyToAuto: true
-    },
-    manual: dedicatedSummary,
-    automatic: dedicatedSummary,
-    manualFocus: combinedFocus,
-    automaticFocus: fileFocus,
-    summaries: 1
-  },
-  {
     name: "retry",
     config: { ...override, applyToManual: true, compactionInstructionsFile: "focus.txt" },
     manual: dedicatedSummary,

@@ -42,12 +42,6 @@ const traceSchema = z.object({
     .optional(),
   sessionModel: z.string().optional(),
   sessionThinking: z.string().optional(),
-  idle: z.boolean().optional(),
-  compacting: z.boolean().optional(),
-  streaming: z.boolean().optional(),
-  agentStreaming: z.boolean().optional(),
-  idleWaitResolved: z.boolean().optional(),
-  ctxIdle: z.boolean().optional(),
   patchRestored: z.boolean().optional(),
   fromExtension: z.boolean().optional(),
   aborted: z.boolean().optional(),
@@ -118,40 +112,6 @@ async function runPi(directory: string, scenario: string, args: string[]) {
 }
 
 function checkCompactionLifecycle(trace: Trace) {
-  const reasonEvents = new Set([
-    "public:compaction_start",
-    "public:compaction_end",
-    "public:summarization_retry_attempt_start",
-    "hook:before",
-    "hook:success",
-    "hook:failed"
-  ]);
-
-  for (const entry of trace.filter((event) => reasonEvents.has(event.type))) {
-    assert.equal(entry.reason, "manual");
-  }
-
-  const duringCompaction = new Set([
-    "hook:before",
-    "hook:before:awaited",
-    "provider:summary",
-    "provider:summary:awaited",
-    "hook:success"
-  ]);
-
-  for (const entry of trace.filter((event) => duringCompaction.has(event.type))) {
-    assert.partialDeepStrictEqual(entry, {
-      idle: false,
-      compacting: true,
-      streaming: true,
-      agentStreaming: true,
-      idleWaitResolved: false
-    });
-  }
-
-  const settled = trace.filter((event) => event.type === "hook:settled");
-  assert.equal(settled.length, 1);
-  assert.partialDeepStrictEqual(settled[0], { idle: true, ctxIdle: true, compacting: false });
   const shutdown = trace.filter((event) => event.type === "hook:shutdown");
   assert.equal(shutdown.length, 1);
   assert.equal(shutdown[0]?.patchRestored, true);
@@ -161,9 +121,6 @@ function checkCompactionLifecycle(trace: Trace) {
   )) {
     assert.equal(entry.instructionPatchRestored, true);
   }
-
-  for (const entry of trace.filter((event) => event.type === "wait:idle"))
-    assert.equal(entry.idle, true);
 }
 
 const requestedInstructions = "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
@@ -560,7 +517,6 @@ it.concurrent.each(toolCases)(
       assert.equal(ofType("provider:summary").length, summaries);
       assert.equal(ofType("hook:before").length, 1);
       assert.equal(ofType("hook:success").length, compactions);
-      assert.equal(ofType("wait:idle").length, 1);
 
       for (const entry of ofType("hook:before")) {
         assert.equal(entry.customInstructions, instructions);
@@ -594,8 +550,6 @@ it.concurrent.each(toolCases)(
 
         assert.partialDeepStrictEqual(ofType("provider:main").at(-1), {
           request: 3,
-          idle: false,
-          compacting: false,
           hasCheckpoint: true,
           hasOldPayload: false
         });

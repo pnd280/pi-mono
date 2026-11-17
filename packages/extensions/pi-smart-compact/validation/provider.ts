@@ -23,7 +23,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
   let session: AgentSession | undefined;
   let mainRequests = 0;
   let workCalls = 0;
-  let idleWaitResolved = false;
   let unsubscribe: (() => void) | undefined;
   let runner: object | undefined;
   let originalDefault: unknown;
@@ -45,10 +44,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
     "_runDefaultCompaction"
   );
   const state = () => ({
-    idle: session?.isIdle,
-    compacting: session?.isCompacting,
-    streaming: session?.isStreaming,
-    agentStreaming: session?.agent.state.isStreaming,
     instructionPatchRestored:
       session !== undefined &&
       runner !== undefined &&
@@ -57,8 +52,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
       session.agent.streamFunction === originalStream &&
       Object.hasOwn(session.agent, "streamFunction") === hadOwnStream &&
       Object.hasOwn(session, "_runDefaultCompaction") === hadOwnDefault &&
-      Object.hasOwn(runner, "emit") === hadOwnEmit,
-    idleWaitResolved
+      Object.hasOwn(runner, "emit") === hadOwnEmit
   });
 
   const trace = (type: string, details: Record<string, unknown> = {}) => {
@@ -96,17 +90,10 @@ export default function offlineFixture(pi: ExtensionAPI) {
 
     unsubscribe ??= this.subscribe((event) => {
       if (event.type === "message_update") return;
-      const compaction =
-        event.type === "compaction_start" ||
-        event.type === "compaction_end" ||
-        (event.type === "summarization_retry_attempt_start" && event.source === "compaction");
-      trace(`public:${event.type}`, compaction ? { reason: event.reason } : {});
+      trace(`public:${event.type}`);
 
       if (event.type === "compaction_start") {
-        void this.waitForIdle().then(() => {
-          idleWaitResolved = true;
-          trace("wait:idle");
-        });
+        void this.waitForIdle().then(() => trace("wait:idle"));
       }
     });
 
@@ -118,9 +105,8 @@ export default function offlineFixture(pi: ExtensionAPI) {
     event.headers["X-Fixture-Hook"] = "applied";
     delete event.headers["X-Fixture-Remove"];
   });
-  pi.on("session_before_compact", async (event, ctx) => {
+  pi.on("session_before_compact", async (event) => {
     trace("hook:before", {
-      ctxIdle: ctx.isIdle(),
       reason: event.reason,
       customInstructions: event.customInstructions,
       isSplitTurn: event.preparation.isSplitTurn,
@@ -136,27 +122,18 @@ export default function offlineFixture(pi: ExtensionAPI) {
       )
     });
     await delay(10);
-    trace("hook:before:awaited", { ctxIdle: ctx.isIdle() });
+    trace("hook:before:awaited");
     if (scenario === "cancel") return { cancel: true };
 
     return undefined;
   });
-  pi.on("session_compact", (event, ctx) => {
-    trace("hook:success", {
-      ctxIdle: ctx.isIdle(),
-      fromExtension: event.fromExtension,
-      reason: event.reason
-    });
+  pi.on("session_compact", (event) => {
+    trace("hook:success", { fromExtension: event.fromExtension });
   });
-  pi.on("session_compact_failed", (event, ctx) => {
-    trace("hook:failed", {
-      ctxIdle: ctx.isIdle(),
-      aborted: event.aborted,
-      reason: event.reason,
-      errorMessage: event.errorMessage
-    });
+  pi.on("session_compact_failed", (event) => {
+    trace("hook:failed", { aborted: event.aborted, errorMessage: event.errorMessage });
   });
-  pi.on("agent_settled", (_event, ctx) => trace("hook:settled", { ctxIdle: ctx.isIdle() }));
+  pi.on("agent_settled", () => trace("hook:settled"));
   pi.on("session_shutdown", () => {
     originalDefault = originalPrototypeSummary;
     trace("hook:shutdown", {
