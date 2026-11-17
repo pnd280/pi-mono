@@ -18,14 +18,19 @@ const { version: piVersion } = z
 function markdownFiles(): string[] {
   const listed = execFileSync(
     "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "*.md"],
+    ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "*.md"],
     { cwd: root, encoding: "utf8" }
   );
 
   return listed
-    .split("\n")
+    .split("\0")
     .filter((file) => file !== "" && existsSync(join(root, file)))
     .map((file) => join(root, file));
+}
+
+// The 1-based line of a match index.
+function lineAt(text: string, index: number): number {
+  return text.slice(0, index).split("\n").length;
 }
 
 // Git for Windows checks out CRLF by default; the line-anchored patterns below expect LF.
@@ -203,12 +208,17 @@ function checkPrototypeNames(file: string, text: string, name: string): string[]
   const problems: string[] = [];
   let files: string[] | undefined;
 
-  for (const [reference, className = "", member] of withoutFences(text).matchAll(prototypeName)) {
+  const scanned = withoutFences(text);
+
+  for (const { 0: reference, 1: className = "", 2: member, index } of scanned.matchAll(
+    prototypeName
+  )) {
     files ??= declarationFiles(file);
     const members = findClass(files, className);
+    const at = `${name}:${lineAt(scanned, index)}`;
 
-    if (!members) problems.push(`${name}: missing class for ${reference}`);
-    else if (member && !members.has(member)) problems.push(`${name}: missing member ${reference}`);
+    if (!members) problems.push(`${at}: missing class for ${reference}`);
+    else if (member && !members.has(member)) problems.push(`${at}: missing member ${reference}`);
   }
 
   return problems;
@@ -349,7 +359,7 @@ function checkCompatibilityDoc(lines: string[], name: string): string[] {
   return problems;
 }
 
-// docs/documentation.md#extension-readmes: a jsonc block must be valid JSON once its comments are removed, because Pi reads settings.json as plain JSON. The READMEs put comments on lines of their own.
+// docs/documentation.md#extension-readmes: a jsonc block must be valid JSON once its comment lines are removed, because Pi reads settings.json as plain JSON. Only whole-line `//` comments are removed.
 function checkJsonc(text: string, name: string): string[] {
   return Array.from(text.matchAll(/^```jsonc\n([\s\S]*?)^```$/gm), ({ 1: body = "", index }) => {
     try {
@@ -357,9 +367,7 @@ function checkJsonc(text: string, name: string): string[] {
 
       return "";
     } catch (error) {
-      const line = text.slice(0, index).split("\n").length;
-
-      return `${name}:${line}: jsonc block is not valid JSON after removing comments: ${error instanceof Error ? error.message : String(error)}`;
+      return `${name}:${lineAt(text, index)}: jsonc block is not valid JSON after removing whole-line // comments; put each comment on a line of its own: ${error instanceof Error ? error.message : String(error)}`;
     }
   }).filter(Boolean);
 }
@@ -391,9 +399,13 @@ function checkFile(file: string): string[] {
   const name = relative(root, file);
   const problems = [...checkPrototypeNames(file, text, name), ...checkConventions(text, name)];
 
-  for (const [, target = ""] of prose(text).matchAll(
+  const linkText = prose(text);
+
+  for (const { 1: target = "", index } of linkText.matchAll(
     /\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g
   )) {
+    const at = `${name}:${lineAt(linkText, index)}`;
+
     // URLs point outside the workspace.
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
 
@@ -401,7 +413,7 @@ function checkFile(file: string): string[] {
     const destination = path ? resolve(dirname(file), decodeURIComponent(path)) : file;
 
     if (!exists(destination)) {
-      problems.push(`${name}: missing link target ${target}`);
+      problems.push(`${at}: missing link target ${target}`);
       continue;
     }
 
@@ -410,13 +422,15 @@ function checkFile(file: string): string[] {
       destination.endsWith(".md") &&
       !anchors(destination).has(decodeURIComponent(anchor).toLowerCase())
     ) {
-      problems.push(`${name}: missing anchor ${target}`);
+      problems.push(`${at}: missing anchor ${target}`);
     }
   }
 
-  for (const [, version] of text.matchAll(/Last verified against Pi (\d+\.\d+\.\d+)/g)) {
+  for (const { 1: version, index } of text.matchAll(/Last verified against Pi (\d+\.\d+\.\d+)/g)) {
     if (version !== piVersion) {
-      problems.push(`${name}: last verified against Pi ${version}, installed Pi is ${piVersion}`);
+      problems.push(
+        `${name}:${lineAt(text, index)}: last verified against Pi ${version}, installed Pi is ${piVersion}; verify with .agents/skills/pi-update/SKILL.md before changing the line`
+      );
     }
   }
 
@@ -436,7 +450,7 @@ function checkExtensionCount(): string[] {
     return Array.from(text.matchAll(/\b(\d+) extensions\b/g), ({ 1: found, index }) =>
       Number(found) === count
         ? ""
-        : `${file}:${text.slice(0, index).split("\n").length}: "${found} extensions"; packages/extensions/ has ${count}. After you fix hero.html, make the PNGs again with the command in its comment.`
+        : `${file}:${lineAt(text, index)}: "${found} extensions"; packages/extensions/ has ${count}. After you fix hero.html, make the PNGs again with the command in its comment.`
     ).filter(Boolean);
   });
 }
