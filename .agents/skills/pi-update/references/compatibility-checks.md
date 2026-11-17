@@ -16,19 +16,14 @@ Check registry streaming, normalisation, resolved options, authentication, heade
 
 - Check hooks and return types, fail-closed `user_bash`, prompt-mutating `before_agent_start`, reload, cleanup, interruption, and reconstruction. Confirm changed events are used before migrating their consumers.
 - Review private TUI construction, layout, notice insertion, native rows, and patch ownership and restoration. Check both API and executable contracts where used; passing API tests do not prove executable private hooks.
-- Before you change a fingerprint, follow [host fingerprints](#host-fingerprints).
 
 ## Host fingerprints
 
-Seven owner files record reviewed SHA-256 hashes of private Pi method source. Each owner lists two hashes per method: one for the unbundled API build (`dist/`), and one for the minified installed CLI (`dist/bundle/cli.js`).
+Owner files record reviewed SHA-256 hashes of private Pi method source. Each owner lists two hashes per method: one for the unbundled API build (`dist/`), and one for the minified installed CLI that `dist/bundle/cli.js` starts, whose code is in `dist/bundle/chunks/`.
 
 Gate private methods where the native implementation can be checked without rejecting supported wrapper composition. Include called-only private dependencies: smart compaction checks immediate message appends, and tool display checks startup expansion and status-row reuse. Public component and session methods retain their declared contracts and do not need a fingerprint merely because an extension calls them.
 
-Tool display's host integration hooks and editor widgets' host and renderer hooks use `unwrapHook` from [shared owned hooks](../../../../packages/libs/src/owned-hooks/README.md) before checking compatibility. Its weak, process-global `Symbol.for` registry follows recorded predecessors across module reloads and after restoration. Each of these two owners exports `inspectedPiVersion` and compares it with Pi's public `VERSION`.
-
-The deepest value returned by `unwrapHook` must be callable. A reviewed source hash accepts that value on any version. An unknown hash is accepted only when public `VERSION` equals the owner's pin. Otherwise, the affected feature stays disabled and reports its existing warning.
-
-An unrecorded callable can be an unknown wrapper or a changed native method. On the verified version, both are accepted; version evidence cannot distinguish them. On an unverified version, an unknown wrapper disables the gated feature until the contracts and version pin are reviewed.
+Tool display's host integration hooks and editor widgets' host and renderer hooks check compatibility with `hookCompatible` from [hook provenance](../../../../packages/libs/src/owned-hooks/provenance.md#host-fingerprints), against the `inspectedPiVersion` that each of these two owners exports. When the check fails, the affected feature stays disabled and reports its existing warning until the contracts and version pin are reviewed.
 
 Tool-display row and assistant source checks stay strict. Mode hooks also require reviewed source hashes; the version pin gives no allowance. Their failure disables only mode cycling.
 
@@ -42,19 +37,17 @@ Tool-display row and assistant source checks stay strict. Mode hooks also requir
 | [`pi-skills/src/editor.ts`](../../../../packages/extensions/pi-skills/src/editor.ts)                                                               | `Editor` (`@earendil-works/pi-tui`, `components/editor.js`)                           |
 | [`libs/src/tui/responsive-custom-ui/fullscreen-input.ts`](../../../../packages/libs/src/tui/responsive-custom-ui/fullscreen-input.ts)               | `TuiBase` (`@earendil-works/pi-tui`, `tui.js`)                                        |
 
-Run `vpr fingerprints:check` from the workspace root; `vpr check` and CI also run it. It hashes both builds of the installed Pi and marks each hash that its owner file does not list (`CHANGED`). It also marks each quoted 64-hex string in non-test TypeScript under `packages/` that the methods registered for that file do not produce (`UNCLAIMED`), and each `owners` path that no longer exists (`MISSING`); an unavailable imported pin owner fails module loading before that report. It also fails if either tool-display or editor-widgets `inspectedPiVersion` differs from the public `VERSION` reported by either installed build. It does not read the table above.
+Run `vpr fingerprints:check` from the workspace root; `vpr check` and CI also run it. It hashes the methods in both builds of the installed Pi and checks them, and the version pins, against the owner files.
 
-The CLI probe runs `--help` with only the fingerprint extension enabled. It uses a temporary home and working directory, excludes inherited provider credentials, and sends no model prompt.
+A failed compatibility gate must disable only the affected feature without breaking Pi startup or leaving partial hooks for that feature installed. Check replacement instances before attaching their private hooks too.
 
-Hash `Function.prototype.toString.call(method)` so a method's own `toString` override cannot hide a changed implementation. A failed compatibility gate must disable only the affected feature without breaking Pi startup or leaving partial hooks for that feature installed. Check replacement instances before attaching their private hooks too.
+When you add, rename, or remove a fingerprinted hook, update `owners` in the script, and the table above, which the check does not read, when an owner file or hooked Pi source changes. A changed hash means the method body changed: diff the old and new source of that method, verify the hook still holds, and only then replace the hash.
 
-When you add, rename, or remove a fingerprinted hook, update `owners` in the script, and the table above when an owner file or hooked Pi source changes. A changed hash means the method body changed: diff the old and new source of that method, verify the hook still holds, and only then replace the hash.
-
-To get both sources, [fetch the previous release](#fetch-a-release), then diff the hooked file from the table above, such as `diff -u .tmp/pi-releases/<previous>/node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js`. A changed CLI hash with no API source change comes from bundling; diff that method in both releases' `dist/bundle/cli.js` as above. Review the affected contracts before changing a version pin. `pi-smart-compact` also pins `VERSION`.
+To get both sources, [fetch the previous release](#fetch-a-release), then diff the hooked file from the table above, such as `diff -u .tmp/pi-releases/<previous>/node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js`. A changed CLI hash with no API source change comes from bundling; diff that method in both releases' `dist/bundle/chunks/`. Chunk file names can differ between releases, so find the chunk in each release from the workspace root with `rg -l <method> node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks` and `rg -l <method> .tmp/pi-releases/<previous>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks`. Review the affected contracts before changing a version pin. `pi-smart-compact` also pins `VERSION`.
 
 ## Fetch a release
 
-This installs `pi-coding-agent` of one release with all its dependencies, without install scripts. The Pi family lands in `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`; for 1.5.2 that is eight packages, including `pi-schema` and `pi-telemetry` through `pi-ai`, and about 150 MB in total.
+This installs `pi-coding-agent` of one release with all its dependencies, without install scripts. The Pi family lands in `.tmp/pi-releases/<version>/node_modules/@earendil-works/<package>/`.
 
 ```sh
 npm install --prefix .tmp/pi-releases/<version> --ignore-scripts --no-audit --no-fund --no-package-lock @earendil-works/pi-coding-agent@<version>
