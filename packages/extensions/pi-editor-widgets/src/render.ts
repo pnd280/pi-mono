@@ -209,7 +209,6 @@ export function renderRows(
   }: { sources: ReadonlyMap<string, Component>; width: number; separator: string; align?: Align }
 ): Rendered {
   const result: Rendered = { lines: [], cells: [] };
-  if (width < 1) return result;
 
   for (const row of rows) {
     for (const items of wrap(measure(row, sources, width), width)) {

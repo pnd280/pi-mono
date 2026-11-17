@@ -176,8 +176,8 @@ export class WidgetDrafts {
     if (view.kind !== "picker") return;
     const layout = this.layout();
     const row = layout[view.region][view.row];
-    if (!row || (id !== "separator" && row.includes(id))) return;
-    if (isWidget(id) && !layout.hidden.includes(id) && !placedIds(layout).includes(id)) return;
+    // open() rejects choices already in the row, and navigate() rejects stale input.
+    if (!row) return;
     row.push(id);
     layout.hidden = layout.hidden.filter((hidden) => hidden !== id);
     this.drafts[this.scope].value = layout;

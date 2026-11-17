@@ -150,7 +150,7 @@ export class WidgetCoordinator {
 
   /** Unclipped region height including spacing, without measuring the editor it is sized against. */
   regionHeight(width: number): number {
-    if (!this.active || width < 1) return 0;
+    if (!this.active) return 0;
     const { rendered } = this.measure(width);
 
     return (
@@ -225,8 +225,7 @@ export class WidgetCoordinator {
     ) {
       const widget = id === "builtin:context" ? "context" : "tokens";
       component = new MouseRegion(component, (event) => {
-        if (!this.active || this.host.renderer.mode !== "fullscreen" || event.button !== "left")
-          return undefined;
+        if (!this.active || event.button !== "left") return undefined;
         // Claim the press so Pi delivers a click instead of starting text selection.
         if (event.type === "press") return { handled: true, render: false };
         if (event.type !== "click") return undefined;
@@ -298,12 +297,6 @@ export class WidgetCoordinator {
   }
 
   private render(width: number): Record<Region, Rendered> {
-    if (width < 1)
-      return {
-        aboveEditor: { lines: [], cells: [] },
-        belowEditor: { lines: [], cells: [] },
-        footer: { lines: [], cells: [] }
-      };
     const height = this.host.ui.terminal.rows;
     if (this.cache?.width === width && this.cache.height === height) return this.cache.rendered;
     const measured = this.measure(width);

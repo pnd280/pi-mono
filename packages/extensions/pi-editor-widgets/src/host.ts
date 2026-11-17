@@ -142,7 +142,7 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
 
   try {
     hooks.replace(target, "setExtensionStatus", function (this: unknown, id, text) {
-      if (active && id === key && text === undefined) {
+      if (active && id === key) {
         found = this;
 
         return;
