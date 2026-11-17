@@ -12,7 +12,7 @@ Compare equivalent concepts while preserving justified contextual differences. A
 
 ## Workflow
 
-Follow the five stages in order, completing each stage's evidence before classifying findings.
+Complete stages 1 and 2 before classifying findings in stage 3. Run stage 4 only when implementation is requested, then report in stage 5.
 
 ### 1. Map comparable surfaces
 
@@ -20,7 +20,7 @@ Inspect staged, unstaged, and untracked work to preserve unrelated changes. Trea
 
 Establish documented contracts and conventions. Trace rendering, text, theme, input, and state through shared components and host integration. For host-dependent behaviour, inspect installed versions, declarations, and implementation; running and workspace versions may differ.
 
-**Complete when:** every in-scope journey has its owner, contract, and comparison surfaces identified, with material exclusions recorded.
+Complete when: every in-scope journey has its owner, contract, and comparison surfaces identified, with material exclusions recorded.
 
 ### 2. Verify comparisons
 
@@ -50,31 +50,33 @@ When collaboration tools exist, delegate independent areas with a shared compari
 
 Keep probes non-destructive with disposable state. Never use private prompts, live clipboards, real credentials, or paid requests merely for examples. Prefer focused evidence to new harnesses or broad suites.
 
-**Complete when:** all applicable category checks are accounted for, and each candidate has paired evidence and reproduction conditions or an explicit evidence gap.
+Complete when: all applicable category checks are accounted for, and each candidate has paired evidence and reproduction conditions or an explicit evidence gap.
 
 ### 3. Classify findings
 
-- **Defect:** misstates state or effects, violates contracts, or makes actions unusable or misleading.
-- **Consistency improvement:** comparable concepts differ without user benefit; standardisation would improve comprehension or predictability.
-- **Intentional variation:** distinct roles, constraints, or documented behaviour justify differences. Retain significant examples.
-- **Unresolved:** missing evidence prevents confirming the candidate.
+| Classification          | Criterion                                                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Defect                  | Misstates state or effects, violates contracts, or makes actions unusable or misleading.                        |
+| Consistency improvement | Comparable concepts differ without user benefit; standardisation would improve comprehension or predictability. |
+| Intentional variation   | Distinct roles, constraints, or documented behaviour justify differences. Retain significant examples.          |
+| Unresolved              | Missing evidence prevents confirming the candidate.                                                             |
 
 Prioritise misrepresented state or effects, hidden recovery, and unusable controls over cosmetics. Classification and confidence are separate: source-confirmed differences may still need visual checks.
 
 Record each actionable finding's title, priority, category, classification, `path:line` references, surfaces, conditions, and exact paired examples. Explain the user consequence and proposed rule; label undocumented rules as recommendations. Include evidence, confidence, uncertainty, and performed versus proposed checks, distinguishing source, headless, and terminal evidence. Keep one cause per finding and group by category where useful.
 
-**Complete when:** every candidate is classified with supporting evidence or missing evidence named. For audit-only work, proceed to reporting.
+Complete when: every candidate is classified with supporting evidence or missing evidence named. For audit-only work, proceed to reporting.
 
 ### 4. Apply requested changes
 
 Existing implementation requests need no repeat approval. Preserve raw data contracts.
 
-**Complete when:** all authorised changes and their consumers are updated. Report blocked changes as incomplete.
+Complete when: all authorised changes and their consumers are updated. Report blocked changes as incomplete.
 
 ### 5. Verify and report
 
 Follow [required verification](../../../../docs/agents/verification.md).
 
-Report findings or changes, scope, priorities, important keep-as-is cases, exact checks and results, and remaining uncertainty. Distinguish verified outcomes from proposed checks and unfinished work.
+Report findings or changes, scope, priorities, important keep-as-is cases, and remaining uncertainty. Distinguish verified outcomes from proposed checks and unfinished work.
 
-**Complete when:** the report accounts for the full scope and all evidence limits; implementation is complete only when required checks pass.
+Complete when: the report accounts for the full scope and all evidence limits; implementation is complete only when required checks pass.

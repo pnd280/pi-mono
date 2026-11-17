@@ -2,7 +2,7 @@
 
 [Return to the reusability audit](../SKILL.md).
 
-Apply these domain checks after the [public API checks](public-apis.md). Resolve Pi from each consumer: CLI and workspace versions can differ. Inspect the matching installed documentation and implementation without modifying installed or upstream Pi.
+Apply these domain checks after the [public API checks](public-apis.md). Inspect the matching installed documentation and implementation.
 
 ## Helpers and types
 
@@ -22,4 +22,4 @@ Apply these domain checks after the [public API checks](public-apis.md). Resolve
 - Distinguish standalone rendering from layout-engine participation. Check viewport clipping, controlled state, asynchronous preparation, mouse coordinates, image ownership, invalidation, disposal, and restoration.
 - Preserve bounded-output and diff policies, including head-and-tail retention, terminal sanitisation, UTF-8 and grapheme safety, cooperative layout, and cancellation during expensive work.
 
-Record the affected Pi version, exact public API, and contract differences for each finding. Keep required consumer adapters or policy even when other behaviour can delegate to Pi.
+Keep required consumer adapters or policy even when other behaviour can delegate to Pi.

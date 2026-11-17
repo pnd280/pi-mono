@@ -14,13 +14,15 @@ Formatting, import order, and lint rules belong to Vite+. Types, errors, and asy
 
 ## Scope
 
-- **Naming:** files, symbols, predicates, verbs, event names, units, and domain terms.
-- **Module structure:** package versus relative imports, entry points, re-exports, and the split between registration and core behaviour.
-- **Control flow:** function forms, guard clauses, dispatch, parameters, and loop versus collection-method choices.
+| Area             | Conventions                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Naming           | Files, symbols, predicates, verbs, event names, units, and domain terms.                                          |
+| Module structure | Package versus relative imports, entry points, re-exports, and the split between registration and core behaviour. |
+| Control flow     | Function forms, guard clauses, dispatch, parameters, and loop versus collection-method choices.                   |
 
 ## Workflow
 
-1. **Establish conventions.** In this order: user instructions and documented rules, configured tooling, then maintained code with the same role. Record each convention with its rule and `path:line` evidence. Occurrence count alone is not evidence; treat mixed evidence as a decision.
-2. **Classify candidates** as refactor, keep (a real constraint justifies the difference), or decision needed (contract, serialized name, or behaviour change). Trace each rename through exports, consumers, mocks, and examples.
-3. **Refactor** one convention at a time across all occurrences. Skip changes with no maintenance benefit.
-4. **Verify and report** under [required verification](../../../../docs/agents/verification.md): conventions applied, keep decisions, open decisions, and the exact checks and results.
+1. Establish conventions, in this order: user instructions and documented rules, configured tooling, then maintained code with the same role. Record each convention with its rule and `path:line` evidence. Occurrence count alone is not evidence; treat mixed evidence as a decision.
+2. Classify candidates as refactor, keep (a real constraint justifies the difference), or decision needed (contract, serialised name, or behaviour change). Trace each rename through exports, consumers, mocks, and examples.
+3. Refactor one convention at a time across all occurrences. Skip changes with no maintenance benefit.
+4. Verify and report under [required verification](../../../../docs/agents/verification.md): conventions applied, keep decisions, and open decisions.

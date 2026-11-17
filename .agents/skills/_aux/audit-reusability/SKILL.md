@@ -28,7 +28,7 @@ Read each applicable reference, including overlapping categories:
 
 Delegate independent areas when collaboration tools exist, using the same contract baseline and evidence requirements.
 
-**Complete when:** every in-scope area has an owner for review, applicable categories, and identified contracts; material exclusions are recorded.
+Complete when: every in-scope area has an owner for review, applicable categories, and identified contracts; material exclusions are recorded.
 
 ### 2. Verify candidates
 
@@ -38,21 +38,23 @@ Apply the category checks to compare behaviour, types, ownership, lifecycle, and
 
 Resolve material uncertainty with focused offline probes using disposable state and no inherited real credentials. Exercise relevant failure and cancellation paths. Record whether evidence comes from source inspection or execution; use a new harness or broader dependency suite only when focused evidence cannot settle the question.
 
-**Complete when:** every candidate has a consumer map, contract comparison, replacement or extraction location, and evidence, or an explicit missing-evidence entry.
+Complete when: every candidate has a consumer map, contract comparison, replacement or extraction location, and evidence, or an explicit missing-evidence entry.
 
 ### 3. Classify findings
 
-- **Direct substitution:** a verified API preserves contracts and removes duplication without compensating complexity.
-- **Shared extraction:** actual consumers need a common contract unavailable elsewhere; extraction preserves policy and ownership boundaries.
-- **Conditional refactor:** adoption requires behaviour, policy, integration, or dependency changes; name the required decision.
-- **Keep local:** code already composes shared APIs, adds required behaviour, or lacks a useful replacement or common contract.
-- **Unresolved:** evidence is insufficient to confirm the candidate.
+| Classification       | Criterion                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Direct substitution  | A verified API preserves contracts and removes duplication without compensating complexity.                          |
+| Shared extraction    | Actual consumers need a common contract unavailable elsewhere; extraction preserves policy and ownership boundaries. |
+| Conditional refactor | Adoption requires behaviour, policy, integration, or dependency changes; name the required decision.                 |
+| Keep local           | Code already composes shared APIs, adds required behaviour, or lacks a useful replacement or common contract.        |
+| Unresolved           | Evidence is insufficient to confirm the candidate.                                                                   |
 
 Prioritise direct substitutions. Extraction and conditional-refactor benefits must justify migration, coupling, and adaptation costs; syntax similarity alone does not establish a shared contract.
 
 Record one finding per cause with title, priority, category, classification, local/replacement `path:line` locations, symbols and imports, consumers, behavioural differences, maintenance benefit, and required decisions. For extraction, include sources, proposed contract, and destination. Separate performed checks from proposed checks and state confidence and uncertainty.
 
-**Complete when:** all candidates have evidence-backed classifications. For audit-only work, proceed to reporting.
+Complete when: all candidates have evidence-backed classifications. For audit-only work, proceed to reporting.
 
 ### 4. Apply requested changes
 
@@ -60,10 +62,10 @@ Implement authorised substitutions or extractions without repeat approval. Leave
 
 Follow [testing guidance](../../../../docs/agents/testing.md#coverage) to decide whether a regression test is allowed, which layer owns it, and for red/green evidence.
 
-**Complete when:** every authorised change and affected consumer is updated and required checks pass. Report blocked changes as incomplete.
+Complete when: every authorised change and affected consumer is updated and required checks pass. Report blocked changes as incomplete.
 
 ### 5. Verify and report
 
 Follow [required verification](../../../../docs/agents/verification.md) for changed files.
 
-**Complete when:** the report includes prioritised findings or changes, scope/exclusions, important keep-local decisions, dependency versions, exact checks and results, and remaining uncertainty. Unreviewed areas and unverified contracts remain visible rather than implied complete.
+Complete when: the report includes prioritised findings or changes, scope/exclusions, important keep-local decisions, dependency versions, and remaining uncertainty. Unreviewed areas and unverified contracts remain visible rather than implied complete.

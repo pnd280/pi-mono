@@ -12,7 +12,7 @@ Use these checks for shared-package reuse or extraction across workspace consume
 - Assess maintenance savings against coupling and adaptation cost. Hypothetical future consumers, fewer lines, or a flag-heavy abstraction do not establish value.
 - Inspect wrappers for validation, normalisation, policy, type restrictions, resource ownership, or a supported boundary before classifying them as redundant.
 
-For reuse, record exact modules and exports and contract fit. For extraction, record sources, actual consumers, destination, and the minimal useful contract. Cross-package consumers use declared entry points.
+For reuse, record exact modules and exports and contract fit. Cross-package consumers use declared entry points.
 
 ## Consumer preservation
 
