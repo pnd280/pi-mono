@@ -2,11 +2,11 @@
 
 [pi-smart-compact](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.5.2 with a source review of the release changes, which leave `agent-session.js` and the compaction modules unchanged, a fingerprint comparison, and offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, real-provider summary quality, and summary requests with a real stored OAuth login.
+> Last verified against Pi 1.5.2 with a source review of the release changes, a fingerprint comparison, and offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, real-provider summary quality, and summary requests with a real stored OAuth login.
 
 Terms used below:
 
-- _Fingerprint_: a reviewed hash of a private Pi method's source. The extension refuses to run when a hash doesn't match.
+- _Fingerprint_: a reviewed hash of a private Pi method's source. A mismatch stops the extension from binding to the session; see [supported boundary](#supported-boundary).
 - _Between-response boundary_: the point after a tool batch is saved and before the next model request, where Pi may compact.
 - _Split turn_: a summary of a turn too long to keep whole, written by Pi with its own prompt.
 - _Default summary_: a summary from Pi's built-in summariser, as opposed to one supplied by a `session_before_compact` hook.
@@ -22,13 +22,13 @@ The checks hold one fingerprint set for the API modules and one for the installe
 
 Unknown versions, unknown fingerprints, and conflicting replacements of the boundary are rejected. Calling the unavailable tool shows the initialisation error.
 
-Fingerprints guard implementations; they don't guarantee compatibility with every third-party extension. Never refresh them just to pass a test.
+Fingerprints guard implementations; they don't guarantee compatibility with every third-party extension.
 
 ## Upgrade procedure
 
-1. Review the changed source, prompts, consumers, and lifecycle. Review prompt or dependency changes within the same version too.
+1. Review the changed source, prompts, consumers, and lifecycle. Review prompt or dependency changes within the same version too. Recheck every hook for a [public replacement](../../../../.agents/skills/pi-update/references/compatibility-checks.md#private-hook-replacement), including unchanged ones.
 2. Work through the checklist below.
-3. Run the [package checks](../../../../docs/development.md#focused-validation). Both the real bundled CLI and the API runtime must pass before you accept new fingerprints.
+3. Run the [package checks](../../../../docs/development.md#focused-validation) and the workspace [fingerprint check](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). Both the real bundled CLI and the API runtime must pass before you accept new fingerprints.
 4. Do the [manual checks](#manual-checks).
 5. Update the "Last verified" line.
 
@@ -41,15 +41,15 @@ Work through each area below before accepting new fingerprints.
 - [ ] `compact` has `exposure: "model-only"`, so direct model calls keep replayable request results.
 - [ ] Nested execution of `compact` can't schedule compaction.
 - [ ] `context_window` can still be composed through `ctx.tools` and `ctx.executeTool()`.
-- [ ] Without `--tools`, registering `context_window` again in `session_start` with an unchanged exposure replaces its description and doesn't activate it again.
-- [ ] Without `--tools`, active tools chosen by an earlier `session_start` handler stay active after that registration.
-- [ ] With `--tools`, any registration activates every registered declarable tool that the list names.
+- [ ] Without a `--tools` list that replaces the defaults, registering `context_window` again in `session_start` with an unchanged exposure replaces its description and doesn't activate it again.
+- [ ] Without a `--tools` list that replaces the defaults, active tools chosen by an earlier `session_start` handler stay active after that registration.
+- [ ] With a `--tools` list that replaces the defaults (no `+`/`-` modifiers), any registration activates every registered declarable tool that the list names.
 - [ ] Pi emits `resources_discover`, where [lifecycle](../../../libs/src/lifecycle/README.md) startup commits run, after every `session_start` handler.
 - [ ] The public `ctx.getContextUsage()` returns `{ tokens: number | null, contextWindow: number, percent: number | null }` or `undefined`.
 - [ ] `context_window` serialises that object unchanged and keeps it in result details.
 - [ ] `context_window` returns an unavailable message for `undefined`, never invented usage.
 
-The extension registers `context_window` in its factory, so Pi activates it before `session_start` handlers, such as a profile's, choose the active tools. Because lifecycle startup commits run after every `session_start` handler, a profile's choice still wins with `--tools`. `context_window` uses no private APIs.
+The extension registers `context_window` in its factory, so Pi activates it before `session_start` handlers, such as a profile's, choose the active tools. With a `--tools` list that replaces the defaults, any registration reactivates every listed tool, but lifecycle startup commits run after every `session_start` handler, so a profile's choice still wins. `context_window` uses no private APIs.
 
 ### Between-response boundary
 
@@ -70,6 +70,7 @@ The extension registers `context_window` in its factory, so Pi activates it befo
 - [ ] Unexpected exceptions propagate without a status message.
 - [ ] `_appendCustomMessage` saves a custom-message entry, refreshes finalised context, and emits message start and end events synchronously, without queueing or continuing the agent.
 - [ ] The status is visible in the next request, the transcript, and the reopened session.
+- [ ] `registerMessageRenderer` shows the status in the transcript as plain text, without the provider's terminal controls.
 - [ ] Disposed bindings don't append the status.
 
 Native preparation can swallow an error without emitting an event, so a missing event doesn't prove that the session was too small. Public `sendMessage` with `triggerTurn: false` can't replace `_appendCustomMessage`: it still defers while streaming, which is too late for this response.
@@ -129,7 +130,7 @@ The compatibility boundary defines Pi's `pi-virtual` API marker itself, because 
 
 ### Provider requests
 
-- [ ] Configured summaries use `ctx.modelRegistry.streamSimple()`, for provider authentication and thinking mapping at request time.
+- [ ] Summaries for a rule that sets `model` use `ctx.modelRegistry.streamSimple()`, for provider authentication and thinking mapping at request time.
 - [ ] Pi selects `samplingParamsByThinkingLevel` from the effective physical thinking level.
 - [ ] Summary routing preserves the model's sampling configuration and request overrides without copying the conversation model's defaults.
 - [ ] Native request keys, headers, and environment are cleared from intercepted options before registry dispatch.
@@ -141,8 +142,6 @@ The compatibility boundary defines Pi's `pi-virtual` API marker itself, because 
 - [ ] The adapter's retry and timeout policy matches the public `settingsManager` policy: request options take precedence, a provider timeout overrides the HTTP idle timeout, and an idle timeout of zero becomes `2147483647`.
 - [ ] The `transformHeaders` callback dispatches `before_provider_headers` through the native runner after the selected provider authenticates, once per summary attempt.
 - [ ] The `transformHeaders` callback deactivates when summarisation ends.
-
-On each upgrade, recheck the policy and hook ordering against the SDK session stream.
 
 ### Default summariser
 
@@ -170,7 +169,7 @@ On each upgrade, recheck the policy and hook ordering against the SDK session st
 - [ ] The public `session.extensionRunner` getter exposes the runner that emits automatic and tool-requested `session_before_compact` events with `_autoCompactionAbortController.signal`.
 - [ ] Scoped `emit` overrides keep return values, receivers, unrelated events, and operations with another signal or reason.
 
-Tool focus is composed separately at the boundary. On each upgrade, recheck all four prototype wrappers and their restoration, including retained callbacks.
+Tool focus is composed separately at the boundary.
 
 ### Lifecycle and cleanup
 
@@ -184,14 +183,14 @@ Tool focus is composed separately at the boundary. On each upgrade, recheck all 
 
 ## Manual checks
 
-Setup: an interactive Pi session with the extension loaded and a configured provider.
+Setup: an interactive Pi session with the extension loaded, a configured provider, and enough earlier conversation for Pi to summarise.
 
-| Do                                                       | Expect                                                                       |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Ask the model to call `compact` during a multi-step task | Pi's compaction progress shows, and the task continues afterwards.           |
-| Press **Escape** during compaction                       | Compaction is cancelled; the agent run continues with a cancellation status. |
-| Read the resulting summary with a real provider          | It keeps the requested focus and the information needed to continue.         |
-| Set `statusStep`, then work past the first boundary      | The model can quote the usage from the context status.                       |
+| Do                                                                 | Expect                                                                       |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Ask the model to call `compact` during a multi-step task           | Pi's compaction progress shows, and the task continues afterwards.           |
+| Press **Escape** during compaction                                 | Compaction is cancelled; the agent run continues with a cancellation status. |
+| Read the resulting summary with a real provider                    | It keeps the requested focus and the information needed to continue.         |
+| Set `statusStep`, run `/reload`, then work past the first boundary | The model can quote the usage from the context status.                       |
 
 ## Limitations
 
@@ -201,7 +200,7 @@ The gaps below concern private Pi integration; [replacement opportunities](#repl
 
 | Gap               | Effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No public API     | There is no public way to run native compaction and then continue. `ctx.compact()` aborts the current run, and boundary entries would need summaries written by the extension rather than Pi. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.                                                                                                                                                                                                                 |
+| No public API     | No public API runs the whole native compaction and then continues. `ctx.compact()` aborts the current run. Boundary entries can use Pi's exported summary functions, but the extension would then own preparation, hooks, progress, cancellation, and persistence. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.                                                                                                                                            |
 | `manual` reason   | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. In Pi 1.4.0 to 1.5.2, native failure text may still say `Auto-compaction failed`. The outcome message removes that misleading prefix.                                                                                                                                                                                                                                                     |
 | Overflow recovery | Automatic `overflow` recovery keeps Pi's native preparation and serialisation. See [recovery behaviour](requests.md#failed-attempts) for responses that stop at the output-length limit, and for retained context edits.                                                                                                                                                                                                                                                                              |
 | Authentication    | Pi resolves summarisation authentication inside the default summariser, after hooks, so summaries from hooks skip it. Configured requests use the registry stream with isolated credentials, not private authentication helpers or arbitrary stream overrides. Unrelated operations use the original stream.                                                                                                                                                                                          |
@@ -209,6 +208,7 @@ The gaps below concern private Pi integration; [replacement opportunities](#repl
 | Concurrent calls  | Native compaction uses shared per-session state. SDK callers must follow the [manual-compaction constraint](requests.md#other-behaviour).                                                                                                                                                                                                                                                                                                                                                             |
 | Not a transaction | The temporary metadata wrapper has the [session-write and cancellation limits](../README.md#side-effects).                                                                                                                                                                                                                                                                                                                                                                                            |
 | Late patches      | Fingerprint checks don't inspect overrides on session instances, and don't detect patches installed after binding. Combinations of third-party patches and reloads aren't guaranteed to work. Cleanup deactivates retained wrappers and leaves later replacements alone.                                                                                                                                                                                                                              |
+| Pi 1.5.2 release  | The release changes leave `agent-session.js` and the compaction modules unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Replacement opportunities
 

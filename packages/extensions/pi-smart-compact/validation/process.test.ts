@@ -62,6 +62,9 @@ const traceSchema = z.object({
   hasCheckpoint: z.boolean().optional(),
   hasOldPayload: z.boolean().optional(),
   userMessages: z.array(z.string()).optional(),
+  messages: z
+    .array(z.looseObject({ role: z.string(), toolCallId: z.string().optional() }))
+    .optional(),
   settings: z
     .object({ enabled: z.boolean(), keepRecentTokens: z.number(), reserveTokens: z.number() })
     .optional(),
@@ -267,7 +270,33 @@ function checkFailure(trace: Trace, scenario: string) {
   const failed = trace.filter((event) => event.type === "hook:failed");
   assert.equal(failed.length, 1);
   assert.equal(failed[0]?.aborted, ["cancel", "escape"].includes(scenario));
-  assert.equal(trace.filter((event) => event.type === "provider:main").at(-1)?.hasOldPayload, true);
+  const [before = [], after = []] = [2, 3].map(
+    (request) =>
+      trace.find((event) => event.type === "provider:main" && event.request === request)?.messages
+  );
+  // The continuation sends the whole pre-attempt context, then the tool batch and the outcome status.
+  assert.deepEqual(after.slice(0, before.length), before);
+  assert.deepEqual(
+    after
+      .slice(before.length)
+      .map(({ role, toolCallId, content }) =>
+        role === "toolResult" ? { role, toolCallId, content } : { role }
+      ),
+    [
+      { role: "assistant" },
+      {
+        role: "toolResult",
+        toolCallId: "call-2-0",
+        content: [{ type: "text", text: "Compaction requested." }]
+      },
+      {
+        role: "toolResult",
+        toolCallId: "call-2-1",
+        content: [{ type: "text", text: "Recent work completed." }]
+      },
+      { role: "user" }
+    ]
+  );
 }
 
 function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
@@ -589,7 +618,7 @@ it.concurrent.each(toolCases)(
 
 // The SDK suite covers routing flags. Manual /compact shares the tool rows' summary override (summaryWrapper, src/native.ts), so this row proves the bundled CLI routes automatic credentials.
 it.concurrent("bundled CLI automatic compaction routes to the configured summary model", async () => {
-  const directory = await createValidationWorkspace("pi-manual-compact-cli-");
+  const directory = await createValidationWorkspace("pi-auto-compact-cli-");
 
   try {
     const sessionPath = join(directory, "session.jsonl");
@@ -606,7 +635,7 @@ it.concurrent("bundled CLI automatic compaction routes to the configured summary
         retry: { enabled: false }
       })
     );
-    const { trace } = await runPi(directory, "manual-split", [
+    const { trace } = await runPi(directory, "automatic-split", [
       "--thinking",
       "high",
       "--session",

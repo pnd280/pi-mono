@@ -5,6 +5,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { withCodemodeNotice } from "@pi-mono/libs/codemode-notice";
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import {
@@ -14,6 +15,7 @@ import {
   type CompactConfig
 } from "./config.ts";
 import { bindNativeCompaction } from "./native.ts";
+import { compactionResultType, renderOutcome } from "./outcome.ts";
 import { compactAcknowledgement, type CompactDetails } from "./result.ts";
 import { contextStatus } from "./status.ts";
 import {
@@ -73,7 +75,8 @@ function contextWindowTool(docs: string) {
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);
-  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose the active tools. Without `--tools`, the session_start registration only replaces the description. With `--tools`, any registration reactivates every listed tool; a profile still wins because lifecycle startup commits run after every session_start handler.
+  pi.registerMessageRenderer(compactionResultType, renderOutcome);
+  // Registered at load so Pi activates it before session_start handlers, such as profiles, choose the active tools. Without a replacing `--tools` list, the session_start registration only replaces the description. With one, any registration reactivates every listed tool; a profile still wins because lifecycle startup commits run after every session_start handler.
   pi.registerTool(contextWindowTool(""));
   let binding: ReturnType<typeof bindNativeCompaction> | undefined;
   let config: CompactConfig = {};
@@ -105,10 +108,12 @@ export default function smartCompact(pi: ExtensionAPI) {
         Object.keys(config).length ? { config, registry: ctx.modelRegistry } : undefined
       );
     } catch (error) {
-      unavailable =
-        error instanceof Error ? error.message : "pi-smart-compact: initialization failed.";
-      // Rethrowing makes Pi render the full stack; the message alone is actionable and already names the extension.
-      if (ctx.hasUI) ctx.ui.notify(unavailable, "error");
+      const message = error instanceof Error ? error.message : "initialization failed.";
+      unavailable = message.startsWith("pi-smart-compact: ")
+        ? message
+        : `pi-smart-compact: ${message}`;
+      // Rethrowing makes Pi render the full stack; the prefixed message alone is actionable.
+      if (ctx.hasUI) ctx.ui.notify(displayText(unavailable), "error");
     }
 
     // Settings are read here, after project trust is known; this replaces the description.

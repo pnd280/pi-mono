@@ -1,4 +1,6 @@
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type { AgentSessionEvent, MessageRenderer } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { NativeSession } from "./compatibility.ts";
 import { withCompactionInstructions } from "./summarize.ts";
@@ -36,6 +38,12 @@ export function describeOutcome(
       return `Compaction failed: ${outcome.error}`;
   }
 }
+
+/** The failure text comes from the provider, so it reaches the terminal only as plain text. */
+export const renderOutcome: MessageRenderer = (message, _options, theme) =>
+  typeof message.content === "string"
+    ? new Text(theme.fg("warning", displayText(message.content)), 1, 0)
+    : undefined;
 
 export async function runRequestedCompaction(
   session: NativeSession,

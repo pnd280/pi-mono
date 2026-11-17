@@ -13,7 +13,7 @@ import {
   type AgentSessionRuntime,
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, isolateEnvironment } from "@pi-mono/libs/validation/pi-process";
 import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
@@ -93,11 +93,19 @@ const cases: {
     automaticFocus: fileFocus,
     summaries: 2
   },
+  // Unrelated summaries and a stream callback retained past its attempt run while every override is active.
   {
     name: "unrelated summary",
-    config: {},
-    manual: nativeSummary,
-    automatic: nativeSummary,
+    config: {
+      ...override,
+      compactionInstructionsFile: "focus.txt",
+      applyToManual: true,
+      applyToAuto: true
+    },
+    manual: dedicatedSummary,
+    automatic: dedicatedSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
     summaries: 1
   },
   // Also checks the late abort alone: the branch leaf must stay unchanged (recordSummaryBeforeCompaction, src/native.ts).
@@ -161,7 +169,17 @@ it.each(cases)(
 
     let summaryRequests = 0;
     let unrelatedRequests = 0;
+    let unrelatedSummaries = 0;
+    let lateRequests = 0;
+    let retained:
+      | {
+          stream: AgentSession["agent"]["streamFunction"];
+          context: Parameters<AgentSession["agent"]["streamFunction"]>[1];
+          signal: AbortSignal;
+        }
+      | undefined;
     const unrelated = new AbortController();
+    const unrelatedSummary = new AbortController();
     const errors: unknown[] = [];
 
     const expectedFocus = () => {
@@ -170,8 +188,7 @@ it.each(cases)(
       return phase === "manual" ? (manualFocus ?? instructions) : automaticFocus;
     };
 
-    vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-    vi.stubEnv("PI_OFFLINE", "1");
+    isolateEnvironment(directory);
 
     try {
       await writeFile(settingsPath, JSON.stringify({ "ext.pi-smart-compact": config }));
@@ -188,9 +205,24 @@ it.each(cases)(
           assert.ok(runtime);
           assert.equal(options?.headers?.["X-Manual-Fixture"], "applied");
 
-          if (options.signal === unrelated.signal) {
-            unrelatedRequests++;
+          const prompt = context.messages
+            .filter((message) => message.role === "user")
+            .map((message) => contentText(message.content))
+            .join("\n");
+
+          if (options.signal === unrelatedSummary.signal) {
+            unrelatedSummaries++;
             assert.equal(model.id, "main");
+            assert.ok(prompt.endsWith(`Additional focus: ${instructions}`));
+
+            return fauxAssistantMessage("Unrelated summary");
+          }
+
+          if (options.signal === unrelated.signal || options.signal === retained?.signal) {
+            if (options.signal === unrelated.signal) unrelatedRequests++;
+            else lateRequests++;
+            assert.equal(model.id, "main");
+            assert.equal(options.reasoning, "medium");
 
             return fauxAssistantMessage("Unrelated response");
           }
@@ -202,18 +234,24 @@ it.each(cases)(
           assert.equal(runtime.session.model?.id, "main");
           assert.equal(runtime.session.thinkingLevel, "high");
           assert.equal(runtime.session.isCompacting, true);
-          const prompt = context.messages
-            .filter((message) => message.role === "user")
-            .map((message) => contentText(message.content))
-            .join("\n");
           const focus = expectedFocus();
           if (focus) assert.ok(prompt.endsWith(`Additional focus: ${focus}`));
           else assert.ok(!prompt.includes("Additional focus:"));
           const probe = await runtime.session.agent.streamFunction(faux.getModel(), context, {
             ...options,
+            reasoning: "medium",
             signal: unrelated.signal
           });
           assert.equal((await probe.result()).stopReason, "stop");
+
+          if (name === "unrelated summary" && phase === "manual" && !reloaded) {
+            assert.ok(options.signal);
+            retained = {
+              stream: runtime.session.agent.streamFunction,
+              context,
+              signal: options.signal
+            };
+          }
 
           if (phase === "manual" && !reloaded && name === "retry" && summaryRequests === 1)
             return fauxAssistantMessage("", { stopReason: "error", errorMessage: "terminated" });
@@ -244,24 +282,19 @@ it.each(cases)(
           assert.equal(event.willRetry, phase === "automatic" && automaticReason === "overflow");
           assert.equal(event.customInstructions, expectedFocus());
 
-          if (!reloaded && phase === "manual" && name === "unrelated summary") {
+          if (!reloaded && name === "unrelated summary") {
             assert.ok(runtime);
             const summarize: unknown = Reflect.get(runtime.session, "_runDefaultCompaction");
             assert.ok(typeof summarize === "function");
+            const leaf = runtime.session.sessionManager.getLeafId();
             await Reflect.apply(summarize, runtime.session, [
               event.preparation,
               faux.getModel(),
               instructions,
-              unrelated.signal,
-              "manual"
+              unrelatedSummary.signal,
+              event.reason
             ]);
-            assert.ok(
-              !runtime.session.sessionManager
-                .getBranch()
-                .some(
-                  (entry) => entry.type === "custom" && entry.customType === summaryModelEntryType
-                )
-            );
+            assert.equal(runtime.session.sessionManager.getLeafId(), leaf);
           }
         });
       };
@@ -377,6 +410,14 @@ it.each(cases)(
       assert.equal(session.isCompacting, false);
       assert.equal(session.isIdle, true);
 
+      if (retained) {
+        const late = await retained.stream(faux.getModel(), retained.context, {
+          signal: retained.signal,
+          reasoning: "medium"
+        });
+        assert.equal((await late.result()).stopReason, "stop");
+      }
+
       const checkAutomatic = async (expectedError?: RegExp) => {
         phase = "automatic";
         const runAutomatic: unknown = Reflect.get(session, "_runAutoCompaction");
@@ -452,7 +493,9 @@ it.each(cases)(
       await session.compact(instructions);
       await checkAutomatic();
       assert.equal(summaryRequests, summaries + (automaticError ? 0 : 2) + 3);
-      assert.equal(unrelatedRequests, summaryRequests + (name === "unrelated summary" ? 1 : 0));
+      assert.equal(unrelatedRequests, summaryRequests);
+      assert.equal(unrelatedSummaries, name === "unrelated summary" ? 3 : 0);
+      assert.equal(lateRequests, name === "unrelated summary" ? 1 : 0);
       const branch = session.sessionManager.getBranch();
       assert.equal(
         branch.filter(

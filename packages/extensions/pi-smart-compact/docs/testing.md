@@ -53,7 +53,7 @@ E2e checks never use personal settings or credentials.
 - Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
 - How a virtual conversation model's routes affect context statuses is below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
-- The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
+- The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and output size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
 - Pi owns threshold detection and the full overflow retry scheduler.
 - Interactive mounting and terminal appearance are not tested automatically. The [manual checks](#manual-checks) cover them.
 - Pi owns RPC display.

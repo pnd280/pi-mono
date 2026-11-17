@@ -85,7 +85,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
       this.agent.state.messages = this.sessionManager.buildSessionProjection().messages;
     }
 
-    if (scenario === "manual-split") {
+    if (scenario === "automatic-split") {
       this.sessionManager.appendMessage({
         role: "user",
         content: "OLD_FIXTURE_PAYLOAD ".repeat(1500),
@@ -251,7 +251,8 @@ export default function offlineFixture(pi: ExtensionAPI) {
           hasOldPayload: serialized.includes("OLD_FIXTURE_PAYLOAD"),
           userMessages: context.messages.flatMap((entry) =>
             entry.role === "user" ? [contentText(entry.content)] : []
-          )
+          ),
+          messages: context.messages
         });
         let calls: string[] = [];
 

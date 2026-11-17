@@ -6,7 +6,7 @@ import {
 
 import { contextStatusSchema, contextStatusType, type ContextStatusDetails } from "./result.ts";
 
-/** The model of the latest response with usage, which is where Pi's count starts. */
+/** The model of the latest completed response with usage on the saved branch. */
 function countingModel(branch: readonly SessionEntry[]) {
   for (let index = branch.length - 1; index >= 0; index--) {
     const entry = branch[index];

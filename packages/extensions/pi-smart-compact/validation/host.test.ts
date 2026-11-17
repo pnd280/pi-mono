@@ -21,7 +21,11 @@ import {
   type CreateAgentSessionRuntimeFactory,
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import {
+  createValidationWorkspace,
+  isolateEnvironment,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
 import { Type } from "typebox";
 import { it, vi } from "vite-plus/test";
 
@@ -96,8 +100,7 @@ it("continues through native SDK compaction, replacement, and reload", async () 
   const instructions = "Keep HOST_FOCUS_MARKER and unfinished tests.";
   const unrelated = new AbortController();
   const unrelatedRequests: string[] = [];
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_OFFLINE", "1");
+  isolateEnvironment(directory);
 
   try {
     await writeFile(
