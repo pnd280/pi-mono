@@ -32,13 +32,9 @@ Use [`resolveDirectoryScope`](scoped-directory.ts) for a canonical directory sto
 
 ## Serialised transactions
 
-[`PrivateFileTransactions`](transaction.ts) serialises by key, locks, reads the latest bytes up to a limit, and applies updates. Cooperating instances and processes share `<path>.lock`. Acquisition never reclaims an existing lock.
+[`PrivateFileTransactions`](transaction.ts) serialises by key, locks, reads the latest bytes up to a limit, and applies updates. Cooperating instances and processes share `<path>.lock`. Acquisition never reclaims an existing lock, so recovery of an abandoned lock is the consumer's.
 
-### Must not break
-
-- Never retry a write solely because cleanup failed after a commit.
-- Within a consumer, use one instance and one key for all mutations of one file.
-- Recover abandoned locks in the consumer.
+Within a consumer, use one instance and one key for all mutations of one file.
 
 ### Updates
 
@@ -55,6 +51,6 @@ Pass a [`WriteLifetime`](lifetime.ts) as `scope`.
 
 ### Results
 
-Results distinguish `committed`, `unchanged`, and `failed`. They report write warnings and lock-cleanup errors separately. Translate errors and warnings in the consumer.
+Results distinguish `committed`, `unchanged`, and `failed`. A `committed` result reports descriptor-close warnings, and every result reports lock-cleanup errors, separately from its status, so a `committed` result with warnings or cleanup errors is not a failed write.
 
 Replacement is atomic across process crashes. The module does not fsync the containing directory, so power-loss durability is not guaranteed.
