@@ -4,11 +4,6 @@
 
 > Last verified against Pi 1.5.2 with package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: a physical terminal; the disposable input probes; live dialogs, including stacked dialogs over a running agent; live compactions, retries, and branch summaries.
 
-## Upgrade procedure
-
-1. Run the [workspace checks](../../../../docs/development.md#focused-validation).
-2. Work through the checklist below, then update the "Last verified" line.
-
 ## Checklist
 
 [Extension](../src/index.ts):
