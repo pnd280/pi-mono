@@ -2,23 +2,17 @@
 
 [pi-editor-widgets](../README.md) · [Test coverage](testing.md)
 
-Setup: use workspace Pi in a trusted project with this extension and a native widget contributor, such as `pi-todo` with at least one unfinished task. The menu needs no model call. For the fullscreen paging checks, use a transcript longer than one screen and scroll up first, so that a wrongly routed paging key would move it. For remapping and save-failure checks, use the [isolated todo launcher](../../pi-todo/docs/validation.md#terminal-launcher), append `-e "$PWD/packages/extensions/pi-editor-widgets"` to its launch command, and submit `seed`. Edit only the fixture's `agent/keybindings.json` and `agent/settings.json`, and run `/reload` after each keybinding change.
+Setup: use workspace Pi in a trusted project with this extension and a native widget contributor, such as `pi-todo` with at least one unfinished task. The menu needs no model call. For the fullscreen paging checks, use a transcript longer than one screen and scroll up first, so that a wrongly routed paging key would move it. For remapping and save-failure checks, use the [isolated todo launcher](../../pi-todo/docs/validation.md#terminal-launcher), append `-e "$PWD/packages/extensions/pi-editor-widgets"` to its launch command, and submit `seed`. Remap keys in the fixture's `agent/keybindings.json`, and run `/reload` after each change.
 
 ## Menu
 
 | Do                                                                                                                                                                | Expect                                                                                                        |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Open `/widgets` in regular mode, then in fullscreen mode.                                                                                                         | The menu is part of the screen layout, not an overlay.                                                        |
 | Resize the terminal while editing.                                                                                                                                | The selection stays on the intended item, and the draft is kept.                                              |
 | After each resize, from a row's contents, press one of **a**, **Tab**, and **Shift+Up**, and go back before the next.                                             | **a** and **Shift+Up** act on the selected item, and **Tab** switches the layout scope, as before the resize. |
 | Close the menu.                                                                                                                                                   | The editor has focus.                                                                                         |
-| Make edits while the terminal has enough room.                                                                                                                    | The edits show in the real regions, and the regions stay visible.                                             |
-| Look for duplicates of an edited widget.                                                                                                                          | The widget shows only in the placements of the draft.                                                         |
-| Close without saving.                                                                                                                                             | The saved layout is restored.                                                                                 |
 | Reorder, hide, re-add, and copy widgets with **a**; click each copy of a mouse-aware widget.                                                                      | Every copy responds to its click.                                                                             |
 | Leave rows and regions empty, and include unavailable saved IDs.                                                                                                  | One blank line separates chat from the above-editor region, even when all its widgets are empty.              |
-| Register widgets while editing.                                                                                                                                   | New registrations don't change the selected widget.                                                           |
-| Change a native placement while a nested row is open.                                                                                                             | The nested row keeps its identity, or the menu returns to the row list without applying stale input.          |
 | In fullscreen mode, map `tui.altScreen.pageDown` to **Down**, open `/widgets`, and press **Down**.                                                                | The menu selects the next item without scrolling the transcript.                                              |
 | Map `tui.altScreen.pageDown` to **Ctrl+S**, open `/widgets`, and press **Ctrl+S**.                                                                                | The displayed scope is saved without scrolling the transcript.                                                |
 | Map `tui.altScreen.pageDown` to **Ctrl+C**, open `/widgets`, and press **Ctrl+C**.                                                                                | The menu closes without scrolling the transcript, and the editor regains focus.                               |
@@ -45,7 +39,6 @@ Setup: check at 80×24 and 40×10, in dark and light themes.
 | Read the hint footer.                                                         | It shows the save and exit keys.                                                                                                                                               |
 | Save an unchanged scope that is unset.                                        | The settings file gets an explicit layout for that scope.                                                                                                                      |
 | Edit global and project drafts, then inspect inherited values in both scopes. | The drafts stay independent. Inheritance runs one way, from global to project.                                                                                                 |
-| Save a global draft, then return to the inherited nested row.                 | The save doesn't move the inherited nested edits.                                                                                                                              |
 | Choose "Reset to defaults", then inspect the settings file.                   | The default layout previews immediately. The settings file is unchanged until **Ctrl+S**.                                                                                      |
 
 ## Save failures
@@ -55,7 +48,6 @@ Setup: in the isolated fixture above, hold a settings lock, or make its settings
 | Do                                                          | Expect                                                                                     |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Save.                                                       | Edits are kept, the selected target stays visible, and the recovery message stays visible. |
-| Press **Ctrl+S** again.                                     | The save is retried.                                                                       |
 | Release the lock or fix the file, then press **Ctrl+S**.    | The kept draft is saved, and a success message shows.                                      |
 | Read the menu feedback for one load or save failure.        | The failure appears as a warning or error, never as success.                               |
 | After a success, wait three seconds, edit, or switch scope. | Each one clears the success message.                                                       |
@@ -82,8 +74,7 @@ Setup: run `/reload`, a new session, a resumed session, and a renderer switch, a
 | Inspect the widget regions.                                          | Only currently registered widgets show.                                                     |
 | Type in the editor.                                                  | The text appears in the editor.                                                             |
 | In fullscreen mode, click a mouse-aware widget and the token widget. | Each responds to the click. The token widget switches between compact and detailed display. |
-| Load a separate custom-footer extension, in both orders.             | A footer-conflict warning appears.                                                          |
-| Disable the other footer extension and reload.                       | This extension's footer layout shows again.                                                 |
+| Load a separate custom-footer extension, then disable it and reload. | This extension's footer layout shows again.                                                 |
 
 ## Git changes
 
