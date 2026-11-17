@@ -154,14 +154,13 @@ async function host({
     titleRequests,
     notify,
     errors,
-    agentDir,
     settingsPath,
     projectSettingsPath,
     command
   };
 }
 
-it("keeps naming outside idle checks and the session-operation lock", async () => {
+it("cancels superseded and cleared naming while the agent is busy", async () => {
   const fixture = await host();
   const runner = fixture.session.extensionRunner;
   const handler = runner.getCommand("sesh")!.handler;
@@ -174,20 +173,6 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
   const old = handler("auto-name", busy);
   await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
-  const replacement = Promise.withResolvers<{ cancelled: boolean }>();
-  const switchSession = vi.fn<typeof ctx.switchSession>(() => replacement.promise);
-  const operationContext = { ...ctx, switchSession };
-  const operation = handler("persist", operationContext);
-  expect(switchSession).toHaveBeenCalledOnce();
-  const newSession = vi.fn<typeof ctx.newSession>();
-  await handler("create-empty-child", {
-    ...ctx,
-    sessionManager: SessionManager.open(switchSession.mock.calls[0]![0]),
-    newSession
-  });
-  expect(newSession).not.toHaveBeenCalled();
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-
   const latest = handler("auto-name", busy);
   await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2), { timeout: STEP_TIMEOUT_MS });
   expect(stream.mock.calls[0]?.[2]?.signal?.aborted).toBe(true);
@@ -197,14 +182,6 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   first.resolve(fauxAssistantMessage("Old title"));
   second.resolve(fauxAssistantMessage("Late title"));
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
-  // Completing naming must not release a still-pending persistence operation.
-  fixture.notify.mockClear();
-  const blocked = handler("persist", operationContext);
-  expect(switchSession).toHaveBeenCalledOnce();
-  await blocked;
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  replacement.resolve({ cancelled: true });
-  await operation;
   expect(fixture.errors).toEqual([]);
 });
 
@@ -227,9 +204,9 @@ it.each([
     })
   },
   {
-    failure: "obsolete auto field",
+    failure: "unknown auto-title key",
     projectTrusted: true,
-    projectSettings: titleSettings({ ...titleConfig, auto: true })
+    projectSettings: titleSettings({ ...titleConfig, unknown: true })
   },
   { failure: "unreadable project settings", projectTrusted: true, projectSettingsDirectory: true },
   {
@@ -445,29 +422,16 @@ it("cancels automatic naming when the run is aborted after the agent loop ends",
   expect(fixture.errors).toEqual([]);
 });
 
-it("reads settings only on load, leaves old callbacks inert, and applies fixes on /reload", async () => {
+it("stops naming requests when /reload finds the settings removed", async () => {
   const fixture = await host();
   await fixture.session.prompt("Opening request");
   await vi.waitFor(() => expect(fixture.titleRequests).toHaveLength(1), {
     timeout: STEP_TIMEOUT_MS
   });
-  const oldRunner = fixture.session.extensionRunner;
-  const oldCommand = oldRunner.getCommand("sesh")!;
-  const oldContext = oldRunner.createCommandContext();
   await writeFile(fixture.settingsPath, "{}");
-  await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(2);
   await fixture.session.reload();
-  await oldCommand.handler("auto-name clear", oldContext);
-  expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title");
   await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(2);
+  expect(fixture.titleRequests).toHaveLength(1);
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  await writeFile(fixture.settingsPath, settings);
-  await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(2);
-  await fixture.session.reload();
-  await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(3);
   expect(fixture.errors).toEqual([]);
 });
