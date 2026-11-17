@@ -36,9 +36,9 @@ Handlers in [activation](../src/runtime.ts) and the [tool](../src/tool.ts) assum
 
 The [browser controls](controls.md#the-todos-browser) describe what users see.
 
-- [ ] [Session state](../src/state/session-state.ts) rebuilds the list from the current branch after branch changes and compaction.
-- [ ] Rebuilding skips malformed results and host error results.
-- [ ] Rebuilding skips snapshots that exceed the current limits.
+Reconstruction needs the complete current branch after branch changes and compaction. The [snapshot reader](../src/state/session-state.ts) skips malformed results, host error results, and snapshots that exceed the current limits.
+
+- [ ] Pi's `sessionManager.getBranch()` returns every entry from the root to the current leaf, including entries before compaction.
 - [ ] On `session_start`, [UI integration](../src/index.ts) rebuilds the list, starts the browser host, and attaches the widget.
 - [ ] On `session_shutdown`, UI integration closes open views and removes only the todo widget registration.
 - [ ] Remapped `tui.select.*` keys still move the `/todos` browser selection.

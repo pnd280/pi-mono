@@ -42,7 +42,10 @@ export default function workingMessageFixture(pi: ExtensionAPI): void {
     contributor: "fixture",
     ownerRank: 400
   });
-  pi.on("session_start", () => status.setText("Other status"));
+  pi.on("session_start", (_event, ctx) => {
+    status.setText("Other status");
+    ctx.ui.setWidget("fixture.widget", ["Fixture widget"]);
+  });
   pi.registerCommand("fixture-status", {
     description: "Set the other contribution; empty arguments clear it",
     handler: async (args) => {

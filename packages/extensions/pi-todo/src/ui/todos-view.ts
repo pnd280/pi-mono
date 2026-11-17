@@ -110,7 +110,7 @@ export class TodosView implements Component {
     );
     if (!this.controls.label("cancel"))
       throw new Error(
-        "Todo browser requires a cancel binding other than Ctrl+C. Fix tui.select.cancel and reload."
+        "Todo browser requires a cancel binding other than Ctrl+C. Fix tui.select.cancel, then /reload."
       );
     this.entries = projectTaskTreeEntries(
       deriveTaskHierarchy(options.tasks)?.entries.filter(
@@ -209,7 +209,9 @@ export class TodosView implements Component {
 
   /** Indented and dimmed like the empty states of the shared browser. */
   private emptyRows(width: number): string[] {
-    return wrapRows(this.options.theme.fg("dim", `  ${EMPTY_TODOS_MESSAGE}`), width);
+    const message = this.options.tasks.length ? this.summary : EMPTY_TODOS_MESSAGE;
+
+    return wrapRows(this.options.theme.fg("dim", `  ${message}`), width);
   }
 
   private selectionSummary(): string {

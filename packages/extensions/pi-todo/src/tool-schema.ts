@@ -13,7 +13,11 @@ const fields = {
     .describe(
       "Present-continuous activity label shown while status is in_progress (e.g. 'writing tests')"
     ),
-  status: z.enum(TASK_STATUSES).describe("Target status (update) or list filter (list)"),
+  status: z
+    .enum(TASK_STATUSES)
+    .describe(
+      "Target status (update) or list filter (list); the deleted filter returns deleted todos"
+    ),
   parentId: z
     .number()
     .nullable()
@@ -32,7 +36,9 @@ const fields = {
   id: z.number().describe("Todo ID (required for update, get, delete)"),
   includeDeleted: z
     .boolean()
-    .describe("If true, list action returns deleted (tombstoned) todos as well. Default: false.")
+    .describe(
+      "If true, list action returns deleted (tombstoned) todos as well. Default: false, or true when status is deleted."
+    )
 };
 
 /** Raw/domain fields retain values whose rejection needs a replayable domain result. */

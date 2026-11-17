@@ -73,10 +73,7 @@ export function metadataLimitError<Metadata>(metadata: Metadata): string | undef
   }
 
   try {
-    const active = new WeakSet<object>();
-    const stack: Array<{ value: unknown; depth: number; exiting?: boolean }> = [
-      { value: metadata, depth: 1 }
-    ];
+    const stack: Array<{ value: unknown; depth: number }> = [{ value: metadata, depth: 1 }];
 
     while (stack.length > 0) {
       const frame = stack.pop();
@@ -97,24 +94,15 @@ export function metadataLimitError<Metadata>(metadata: Metadata): string | undef
         return "metadata must be JSON-serializable";
       }
 
-      const container = value;
-
-      if (frame.exiting) {
-        active.delete(container);
-        continue;
-      }
-
       if (frame.depth > MAX_METADATA_DEPTH) {
         return `metadata exceeds maximum depth of ${MAX_METADATA_DEPTH}`;
       }
 
-      if (active.has(container) || (Array.isArray(container) && !isDenseJsonArray(container))) {
+      if (Array.isArray(value) && !isDenseJsonArray(value)) {
         return "metadata must be JSON-serializable";
       }
 
-      active.add(container);
-      stack.push({ ...frame, value: container, exiting: true });
-      const children = Array.isArray(container) ? container : Object.values(container);
+      const children = Array.isArray(value) ? value : Object.values(value);
 
       for (let index = children.length - 1; index >= 0; index -= 1) {
         stack.push({ value: children[index], depth: frame.depth + 1 });

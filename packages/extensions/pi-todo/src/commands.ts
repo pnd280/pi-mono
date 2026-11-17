@@ -23,6 +23,8 @@ export type TodosCommandContext = Pick<ExtensionCommandContext, "signal"> & {
 };
 
 export function getTodosArgumentCompletions(prefix: string) {
+  // An exact argument must submit, rather than accepting an identical completion first.
+  if ((actions as readonly string[]).includes(prefix.trim())) return null;
   const normalized = prefix.trimStart().toLowerCase();
   const matches = actions
     .filter((action) => action.startsWith(normalized))
