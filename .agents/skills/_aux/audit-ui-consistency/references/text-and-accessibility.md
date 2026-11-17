@@ -15,4 +15,4 @@ Compare long, multiline, Unicode, and unsafe text. Distinguish display from exac
 
 ## Evidence
 
-Use known synthetic bytes and characters to compare display with copied or restored source in disposable fixtures. Verify appearance in applicable terminal themes; token assertions alone cannot establish contrast or terminal appearance.
+Use known synthetic bytes and characters to compare display with copied or restored source in disposable fixtures.

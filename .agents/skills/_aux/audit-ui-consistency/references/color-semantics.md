@@ -25,4 +25,4 @@ Map each surface's semantic roles, theme tokens, emphasis, and state overrides. 
 
 ## Evidence
 
-Record role tables and source tokens alongside paired renders or screenshots when available. Check appearance in applicable themes. Headless assertions verify tokens, not contrast or terminal colours; a semantic token alone cannot establish a verified colour such as red.
+Record role tables and source tokens alongside paired renders or screenshots when available.

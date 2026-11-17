@@ -15,4 +15,4 @@ Compare advertised actions with input dispatch across browsers, details, preview
 
 ## Evidence
 
-Exercise hints and dispatch with identical bindings, including conflicts, remaps, nested return, and unavailable actions. Headless input cannot establish host or terminal interception; verify real-terminal routing or leave it unresolved.
+Exercise hints and dispatch with identical bindings, including conflicts, remaps, nested return, and unavailable actions.

@@ -22,7 +22,7 @@ Formatting, import order, and lint rules belong to Vite+. Types, errors, and asy
 
 ## Workflow
 
-1. Establish conventions, in this order: user instructions and documented rules, configured tooling, then maintained code with the same role. Record each convention with its rule and `path:line` evidence. Occurrence count alone is not evidence; treat mixed evidence as a decision.
-2. Classify candidates as refactor, keep (a real constraint justifies the difference), or decision needed (contract, serialised name, or behaviour change). Trace each rename through exports, consumers, mocks, and examples.
-3. Refactor one convention at a time across all occurrences. Skip changes with no maintenance benefit.
-4. Verify and report under [required verification](../../../../docs/agents/verification.md): conventions applied, keep decisions, and open decisions.
+1. Establish conventions, in this order: user instructions and documented rules, configured tooling, then maintained code with the same role. Record each convention with its rule and `path:line` evidence.
+2. Classify candidates as refactor, keep (a real constraint justifies the difference), or decision needed (contract, serialised name, or behaviour change).
+3. Refactor each convention across all its occurrences.
+4. Report the conventions applied, keep decisions, and open decisions.
