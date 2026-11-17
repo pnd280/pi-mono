@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 import { compactDisplayText, displayText } from "../../terminal-text/index.ts";
 import { renderHintFooter } from "../hint-footer/index.ts";
@@ -118,8 +118,9 @@ function scopeLines(options: SettingsMenuOptions, activeOnly = false): string[] 
     width: options.width,
     maxRows: scopes.length,
     hints: scopes.map((scope, index) => {
-      const label = `${compactDisplayText(scope.label)}${scope.dirty ? "*" : ""}${scope.isSet ? "" : " (not set)"}`;
       const active = scope.id === options.scope;
+      let label = `${compactDisplayText(scope.label)}${scope.dirty ? "*" : ""}${scope.isSet ? "" : " (not set)"}`;
+      if (active) label = `[${label}]`;
 
       return (
         (index ? "" : theme.fg("muted", "Scope: ")) + theme.fg(active ? "accent" : "muted", label)
@@ -189,15 +190,15 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
         ""
       ];
   let footer = hints(options, options.hints, 3);
-  const outcome = feedbackLines(options).slice(0, compact ? 2 : 4);
-  let outcomeGap = outcome.length ? 1 : 0;
+  const outcomeRows = Math.min(feedbackLines(options).length, compact ? 2 : 4);
+  let outcomeGap = outcomeRows ? 1 : 0;
   let draft = dirtyLines(options);
   let endRows = 1;
   // Multiple items need room for either two rows or a selected row and its pagination.
   const minimumBody = options.items.length > 1 ? 2 : 1;
   const frameBudget = height - minimumBody;
   const reserved = () =>
-    header.length + footer.length + outcome.length + outcomeGap + draft.length + endRows;
+    header.length + footer.length + outcomeRows + outcomeGap + draft.length + endRows;
 
   // Drop decoration before scope context; preserve selection, pagination, recovery and controls.
   if (reserved() > frameBudget) outcomeGap = 0;
@@ -214,7 +215,8 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
   return {
     header,
     footer,
-    outcome: outcomeGap ? ["", ...outcome] : outcome,
+    outcomeGap: outcomeGap > 0,
+    outcomeRows,
     draft,
     endRows,
     available: Math.max(1, height - reserved())
@@ -238,21 +240,30 @@ function menuList(options: SettingsMenuOptions, compact: boolean, available: num
         scrollInfo: (value) => theme.fg("muted", value),
         noMatch: (value) => theme.fg("muted", value)
       },
-      format: (visible) => ({
-        items: visible.map((item) => {
-          const description = compactDisplayText(item.description ?? "");
-          let label = compactDisplayText(item.label);
-          if (width <= 40 && description) label += ` · ${description}`;
-          if (item.disabled) label = theme.fg("dim", label);
+      format: (visible) => {
+        const rows = visible.map((item) => ({
+          item,
+          label: compactDisplayText(item.label),
+          description: compactDisplayText(item.description ?? "")
+        }));
+        // Pi shows descriptions in a column only above 40 columns and when more than 10 columns remain beside its primary column.
+        const primaryColumn = Math.min(
+          Math.max(8, Math.min(38, Math.max(...rows.map((row) => visibleWidth(row.label))) + 2)),
+          width - 6
+        );
+        const inline = width <= 40 || width - 4 - primaryColumn <= 10;
 
-          return { value: item.key, label, description };
-        }),
-        layout: {
-          minPrimaryColumnWidth: 8,
-          maxPrimaryColumnWidth: 38,
-          truncatePrimary: ({ text, maxWidth }) => truncateToWidth(text, maxWidth)
-        }
-      })
+        return {
+          items: rows.map(({ item, label, description }) => {
+            if (inline && description) label += ` · ${description}`;
+            if (item.disabled) label = theme.fg("dim", label);
+
+            // Pi falls back to `value` for an empty label, so it must be display-safe too.
+            return { value: label, label, description: inline ? "" : description };
+          }),
+          layout: { minPrimaryColumnWidth: 8, maxPrimaryColumnWidth: 38 }
+        };
+      }
     });
     const gaps = compact
       ? 0
@@ -270,9 +281,14 @@ function feedbackDetails(options: SettingsMenuOptions, budget: number): string[]
     options,
     options.theme.fg(feedback.severity, displayText(feedback.detail))
   );
-  const count = Math.min(3, budget);
-  const result = lines.slice(0, count);
-  if (lines.length > count)
+
+  return fitLines(options, lines, Math.min(3, budget));
+}
+
+/** Ends cut lines with an omission marker. */
+function fitLines(options: SettingsMenuOptions, lines: readonly string[], count: number): string[] {
+  const result = lines.slice(0, Math.max(0, count));
+  if (lines.length > result.length && result.length)
     result[result.length - 1] = options.theme.fg("muted", "  … Resize for settings details");
 
   return result;
@@ -300,14 +316,19 @@ export function renderSettingsMenu(input: SettingsMenuOptions): string[] {
         frame.available
       );
   if (items.length > list.count) body.push(theme.fg("dim", `  (${selected + 1}/${items.length})`));
-  const spare = frame.available - body.length;
+  const spare = Math.max(0, frame.available - body.length);
+  // Compact frames hide details, so the summary takes the spare rows.
+  const summary = compact
+    ? fitLines(options, feedbackLines(options), frame.outcomeRows + spare)
+    : feedbackLines(options).slice(0, frame.outcomeRows);
   const details = compact ? [] : feedbackDetails(options, spare);
 
   return [
     ...frame.header,
     ...body,
     ...frame.draft,
-    ...frame.outcome,
+    ...(frame.outcomeGap ? [""] : []),
+    ...summary,
     ...details,
     ...frame.footer,
     ...(frame.endRows ? [border(options)] : [])

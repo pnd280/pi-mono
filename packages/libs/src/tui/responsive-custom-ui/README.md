@@ -42,7 +42,6 @@ await openResponsiveCustomUI({
 
 ## Caller responsibilities
 
-- Supply the [host options](index.ts).
 - Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
 - When a component opts in to input ownership, supply `onInputRoutingUnavailable()` with a consumer-specific warning and fallback controls.
 - Derive ownership from the same injected keybindings and action precedence as input dispatch.

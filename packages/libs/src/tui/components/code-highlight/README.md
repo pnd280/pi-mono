@@ -7,7 +7,7 @@ Highlighting an unbounded file with Pi syntax highlighting risks slow renders. [
 ## Behaviour
 
 - An explicit language overrides path detection.
-- If no language applies or the input exceeds a limit, the text comes back unchanged.
+- If no language is given or detected from the path, or the input exceeds a limit, the text comes back unchanged. Pi colours an unsupported language as a plain code block.
 - Generated ANSI does not count toward the limits.
 
 `highlightCodeSelection(source, options)` sanitises the source, applies the limits, and then applies `mark(text)` to each selected range:

@@ -6,7 +6,7 @@ This guide is for callers who need to know why `resolveKeybindings` skips a key,
 
 ## Keys that overlap
 
-`keysOverlap` tells whether one keypress can match two canonical keys: equal keys overlap, and so do keys that the legacy-input and Shift-symbol rules below join. `resolveKeybindings` and [lifecycle shortcut claims](../src/lifecycle/phases.md#shortcut-claims) use it.
+`keysOverlap` tells whether one keypress can match two canonical keys, erring towards overlap: equal keys overlap, and so do keys that the legacy-input and Shift-symbol rules below join. `resolveKeybindings` and [lifecycle shortcut claims](../src/lifecycle/phases.md#shortcut-claims) use it.
 
 ### Legacy input aliases
 

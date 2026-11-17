@@ -236,3 +236,45 @@ it("expires an inspection before its overlay mounts without popping an unrelated
     other.hide();
   }
 });
+
+it("removes only after two distinct Delete presses on the same item before the deadline", async () => {
+  const host = await inputHostFixture();
+  const abort = new AbortController();
+  const options = browserOptions();
+  const removed: string[] = [];
+
+  options.sections[1]!.remove!.run = async (item) => {
+    removed.push(item.id);
+
+    return undefined;
+  };
+
+  const opening = openBrowser({
+    ui: host.ui,
+    signal: abort.signal,
+    browser: options,
+    onInputRoutingUnavailable: vi.fn(),
+    onError: vi.fn()
+  });
+
+  try {
+    await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("beta"), {
+      interval: 1,
+      timeout: STEP_TIMEOUT_MS
+    });
+    host.send("\x1b[3~");
+    host.send("\x1b[3;1:2~"); // A held key's repeat is not a second press.
+    host.send("\x1b[B");
+    host.send("\x1b[3~"); // Another item restarts confirmation.
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now + 1500);
+    host.send("\x1b[3~"); // The deadline has passed.
+    expect(removed).toEqual([]);
+    host.send("\x1b[3~");
+    expect(removed).toEqual(["1"]);
+  } finally {
+    vi.restoreAllMocks();
+    abort.abort();
+    await opening;
+  }
+});

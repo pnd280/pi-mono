@@ -11,7 +11,7 @@ export type CodeHighlightOptions = {
   language?: string;
 };
 
-/** Zero-based line and UTF-16 offsets within the original, unsanitized line. */
+/** Zero-based line and UTF-16 offsets within the original, unsanitised line. */
 export type CodeSelectionRange = { line: number; start: number; end: number };
 
 /** Accept display-safe source; return it unchanged when language or budget prevents highlighting. */
@@ -26,7 +26,7 @@ export function highlightCodeBounded(text: string, options: CodeHighlightOptions
   return highlightCode(text, language).join("\n");
 }
 
-/** Sanitize whole lines before applying selection backgrounds to highlighted code. */
+/** Sanitise whole lines before applying selection backgrounds to highlighted code. */
 export function highlightCodeSelection(
   source: string,
   options: CodeHighlightOptions & {
@@ -37,24 +37,37 @@ export function highlightCodeSelection(
   const lines = source.split("\n");
   const displayLine = (text: string) => displayText(text).replaceAll("\n", "");
   const styled = highlightCodeBounded(lines.map(displayLine).join("\n"), options).split("\n");
-  let hasSelection = false;
+  const selections = new Map<number, { column: number; length: number }[]>();
 
   for (const { line, start, end } of options.ranges) {
     const raw = lines[line];
-    const current = styled[line];
-    if (raw === undefined || current === undefined || end <= start) continue;
+    if (raw === undefined || styled[line] === undefined || end <= start) continue;
     // Whole-line slicing preserves terminal sequences and graphemes crossing an endpoint.
     const selected = sliceTerminalText(raw, start, end).text;
     const prefix = sliceTerminalText(raw, 0, end).text;
     const length = visibleWidth(displayLine(selected));
     if (length === 0) continue;
-    hasSelection = true;
     const column = visibleWidth(displayLine(prefix)) - length;
-    styled[line] =
-      sliceByColumn(current, 0, column) +
-      options.mark(sliceByColumn(current, column, length)) +
-      sliceByColumn(current, column + length, visibleWidth(current));
+    const spans = selections.get(line) ?? [];
+    spans.push({ column, length });
+    selections.set(line, spans);
   }
 
-  return { text: styled.join("\n"), hasSelection };
+  // Slice every segment from the unmarked line, so earlier marks cannot leak into later slices.
+  for (const [line, spans] of selections) {
+    const current = styled[line] ?? "";
+    let marked = "",
+      cursor = 0;
+
+    for (const { column, length } of spans) {
+      marked +=
+        sliceByColumn(current, cursor, column - cursor) +
+        options.mark(sliceByColumn(current, column, length));
+      cursor = column + length;
+    }
+
+    styled[line] = marked + sliceByColumn(current, cursor, visibleWidth(current));
+  }
+
+  return { text: styled.join("\n"), hasSelection: selections.size > 0 };
 }

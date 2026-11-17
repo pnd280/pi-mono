@@ -118,6 +118,12 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
             invalidate: () => {
               if (!settled && !closed) currentView.invalidate();
             },
+            get wantsKeyRelease() {
+              return currentView.wantsKeyRelease ?? false;
+            },
+            get capturesViewportInput() {
+              return currentView.capturesViewportInput ?? false;
+            },
             get focused() {
               return !settled && !closed && focused;
             },

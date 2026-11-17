@@ -84,14 +84,14 @@ Own data, search, and effects, following the [shared TUI ownership rule](../../R
 - Filter and rank results in the `search` callback, and honour the supplied `current` callback.
 - Supply terminal-safe rows, details, and previews, and keep the exact source separately.
 - Prepare `details` before the browser opens and keep them short.
-- Format only the visible window. Keep its item count and order, and use width-preserving styles.
+- Format items as the [windowed list's caller responsibilities](../windowed-list/README.md#caller-responsibilities) require.
 
 ### Actions and errors
 
 - Return a committed snapshot from `remove.run(item, signal)`, or report the failure and return `undefined`.
 - Use the removal signal only to cancel replacement-snapshot preparation, never effects already started.
 - Supply useful messages for errors from loading and the initial search. The browser sanitises them before display.
-- Handle errors from actions and later searches in `onError`.
+- Handle errors from actions and searches in `onError`.
 - Bind cancel to a key other than **Ctrl+C** that is not also bound to copy. Otherwise construction throws `cancelError`, or a default error when you supply none.
 
 ### Mounting
