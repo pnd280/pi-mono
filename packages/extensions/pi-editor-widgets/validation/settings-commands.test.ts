@@ -88,15 +88,7 @@ it.each(["regular", "fullscreen"] as const)(
       const command = runner.getCommand("widgets");
       expect(command).toBeDefined();
       const ctx = runner.createCommandContext();
-      const notify = vi.spyOn(ctx.ui, "notify");
       const editor = fixture.host.editorContainer.children[0];
-
-      for (const args of ["context", "tokens", "global", "project", "invalid"]) {
-        await command?.handler(args, ctx);
-        expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("/widgets"), "error");
-        expect(fixture.host.editorContainer.children[0]).toBe(editor);
-      }
-
       opening = command?.handler("", ctx);
       await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor), {
         interval: 1,

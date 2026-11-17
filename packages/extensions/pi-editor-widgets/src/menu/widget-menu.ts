@@ -182,7 +182,9 @@ export class WidgetMenu implements Component {
   private save(): void {
     try {
       if (!this.options.coordinator.enabled)
-        throw new Error("Resolve footer conflict and /reload.\nWidget coordinator is inactive.");
+        throw new Error(
+          "Resolve the host/footer diagnostic and /reload.\nWidget coordinator is inactive."
+        );
       this.options.settings.save(
         this.drafts.scope,
         this.drafts.current.value ?? this.drafts.layout()

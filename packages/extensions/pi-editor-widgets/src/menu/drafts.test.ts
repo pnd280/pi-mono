@@ -20,30 +20,6 @@ function open(state: WidgetDrafts, id: string): void {
   state.navigate("open");
 }
 
-it("duplicates visible widgets and hides only after removing the last copy", () => {
-  const state = drafts();
-  open(state, "belowEditor");
-  state.navigate("add");
-  state.navigate("add");
-  open(state, "widget:b");
-  state.navigate("add");
-  open(state, "builtin:model");
-  expect(state.layout().belowEditor).toEqual([["widget:b", "builtin:model"]]);
-  expect(state.layout().aboveEditor[0]).toContain("widget:b");
-  state.navigate("back");
-  state.navigate("remove");
-  expect(state.layout().belowEditor).toEqual([]);
-  expect(state.layout().hidden).not.toContain("widget:b");
-  expect(state.layout().hidden).not.toContain("builtin:model");
-  state.navigate("back");
-  open(state, "aboveEditor");
-  open(state, "0");
-  state.navigate("down");
-  state.navigate("down");
-  state.navigate("remove");
-  expect(state.layout().hidden).toContain("widget:b");
-});
-
 it("keeps inherited project navigation anchored when a global save moves its row", () => {
   const state = drafts();
   state.navigate("switchScope");

@@ -62,6 +62,7 @@ Each region is a list of rows, and each row is a list of these entries:
 
 ## How rows render
 
+- When the regions don't fit beside the editor, each region gets a share of the free terminal rows, and a region taller than its share ends with "… widgets clipped". A region with no room shows nothing.
 - An empty widget takes no space but keeps its position.
 - In `aboveEditor`, shorter widgets in a multiline row align to the bottom, next to the editor. Other regions align them to the top.
 - Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.
@@ -87,4 +88,11 @@ A part with nothing to report is left out, and a clean repository shows nothing.
 
 ## Invalid layouts
 
-Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections.
+Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections. Failed saves keep the draft.
+
+| Message                                                                                                                                                                                                                                                             | What to do                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `pi-editor-widgets: cannot load layout settings from <path>. Check access, syntax, and the 1 MiB regular-file limit. Layout IDs must be unique per row and in hidden, hidden IDs cannot be placed, and a row has at most one flex. Falling back to the next scope.` | Fix the named file, then reopen `/widgets`.                                             |
+| `Cannot save this layout: too many or invalid entries.`                                                                                                                                                                                                             | Correct the draft, then press **Ctrl+S**.                                               |
+| `Check access, JSON, size and locks.`                                                                                                                                                                                                                               | Repair the file at the path shown, or wait for the other writer, then press **Ctrl+S**. |
+| `Resolve the host/footer diagnostic and /reload.` `Widget coordinator is inactive.`                                                                                                                                                                                 | Resolve the footer or host warning, then run `/reload`. The draft is not saved.         |

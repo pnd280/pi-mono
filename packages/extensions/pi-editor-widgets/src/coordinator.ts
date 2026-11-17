@@ -12,7 +12,7 @@ import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { builtinText, gitChangesId } from "./builtins.ts";
 import { GitChanges } from "./git-changes.ts";
-import { widgetRendererCompatible, type WidgetHost } from "./host.ts";
+import { inspectedPiVersion, widgetRendererCompatible, type WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
 import { clip, renderRows, type Rendered } from "./render.ts";
 
@@ -39,6 +39,8 @@ export class WidgetCoordinator {
   /** Unclipped regions from one render pass. */
   private measured: { width: number; rendered: Record<Region, Rendered> } | undefined;
   private cache: { width: number; height: number; rendered: Record<Region, Rendered> } | undefined;
+  /** Geometry of the frame on screen, which stays valid until the next frame replaces it. */
+  private frame: Record<Region, Rendered> | undefined;
   private saved: Layout | undefined;
   private draft: Layout | undefined;
   private readonly verbose = { context: false, tokens: false };
@@ -253,7 +255,9 @@ export class WidgetCoordinator {
       !("doRender" in target) ||
       typeof target.doRender !== "function"
     ) {
-      this.warn("pi-editor-widgets: renderer contract unavailable; coordinator released.");
+      this.warn(
+        `pi-editor-widgets: renderer contract unavailable; coordinator released. Use Pi ${inspectedPiVersion} and /reload, or disable the extension.`
+      );
       this.dispose();
 
       return;
@@ -323,6 +327,7 @@ export class WidgetCoordinator {
       remaining -= budget;
     });
     this.cache = { width, height, rendered };
+    this.frame = rendered;
 
     return rendered;
   }
@@ -364,12 +369,23 @@ export class WidgetCoordinator {
 
   private mouse(region: Region, event: TuiMouseEvent): TuiMouseEventResult | undefined {
     if (!this.active) return undefined;
-    const cells = this.cache?.rendered[region].cells ?? [];
+    const cells = this.frame?.[region].cells ?? [];
     const cell = cells.find(
       ({ x, y, width, height }) =>
         event.x >= x && event.x < x + width && event.y >= y && event.y < y + height
     );
     if (!cell) return undefined;
+    // Pi disposes a removed native widget before the next frame replaces this geometry.
+    const source = [...this.registry.values()].find(
+      ({ component }) => component === cell.component
+    );
+    if (
+      source?.id.startsWith("widget:") &&
+      !nativeRegions.some((region) =>
+        [...this.native(region).widgets.values()].includes(cell.component)
+      )
+    )
+      return undefined;
     const result = cell.component.handleMouse?.({
       ...event,
       x: event.x - cell.x,
@@ -428,6 +444,7 @@ export class WidgetCoordinator {
 
     this.registry.clear();
     this.invalidateCache();
+    this.frame = undefined;
     this.host.ui.requestRender();
   }
 }

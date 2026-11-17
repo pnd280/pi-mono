@@ -59,10 +59,14 @@ function select(menu: WidgetMenu, label: string): void {
 it("retains a draft after a failed save and applies it once a retry succeeds", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["NATIVE"]);
+  widgetSettings({
+    cwd: fixture.directory,
+    agentDir: fixture.agentDir,
+    projectTrusted: true
+  }).save("global", defaultLayout());
   const { settings, coordinator, menu } = menuFor(fixture);
 
   try {
-    settings.save("global", defaultLayout());
     const before = readFileSync(settings.paths.global, "utf8");
     menu.handleInput(enter);
     menu.handleInput(enter);
@@ -70,9 +74,12 @@ it("retains a draft after a failed save and applies it once a retry succeeds", a
     mkdirSync(`${settings.paths.global}.lock`);
     menu.handleInput(save);
     expect(readFileSync(settings.paths.global, "utf8")).toBe(before);
-    expect(plain(menu.render(200))).toContain("global* (not set)");
+    expect(plain(menu.render(200))).toMatch(/global\*(?! \(not set\))/);
     expect(plain(menu.render(200))).toContain("Draft retained");
     expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
+    // The failed save left the prior saved layout in effect.
+    coordinator.showDraft(undefined);
+    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("NATIVE");
     rmdirSync(`${settings.paths.global}.lock`);
     menu.handleInput(save);
     expect(plain(menu.render(200))).not.toMatch(/global(\*| \(not set\))/);
@@ -96,7 +103,7 @@ it("refuses a stale menu save after footer ownership is lost", async () => {
     menu.handleInput(save);
     expect(plain(menu.render(140))).toContain("global* (not set)");
     expect(plain(menu.render(140))).toContain("Draft retained");
-    expect(plain(menu.render(140))).toContain("footer conflict");
+    expect(plain(menu.render(140))).toContain("host/footer diagnostic");
     expect(() => readFileSync(settings.paths.global)).toThrow();
     expect(plain(fixture.host.footerContainer.render(80))).toContain("OTHER");
   } finally {
