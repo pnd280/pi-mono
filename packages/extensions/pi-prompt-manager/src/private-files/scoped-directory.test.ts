@@ -79,7 +79,7 @@ it("without owner IDs, stores only inside the user profile and keeps its permiss
       update: (raw) => ({ status: "replace", content: "new", value: raw?.toString() })
     });
     await scope.dispose();
-    expect(result).toMatchObject({ status: "committed", value: "old", warnings: [] });
+    expect(result).toMatchObject({ status: "committed", value: "old", cleanupErrors: [] });
     expect((await boundedRead(path, 100))?.toString()).toBe("new");
   } finally {
     if (getuid) Object.defineProperty(process, "getuid", getuid);

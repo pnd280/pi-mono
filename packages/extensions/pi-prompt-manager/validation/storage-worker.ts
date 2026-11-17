@@ -1,15 +1,9 @@
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
-import { z } from "zod";
 
 import { FileRepository } from "../src/storage/repository.ts";
 
-const argumentsSchema = z.tuple([
-  z.string().min(1),
-  z.string().min(1),
-  z.string().min(1),
-  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().nonnegative())
-]);
-const [cwd, agentDir, label, count] = argumentsSchema.parse(process.argv.slice(2));
+// repository.test.ts passes these arguments.
+const [cwd = "", agentDir = "", label = "", count = ""] = process.argv.slice(2);
 const repository = await FileRepository.create({
   cwd,
   agentDir,
@@ -23,7 +17,7 @@ const start = new Promise((resolve) => process.once("message", resolve));
 process.send?.("ready");
 await start;
 
-for (let index = 0; index < count; index++) {
+for (let index = 0; index < Number(count); index++) {
   const result = await repository.mutate(
     "drafts",
     { kind: "add", text: `${label}-${index}`, recordedAt: "2026-01-01T00:00:00.000Z" },
