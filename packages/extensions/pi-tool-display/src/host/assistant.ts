@@ -1,4 +1,4 @@
-import type { AssistantMessageEvent } from "@earendil-works/pi-ai";
+import type { AssistantMessage, AssistantMessageEvent } from "@earendil-works/pi-ai";
 import { AssistantMessageComponent } from "@earendil-works/pi-coding-agent";
 import {
   Container,
@@ -12,8 +12,6 @@ import {
 import { inspectedSource, OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
-import { record } from "../values.ts";
-
 // Pi 1.5.2 updateContent creates direct Markdown children only for prose, with outputPad on both sides, and one MouseRegion per shown nonempty thinking run. It reuses Markdown instances across updates, so decoration wraps without mutating them. Gate this private layout for the API and installed CLI, and keep .agents/skills/pi-update/scripts/fingerprints.ts in sync.
 const updateHashes = new Set([
   "459e35194d5d6a0c57f2014f286adf578e3c846b63472bf3b2f394c89d8817fb",
@@ -25,6 +23,20 @@ export function assistantPresentationCompatible(): boolean {
   // oxlint-disable-next-line typescript/unbound-method
   return inspectedSource(AssistantMessageComponent.prototype.updateContent, updateHashes);
 }
+
+/** Private fields of the fingerprinted layout. Only bindings that passed the `updateContent` gate read them. */
+type AssistantInternals = {
+  contentContainer: Container;
+  hideThinkingBlock: boolean;
+  outputPad: number;
+  lastMessage?: AssistantMessage;
+  isStreaming: boolean;
+  thinkingVisibilityOverrides: Map<number, boolean>;
+};
+
+const internals = (component: AssistantMessageComponent) =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
+  component as unknown as AssistantInternals;
 
 const presented = new WeakMap<AssistantMessageComponent, Set<number>>();
 
@@ -53,38 +65,35 @@ export function assistantBoundaryKind(
 }
 
 function suppressCompletedThinking(component: AssistantMessageComponent): void {
-  const state = record(component);
-  if (typeof state.isStreaming !== "boolean" || typeof state.hideThinkingBlock !== "boolean")
-    return;
-  const container = state.contentContainer;
-  const overrides = state.thinkingVisibilityOverrides;
-  const content = record(state.lastMessage).content;
-  if (!(container instanceof Container) || !(overrides instanceof Map) || !Array.isArray(content))
-    return;
+  const state = internals(component);
+  // Pi's streaming row exists before its first message.
+  const content = state.lastMessage?.content;
+  if (!content) return;
   const ended = presented.get(component);
   const hidden: boolean[] = [];
   let nonempty = false;
   let complete = true;
 
   for (let index = 0; index <= content.length; index++) {
-    const block = record(content[index]);
+    const block = content[index];
 
-    if (block.type === "thinking") {
-      nonempty ||= typeof block.thinking === "string" && !!block.thinking.trim();
+    if (block?.type === "thinking") {
+      nonempty ||= !!block.thinking.trim();
       complete &&= !state.isStreaming || ended?.has(index) === true;
       continue;
     }
 
-    if (nonempty) {
-      const override: unknown = overrides.get(hidden.length);
-      hidden.push(complete && (typeof override === "boolean" ? override : state.hideThinkingBlock));
-    }
+    if (nonempty)
+      hidden.push(
+        complete &&
+          (state.thinkingVisibilityOverrides.get(hidden.length) ?? state.hideThinkingBlock)
+      );
 
     nonempty = false;
     complete = true;
   }
 
-  removeThinkingRows(container, hidden);
+  removeThinkingRows(state.contentContainer, hidden);
 }
 
 function removeThinkingRows(container: Container, hidden: readonly boolean[]): void {
@@ -106,10 +115,7 @@ function removeThinkingRows(container: Container, hidden: readonly boolean[]): v
 
 /** Keep Pi's Markdown instance so transformers, highlighting, and theme updates still run natively. Replace its outer padding with a marker and hanging indent. */
 function markProse(component: AssistantMessageComponent): void {
-  const state = record(component);
-  const container = state.contentContainer;
-  const padding = state.outputPad;
-  if (!(container instanceof Container) || typeof padding !== "number") return;
+  const { contentContainer: container, outputPad: padding } = internals(component);
 
   container.children = container.children.map((child): Component => {
     // Thinking Markdown is nested in a MouseRegion; diagnostics are Text.

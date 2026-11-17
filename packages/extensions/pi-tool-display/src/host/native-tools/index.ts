@@ -90,11 +90,7 @@ class NativeTools {
       return action();
     } catch {
       for (const { observer } of this.observers)
-        try {
-          observer.warning?.("native observation unavailable; keeping original execution.");
-        } catch {
-          // Diagnostics cannot change tool execution.
-        }
+        observer.warning?.("native observation unavailable; keeping original execution.");
 
       return undefined;
     }
@@ -104,10 +100,8 @@ class NativeTools {
     const subscriber = { observer };
     this.observers.add(subscriber);
     if (!this.installedRefresh)
-      this.safely(() =>
-        observer.warning?.(
-          "native observation unavailable; operation and change facts are not recorded."
-        )
+      observer.warning?.(
+        "native observation unavailable; operation and change facts are not recorded."
       );
     for (const session of this.knownSessions()) this.bind(session);
     let subscribed = true;

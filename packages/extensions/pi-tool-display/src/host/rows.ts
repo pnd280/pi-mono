@@ -425,7 +425,7 @@ class RowBinding {
       previous.call(
         child,
         coordinator.group(call)?.expanded ??
-          (coordinator.mode === "verbose" || (this.host.toolOutputExpanded ?? false))
+          (coordinator.mode === "verbose" || this.host.toolOutputExpanded)
       );
     } catch {
       this.bound.delete(child);

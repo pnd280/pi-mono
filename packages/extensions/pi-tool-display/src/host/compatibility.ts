@@ -20,7 +20,7 @@ export type Host = {
   session: AgentSession;
   ui: TUI;
   chatContainer: { children: Component[] };
-  toolOutputExpanded?: boolean;
+  toolOutputExpanded: boolean;
   [hostMode]?: DisplayMode;
   getStartupExpansionState?: (this: Host) => boolean;
   updateThinkingBlockVisibility?: (this: Host) => void;

@@ -75,7 +75,7 @@ export function bindRowChrome(
   };
 
   const render: typeof row.render = function (this: DisplayRow, width) {
-    if (!options.active() || width < 1) {
+    if (!options.active()) {
       targets = [];
 
       return previousRender.call(this, width);
