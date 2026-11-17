@@ -52,8 +52,7 @@ const readTrailer = new RegExp(
 function splitTrailer(text: string, pattern: RegExp | undefined) {
   const match = pattern?.exec(text);
   const notice = match?.[1];
-  if (!match || notice === undefined || match.index + match[0].length !== text.length)
-    return undefined;
+  if (!match || notice === undefined) return undefined;
 
   return {
     content: text.slice(0, match.index),
