@@ -229,7 +229,6 @@ export class WidgetMenu implements Component {
   }
 
   render(width: number): string[] {
-    if (width < 1) return [];
     const rows = this.options.rows() - 2;
     // Leave the live draft regions visible; below the 10-row frame minimum, they clip instead.
     const height = Math.max(
