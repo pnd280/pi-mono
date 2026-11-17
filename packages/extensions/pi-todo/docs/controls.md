@@ -10,13 +10,13 @@ You read todos in the `/todos` browser and the widget, and the `ext.pi-todo` set
 
 | Key                      | Action                                 |
 | ------------------------ | -------------------------------------- |
-| **Up**, **Down**         | Move the selection.                    |
+| **Up**, **Down**         | Move the selection, or scroll details. |
 | **Enter**                | Show details.                          |
 | **Escape**               | Go back, or close.                     |
 | **PageUp**, **PageDown** | Move the selection, or scroll details. |
 
 - **Ctrl+C** never closes the browser.
-- The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.5.2 can't use modified Escape bindings. If no usable key is bound, fix Pi's keybindings and run `/reload`.
+- The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.5.2 can't use modified Escape bindings.
 - The footer keeps back or close first when space is limited. An empty list shows only the close hint.
 
 ### Fullscreen mode
@@ -27,13 +27,13 @@ If Pi can't give the browser this priority, a warning appears each time you open
 
 ## The widget
 
-In fullscreen mode, `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session. Clicking the widget also toggles it.
+In fullscreen mode, `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session. Clicking the widget also toggles it. The expanded widget uses at most 12 lines. When todos don't fit, it keeps unfinished todos with their parents and counts the hidden ones; open `/todos` for the full list.
 
 In regular mode the widget is always expanded, and these commands report an error. Your collapse preference applies again when you switch back to fullscreen.
 
 ### Working-message order
 
-While the widget is collapsed, the working message shows the active todo instead. Expanding the widget removes it. To change where it appears among other working-message items, run `/working-message`. Changes apply only when you save.
+While the widget is collapsed, the working message shows the first in-progress todo instead, with a count of any others in progress. Expanding the widget removes it. To change where it appears among other working-message items, run `/working-message`. Changes apply only when you save.
 
 For scopes, controls, and keybinding precedence, see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
 

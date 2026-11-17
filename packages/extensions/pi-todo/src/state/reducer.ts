@@ -121,8 +121,8 @@ function taskListResultText(taskList: readonly Task[], params: TaskMutationParam
   const hierarchy = deriveTaskHierarchy(taskList);
   if (!hierarchy) throw new Error("todo hierarchy is invalid");
 
-  const includeDeleted = params.includeDeleted === true;
   const statusFilter = params.status;
+  const includeDeleted = params.includeDeleted === true || statusFilter === "deleted";
   const visibleEntries = hierarchy.entries.filter(
     ({ task }) =>
       (includeDeleted || task.status !== "deleted") &&
@@ -364,13 +364,19 @@ function unchangedResult(
   }
 }
 
-function mutationResult(
-  previousState: TodoState,
-  nextState: TodoState,
-  action: TaskAction,
-  params: TaskMutationParams,
-  text: string
-): TaskMutationResult {
+function mutationResult({
+  previousState,
+  nextState,
+  action,
+  params,
+  text
+}: {
+  previousState: TodoState;
+  nextState: TodoState;
+  action: TaskAction;
+  params: TaskMutationParams;
+  text: string;
+}): TaskMutationResult {
   try {
     return {
       state: nextState,
@@ -450,7 +456,13 @@ function applyTaskMutation(
       const count = state.tasks.length;
       const nextState = emptyTodoState();
 
-      return mutationResult(state, nextState, action, params, `Cleared ${count} todos`);
+      return mutationResult({
+        previousState: state,
+        nextState,
+        action,
+        params,
+        text: `Cleared ${count} todos`
+      });
     }
   }
 }
@@ -488,15 +500,16 @@ function applyCreateTaskMutation(state: TodoState, params: TaskMutationParams): 
     nextId: state.nextId + 1
   };
 
-  return mutationResult(
-    state,
+  return mutationResult({
+    previousState: state,
     nextState,
-    "create",
+    action: "create",
     params,
-    newTask.parentId === undefined
-      ? `Created #${newTask.id}: ${newTask.subject} (pending)`
-      : `Created #${newTask.id} under #${newTask.parentId}: ${newTask.subject} (pending)`
-  );
+    text:
+      newTask.parentId === undefined
+        ? `Created #${newTask.id}: ${newTask.subject} (pending)`
+        : `Created #${newTask.id} under #${newTask.parentId}: ${newTask.subject} (pending)`
+  });
 }
 
 function validateCreatedParent(
@@ -684,13 +697,13 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
       : ` (parent: #${parent.value.parentId})`;
   const placement = parent.value.changed ? destination : "";
 
-  return mutationResult(
-    state,
+  return mutationResult({
+    previousState: state,
     nextState,
-    "update",
+    action: "update",
     params,
-    `Updated #${updated.id}${transition}${placement}`
-  );
+    text: `Updated #${updated.id}${transition}${placement}`
+  });
 }
 
 function updateShapeError(params: TaskMutationParams): string | undefined {
@@ -1019,13 +1032,13 @@ function applyDeleteTaskMutation(state: TodoState, params: TaskMutationParams): 
   );
   const nextState: TodoState = { tasks: nextTasks, nextId: state.nextId };
 
-  return mutationResult(
-    state,
+  return mutationResult({
+    previousState: state,
     nextState,
-    "delete",
+    action: "delete",
     params,
-    `Deleted #${updated.id}: ${updated.subject}`
-  );
+    text: `Deleted #${updated.id}: ${updated.subject}`
+  });
 }
 
 export function stateFitsCurrentLimits(state: TodoState): boolean {

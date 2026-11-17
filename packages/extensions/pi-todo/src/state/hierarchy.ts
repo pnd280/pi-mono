@@ -100,7 +100,6 @@ function traverseForest(
     if (!frame) continue;
 
     if (
-      visited.has(frame.task.id) ||
       frame.depth > MAX_TASK_DEPTH ||
       (frame.hasDeletedAncestor && frame.task.status !== "deleted")
     ) {

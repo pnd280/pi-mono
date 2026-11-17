@@ -65,7 +65,7 @@ describe("todo session state", () => {
   it("restores valid version 2 forests without changing source sibling order", () => {
     const tasks = [
       { id: 3, subject: "First child by source order", status: "pending", parentId: 1 },
-      { id: 1, subject: "Root", status: "completed" },
+      { id: 1, subject: "Root", status: "completed", owner: "planner" },
       { id: 2, subject: "Second child by source order", status: "deleted", parentId: 1 },
       { id: 4, subject: "Deleted grandchild", status: "deleted", parentId: 2 }
     ] satisfies Task[];
@@ -162,20 +162,21 @@ describe("todo session state", () => {
     assert.equal(parse([task(1, [2]), task(2, [1])], 3), undefined);
   });
 
-  it("rejects snapshots over the todo-count limit", () => {
-    const taskCount = MAX_TASKS + 1;
-    const tasks = Array.from({ length: taskCount }, (_, index): Task => {
-      const id = index + 1;
-      const task: Task = { id, subject: `Todo ${id}`, status: "pending" };
-      if (id < taskCount) task.blockedBy = [id + 1];
+  it("accepts snapshots at the todo-count limit and rejects larger ones", () => {
+    const snapshot = (taskCount: number) => ({
+      version: TASK_DETAILS_VERSION,
+      tasks: Array.from({ length: taskCount }, (_, index): Task => {
+        const id = index + 1;
+        const task: Task = { id, subject: `Todo ${id}`, status: "pending" };
+        if (id < taskCount) task.blockedBy = [id + 1];
 
-      return task;
+        return task;
+      }),
+      nextId: taskCount + 1
     });
 
-    assert.equal(
-      parseTodoStateSnapshot({ version: TASK_DETAILS_VERSION, tasks, nextId: taskCount + 1 }),
-      undefined
-    );
+    assert.equal(parseTodoStateSnapshot(snapshot(MAX_TASKS))?.tasks.length, MAX_TASKS);
+    assert.equal(parseTodoStateSnapshot(snapshot(MAX_TASKS + 1)), undefined);
   });
 
   it("rejects replay snapshots whose fields, dependencies, or metadata exceed limits", () => {
@@ -265,6 +266,11 @@ describe("todo session state", () => {
         todoResultEntry(valid),
         todoResultEntry({ version, tasks: [], nextId: 1 }, true),
         todoResultEntry({ version, tasks: "bad", nextId: 1 }),
+        todoResultEntry({
+          version,
+          tasks: [{ id: 1, subject: " ", status: "pending" }],
+          nextId: 2
+        }),
         { type: "message" as const, message: null }
       ]),
       {

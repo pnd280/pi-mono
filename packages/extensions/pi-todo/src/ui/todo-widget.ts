@@ -1,4 +1,4 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionWidgetOptions, Theme } from "@earendil-works/pi-coding-agent";
 import {
   truncateToWidth,
   type Component,
@@ -37,7 +37,7 @@ export type TodoWidgetUI = {
   setWidget(
     key: string,
     content: TodoWidgetFactory | undefined,
-    options?: { placement?: "aboveEditor" | "belowEditor" }
+    options?: ExtensionWidgetOptions
   ): void;
   setActivity(text?: string): void;
 };
@@ -98,6 +98,7 @@ export class TodoWidget {
     if (!this.live || !this.uiCtx) return;
 
     const { snapshot } = this.refreshPresentation();
+    if (this.suppressions.size > 0) this.probeMode();
     this.syncWorkingMessage();
 
     if (!snapshot || this.suppressions.size > 0) {

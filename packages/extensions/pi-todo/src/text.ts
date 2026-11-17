@@ -19,7 +19,7 @@ export const TASK_STATUS_TEXT = {
 } satisfies Record<TaskStatus, string>;
 
 export function sanitizeTaskDescription(text: string): string {
-  return displayText(styledOutput(text.replaceAll("\r", "").replaceAll("\t", "  ")));
+  return displayText(styledOutput(text.replaceAll("\t", "  ")));
 }
 
 function excerpt(text: string, maximum: number): string {
@@ -56,7 +56,7 @@ export function presentTaskDescription(text: string): string {
 }
 
 /**
- * One terminal-safe JSON line that decodes to the stored keys and values; result details keep the stored value unchanged. `JSON.stringify` escapes C0 controls; escape DEL and C1 the same way.
+ * One terminal-safe JSON line, shortened to 4,000 characters (a shortened line is not valid JSON); result details keep the stored value unchanged. `JSON.stringify` escapes C0 controls; escape DEL and C1 the same way.
  */
 export function presentTaskMetadata(metadata: TaskMetadata): string {
   // oxlint-disable-next-line no-control-regex

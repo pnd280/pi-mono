@@ -1,4 +1,8 @@
-import type { ExtensionAPI, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionUIContext,
+  ToolExecutionEndEvent
+} from "@earendil-works/pi-coding-agent";
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import {
@@ -26,7 +30,7 @@ type TodoEventHandlers = {
   session_tree: (event: object, ctx: TodoLifecycleContext) => void;
   session_shutdown: (event: object, ctx: TodoLifecycleContext) => void;
   tool_execution_end: (
-    event: { toolName: string; isError: boolean },
+    event: Pick<ToolExecutionEndEvent, "toolName" | "isError">,
     ctx: TodoLifecycleContext
   ) => void;
 };

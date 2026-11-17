@@ -29,11 +29,11 @@ it("keeps every tool action replayable and private state independent of emitted 
     { action: "create", subject: "Root", metadata: { items: ["original"] } },
     { action: "create", subject: "Child", parentId: 1, blockedBy: [1] },
     { action: "update", id: 1, status: "in_progress" },
-    { action: "list" },
     { action: "get", id: 1 },
     { action: "delete", id: 1 },
     { action: "delete", id: 2 },
     { action: "delete", id: 1 },
+    { action: "list", status: "deleted" },
     { action: "clear" }
   ];
   const nextIds = [2, 3, 3, 3, 3, 3, 3, 3, 1];
@@ -42,8 +42,9 @@ it("keeps every tool action replayable and private state independent of emitted 
     const result = await tool.execute(String(index), args);
     const tasks = controller.getTodos();
     expect(parseTodoStateSnapshot(result.details)).toEqual({ tasks, nextId: nextIds[index] });
-    if (index === 5) expect(result.details.error).toContain("non-deleted descendant");
+    if (index === 4) expect(result.details.error).toContain("non-deleted descendant");
     else expect(result.details.error).toBeUndefined();
+    if (args.action === "list") expect(JSON.stringify(result.content)).toMatch(/Root.*Child/u);
 
     for (const task of result.details.tasks) {
       task.subject = "Changed result";
