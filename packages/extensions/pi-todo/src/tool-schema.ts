@@ -6,34 +6,28 @@ import { jsonMetadataSchema } from "./state/metadata.ts";
 import { TASK_ACTIONS, TASK_STATUSES } from "./state/model.ts";
 
 const fields = {
-  subject: z.string().describe("Todo subject line (required for create)"),
+  subject: z.string().describe("Todo subject line"),
   description: z.string().describe("Long-form todo description"),
   inProgressLabel: z
     .string()
     .describe(
       "Present-continuous activity label shown while status is in_progress (e.g. 'writing tests')"
     ),
-  status: z
-    .enum(TASK_STATUSES)
-    .describe(
-      "Target status (update) or list filter (list); the deleted filter returns deleted todos"
-    ),
+  status: z.enum(TASK_STATUSES).describe("Target status (update) or list filter (list)"),
   parentId: z
     .number()
     .nullable()
     .describe(
-      "Parent todo ID (positive safe integer). On create, omit or use null for a root, or provide a live parent ID. On update, omit to keep the parent, provide an ID to reparent, or use null to detach."
+      "Parent todo ID. On create, omit or use null for a root. On update, omit to keep the parent, provide an ID to reparent, or use null to detach."
     ),
   blockedBy: z.array(z.number()).describe("Initial blockedBy IDs (create only)"),
-  addBlockedBy: z
-    .array(z.number())
-    .describe("Todo IDs to add to blockedBy (update only, additive merge)"),
+  addBlockedBy: z.array(z.number()).describe("Todo IDs to add to blockedBy (update only)"),
   removeBlockedBy: z.array(z.number()).describe("Todo IDs to remove from blockedBy (update only)"),
   owner: z.string().describe("Agent/owner assigned to this todo"),
   metadata: jsonMetadataSchema.describe(
     "Arbitrary metadata; pass null value for a key to delete that key on update"
   ),
-  id: z.number().describe("Todo ID (required for update, get, delete)"),
+  id: z.number().describe("Todo ID"),
   includeDeleted: z
     .boolean()
     .describe(
