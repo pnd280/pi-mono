@@ -154,9 +154,8 @@ export const extensionGroups: ExtensionGroup[] = [
         sample: { kind: "input", text: "/prompts" }
       },
       {
-        name: "pi-prompt-cloak",
-        summary:
-          "Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers."
+        name: "pi-sysprompt-rewrite",
+        summary: "Rewrites system prompt sections with user-configured regex rules."
       }
     ]
   }

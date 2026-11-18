@@ -1,8 +1,8 @@
 {
-  "name": "pi-prompt-cloak",
+  "name": "pi-sysprompt-rewrite",
   "version": "0.1.0",
   "private": true,
-  "description": "Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers",
+  "description": "Rewrites system prompt sections with user-configured regex rules",
   "keywords": [
     "pi-package"
   ],
@@ -14,7 +14,11 @@
     "format": "vp fmt .",
     "lint": "vp lint --format stylish .",
     "check": "vp fmt --check . && vp run lint",
-    "test": "vp test run --config ../../../vite.config.ts --passWithNoTests"
+    "test": "vp test run --config ../../../vite.config.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "catalog:pi-host"
