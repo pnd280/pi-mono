@@ -1,9 +1,4 @@
-import { join } from "node:path";
-
-import { readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
-
-const SETTINGS_KEY = "ext.pi-sysprompt-rewrite";
 
 const MAX_RULES = 100;
 const MAX_TEXT_LENGTH = 4096;
@@ -18,53 +13,34 @@ const ruleSchema = z.strictObject({
   sections: z.array(z.string().min(1).max(MAX_TEXT_LENGTH)).max(MAX_RULES).optional()
 });
 
-const settingsSchema = z.strictObject({
-  rules: z.array(z.unknown()).max(MAX_RULES).optional()
-});
+const rulesSchema = z.array(z.unknown()).max(MAX_RULES);
 
-type RewriteRule = {
+export type RewriteRule = {
   pattern: RegExp;
   replace: string;
   /** `undefined` applies the rule to every section. */
   sections: ReadonlySet<string> | undefined;
 };
 
-export type RewriteConfig = {
-  rules: readonly RewriteRule[];
-  warnings: string[];
-};
-
 /**
- * Reads rules from the global settings file only, because rules rewrite the system prompt. Invalid rules are skipped; warnings never echo supplied keys or values.
+ * Parses the global `rules` value. Invalid rules are skipped; warnings never echo supplied keys or values.
  */
-export function loadRewriteConfig(agentDir: string): RewriteConfig {
-  let record: Record<string, unknown>;
+export function parseRules(rawRules: unknown): { rules: RewriteRule[]; warnings: string[] } {
+  if (rawRules === undefined) return { rules: [], warnings: [] };
 
-  try {
-    record = readSettingsRecord(join(agentDir, "settings.json"));
-  } catch {
-    return { rules: [], warnings: ["settings.json could not be read; rules disabled"] };
-  }
+  const parsed = rulesSchema.safeParse(rawRules);
 
-  const rawSettings = record[SETTINGS_KEY];
-
-  if (rawSettings === undefined) return { rules: [], warnings: [] };
-
-  const settings = settingsSchema.safeParse(rawSettings);
-
-  if (!settings.success) {
+  if (!parsed.success) {
     return {
       rules: [],
-      warnings: [
-        `${SETTINGS_KEY} is invalid; expected only rules (at most ${MAX_RULES}); rules disabled`
-      ]
+      warnings: [`rules is invalid; expected a list of at most ${MAX_RULES} rules; rules disabled`]
     };
   }
 
   const rules: RewriteRule[] = [];
   const warnings: string[] = [];
 
-  for (const [index, rawRule] of (settings.data.rules ?? []).entries()) {
+  for (const [index, rawRule] of parsed.data.entries()) {
     const rule = ruleSchema.safeParse(rawRule);
 
     if (!rule.success) {
@@ -93,23 +69,39 @@ export function loadRewriteConfig(agentDir: string): RewriteConfig {
   return { rules, warnings };
 }
 
-/**
- * Runs the rules that apply to section `name` in list order. Rules see only the body inside Pi's `<name>` wrapper, which is kept as is; a section without that exact wrapper, such as `preamble`, is rewritten whole.
- */
+/** The body inside Pi's `<name>` wrapper; a section without that exact wrapper, such as `preamble`, is all body. */
+export function sectionBody(name: string, content: string): string {
+  const open = `<${name}>\n`;
+  const close = `\n</${name}>`;
+
+  return content.startsWith(open) && content.endsWith(close)
+    ? content.slice(open.length, -close.length)
+    : content;
+}
+
+/** Maps the section body and keeps Pi's wrapper as is. */
+export function mapSectionBody(
+  name: string,
+  content: string,
+  map: (body: string) => string
+): string {
+  const body = sectionBody(name, content);
+
+  return body === content ? map(content) : `<${name}>\n${map(body)}\n</${name}>`;
+}
+
+/** Runs the rules that apply to section `name` in list order, on the section body. */
 export function rewriteSection(
   rules: readonly RewriteRule[],
   name: string,
   content: string
 ): string {
-  const open = `<${name}>\n`;
-  const close = `\n</${name}>`;
-  const wrapped = content.startsWith(open) && content.endsWith(close);
-  let body = wrapped ? content.slice(open.length, -close.length) : content;
+  return mapSectionBody(name, content, (body) => {
+    for (const rule of rules) {
+      if (rule.sections && !rule.sections.has(name)) continue;
+      body = body.replace(rule.pattern, rule.replace);
+    }
 
-  for (const rule of rules) {
-    if (rule.sections && !rule.sections.has(name)) continue;
-    body = body.replace(rule.pattern, rule.replace);
-  }
-
-  return wrapped ? `${open}${body}${close}` : body;
+    return body;
+  });
 }

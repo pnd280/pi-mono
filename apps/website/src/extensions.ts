@@ -155,7 +155,8 @@ export const extensionGroups: ExtensionGroup[] = [
       },
       {
         name: "pi-sysprompt-rewrite",
-        summary: "Rewrites system prompt sections with user-configured regex rules."
+        summary:
+          "Rewrites system prompt sections with regex rules, and can move Pi's docs section to a temporary file."
       }
     ]
   }

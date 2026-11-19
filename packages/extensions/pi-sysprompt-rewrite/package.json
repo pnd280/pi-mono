@@ -2,7 +2,7 @@
   "name": "pi-sysprompt-rewrite",
   "version": "0.1.0",
   "private": true,
-  "description": "Rewrites system prompt sections with user-configured regex rules",
+  "description": "Rewrites system prompt sections with regex rules, and can move Pi's docs section to a temporary file",
   "keywords": [
     "pi-package"
   ],
