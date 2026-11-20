@@ -302,7 +302,7 @@ export function installHostIntegration(
     });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
-    // Pi 1.5.2 passes (items, messageMeta, options); forward every argument so footer, editor history, and saved-message metadata reach Pi's rows.
+    // Pi 1.6.0 passes (items, messageMeta, options); forward every argument so footer, editor history, and saved-message metadata reach Pi's rows.
     hooks.replace(prototype, "renderSessionItems", function (this: Host, items, ...rest) {
       // Pi appends replay slices around a boundary compaction summary. Retain earlier rows and their ownership until the host clears the transcript.
       const binding = ensure(this, this.chatContainer.children.length === 0);

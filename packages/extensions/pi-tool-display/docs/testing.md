@@ -26,6 +26,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, e2e:** Display integration registers no tools and leaves the active tool selection unchanged.
 - **High, e2e:** Startup and the session remain usable when private host hooks are incompatible or non-writable.
 - **High, e2e:** Failed hook installation leaves no partial hooks, including on one row whose later hook fails after its first hook was installed.
+- **High, e2e:** Live and replayed read cards, collapsed and expanded, warn when the model received a placeholder instead of the read image.
 - **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results. When message-end middleware renames a call, its card, observation, and saved facts follow the final tool.
 - **High, integration:** Mutation observations preserve native write outcomes and queue order.
 - **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.

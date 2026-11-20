@@ -5,7 +5,7 @@ import { expect, it, vi } from "vite-plus/test";
 import { WidgetCoordinator } from "../src/coordinator.ts";
 import { defaultLayout } from "../src/layout.ts";
 
-const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
+const plain = (lines: readonly string[]) => lines.map(stripTerminalSequences).join("\n");
 
 it("keeps typing in the editor after a native click toggles a wrapped usage widget across redraws", async () => {
   // Context and token widgets share one mouse path; context also exercises the reserve label.

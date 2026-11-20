@@ -103,7 +103,7 @@ export function createNoticeRenderer() {
           const innerWidth = Math.max(1, width - 4);
           const label = notice ? labels[notice.action] : "Nested instructions";
           // The explanation describes the notice itself, so it continues the heading; only the instruction body or empty-file note is a child branch.
-          let child: string[] = [];
+          let child: readonly string[] = [];
 
           if (expansion.expanded) {
             if (body) child = markdown.render(innerWidth);

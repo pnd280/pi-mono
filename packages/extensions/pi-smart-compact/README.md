@@ -14,7 +14,7 @@ _Compaction_ replaces older conversation history with a summary that a model wri
 
 ## Usage
 
-pi-smart-compact requires Pi 1.5.2. The model calls the tools like this:
+pi-smart-compact requires Pi 1.6.0. The model calls the tools like this:
 
 ```typescript
 context_window({});

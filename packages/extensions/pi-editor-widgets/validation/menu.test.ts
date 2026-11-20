@@ -9,7 +9,7 @@ import { defaultLayout, type Layout } from "../src/layout.ts";
 import { WidgetMenu } from "../src/menu/widget-menu.ts";
 import { widgetSettings } from "../src/settings.ts";
 
-const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
+const plain = (lines: readonly string[]) => lines.map(stripTerminalSequences).join("\n");
 const enter = "\r";
 const down = "\x1b[B";
 const escape = "\x1b";

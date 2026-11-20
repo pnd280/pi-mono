@@ -2,7 +2,7 @@
 
 [pi-abort-guard](../README.md)
 
-> Last verified against Pi 1.5.2 with package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: a physical terminal; the disposable input probes; live dialogs, including stacked dialogs over a running agent; live compactions, retries, and branch summaries.
+> Last verified against Pi 1.6.0 with package checks, offline tests, and a source review of the Pi 1.5.2 to 1.6.0 changes. Not covered: a physical terminal; the disposable input probes; live dialogs, including stacked dialogs over a running agent; live compactions, retries, and branch summaries.
 
 ## Checklist
 
@@ -25,5 +25,5 @@
 ## Limitations
 
 - If Pi adds a setting that requires a double press to interrupt, remove this extension.
-- In Pi 1.5.1 and 1.5.2, an editor set while an extension dialog is open appears only after the last dialog closes. Pi still calls the factory at once, so the editor is guarded before it appears.
-- In Pi 1.5.1 and 1.5.2, the docs recommend the injected `keyText()` over the imported one, because an extension's own copy of Pi does not see the configured keys. The hint imports `keyText()` outside a renderer, where no injected copy exists. Pi's extension loader maps that import to Pi's own copy, so the hint names the configured keys.
+- In Pi 1.5.1 to 1.6.0, an editor set while an extension dialog is open appears only after the last dialog closes. Pi still calls the factory at once, so the editor is guarded before it appears.
+- In Pi 1.5.1 to 1.6.0, the docs recommend the injected `keyText()` over the imported one, because an extension's own copy of Pi does not see the configured keys. The hint imports `keyText()` outside a renderer, where no injected copy exists. Pi's extension loader maps that import to Pi's own copy, so the hint names the configured keys.

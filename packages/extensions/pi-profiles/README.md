@@ -67,7 +67,7 @@ This example shows every field. Remove the comments before you copy it, because 
       {
         "name": "plan",
         "description": "Read and plan without changing files",
-        "model": "openai-codex/gpt-5.1",
+        "model": "openai-codex/gpt-6.2-sol",
         "thinking": "high",
         // Optional. Up to 32 text files that are added to the system prompt, up to 1 MiB each. Omit it to add no text. A relative path resolves from the directory of the settings file: the agent directory or the project's .pi directory.
         "appendSystemPrompts": ["profiles/plan.md"],

@@ -15,6 +15,8 @@ These inputs give no scope:
 
 In a glob pattern, only the fixed directory prefix before the first wildcard and finite brace alternatives, such as `{src,lib}`, give directories. A wildcard never counts as an exact read of an instruction file. Listing a filename is not a content read.
 
+The native `find` tool of Pi 1.6.0 matches a relative pattern that contains `/` from its `path` input, and discovery reads the pattern's directories from there too.
+
 When the model calls a tool directly, a failed or blocked attempt to read an instruction file still counts as a read of that file, so discovery does not add a second copy.
 
 ## Bash inference

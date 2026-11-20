@@ -9,7 +9,7 @@ import { expect, it, vi } from "vite-plus/test";
 import editorWidgets from "../src/index.ts";
 import { defaultLayout } from "../src/layout.ts";
 
-const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
+const plain = (lines: readonly string[]) => lines.map(stripTerminalSequences).join("\n");
 
 it("toggles a fullscreen usage widget on click without writing settings", async () => {
   const fixture = await hostFixture([editorWidgets], "fullscreen");

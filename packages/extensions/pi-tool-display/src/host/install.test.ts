@@ -59,7 +59,7 @@ function installHostIntegration(): (() => void) | undefined {
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
-// Pi 1.5.2's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.6.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: AgentSession }, name: string) => RenderDefinition;
@@ -100,7 +100,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 1.5.2's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.6.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion, slop/no-chained-type-assertions
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -1487,6 +1487,60 @@ it.each([
     });
   }
 );
+
+it("warns on live and replayed image reads that the model saw a placeholder", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+
+    try {
+      tui.renderSessionItems([]);
+      await session.bindExtensions({ mode: "tui" });
+      await writeFile(
+        join(session.sessionManager.getCwd(), "image.png"),
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAIAAAAC64paAAAAG0lEQVR4nGP4z8BANiJf56jmUc2jmkc1U0UzADHNjoAymaoJAAAAAElFTkSuQmCC",
+          "base64"
+        )
+      );
+      const faux = fauxProvider({
+        provider: "display-text-only",
+        models: [{ id: "text-only", input: ["text"] }]
+      });
+      session.modelRuntime.registerNativeProvider(faux.provider);
+      await session.modelRuntime.refresh({ allowNetwork: false });
+      await session.setModel(faux.getModel());
+      faux.setResponses([
+        fauxAssistantMessage([fauxToolCall("read", { path: "image.png" }, { id: "image-read" })]),
+        fauxAssistantMessage("done")
+      ]);
+      await promptThroughHost(session, tui, "Read the image");
+      expect(toolResults(session).at(-1)).toMatchObject({
+        toolCallId: "image-read",
+        details: { imageUnsupportedByModel: "text-only" }
+      });
+
+      for (const replay of [false, true]) {
+        if (replay) {
+          tui.chatContainer.clear();
+          tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+        }
+
+        const row = tui.chatContainer.children.find(
+          (child) => child instanceof ToolExecutionComponent
+        )!;
+
+        for (const expanded of [false, true]) {
+          row.setExpanded(expanded);
+          expect(text(row)).toContain(
+            "text-only does not support images; it saw a placeholder instead."
+          );
+        }
+      }
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
 
 it.each([
   {

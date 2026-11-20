@@ -178,7 +178,7 @@ export class JobLogView implements Component {
 
   /** The visible log rows, or the loading, empty, or unavailable text. */
   private body(
-    lines: string[],
+    lines: readonly string[],
     unavailableInBody: boolean,
     width: number,
     height: number

@@ -6,7 +6,7 @@ A switch with **Alt+I**, `/profile`, or `--profile` applies a profile's fields t
 
 ## Model and thinking level
 
-- A profile with `thinking` sets that level, which Pi limits to what the model supports.
+- A profile with `thinking` sets that level. When the model does not support the level, Pi uses the nearest higher level that it supports, or else the nearest lower one, without a warning. For example, GPT-6.2 Sol supports neither `off` nor `minimal` on the `openai` and `azure` providers, so both run as `low`. On `openai-codex`, it does not support `off`, so `off` runs as `minimal`.
 - Without `thinking`, pi-profiles does not set the level. A `model` change can still change it, because Pi then applies the level that its settings set for that model, or its default level. Without those settings, Pi keeps the current level, limited to what the model supports.
 
 ## Prompt texts

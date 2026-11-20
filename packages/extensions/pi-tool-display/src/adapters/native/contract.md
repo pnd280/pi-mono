@@ -8,6 +8,8 @@ Adapter maintainers use this contract when they change native argument or result
 
 Successful edits use `details.patch` in unified format. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
 
+A read's `details.imageUnsupportedByModel` names the model that received a placeholder instead of the image, and produces the read warning. Image captions establish only Pi's exact omission notes; other caption lines stay ordinary text.
+
 ## Display
 
 Concrete targets use Pi's Unicode-space normalisation before lexical resolution for headings, exploration scopes, and summary identities. Arguments remain unchanged; search patterns and globs remain literal. The [pi-read adapter](../pi-read/README.md) shares this native path policy. Custom adapters do not inherit it.

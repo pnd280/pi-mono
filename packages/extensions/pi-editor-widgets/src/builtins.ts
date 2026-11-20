@@ -141,7 +141,7 @@ function context(session: AgentSession, theme: Theme, display: UsageDisplay): st
     auto = ` (auto ~${trigger})`;
   }
 
-  // Pi 1.5.2's footer.js colours context usage above 70% and 90%.
+  // Pi 1.6.0's footer.js colours context usage above 70% and 90%.
   const text = `${used}/${total}${share}${auto}`;
   const level = percent ?? 0;
   if (level > 90) return theme.fg("error", text);

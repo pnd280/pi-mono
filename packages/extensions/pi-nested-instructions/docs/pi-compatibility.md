@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.5.2 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: manual [notice](../GLOSSARY.md#delivery) presentation and Windows paths.
+> Last verified against Pi 1.6.0 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.5.2 to 1.6.0 changes. Not covered: manual [notice](../GLOSSARY.md#delivery) presentation and Windows paths.
 
 ## Checklist
 
@@ -59,6 +59,6 @@ The extension uses only public Pi APIs, with no host patches or tool overrides. 
 - A [direct read](../GLOSSARY.md#discovery) is an attempt, not proof that the content was delivered in full.
 - In Pi 1.5.0 to 1.5.2, a saved "Do not trust" decision makes `ctx.isProjectTrusted()` false even for a folder with only `AGENTS.md`. Pi still loads context files regardless of project trust, and discovery also ignores trust, so both stay aligned.
 - In Pi 1.4.0 to 1.5.2, discovery reads inputs as issued, before Pi coerces them. A path that Pi converts to a string, such as a number, gives no scope.
-- In Pi 1.5.1 and 1.5.2 on Windows, native `find` reads `\` in a pattern as a path separator. Discovery [reads a pattern's directories only with `/`](input-discovery.md#windows).
+- In Pi 1.5.1 to 1.6.0 on Windows, native `find` reads `\` in a pattern as a path separator. Discovery [reads a pattern's directories only with `/`](input-discovery.md#windows).
 
 Replace local behaviour only if a public Pi API keeps these boundaries and metadata-only markers. Don't replace it with the startup loader, which also reads global and ancestor content.

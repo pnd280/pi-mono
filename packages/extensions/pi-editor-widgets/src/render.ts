@@ -16,14 +16,14 @@ type Cell = {
   images: boolean;
 };
 
-export type Rendered = { lines: string[]; cells: Cell[] };
+export type Rendered = { lines: readonly string[]; cells: Cell[] };
 
 /** Vertical placement of shorter items within a multiline row. */
 type Align = "top" | "bottom";
 
 type Item = {
   component: Component;
-  lines: string[];
+  lines: readonly string[];
   width: number;
   group: number;
   bullet: boolean;
@@ -208,7 +208,8 @@ export function renderRows(
     align = "top"
   }: { sources: ReadonlyMap<string, Component>; width: number; separator: string; align?: Align }
 ): Rendered {
-  const result: Rendered = { lines: [], cells: [] };
+  const lines: string[] = [];
+  const cells: Cell[] = [];
 
   for (const row of rows) {
     for (const items of wrap(measure(row, sources, width), width)) {
@@ -218,13 +219,13 @@ export function renderRows(
         separator,
         align
       });
-      const offset = result.lines.length;
-      result.cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));
-      result.lines.push(...rendered.lines);
+      const offset = lines.length;
+      cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));
+      lines.push(...rendered.lines);
     }
   }
 
-  return result;
+  return { lines, cells };
 }
 
 export function clip(rendered: Rendered, height: number, width: number): Rendered {

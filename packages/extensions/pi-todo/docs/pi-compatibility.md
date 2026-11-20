@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-> Last verified against Pi 1.5.2 with the package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the `validateToolArguments` probe of the model-facing schema, which last ran on Pi 1.5.1; manual terminal checks.
+> Last verified against Pi 1.6.0 with the package checks, offline tests, and a source review of the Pi 1.5.2 to 1.6.0 changes. Not covered: the `validateToolArguments` probe of the model-facing schema, which last ran on Pi 1.5.1; manual terminal checks.
 
 ## Upgrade procedure
 

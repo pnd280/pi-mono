@@ -113,11 +113,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
       editor.render = (width) => {
         const lines = render(width);
-        const [top] = lines;
-        if (label !== undefined && top !== undefined)
-          lines[0] = labelBorder(top, label, (text) => editor.borderColor?.(text) ?? text);
+        const [top, ...rest] = lines;
+        if (label === undefined || top === undefined) return lines;
 
-        return lines;
+        return [labelBorder(top, label, (text) => editor.borderColor?.(text) ?? text), ...rest];
       };
 
       requestRender = () => tui.requestRender();
@@ -239,7 +238,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const result = plan.settle(pi.getActiveTools());
     rules = result.rules;
     pi.appendEntry<Selection>(SELECTION_ENTRY, result.entry);
-    // After the tools: a call that turns off a tool drops the pending tools of connecting servers.
+    // After the tools: a call that turns off a restored tool drops the pending tools of connecting servers.
     selectServers(profile, ctx);
     showLabel(profile?.name);
     const title = profile ? `Profile ${profile.name}` : "No profile";

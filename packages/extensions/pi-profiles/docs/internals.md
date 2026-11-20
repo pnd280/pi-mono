@@ -18,7 +18,7 @@ Keep the extension's `tool_search` Pi's own tool from `createToolSearchExtension
 
 Restore only what Pi doesn't. [Pi compatibility](pi-compatibility.md#restoration) lists what Pi restores on resume, `/fork`, `/tree`, and `/reload`; [sessions](sessions.md#restoration) gives what the extension restores, and [testing](testing.md#restoration) the invariants that the tests protect.
 
-Set restored tools only when they change. A call that turns off a tool drops Pi's pending tools.
+Set restored tools only when they change. A call that turns off a restored tool drops Pi's pending tools.
 
 ## Editor
 

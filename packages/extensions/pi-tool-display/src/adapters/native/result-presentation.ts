@@ -20,8 +20,6 @@ export function nativeImageCaption(text: string): { mimeType: string; tail: stri
     : undefined;
 }
 
-const nonVisionImageNote =
-  "[Current model does not support images. The image will be omitted from this request.]";
 const imageOmissionNotes = new Set([
   "[Image omitted: could not be converted to a supported inline image format.]",
   "[Image omitted: could not be resized below the inline image size limit.]"
@@ -31,16 +29,10 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   const caption = nativeImageCaption(text);
   if (!caption?.tail.startsWith("\n")) return [];
   const notes = caption.tail.slice(1).split("\n");
-  // An omitted image has no attachment. Require its exact native omission envelope; a model-warning lookalike in ordinary text alone does not establish an image read.
-  if (
-    !hasImages &&
-    (!imageOmissionNotes.has(notes[0] ?? "") ||
-      notes.length > 2 ||
-      (notes.length === 2 && notes[1] !== nonVisionImageNote))
-  )
-    return [];
+  // An omitted image has no attachment. Require its exact native omission envelope; ordinary text alone does not establish an image read.
+  if (!hasImages && (notes.length !== 1 || !imageOmissionNotes.has(notes[0] ?? ""))) return [];
 
-  return notes.filter((note) => note === nonVisionImageNote || imageOmissionNotes.has(note));
+  return notes.filter((note) => imageOmissionNotes.has(note));
 }
 
 // Native read accepts number-valued windows and prints their arithmetic without rounding.
@@ -163,7 +155,8 @@ const noticesSchema = z.object({
   matchLimitReached: z.number().optional(),
   resultLimitReached: z.number().optional(),
   entryLimitReached: z.number().optional(),
-  linesTruncated: z.boolean().optional()
+  linesTruncated: z.boolean().optional(),
+  imageUnsupportedByModel: z.string().optional()
 });
 
 /** Backend omissions remain visible even when the successful read body is collapsed. */
@@ -183,6 +176,10 @@ export function nativeResultNotices(details: unknown, expanded: boolean): Displa
   if (data.resultLimitReached !== undefined) warning("Result limit reached.");
   if (data.entryLimitReached !== undefined) warning("Entry limit reached.");
   if (data.linesTruncated === true) warning("Long result lines truncated by pi.");
+  if (data.imageUnsupportedByModel !== undefined)
+    warning(
+      `${data.imageUnsupportedByModel} does not support images; it saw a placeholder instead.`
+    );
 
   return notices;
 }

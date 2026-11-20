@@ -42,13 +42,13 @@ export type WidgetHost = {
 
 type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"] };
 
-export const inspectedPiVersion = "1.5.2";
+export const inspectedPiVersion = "1.6.0";
 
-// Inspected Pi 1.5.2 API and bundled CLI sources, respectively.
+// Inspected Pi 1.6.0 API and bundled CLI sources, respectively.
 const hostHashes = {
   switchTuiMode: new Set([
-    "71c592580432ca0373dfd085c2a6649e2a3898e1017a43151dbce8d9e895d3eb",
-    "d14d77b49560495945b6fb5f191e480b9dee7c2d0573f664f058680df948d986"
+    "4c55709bec688976c349f551d78820054d9ee12e6463eaebc871ecce003cd9c4",
+    "198a125226a56dffa573360008ee53229b7b02d0669165b5e037fd585dd7ec7e"
   ]),
   setExtensionStatus: new Set([
     "ad79cf9f6010ac37f4bed982f5a73dd61c221b63323e85d9378df5394eabccdd",
@@ -67,8 +67,8 @@ const hostHashes = {
 const rendererHashes = new Set([
   "77b3e4902ad3f51cb43477bb6f4217e68ae7af76bed5d9bcfc90963fb1d9af52",
   "3edb75ade9475a01917d8e21b1aafca81ec901e810570c9090b5c097c71a7dc8",
-  "9c7a317d9dcef896c71ab269128e13f717d37dbc401beef1ca30091c534ea466",
-  "2034f3ec705ce9f9f0c8c73d27d6cf3ab58d3b5a6f1ecb27ff52636828baa5fa"
+  "d58ae234d7c14e10420f15c5e9929ebaa38dd6cf688c0a4ab5bc2e9f2a6dbc3e",
+  "c608d3997f2bdb3f0fd6021ecb900954835d9e1a44f8b18d984071b88ee10bc8"
 ]);
 
 /** Unknown wrappers need the inspected version; provenance alone cannot identify native code. */

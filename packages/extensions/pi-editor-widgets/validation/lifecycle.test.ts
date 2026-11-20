@@ -10,7 +10,7 @@ import editorWidgets from "../src/index.ts";
 import { defaultLayout } from "../src/layout.ts";
 import { widgetSettings } from "../src/settings.ts";
 
-const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
+const plain = (lines: readonly string[]) => lines.map(stripTerminalSequences).join("\n");
 
 it("discovers preexisting native closures when enabled on reload, then survives repeated reloads", async () => {
   let enabled = false;

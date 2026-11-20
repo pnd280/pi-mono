@@ -40,6 +40,8 @@ async function run(directory: string, args: string[]) {
       fileURLToPath(new URL("../index.ts", import.meta.url)),
       "-e",
       fileURLToPath(new URL("./fixture.ts", import.meta.url)),
+      "--model",
+      "fixture/offline",
       "--print",
       "--mode",
       "json",
