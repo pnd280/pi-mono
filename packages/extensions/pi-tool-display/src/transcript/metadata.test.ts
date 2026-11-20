@@ -12,6 +12,15 @@ it("accepts call facts that Pi does not record", () => {
   expect(parseCallRecord({ ...call, ...facts })).toEqual({ ...call, ...facts });
 });
 
+it("accepts the nested change facts that replay of a script needs", () => {
+  const nested = {
+    "1": { lines: [1, 1] },
+    "2": { created: true },
+    "3/1": { path: "src/big.ts", lines: [120, 80], applied: true }
+  };
+  expect(parseCallRecord({ ...call, nested })).toEqual({ ...call, nested });
+});
+
 it.each([
   { entry: "" },
   { toolCallId: 1 },
@@ -22,7 +31,11 @@ it.each([
   { timedOut: "false" },
   { change: { kind: "modification" } },
   { change: { kind: "creation", unavailable: "Binary content." } },
-  { change: { kind: "creation", patch: "é".repeat(70 * 1024) } }
+  { change: { kind: "creation", patch: "é".repeat(70 * 1024) } },
+  { nested: { a: { created: true } } },
+  { nested: { "1": { lines: [-1, 0] } } },
+  { nested: { "1": { lines: [1] } } },
+  { nested: { "1": { applied: false } } }
 ])("rejects call records with invalid fields: %j", (fields) => {
   expect(parseCallRecord({ ...call, ...fields })).toBeUndefined();
 });

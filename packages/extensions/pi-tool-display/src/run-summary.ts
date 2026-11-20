@@ -1,9 +1,11 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { relativeDisplayPath } from "@pi-mono/utils/paths";
 
+import { pathSummaryItem } from "./adapters/native/invocation.ts";
 import type {
   ChangeFact,
   DisplayCall,
+  NestedChange,
   Outcome,
   SummaryCategory,
   SummaryItem,
@@ -133,6 +135,46 @@ function addedLines(
   };
 }
 
+type FileChange = {
+  path: string;
+  created: boolean;
+  outcome: Outcome;
+  lines: ChangedFile["lines"];
+};
+
+/** A nested change counts like a native edit or write of its file. */
+function nestedItem(change: NestedChange, cwd: string): SummaryItem {
+  const category = change.created ? "create" : "edit";
+
+  return change.path === undefined ? { category } : pathSummaryItem(category, change.path, cwd);
+}
+
+/** The call's own `create` and `edit` items, then the changes of its nested calls. */
+function fileChanges(
+  call: DisplayCall,
+  { adapter, outcome, summaryItems }: CallInterpretation,
+  cwd: string
+): FileChange[] {
+  const lines =
+    outcome === "success"
+      ? changedLines(adapter.patch ? record(call.result?.details).patch : undefined, call.change)
+      : undefined;
+  const own = summaryItems.flatMap(({ category, path }) =>
+    path !== undefined && (category === "create" || category === "edit")
+      ? [{ path, created: category === "create", outcome, lines }]
+      : []
+  );
+  const nested = (call.nestedChanges ?? []).flatMap((change) => {
+    const { path } = nestedItem(change, cwd);
+
+    return path === undefined
+      ? []
+      : [{ path, created: change.created, outcome: change.outcome, lines: change.lines }];
+  });
+
+  return [...own, ...nested];
+}
+
 /** The files that the calls' `create` and `edit` items name, without reading them. */
 function changedFiles(
   members: readonly DisplayCall[],
@@ -142,20 +184,10 @@ function changedFiles(
   // Keyed by resolved path, so a file that is created and then edited is one entry.
   const files = new Map<string, ChangedFile>();
 
-  for (const call of members) {
-    const { adapter, outcome, summaryItems } = interpretation(call);
-    const changed = summaryItems.flatMap(({ category, path }) =>
-      path !== undefined && (category === "create" || category === "edit")
-        ? [{ path, created: category === "create" }]
-        : []
-    );
-    const succeeded = outcome === "success";
-    const lines = succeeded
-      ? changedLines(adapter.patch ? record(call.result?.details).patch : undefined, call.change)
-      : undefined;
-
-    for (const { path, created } of changed) {
+  for (const call of members)
+    for (const { path, created, outcome, lines } of fileChanges(call, interpretation(call), cwd)) {
       const previous = files.get(path);
+      const succeeded = outcome === "success";
 
       files.set(path, {
         path: relativeDisplayPath(path, cwd),
@@ -165,13 +197,12 @@ function changedFiles(
         lines: succeeded ? addedLines(previous, lines) : previous?.lines
       });
     }
-  }
 
   return [...files.values()];
 }
 
 /**
- * Pure: derive a run's summary from calls and their following notices without touching files. `cwd` only shortens the paths of changed files.
+ * Pure: derive a run's summary from calls and their following notices without touching files. `cwd` resolves nested target paths and shortens the paths of changed files.
  */
 export function buildRunSummary(
   members: readonly DisplayCall[],
@@ -205,6 +236,14 @@ export function buildRunSummary(
       const key =
         item.identity === undefined ? `call\0${call.key}\0${position}` : `id\0${item.identity}`;
       add(item.category, key, interpreted.outcome);
+    });
+
+    // Nested changes count after the call's own items, under their own outcomes.
+    (call.nestedChanges ?? []).forEach((change, position) => {
+      const item = nestedItem(change, cwd);
+      const key =
+        item.identity === undefined ? `nested\0${call.key}\0${position}` : `id\0${item.identity}`;
+      add(item.category, key, change.outcome);
     });
 
     for (const notice of notices(call)) {

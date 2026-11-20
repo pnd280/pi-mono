@@ -4,6 +4,7 @@ import type {
   CallReference,
   DisplayCall,
   DisplayMode,
+  NestedFact,
   Outcome,
   SummaryNotice,
   ToolDisplayAdapter
@@ -12,6 +13,7 @@ import type { DisplayFailureHandler } from "../interpretation.ts";
 import type { ObservationSink } from "../observation/native.ts";
 import { TranscriptCoordinator, type ResultStatus, type ValidatedArgs } from "./coordinator.ts";
 import { DisplayHistory, type HistorySource } from "./history.ts";
+import { NESTED_CHANGE_ADAPTERS, nestedChanges, piNestedCalls } from "./nested-changes.ts";
 import { SavedCalls, type SavedCallsOptions } from "./saved-calls.ts";
 import { SavedOutputs } from "./saved-output.ts";
 
@@ -111,6 +113,7 @@ export class DisplaySession {
         const selected = tools.adapter(call.name);
         const upgraded = selected && selected.id !== "generic" ? selected : undefined;
         this.coordinator.refreshTools(call, upgraded ?? call.adapter, tools.args);
+        this.refreshNested(call);
       }
     });
   }
@@ -140,6 +143,37 @@ export class DisplaySession {
       preview: (output) => this.coordinator.preview(call, output)
     };
   }
+  /**
+   * Observation of a native `edit` or `write` call that a live call nested at any depth. Pi's nested IDs are `<caller ID>/<n>`; transcript IDs can contain `/` themselves, so prefixes are tried from the longest, the most specific caller.
+   */
+  beginNestedObservation(id: string): ((fact: NestedFact) => void) | undefined {
+    for (let end = id.lastIndexOf("/"); end > 0; end = id.lastIndexOf("/", end - 1)) {
+      const call = this.coordinator.byId(id.slice(0, end));
+      const key = id.slice(end + 1);
+      if (!call || !NESTED_CHANGE_ADAPTERS.has(call.adapter.id)) continue;
+
+      return (fact) => {
+        if (this.disposed) return;
+        this.saved.nestedFact(call, key, fact);
+        this.refreshNested(call);
+      };
+    }
+
+    return undefined;
+  }
+  /** Combine Pi's nested-call record, observed or saved facts, and native provenance. */
+  private refreshNested(call: DisplayCall): void {
+    if (!NESTED_CHANGE_ADAPTERS.has(call.adapter.id)) return;
+    const tools = this.snapshot ?? this.options.tools();
+    this.coordinator.setNestedChanges(
+      call,
+      nestedChanges(
+        piNestedCalls(call.result, call.reference.toolCallId),
+        this.saved.nestedFacts(call),
+        (name) => tools.adapter(name)?.id === `pi:${name}`
+      )
+    );
+  }
   /** Pi started the call; native observation may already have reported it executing. */
   queued(id: string): void {
     const call = this.coordinator.byId(id);
@@ -167,7 +201,11 @@ export class DisplaySession {
       // Keep the path first, so completion loads only the final saved output.
       this.output.retain(call, result);
       this.coordinator.result(call, result, status);
-      if (!partial) this.saved.replay(call);
+
+      if (!partial) {
+        this.saved.replay(call);
+        this.refreshNested(call);
+      }
     });
 
     return call;

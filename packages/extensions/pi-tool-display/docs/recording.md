@@ -21,7 +21,8 @@ Session history stores only facts that Pi's own entries lack. The extension keep
 - a change applied although Pi reported failure;
 - an operation failure that Pi's result or call cancellation cannot preserve;
 - whether a write created or modified its file, with a bounded patch when replay needs it;
-- why a change has no patch.
+- why a change has no patch;
+- for a [codemode](tools.md#codemode) script, the nested `edit` and `write` facts below.
 
 The extension saves a call's facts when Pi publishes the call's final result. Under Pi's [quit, session-change, and reload contracts](pi-compatibility.md#transcript), only a killed process leaves a call without them.
 
@@ -31,6 +32,15 @@ The extension saves patches only when replay needs them:
 
 - `write` saves its patch only when replay cannot derive the same patch from the written content.
 - `edit` diffs come from Pi's result. The extension saves its own diff when the edit did not succeed, or Pi's patch is missing, invalid, or has different hunks.
+
+A script's nested facts are keyed by the nested call's ID after the script's own ID, such as `1` or `2/1`. Each holds only what Pi's record of the script's calls lacks, and a script with none saves no nested facts:
+
+- the observed file, only when Pi dropped the call's arguments;
+- that the call created its file;
+- added and removed line counts of a successful change, unless replay derives them from a created file's content in Pi's record;
+- that the change was applied although Pi's record shows no success.
+
+Nested facts hold no patches or file text.
 
 ## Record size limits
 

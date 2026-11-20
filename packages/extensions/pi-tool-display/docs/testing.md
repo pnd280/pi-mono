@@ -35,7 +35,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ### Saved facts
 
-- **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, and change facts and bounded patches.
+- **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, change, and nested change facts and bounded patches.
 - **Critical, unit:** Call records above the whole-record byte limit are rejected, including when unknown fields cause the excess.
 - **High, unit:** An `edit` change fact is saved when the result cannot replace it: a non-successful result, or a missing, invalid or different `details.patch`.
 - **High, unit:** A `write` creation entry without a patch replays the same diff as the observed patch. When they differ, the entry keeps the observed patch.
@@ -45,6 +45,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **Critical, e2e:** Replay restores matching saved facts without rerunning tools or observing source mutations again. Eligible expanded cards may still read saved output.
 - **High, e2e:** After a fork and reload, replay shows session facts and Pi's durations for the same calls.
+- **High, e2e:** Replay of a codemode script's nested `edit` and `write` calls shows the same changed files and line counts as live.
 
 ### Hooks and disposal
 

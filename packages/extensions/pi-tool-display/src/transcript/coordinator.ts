@@ -14,6 +14,7 @@ import {
   type DisplayRun,
   type ExplorationScope,
   type Lifecycle,
+  type NestedChange,
   type Outcome,
   type SavedOutput,
   type SummaryNotice,
@@ -531,6 +532,15 @@ export class TranscriptCoordinator implements TranscriptView {
     if (fact.kind === "operation") call.operation = { ...fact };
     if (fact.kind === "cancellation") call.cancellation = { ...fact };
     if (fact.kind === "change") call.change = { ...fact };
+    this.changed(call);
+  }
+  setNestedChanges(view: DisplayCall, changes: readonly NestedChange[]): void {
+    const call = this.mutable(view);
+    if (!call) return;
+    if (changes.length) call.nestedChanges = changes;
+    else delete call.nestedChanges;
+    const run = this.runs.get(call.key);
+    if (run) delete run.summary;
     this.changed(call);
   }
   preview(view: DisplayCall, output: OutputText): void {

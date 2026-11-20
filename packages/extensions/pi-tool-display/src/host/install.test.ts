@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
+  createCodemodeExtension,
   createReadToolDefinition,
   defineTool,
   DefaultResourceLoader,
@@ -1866,6 +1867,66 @@ it("replays session facts and Pi's duration after a fork and reload without reru
     undefined,
     undefined,
     [],
+    true
+  );
+});
+
+it("replays the changed files and line counts of a script's nested edits and writes as live", async () => {
+  useStepPatchDeadline();
+  await withSession(
+    async ({ session }) => {
+      const tui = interactiveHost(session);
+
+      try {
+        tui.renderSessionItems([]);
+        await session.bindExtensions({
+          mode: "tui",
+          onError: (error) => {
+            throw new Error(error.error);
+          }
+        });
+        session.setActiveToolsByName([...session.getActiveToolNames(), "codemode"]);
+        const cwd = session.sessionManager.getCwd();
+        await writeFile(join(cwd, "existing.txt"), "keep\nold\n");
+        const faux = await fauxModel(session, "display-nested");
+        // Pi keeps no arguments of a nested call over 8 KiB, so only observation names this file.
+        const script = [
+          `await tools.write({ path: "created.txt", content: "one\\ntwo\\n" });`,
+          `await tools.edit({ path: "existing.txt", edits: [{ oldText: "old", newText: "new" }] });`,
+          `await tools.write({ path: "large.txt", content: "a line of nineteen\\n".repeat(1000) });`
+        ].join("\n");
+        faux.setResponses([
+          fauxAssistantMessage([fauxToolCall("codemode", { code: script }, { id: "script" })]),
+          fauxAssistantMessage("done")
+        ]);
+        await promptThroughHost(session, tui, "Run the script");
+        expect(toolResults(session).at(-1)).toMatchObject({ toolCallId: "script", isError: false });
+
+        const summary = () =>
+          transcriptText(tui)
+            .split("\n")
+            .map((line) => line.trim())
+            .filter((line) => /script|\.txt/.test(line));
+        const live = summary();
+        expect(live.join("\n")).toMatch(/created 2 files.*edited 1 file/);
+        expect(live.find((line) => line.includes("created.txt"))).toMatch(/\+2(?!\d)/);
+        expect(live.find((line) => line.includes("existing.txt"))).toMatch(/\+1 -1/);
+        expect(live.find((line) => line.includes("large.txt"))).toMatch(/\+1000(?!\d)/);
+
+        await session.reload({
+          beforeSessionStart: () => {
+            tui.chatContainer.clear();
+            tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+          }
+        });
+        expect(summary()).toEqual(live);
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" },
+    undefined,
+    [{ name: "codemode", factory: createCodemodeExtension({ models: false }), builtin: true }],
     true
   );
 });

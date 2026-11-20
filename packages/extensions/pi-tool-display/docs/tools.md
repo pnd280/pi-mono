@@ -43,11 +43,17 @@ Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted 
 - The output follows without Pi's `Script completed` or `Script failed` header when that header is the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output.
 - When Pi truncated the output and saved it, compact cards add a "Script output truncated; expand to inspect retained output." warning and a "Saved output" reference, like MCP cards. Expanded output already ends with Pi's reference.
 
-In summary lines, each script counts once as `ran 1 script`, with failures as `(1 failed)`. The calls that a script makes do not count, because they never reach the transcript and their truncated argument previews cannot identify files.
+In summary lines, each script counts once as `ran 1 script`, with failures as `(1 failed)`. Its nested `edit` and `write` calls, at any depth, also count as created or edited files, and join the [changed files](presentation.md#changed-files) list:
+
+- They count only while the session's `edit` and `write` are Pi's verified native tools, also on replay.
+- Each call keeps the outcome in Pi's record of the script's calls. A successful write counts as a success even when the script later fails or is cancelled. A call still running when the script ended counts as cancelled, unless observation saw its change applied before the script's result.
+- Files come from Pi's record of the script's calls, or from native observation when Pi dropped a call's arguments over its size limits. A call that names no file counts once, without a row.
+- Creations and line counts come from native observation, or for a created file's lines from Pi's record of its content. A call that observation did not see, such as one from a session saved before this feature, counts as edited, without line counts.
+- Other nested calls, such as reads and shell commands, do not count.
 
 Limits:
 
-- Edits that a script makes show no diffs, because their changes are not observed.
+- Edits that a script makes show no diffs, on its card or in summary lines.
 - A result without a valid call list shows no call list.
 
 ## MCP tools

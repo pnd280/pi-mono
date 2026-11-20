@@ -113,7 +113,7 @@ Mode changes from **Ctrl+O** survive `/reload` and session switches within the p
 ## Side effects
 
 - The extension observes live tool calls and replays recorded facts. Neither changes tool execution, and the extension makes no network requests.
-- In TUI, RPC, print, and JSON sessions, session history keeps facts that Pi's own entries lack in `pi-tool-display.call` entries outside the model's context: cancellation for every call that the extension displays, and, for verified Pi-native `bash`, `powershell`, `edit`, and `write` calls, observed facts such as a failed shell's exit code and bounded patches.
+- In TUI, RPC, print, and JSON sessions, session history keeps facts that Pi's own entries lack in `pi-tool-display.call` entries outside the model's context: cancellation for every call that the extension displays, and, for verified Pi-native `bash`, `powershell`, `edit`, and `write` calls, observed facts such as a failed shell's exit code and bounded patches. For Pi's built-in `codemode`, they keep the line counts, creations, and file paths of the script's native `edit` and `write` calls, without patches.
 - Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 - The extension writes no files of its own and never writes settings. Live shell previews stay in memory only.
 - Reopening a session restores the recorded facts without rerunning tools or reading source files again.

@@ -61,6 +61,29 @@ export type CancellationFact = {
 
 export type DisplayFact = OperationFact | ChangeFact | SavedOutputFact | CancellationFact;
 
+export type ChangedLines = { readonly added: number; readonly removed: number };
+
+/** A file change that a call made through a nested native `edit` or `write` call. */
+export type NestedChange = {
+  /** From the nested call's arguments, else from observation; undefined when neither names it. */
+  readonly path?: string;
+  readonly created: boolean;
+  /** Of the nested call, independent of its caller's outcome. */
+  readonly outcome: Outcome;
+  /** Only for a successful change with a known patch. */
+  readonly lines?: ChangedLines;
+};
+
+/** What the extension knows about one nested call beyond Pi's record: observed live, or saved. */
+export type NestedFact = {
+  /** The observed file. */
+  readonly path?: string;
+  readonly created?: boolean;
+  readonly lines?: ChangedLines;
+  /** Observed success, or saved because Pi's record shows no success. */
+  readonly applied?: boolean;
+};
+
 type DeepReadonly<Value> = Value extends readonly (infer Item)[]
   ? readonly DeepReadonly<Item>[]
   : Value extends object
@@ -91,6 +114,8 @@ export type DisplayCall = {
   readonly operation?: OperationFact;
   readonly cancellation?: CancellationFact;
   readonly change?: ChangeFact;
+  /** File changes of nested `edit` and `write` calls, in Pi's call order. */
+  readonly nestedChanges?: readonly NestedChange[];
   /**
    * Pi's monotonic measurement of the tool's `execute()` call, from the final result. Absent when the tool did not run, or for results that Pi saved without one.
    */

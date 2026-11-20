@@ -9,8 +9,14 @@ import {
 import { OutputBuffer, type OutputBufferOptions } from "@pi-mono/libs/output-buffer";
 import { joinOutputText, outputOmission, type OutputText } from "@pi-mono/utils/output-text";
 
-import type { DisplayFact, NativeSettings, OperationFact, Outcome } from "../contracts.ts";
-import { mutationChange, OBSERVATION_BYTES } from "../diff.ts";
+import type {
+  DisplayFact,
+  NativeSettings,
+  NestedFact,
+  OperationFact,
+  Outcome
+} from "../contracts.ts";
+import { changedLines, mutationChange, OBSERVATION_BYTES } from "../diff.ts";
 import type { MutationSink } from "../file-mutations/index.ts";
 import { record } from "../values.ts";
 
@@ -89,6 +95,26 @@ export function displayMutationSink(observer: ObservationSink, name: string): Mu
       if (name === "write") await change();
       observer.fact({ kind: "operation", outcome: mutation.outcome });
       if (name === "edit") await change();
+    }
+  };
+}
+
+/** Report a nested mutation to the call that nested it. */
+export function nestedMutationSink(report: (fact: NestedFact) => void): MutationSink {
+  return {
+    maxSourceBytes: OBSERVATION_BYTES,
+    async completed(mutation) {
+      const { path } = mutation;
+      // A failed mutation changed nothing, so it must not count as applied.
+      if (mutation.outcome === "failure") return report({ path });
+      const change = await mutationChange(mutation);
+      const lines = changedLines(undefined, change);
+      report({
+        path,
+        created: change.change === "creation",
+        applied: true,
+        ...(lines ? { lines } : {})
+      });
     }
   };
 }

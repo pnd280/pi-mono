@@ -81,7 +81,7 @@ const codemodeDisplayAdapter: ToolDisplayAdapter = {
 
     return path ? truncationNotices("Script", path) : [];
   },
-  // Count each script once; its nested calls never reach the transcript.
+  // Count each script once; the transcript adds its nested file changes.
   summaryItems: () => [{ category: scriptCategory.id }],
   summaryCategories: [scriptCategory]
 };

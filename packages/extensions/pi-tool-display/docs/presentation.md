@@ -209,7 +209,7 @@ A closed summary line lists the files that the run created or edited, one row fo
 
 #### Which files show
 
-- A file gets a row when a call counts it as [created or edited](#identity) by its path. Files that a shell command, a script, or another tool changed get no row.
+- A file gets a row when a call counts it as [created or edited](#identity) by its path, including the nested `edit` and `write` calls of a [codemode](tools.md#codemode) script. Files that a shell command, another nested call, or another tool changed get no row.
 - Each file shows once, by lexically resolved path, in the order of its first change in the run. A file that is created and then edited is one row.
 - At most eight rows show. A run that changed more files shows seven of them, and a last row counts the rest, such as `… 4 more changed files`.
 
