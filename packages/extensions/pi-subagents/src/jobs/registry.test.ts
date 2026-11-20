@@ -61,19 +61,21 @@ test.skipIf(process.platform !== "linux")(
   "fails explicitly before stalled log writes exceed 16 MiB",
   async () => {
     await withJobs(async (jobs, ctx, cwd) => {
-      let writer: JobLog | undefined;
       let release: (() => void) | undefined;
       let pendingAtStop = 0;
       const destruction = vi.spyOn(JobLog.prototype, "_destroy");
-      vi.spyOn(JobLog.prototype, "_write").mockImplementation(function (
-        this: JobLog,
-        _chunk,
-        _encoding,
-        callback
-      ) {
-        writer = this;
-        release = () => callback();
-      });
+      const write = vi
+        .spyOn(JobLog.prototype, "_write")
+        .mockImplementation((_chunk, _encoding, callback) => {
+          release = () => callback();
+        });
+
+      const writer = () => {
+        const context = write.mock.contexts.at(-1);
+
+        return context instanceof JobLog ? context : undefined;
+      };
+
       destruction.mockImplementation(function (this: JobLog, error, callback) {
         pendingAtStop = this.writableLength;
         destruction.mockRestore();
@@ -91,14 +93,14 @@ test.skipIf(process.platform !== "linux")(
         await expect
           .poll(
             async () =>
-              writer?.destroyed ||
+              writer()?.destroyed ||
               (await readFile(join(cwd, "produced"), "utf8").catch(() => "")) === "done\n",
             {
               timeout: STEP_TIMEOUT_MS
             }
           )
           .toBe(true);
-        const pending = Math.max(pendingAtStop, writer?.writableLength ?? 0);
+        const pending = Math.max(pendingAtStop, writer()?.writableLength ?? 0);
         expect(pending).toBeGreaterThan(0);
         expect(pending).toBeLessThanOrEqual(16 * 1024 * 1024);
         await expect

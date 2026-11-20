@@ -60,6 +60,8 @@ export default function offlineFixture(pi: ExtensionAPI) {
   };
 
   AgentSession.prototype.prompt = async function (...args) {
+    // Restoration traces and later compaction or abort requests need the prompted session outside this hook.
+    // oxlint-disable-next-line typescript/no-this-alias
     session = this;
     runner = this.extensionRunner;
     originalDefault = Reflect.get(this, "_runDefaultCompaction");

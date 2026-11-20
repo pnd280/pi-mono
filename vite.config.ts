@@ -296,7 +296,7 @@ export default defineConfig({
           ignoreIIFE: true
         }
       ],
-      "typescript/no-this-alias": "off",
+      "typescript/no-this-alias": "error",
       "typescript/no-unnecessary-condition": "warn",
       "typescript/no-unnecessary-type-conversion": "warn",
       "typescript/no-unnecessary-type-assertion": "error",

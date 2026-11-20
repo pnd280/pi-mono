@@ -143,6 +143,8 @@ export function findWidgetHost(ui: ExtensionContext["ui"]) {
   try {
     hooks.replace(target, "setExtensionStatus", function (this: unknown, id, text) {
       if (active && id === key) {
+        // Pi's public UI does not expose the host, and it is validated after the hook is restored.
+        // oxlint-disable-next-line typescript/no-this-alias
         found = this;
 
         return;
