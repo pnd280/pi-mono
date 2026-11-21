@@ -1,10 +1,10 @@
 # Nested instruction domain
 
-The extension loads instruction files from directories below cwd when tool inputs reach into them. See the [package](README.md).
+The extension loads instruction files and skills from directories below cwd when tool inputs reach into them. See the [package](README.md).
 
 ## Language
 
-Discovery uses tool inputs; delivery records what instruction content remains in the model's context.
+Discovery uses tool inputs; delivery records what instruction and skill content remains in the model's context.
 
 ### Discovery
 
@@ -20,16 +20,24 @@ _Avoid_: explicit load, manual read
 Contentless metadata recording a direct read: its path, originating call, and filesystem revision. A marker is valid only while that call remains in the session projection.
 _Avoid_: read record, suppression entry
 
+**Nested skill**:
+A skill in `.agents/skills` or `.pi/skills` of a directory strictly below cwd. The [nested skill rules](docs/skills.md) say which ones Pi registers.
+_Avoid_: sub-skill, local skill
+
 ### Delivery
 
 **Notice**:
 A visible custom message that loads, updates, or removes a directory's instructions.
 _Avoid_: injection, instruction message
 
+**Skill listing**:
+A visible custom message that lists, updates, or removes a directory's nested skills. The [nested skill rules](docs/skills.md#when-the-model-sees-a-skill) say when one is added.
+_Avoid_: skill notice, skill message
+
 **Snapshot**:
 The instruction content a visible notice or direct read delivered.
 _Avoid_: cached instructions, copy
 
 **Ledger**:
-What the canonical session projection still shows the model: visible notices and valid read markers.
+What the canonical session projection still holds: visible notices, visible skill listings, and valid read markers, which are metadata about direct reads whose calls are still in context.
 _Avoid_: history, raw entries, state

@@ -7,6 +7,7 @@ import {
   createAgentSession,
   createCodemodeExtension,
   createReadToolDefinition,
+  CustomMessageComponent,
   defineTool,
   DefaultResourceLoader,
   initTheme,
@@ -28,6 +29,7 @@ import {
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { isolateEnvironment, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { listingEntry, listingType } from "pi-nested-instructions/skill-listings";
 import { expect, it, vi } from "vite-plus/test";
 
 import { useStepPatchDeadline } from "../../validation/bounded-diff/index.ts";
@@ -1536,6 +1538,52 @@ it("warns on live and replayed image reads that the model saw a placeholder", as
           );
         }
       }
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
+
+it("keeps source terminal controls of skill listings out of rendered rows", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+
+    try {
+      tui.renderSessionItems([]);
+      await session.bindExtensions({ mode: "tui" });
+      const cwd = session.sessionManager.getCwd();
+      const controls = ["\u001b]0;owned\u0007", "\u001b[2J", "\u001b[38;5;201m", "\u009b5n"];
+      const unsafe = controls.join("");
+      const listing = listingEntry(
+        join(cwd, `pkg${unsafe}`),
+        {
+          action: "loaded",
+          skills: [{ name: `deploy${unsafe}`, description: `Deploys the service${unsafe}` }],
+          list: `<available_skills>${unsafe}</available_skills>`
+        },
+        cwd
+      )!;
+      session.sessionManager.appendCustomMessageEntry(
+        listing.customType,
+        listing.content,
+        true,
+        listing.details
+      );
+      // Invalid details make the card fall back to the message text.
+      session.sessionManager.appendCustomMessageEntry(listingType, `Fallback${unsafe}`, true, {});
+      tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+      const rows = tui.chatContainer.children.filter(
+        (child) => child instanceof CustomMessageComponent
+      );
+
+      expect(rows).toHaveLength(2);
+
+      for (const row of rows) row.setExpanded(true);
+      const rendered = tui.chatContainer.render(100).join("\n");
+
+      expect(stripTerminalSequences(rendered)).toContain("Deploys the service");
+      expect(stripTerminalSequences(rendered)).toContain("Fallback");
+      for (const control of controls) expect(rendered).not.toContain(control);
     } finally {
       tui.footerDataProvider.dispose();
     }

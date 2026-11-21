@@ -38,7 +38,7 @@ Standalone and expanded targets show paths as follows:
 
 - Targets wrap beneath themselves in the normal foreground. Ranges and annotations use `dim`.
 - A literal line break in a path becomes a separate indented row.
-- Wrapping prefers path separators, and keeps a range and annotations, such as a read selection, beside the filename when they fit. Nested-instruction notices wrap their paths the same way.
+- Wrapping prefers path separators, and keeps a range and annotations, such as a read selection, beside the filename when they fit. Nested-instruction notices and skill listings wrap their paths the same way.
 - With at least four target columns, target wrapping has no row limit. A collapsed target over the [formatting limit](#resource-limits) keeps its start and end around `…`.
 - Other collapsed summaries, commands, and narrower targets show up to three detail rows, with truncation hints. A hint never replaces a single row: when only one more row remains, it shows. A long invocation may put its action on its own row.
 - Groups apply these rules to each member. Diagnostics and images stay visible.
@@ -150,9 +150,9 @@ Visible thinking separates exploration groups, but never splits or ends a run. A
 
 ### Notices and todo calls in runs
 
-[Nested-instruction notices](tools.md#nested-instructions) join the preceding run without splitting or ending it, but they still separate groups. They hide with the run, and return to their original positions when it opens. A notice with no preceding run stays standalone.
+[Nested-instruction notices and skill listings](tools.md#nested-instructions) join the preceding run without splitting or ending it, but they still separate groups. They hide with the run, and return to their original positions when it opens. A notice or listing with no preceding run stays standalone.
 
-Todo calls stay in their run but add no items to the line, including incompatible calls shown with generic fallback. The run's call count includes them. A run of only todo calls, with no counted notices, shows no line.
+Todo calls stay in their run but add no items to the line, including incompatible calls shown with generic fallback. The run's call count includes them. A run of only todo calls, with no counted notices or listings, shows no line.
 
 ### When a run collapses
 
@@ -186,11 +186,11 @@ Each category counts identities separately and keeps their latest outcomes.
 #### Categories
 
 - Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/run-summary.ts).
-- Pi's built-in [codemode](tools.md#codemode) and [tool search](tools.md#tool-search), [pi-subagents](tools.md#subagents-in-summary-lines), and [instruction notices](tools.md#nested-instructions) count as their sections in supported tool cards describe. Instruction counts stay separate from tool outcomes and file-read counts.
+- Pi's built-in [codemode](tools.md#codemode) and [tool search](tools.md#tool-search), [pi-subagents](tools.md#subagents-in-summary-lines), and [instruction notices and skill listings](tools.md#nested-instructions) count as their sections in supported tool cards describe. Instruction and skill counts stay separate from tool outcomes and file-read counts.
 
 #### Order and wording
 
-- Items appear in the order of their category's first call or notice. Failures never reorder them.
+- Items appear in the order of their category's first call, notice, or listing. Failures never reorder them.
 - The first item starts with a capital letter, unless it begins with a tool name, which keeps its case.
 - Adapter-declared count labels become single-line terminal-safe text, without changing category identities or counts.
 
@@ -240,9 +240,9 @@ Use fullscreen summary mode with an ended run.
 | Click a group or card in the opened run.              | It responds as the [controls](../README.md#controls) describe: most expand or collapse; subagent and job cards open their task or job. |
 | Click the run's summary line or its `▴ collapse` bar. | The summary line returns; individual cards keep their expansion state.                                                                 |
 
-An opened, ended run keeps its summary line as a header above its first card, with the `▾` marker. A `▴ collapse` bar follows its last card or trailing instruction notice, including any images. The end bar uses the same `toolPendingBg` surface, with the marker in `muted` and the label in `dim`. One blank row separates the content from each bar. Only the bar rows collapse the run.
+An opened, ended run keeps its summary line as a header above its first card, with the `▾` marker. A `▴ collapse` bar follows its last card, or its trailing instruction notice or skill listing, including any images. The end bar uses the same `toolPendingBg` surface, with the marker in `muted` and the label in `dim`. One blank row separates the content from each bar. Only the bar rows collapse the run.
 
-Single-card runs have both bars too. Runs whose line would be empty, such as todo-only runs without counted notices, have no collapse controls. Any mode change, including a TUI mode switch, closes opened runs.
+Single-card runs have both bars too. Runs whose line would be empty, such as todo-only runs without counted notices or listings, have no collapse controls. Any mode change, including a TUI mode switch, closes opened runs.
 
 ## Thinking
 

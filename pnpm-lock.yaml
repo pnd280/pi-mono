@@ -224,6 +224,9 @@ catalogs:
     fast-diff:
       specifier: ^1.3.0
       version: 1.3.0
+    ignore:
+      specifier: ^7.0.16
+      version: 7.0.16
     proper-lockfile:
       specifier: ^4.1.2
       version: 4.1.2
@@ -438,6 +441,9 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      ignore:
+        specifier: 'catalog:'
+        version: 7.0.16
       unbash:
         specifier: 'catalog:'
         version: 6.0.4
@@ -2894,6 +2900,10 @@ packages:
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
+    engines: {node: '>= 4'}
+
+  ignore@7.0.16:
+    resolution: {integrity: sha512-52N+Y4HRMOJmbLmr+DqO4iSRyyB7N52gm7PWCT6h0p978+oKbqHCB7gIJIwZvBUsjlSdWbrBFqUSmIFNZMpn0A==}
     engines: {node: '>= 4'}
 
   ignore@7.0.8:
@@ -5721,6 +5731,8 @@ snapshots:
       - supports-color
 
   ignore@5.3.2: {}
+
+  ignore@7.0.16: {}
 
   ignore@7.0.8: {}
 

@@ -1,8 +1,8 @@
 # Instruction loading rules
 
-[Package](../README.md) · [Input discovery](input-discovery.md)
+[Package](../README.md) · [Input discovery](input-discovery.md) · [Nested skill rules](skills.md)
 
-pi-nested-instructions decides which instruction files to load, and when to load them again, from the paths that tool inputs address. The [input discovery guide](input-discovery.md) lists the tool inputs that give paths.
+pi-nested-instructions decides which instruction files to load, and when to load them again, from the paths that tool inputs address. The [input discovery guide](input-discovery.md) lists the tool inputs that give paths. Pi's own loading of global, cwd, and parent instructions, and its reload behaviour, are unchanged.
 
 ## Which files load
 
@@ -19,7 +19,7 @@ Discovery searches paths written below the session's working directory. In each 
 - Discovery ignores paths outside the working directory before it resolves symlinks.
 - Discovery follows directory and instruction-file symlinks. Their targets can be outside the working directory.
 - Git-ignored directories, such as `node_modules`, are searched like any other directory, so reading a dependency's files can load its instructions.
-- Project trust doesn't stop discovery, as it doesn't stop Pi's own instruction loading.
+- Project trust doesn't stop instruction files from loading, as it doesn't stop Pi's own instruction loading. Nested skills follow [other trust rules](skills.md#project-trust).
 - If the model reads an instruction file directly, no second copy is added, even if the read fails. This applies only to that file: reading `AGENTS.md` does not stop a preferred `AGENTS.override.md` in the same directory from loading.
 - Calls made by other tools, such as codemode scripts, still trigger discovery. Their reads of an instruction file don't count as direct reads, because the parent tool may hide what they read.
 
@@ -33,4 +33,4 @@ Discovery searches paths written below the session's working directory. In each 
 
 ## Invalid notice metadata
 
-Notices use persisted format version 3. Notices with invalid metadata keep their original text but do not suppress rediscovery or provide structured display and summary counts. Resume and reload do not restore their scopes, so a later tool input can load the same instructions again while the invalid notice text is still in context. The [persisted notice contract](pi-compatibility.md#persisted-notice-contract) defines validation.
+Notices use persisted format version 3. Notices with invalid metadata keep their original text but do not suppress rediscovery or provide structured display and summary counts. Resume and reload do not restore their scopes, so a later tool input can load the same instructions again while the invalid notice text is still in context. The [persisted contracts](pi-compatibility.md#persisted-contracts) define validation.

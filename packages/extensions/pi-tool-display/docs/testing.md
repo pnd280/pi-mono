@@ -19,6 +19,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **Critical, e2e:** Failures in observation callbacks or session entry writes do not replace a delegated tool result or error. A failed entry write shows a warning.
 - **Critical, unit:** Borrowed arguments, results, and messages stay unchanged during argument validation, rendering, expansion, and row reuse.
+- **Critical, e2e:** Source terminal controls in a skill listing's directory, skill names, skill descriptions, or fallback text never reach its rendered row.
 - **Critical, e2e:** Observed native calls keep their construction settings, including the shell path and command prefix.
 - **Critical, e2e:** Collection in TUI, RPC, print, and JSON preserves execution, trusted settings, verified native selection, renderer overrides, and middleware.
 - **Critical, e2e:** Native observation runs only for calls with verified native provenance and the specialised native adapter selected.
@@ -61,7 +62,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ## Not tested
 
-- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, nested-instruction notice cards, and context status rows. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
+- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, nested-instruction notice and skill listing cards, and context status rows. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
 - Live MCP requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.
 - Pi owns native persistence internals.

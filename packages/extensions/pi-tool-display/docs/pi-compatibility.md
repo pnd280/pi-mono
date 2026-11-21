@@ -103,7 +103,7 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 
 - [ ] Pi's public `sessionEntryToContextMessages` converts appended custom messages before boundary detection.
 - [ ] Visible notices and boundary custom messages from other owners split groups and runs.
-- [ ] This extension's instruction notices split groups but not runs, as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
+- [ ] This extension's instruction notices and skill listings split groups but not runs, as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
 - [ ] Invisible metadata, hidden messages, and context edits split nothing.
 - [ ] Row ownership survives replay slices around boundary compaction summaries.
 - [ ] Facts replay only for matching calls on the selected branch.
@@ -133,8 +133,8 @@ See the [adapter](../src/adapters/pi-nested-instructions/README.md).
 - [ ] In fullscreen, `MouseRegion` receives header-relative clicks.
 - [ ] Pi's global tool-output expansion updates custom messages.
 - [ ] `CustomMessageComponent` uses public `Container` rendering and mouse routing, with one leading `Spacer(1)` followed by the supplied component.
-- [ ] `layoutRow` moves the trailing run control after the last notice, keeping header-relative clicks.
-- [ ] Notices render from live `message_start` and `entry_appended` events, on replay, and as standalone notices.
+- [ ] `layoutRow` moves the trailing run control after the last instruction notice or skill listing, keeping header-relative clicks.
+- [ ] Notices and skill listings render from live `message_start` and `entry_appended` events, on replay, and as standalone rows.
 - [ ] Reload and removal replace the renderer registry without changing stored content.
 
 ### Adapters

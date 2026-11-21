@@ -2,14 +2,15 @@
   "name": "pi-nested-instructions",
   "version": "0.1.0",
   "private": true,
-  "description": "Discover nested Pi instructions from tool inputs without duplicating direct reads",
+  "description": "Load nested Pi instructions and skills when tool inputs reach their directories",
   "keywords": [
     "pi-package"
   ],
   "type": "module",
   "exports": {
     ".": "./index.ts",
-    "./notices": "./src/notices.ts"
+    "./notices": "./src/notices.ts",
+    "./skill-listings": "./src/skill-listings.ts"
   },
   "scripts": {
     "format": "vp fmt .",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
+    "ignore": "catalog:",
     "unbash": "catalog:",
     "zod": "catalog:"
   },

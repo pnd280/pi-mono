@@ -22,7 +22,7 @@ Only Linux support is guaranteed. Windows and macOS are not thoroughly tested.
 | [pi-skills](packages/extensions/pi-skills/README.md)                           | Turns `/skill:<name>` anywhere in a prompt into a file link, with **Tab** completion.                 |
 | [pi-t3-skills](packages/extensions/pi-t3-skills/README.md)                     | Turns T3 Code's `$name` skill chips into file links instead of pasted skill contents.                 |
 | [pi-tool-display](packages/extensions/pi-tool-display/README.md)               | Shows tool calls as compact, expandable cards with file diffs.                                        |
-| [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) | Loads `AGENTS.md` files from subdirectories when the model starts working in them.                    |
+| [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) | Loads `AGENTS.md` files and skills from subdirectories when the model starts working in them.         |
 | [pi-profiles](packages/extensions/pi-profiles/README.md)                       | Switches the model, thinking level, tools, instructions, and MCP servers together with one key.       |
 | [pi-null-args](packages/extensions/pi-null-args/README.md)                     | Drops optional tool arguments that a model sent as the text `"null"`, so Pi doesn't reject the call.  |
 | [pi-read](packages/extensions/pi-read/README.md)                               | Lets the model select and highlight an exact span of a file when reading it.                          |

@@ -253,14 +253,16 @@ Todo calls add no items to [summary lines](presentation.md#notices-and-todo-call
 
 ## Nested instructions
 
-Instruction notices from [`pi-nested-instructions`](../../pi-nested-instructions/README.md) appear as compact cards that expand to the instruction text.
+Instruction notices and skill listings from [`pi-nested-instructions`](../../pi-nested-instructions/README.md) appear as compact cards. A notice expands to the instruction text, and a listing expands to the names and descriptions of its skills.
 
 - Collapsed notices show `Loaded instructions`, `Updated instructions`, or `Removed instructions` and a path, in the shared [card style](presentation.md#card-layout). Paths wrap like card targets, in their saved cwd-relative spelling.
-- Expand with Pi's tool-output shortcut (default **Ctrl+O**), or click the header in fullscreen, to read the formatted Markdown.
+- Collapsed listings show `Listed skills` or `Updated skills` with the number of skills, or `Removed skills`, and the directory, which wraps like a notice path.
+- Expand with Pi's tool-output shortcut (default **Ctrl+O**), or click the header in fullscreen, to read a notice's formatted Markdown or a listing's skills.
 - Only header clicks toggle the card. Selection and scrolling in the body stay native.
-- Notices with invalid details show their text beneath a generic heading.
-- Notices join runs and separate exploration groups as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
-- Valid notices add loaded, updated, and removed counts to the run's summary line. Each file path, or directory for removals, counts once per action within the run. Invalid and standalone notices add no counts to another run.
+- Notices and listings with invalid details show their text beneath a generic heading.
+- Notices and listings join runs and separate exploration groups as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
+- Valid notices add loaded, updated, and removed counts to the run's summary line. Each file path, or directory for removals, counts once per action within the run. Invalid and standalone notices and listings add no counts to another run.
+- Valid listings add counts such as `listed skills in 1 dir` in the same way, with separate counts for updated and removed listings. Each directory counts once per action within the run.
 - Tool `rendererOverrides` and `showParameters` do not apply.
-- Saved notices render even without pi-nested-instructions loaded. Without pi-tool-display, Pi shows the full messages in its default renderer.
+- Saved notices and listings render even without pi-nested-instructions loaded. Without pi-tool-display, Pi shows the full messages in its default renderer.
 - Custom rendering does not change model context or HTML export.

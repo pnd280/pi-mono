@@ -8,13 +8,17 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { discover, refresh } from "./discovery.ts";
 import { readType } from "./ledger.ts";
 import { decodeNotice, noticeEntry } from "./notices.ts";
+import { findSkillFolders, type SkillFolders } from "./skill-folders.ts";
+import { listingSchema, listingType } from "./skill-listings.ts";
 import { instructionFiles, type InstructionFiles } from "./storage.ts";
 import { fixture } from "./test-fixture.ts";
 
 let fs: Awaited<ReturnType<typeof fixture>>;
 let files: InstructionFiles;
+let skillFolders: SkillFolders;
 beforeEach(async () => {
   fs = await fixture();
+  skillFolders = new Map();
   files = { stamp: instructionFiles.stamp, read: vi.fn(instructionFiles.read) };
 });
 afterEach(async () => {
@@ -32,8 +36,18 @@ function notices(entries: SessionBoundaryDraft[]) {
     });
 }
 
+function listings(entries: SessionBoundaryDraft[]) {
+  return entries.flatMap((entry) =>
+    entry.type === "custom_message" && entry.customType === listingType
+      ? [{ ...listingSchema.parse(entry.details), content: entry.content }]
+      : []
+  );
+}
+
+const skillFile = (description: string) => `---\nname: deploy\ndescription: ${description}\n---\n`;
+
 async function run(name = "read", input: JsonObject = { path: "pkg/deep/file.ts" }) {
-  const entries = await discover([fs.call(name, input)], fs.cwd, fs.manager, files);
+  const entries = await discover([fs.call(name, input)], fs.cwd, fs.manager, skillFolders, files);
   fs.append(entries);
 
   return entries;
@@ -56,7 +70,7 @@ it.each([
 ] as const)("records metadata only for content-read attempts through %s", async (name, input) => {
   const instruction = await fs.write("pkg/AGENTS.md", "NEVER DUPLICATE");
   const call = fs.call(name, input);
-  const entries = await discover([call], fs.cwd, fs.manager, files);
+  const entries = await discover([call], fs.cwd, fs.manager, skillFolders, files);
   expect(entries).toHaveLength(1);
   const entry = entries[0];
   if (entry?.type !== "custom" || entry.customType !== readType)
@@ -68,7 +82,7 @@ it.each([
   expect(JSON.stringify(entries)).not.toContain("NEVER DUPLICATE");
   fs.append(entries);
   expect(notices(await run())).toEqual([]);
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
   expect(files.read).not.toHaveBeenCalled();
 });
 
@@ -100,7 +114,7 @@ it.each([
   async (_name, replace, reloaded) => {
     await fs.write("pkg/AGENTS.md", "rules");
     const call = fs.call("read", { path: "pkg/file" });
-    const entries = await discover([call], fs.cwd, fs.manager, files);
+    const entries = await discover([call], fs.cwd, fs.manager, skillFolders, files);
     const [id] = fs.append(entries);
     const [entry] = entries;
     if (entry?.type !== "custom_message" || typeof entry.content !== "string")
@@ -130,7 +144,7 @@ it.each([
   const rejected = { ...current, details: { ...decodeNotice(current).notice, ...invalid } };
   fs.append([rejected]);
   expect(decodeNotice(rejected)).toEqual({ notice: undefined, body: current.content });
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
   expect(notices(await run())).toMatchObject([{ version: 3, path: file }]);
   expect(fs.manager.getBranch()).toContainEqual(
     expect.objectContaining({ content: current.content, details: rejected.details })
@@ -143,7 +157,7 @@ it.each(["call removed", null])(
     await fs.write("pkg/AGENTS.md", "rules");
     const call = fs.call("read", { path: "pkg/AGENTS.md" });
     const callEntry = fs.manager.getLeafId()!;
-    fs.append(await discover([call], fs.cwd, fs.manager, files));
+    fs.append(await discover([call], fs.cwd, fs.manager, skillFolders, files));
     expect(await run()).toEqual([]);
     expect(files.read).not.toHaveBeenCalled();
     fs.manager.appendContextEdit(callEntry, replacement === null ? null : { content: replacement });
@@ -158,7 +172,7 @@ it("rejects malformed markers and requires the exact unchanged projected call", 
   const other = await fs.write("other/AGENTS.md", "other rules");
   const call = fs.call("read", { path: "pkg/AGENTS.md" });
   const origin = fs.manager.getLeafId()!;
-  fs.append(await discover([call], fs.cwd, fs.manager, files));
+  fs.append(await discover([call], fs.cwd, fs.manager, skillFolders, files));
   fs.manager.appendCustomEntry(readType, { path: other });
   expect(await run()).toEqual([]);
   expect(files.read).not.toHaveBeenCalled();
@@ -182,7 +196,7 @@ it("rejects malformed markers and requires the exact unchanged projected call", 
       }
     ]
   });
-  const discovered = await discover([edited], fs.cwd, fs.manager, files);
+  const discovered = await discover([edited], fs.cwd, fs.manager, skillFolders, files);
   expect(notices(discovered)).toMatchObject([{ path: path.join(fs.cwd, "pkg/AGENTS.md") }]);
   expect(discovered.filter((entry) => entry.type === "custom")).toHaveLength(0);
 
@@ -202,7 +216,7 @@ it("rejects malformed markers and requires the exact unchanged projected call", 
     ]
   });
   fs.manager.appendContextEdit(omittedEntry, null);
-  const rediscovered = await discover([omitted], fs.cwd, fs.manager, files);
+  const rediscovered = await discover([omitted], fs.cwd, fs.manager, skillFolders, files);
   expect(notices(rediscovered)).toMatchObject([{ path: path.join(fs.cwd, "pkg/AGENTS.md") }]);
 });
 
@@ -213,19 +227,63 @@ it("an empty preferred instruction file still suppresses lower-priority content"
   expect(entries).toHaveLength(1);
   expect(entries[0]?.path).toBe(path.join(fs.cwd, "pkg/AGENTS.override.md"));
   expect(entries[0]?.content).not.toContain("not selected");
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
   await fs.write("pkg/AGENTS.override.md", "now non-empty");
-  const updated = await refresh(fs.cwd, fs.manager, files);
+  const updated = await refresh(fs.cwd, fs.manager, skillFolders, files);
   expect(updated.map((entry) => decodeNotice(entry).body)).toEqual(["now non-empty"]);
   fs.append(updated);
   await fs.write("pkg/AGENTS.override.md", "");
-  const emptied = await refresh(fs.cwd, fs.manager, files);
+  const emptied = await refresh(fs.cwd, fs.manager, skillFolders, files);
   expect(emptied.map((entry) => decodeNotice(entry).body)).toEqual([""]);
   fs.append(emptied);
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
   await fs.write("pkg/AGENTS.md", "");
   await rm(path.join(fs.cwd, "pkg/AGENTS.override.md"));
-  expect(notices(await refresh(fs.cwd, fs.manager, files))).toMatchObject([
+  expect(notices(await refresh(fs.cwd, fs.manager, skillFolders, files))).toMatchObject([
     { action: "updated", path: path.join(fs.cwd, "pkg/AGENTS.md") }
   ]);
+});
+
+it("lists a directory's skills again after a context edit, compaction, or branch navigation changes or removes the listing", async () => {
+  await fs.write("pkg/.agents/skills/deploy/SKILL.md", skillFile("deploys"));
+  skillFolders = await findSkillFolders(fs.cwd);
+  const call = fs.call("read", { path: "pkg/file" });
+  const entries = await discover([call], fs.cwd, fs.manager, skillFolders, files);
+  expect(listings(entries)).toHaveLength(1);
+  const [id] = fs.append(entries);
+  expect(listings(await run())).toHaveLength(0);
+  fs.manager.appendContextEdit(id!, { content: "shortened" });
+  expect(listings(await run())).toHaveLength(1);
+  fs.manager.appendContextEdit(fs.manager.getLeafId()!, null);
+  expect(listings(await run())).toHaveLength(1);
+  fs.manager.appendCompaction("summary", null, 1);
+  expect(listings(await run())).toHaveLength(1);
+  fs.manager.branch(call.callEntryId!);
+  expect(listings(await run())).toHaveLength(1);
+});
+
+it("refresh replaces a visible listing when the skills on disk differ and removes it when none remain", async () => {
+  const file = await fs.write("pkg/.agents/skills/deploy/SKILL.md", skillFile("deploys"));
+  skillFolders = await findSkillFolders(fs.cwd);
+  expect(listings(await run())).toMatchObject([
+    { action: "loaded", skills: [{ name: "deploy", description: "deploys" }] }
+  ]);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
+  await fs.write("pkg/.agents/skills/deploy/SKILL.md", skillFile("ships"));
+  const updated = await refresh(fs.cwd, fs.manager, skillFolders, files);
+  expect(listings(updated)).toMatchObject([
+    {
+      action: "updated",
+      directory: path.join(fs.cwd, "pkg"),
+      skills: [{ name: "deploy", description: "ships" }]
+    }
+  ]);
+  expect(listings(updated)[0]?.content).toContain("<description>ships</description>");
+  fs.append(updated);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
+  await rm(file);
+  const removed = await refresh(fs.cwd, fs.manager, skillFolders, files);
+  expect(listings(removed)).toMatchObject([{ action: "removed", skills: [] }]);
+  fs.append(removed);
+  expect(await refresh(fs.cwd, fs.manager, skillFolders, files)).toEqual([]);
 });

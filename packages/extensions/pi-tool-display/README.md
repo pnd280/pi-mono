@@ -28,11 +28,11 @@ The extension registers no commands, CLI flags, model tools, or keybindings, and
 
 The display mode decides how much of each call you see:
 
-| Mode                | What you see                                                                                                                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `summary` (default) | Finished runs collapse to [one summary line](docs/presentation.md#summary-mode) unless you have opened them. Runs with only todo calls and no instruction notices disappear. Runs still in progress show compact cards. |
-| `compact`           | One card per call, with bounded [result previews](docs/presentation.md#results). Related calls share an exploration group.                                                                                              |
-| `verbose`           | Every card expanded, plus Pi's startup header and loaded resources.                                                                                                                                                     |
+| Mode                | What you see                                                                                                                                                                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `summary` (default) | Finished runs collapse to [one summary line](docs/presentation.md#summary-mode) unless you have opened them. Runs with only todo calls and no instruction notices or skill listings disappear. Runs still in progress show compact cards. |
+| `compact`           | One card per call, with bounded [result previews](docs/presentation.md#results). Related calls share an exploration group.                                                                                                                |
+| `verbose`           | Every card expanded, plus Pi's startup header and loaded resources.                                                                                                                                                                       |
 
 A _run_ contains this extension's consecutive calls between visible non-thinking boundaries, such as assistant prose, an unrelated notice, or a tool with its original renderer.
 
@@ -55,7 +55,7 @@ These tools get dedicated cards:
 - Pi's native tools: read, bash, PowerShell, edit, write, and the search and listing tools.
 - Pi's built-in codemode, MCP, and tool search.
 - Extensions: the MCP adapter, todo, selective read, smart compact, pi-profiles' tool search, and subagents, including background jobs.
-- Nested-instruction notices, which also count towards run summaries.
+- Nested-instruction notices and nested-skill listings, which also count towards run summaries.
 - Subagent background results and job results.
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. If the tool registers later, cards from earlier in the session history switch to its dedicated card; cards of calls made while it was missing stay generic.

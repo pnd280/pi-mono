@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { noticeType } from "pi-nested-instructions/notices";
+import { listingType } from "pi-nested-instructions/skill-listings";
 import { contextStatusType } from "pi-smart-compact/result";
 import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "pi-subagents/constants";
 
@@ -8,7 +9,7 @@ import type { DisplayAction } from "./contracts.ts";
 import { DisplayCollectors } from "./host/collection.ts";
 import { installHostIntegration } from "./host/install.ts";
 import { renderContextStatus } from "./rendering/context-status.ts";
-import { createNoticeRenderer } from "./rendering/notice.ts";
+import { createListingRenderer, createNoticeRenderer } from "./rendering/notice.ts";
 import {
   createJobResultRenderer,
   createSubagentResultRenderer
@@ -17,6 +18,7 @@ import {
 export default function toolDisplay(pi: ExtensionAPI): void {
   const emit = (action: DisplayAction) => pi.events.emit(action.event, action.data);
   pi.registerMessageRenderer(noticeType, createNoticeRenderer());
+  pi.registerMessageRenderer(listingType, createListingRenderer());
   pi.registerMessageRenderer(RESULT_MESSAGE, createSubagentResultRenderer(emit));
   pi.registerMessageRenderer(JOB_RESULT_MESSAGE, createJobResultRenderer(emit));
   pi.registerMessageRenderer(contextStatusType, renderContextStatus);

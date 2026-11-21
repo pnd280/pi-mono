@@ -1,6 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import { instructionNotice } from "../adapters/pi-nested-instructions/notices.ts";
+import { nestedMessage } from "../adapters/pi-nested-instructions/notices.ts";
 import type { Outcome } from "../contracts.ts";
 import { record, stringField } from "../values.ts";
 import type { AssistantCall, TranscriptMessage } from "./session.ts";
@@ -93,12 +93,12 @@ export class TranscriptMessages {
     if (value.role === "system" || value.type === "usage" || value.type === "custom") return;
     if (value.role === "custom" && value.display === false) return;
     // Actual inserted notice rows supply a group boundary, not a run boundary.
-    const notice = this.ownNotices ? instructionNotice(input) : undefined;
-    if (notice)
+    const nested = this.ownNotices ? nestedMessage(input) : undefined;
+    if (nested)
       return {
         kind: "notice",
         id: JSON.stringify([value.timestamp, value.details]),
-        notice: notice.summary
+        notice: nested.summary
       };
     if (value.role === "toolResult") return toolResult(value, input);
     if (value.role !== "assistant" || !Array.isArray(value.content)) return { kind: "boundary" };

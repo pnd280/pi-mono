@@ -86,7 +86,8 @@ export const extensionGroups: ExtensionGroup[] = [
     extensions: [
       {
         name: "pi-nested-instructions",
-        summary: "Loads AGENTS.md files from subdirectories when the model starts working in them."
+        summary:
+          "Loads AGENTS.md files and skills from subdirectories when the model starts working in them."
       },
       {
         name: "pi-skills",

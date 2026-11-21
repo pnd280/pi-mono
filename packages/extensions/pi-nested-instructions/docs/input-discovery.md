@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-pi-nested-instructions finds the directories to search from the inputs of each tool call. It never runs commands, reads tool results, or lists glob matches to find them.
+pi-nested-instructions selects directories from the inputs of each tool call: their instructions load, and their [nested skills](skills.md#when-the-model-sees-a-skill) are listed. It never runs commands, reads tool results, or lists glob matches to find them.
 
 ## Recognised tools
 

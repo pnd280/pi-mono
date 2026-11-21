@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { absolutePathSchema, digest, noticeBody, noticeSchema, noticeType } from "./notices.ts";
 import type { Invocation } from "./scopes.ts";
+import { listingList, listingSchema, listingType } from "./skill-listings.ts";
 
 export const readType = "pi-nested-instructions.read";
 
@@ -30,7 +31,7 @@ export type SessionView = {
   getBranch: ExtensionContext["sessionManager"]["getBranch"];
 };
 
-/** What the canonical session projection still shows the model about nested instructions. */
+/** What the canonical session projection still shows the model about nested instructions and skills. */
 type Ledger = {
   /** Records a direct-read attempt only while its exact, unchanged source call is projected. */
   markRead(
@@ -50,14 +51,60 @@ type Ledger = {
   current(directory: string, file: string, content: string): boolean;
   /** Directories with visible notices or direct reads. */
   directories(): string[];
+  /** The skill list that the visible listing gives for this directory; empty after a removal. */
+  listing(directory: string): string | undefined;
+  /** Directories with visible skill listings. */
+  listedDirectories(): string[];
 };
+
+type Projection = ReturnType<SessionView["buildSessionProjection"]>;
+
+/**
+ * Finds the text that an entry's projected message still delivers. A context replacement retains the entry's details, but no longer contains that text.
+ */
+function projectedTexts(projection: Projection) {
+  const visible = new Map(
+    projection.entries.map((entry) => [entry.sourceEntry.id, entry.messages])
+  );
+
+  return (entryId: string, messageDigest: string) =>
+    visible
+      .get(entryId)
+      ?.flatMap((candidate) =>
+        candidate.role === "custom" &&
+        (typeof candidate.content === "string" ||
+          (candidate.content.length === 1 && candidate.content[0]?.type === "text"))
+          ? [contentText(candidate.content)]
+          : []
+      )
+      .find((text) => digest(text) === messageDigest);
+}
+
+/** The skill list of each directory's latest listing whose message is still projected. */
+function visibleListings(
+  branch: ReturnType<SessionView["getBranch"]>,
+  projectedText: ReturnType<typeof projectedTexts>
+): Map<string, string> {
+  const listings = new Map<string, string>();
+
+  for (const entry of branch) {
+    if (entry.type !== "custom_message" || entry.customType !== listingType) continue;
+    const parsed = listingSchema.safeParse(entry.details);
+    if (!parsed.success) continue;
+    const content = projectedText(entry.id, parsed.data.messageDigest);
+    if (content !== undefined)
+      listings.set(parsed.data.directory, listingList(content, parsed.data));
+  }
+
+  return listings;
+}
 
 /** Raw markers are useful only while their originating call is in the projection. */
 export function ledger(session: SessionView): Ledger {
   const projection = session.buildSessionProjection();
-  const visible = new Map(
-    projection.entries.map((entry) => [entry.sourceEntry.id, entry.messages])
-  );
+  const projectedText = projectedTexts(projection);
+  const branch = session.getBranch();
+  const listings = visibleListings(branch, projectedText);
   const reads = new Map<string, ReadMarker>();
   const scopes = new Map<string, { path: string | null; body: string }>();
   const visibleCalls = new Map<string, { name: string; arguments: unknown }>();
@@ -86,7 +133,7 @@ export function ledger(session: SessionView): Ledger {
     }
   }
 
-  for (const entry of session.getBranch()) {
+  for (const entry of branch) {
     if (entry.type === "custom" && entry.customType === readType) {
       const parsed = readSchema.safeParse(entry.data);
       if (!parsed.success) continue;
@@ -97,17 +144,7 @@ export function ledger(session: SessionView): Ledger {
       const parsed = noticeSchema.safeParse(entry.details);
       if (!parsed.success) continue;
       const notice = parsed.data;
-      // A context replacement retains details, but no longer contains these instructions.
-      const content = visible
-        .get(entry.id)
-        ?.flatMap((candidate) =>
-          candidate.role === "custom" &&
-          (typeof candidate.content === "string" ||
-            (candidate.content.length === 1 && candidate.content[0]?.type === "text"))
-            ? [contentText(candidate.content)]
-            : []
-        )
-        .find((text) => digest(text) === notice.messageDigest);
+      const content = projectedText(entry.id, notice.messageDigest);
       if (content === undefined) continue;
       scopes.set(notice.directory, { path: notice.path, body: noticeBody(content, notice) });
 
@@ -159,6 +196,8 @@ export function ledger(session: SessionView): Ledger {
 
       return previous?.path === file && previous.body === content;
     },
-    directories: () => [...scopes.keys(), ...[...reads.keys()].map((file) => path.dirname(file))]
+    directories: () => [...scopes.keys(), ...[...reads.keys()].map((file) => path.dirname(file))],
+    listing: (directory) => listings.get(directory),
+    listedDirectories: () => [...listings.keys()]
   };
 }

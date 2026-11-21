@@ -5,12 +5,12 @@ The [workspace architecture](docs/architecture.md) keeps each feature's domain p
 ## Contexts
 
 - [pi-tool-display](./packages/extensions/pi-tool-display/GLOSSARY.md) presents Pi tool calls as cards, exploration groups, and run summaries.
-- [pi-nested-instructions](./packages/extensions/pi-nested-instructions/GLOSSARY.md) loads instruction files from directories that tool inputs reach into.
+- [pi-nested-instructions](./packages/extensions/pi-nested-instructions/GLOSSARY.md) loads instruction files and skills from directories that tool inputs reach into.
 - [pi-agent-summary](./packages/extensions/pi-agent-summary/GLOSSARY.md) times runs and summarises each finished run, including counters and milestones that other extensions report.
 - [pi-subagents](./packages/extensions/pi-subagents/GLOSSARY.md) delegates tasks to separate Pi processes, runs background jobs, and returns their results to the supervisor session.
 
 ## Relationships
 
-`pi-nested-instructions` publishes notices that `pi-tool-display` renders through its [message adapter](./packages/extensions/pi-tool-display/src/adapters/pi-nested-instructions/README.md). Tool display counts these notices in run summaries. A notice joins the preceding run, but an exploration group never spans it.
+`pi-nested-instructions` publishes notices and skill listings that `pi-tool-display` renders through its [message adapter](./packages/extensions/pi-tool-display/src/adapters/pi-nested-instructions/README.md). Tool display counts them in run summaries. A notice or listing joins the preceding run, but an exploration group never spans it.
 
 `pi-subagents` owns task and job results; `pi-tool-display` renders them as cards through its [subagent adapter](./packages/extensions/pi-tool-display/src/adapters/pi-subagents/README.md). `pi-subagents` also adds to `pi-agent-summary` counters.

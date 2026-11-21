@@ -153,16 +153,17 @@ Setup: fullscreen fixture in summary mode. Temporarily make the first `bindRowCh
 
 Setup: load `pi-nested-instructions` and put a nested instruction file in the disposable fixture.
 
-| Do                                                                                                                          | Expect                                                                                           |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Read a file beneath that directory.                                                                                         | The notice stays inside the run, even as the last row.                                           |
-| Inspect that run's summary.                                                                                                 | It includes `loaded 1 instruction file`.                                                         |
-| Load several files, update one, remove one.                                                                                 | Loaded files, updated files, and removed directories have separate counts.                       |
-| Open the summary, expand the notice, and resize.                                                                            | The notice stays in place.                                                                       |
-| Collapse with the `▴ collapse` bar.                                                                                         | The notice hides with the run.                                                                   |
-| Repeat through replay and **Ctrl+O**.                                                                                       | Notice placement, counts, and visibility match the live run.                                     |
-| Insert an unrelated visible custom message between calls.                                                                   | The message splits the runs.                                                                     |
-| Set `rendererOverrides` `bash` to `original`. Read a file outside that directory, then `cat` a file beneath it with `bash`. | The notice stays standalone below the Bash row. The read run's summary has no instruction count. |
+| Do                                                                                                                                                           | Expect                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read a file beneath that directory.                                                                                                                          | The notice stays inside the run, even as the last row.                                                                                      |
+| Inspect that run's summary.                                                                                                                                  | It includes `loaded 1 instruction file`.                                                                                                    |
+| Load several files, update one, remove one.                                                                                                                  | Loaded files, updated files, and removed directories have separate counts.                                                                  |
+| In a fresh workspace, add an instruction file and a skill in `.agents/skills/` to the same directory, run `/reload`, and read a file beneath that directory. | The summary includes `loaded 1 instruction file` and `listed skills in 1 dir`. Opening the run shows the listing directly after the notice. |
+| Open the summary, expand the notice, and resize.                                                                                                             | The notice stays in place.                                                                                                                  |
+| Collapse with the `▴ collapse` bar.                                                                                                                          | The notice hides with the run.                                                                                                              |
+| Repeat through replay and **Ctrl+O**.                                                                                                                        | Notice placement, counts, and visibility match the live run.                                                                                |
+| Insert an unrelated visible custom message between calls.                                                                                                    | The message splits the runs.                                                                                                                |
+| Set `rendererOverrides` `bash` to `original`. Read a file outside that directory, then `cat` a file beneath it with `bash`.                                  | The notice stays standalone below the Bash row. The read run's summary has no instruction count.                                            |
 
 ### Exploration groups and images
 
@@ -317,6 +318,18 @@ Setup: load pi-tool-display and `pi-nested-instructions` in a disposable workspa
 | Expand the notice with the shortcut or a fullscreen header click. | The body shows formatted Markdown without the model-facing preamble. |
 | Resize to narrow widths and compare dark and light themes.        | Text stays readable within the available width.                      |
 | Select or scroll the expanded body.                               | The notice keeps its expansion state.                                |
+
+### Nested-skill listings
+
+Setup: as for [nested-instruction notices](#nested-instruction-notices), in a trusted project with two skills in `.agents/skills/` of a nested directory.
+
+| Do                                                                                                                                                                                                                | Expect                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access a file in the nested directory.                                                                                                                                                                            | The collapsed listing shows "Listed skills (2)" and the directory.                                                                                                                 |
+| Expand the listing with the shortcut or a fullscreen header click.                                                                                                                                                | Each skill shows its name and description, without the model-facing preamble or file paths.                                                                                        |
+| Give one skill a description longer than the terminal width that contains a literal ANSI colour sequence, such as `"Deploys \x1b[31mred text"` as a quoted YAML string. Run `/reload` and expand the new listing. | It shows "Updated skills (2)", the line "Replaces the earlier skill list for this directory.", and both skills. The text after the colour sequence keeps the description's colour. |
+| Narrow the terminal until a description wraps.                                                                                                                                                                    | Each description wraps under its own skill, and the next skill starts at a new branch connector.                                                                                   |
+| Delete both skills, run `/reload`, and expand the new listing.                                                                                                                                                    | It shows "Removed skills" and the line "The earlier skill list for this directory no longer applies.", with no skills.                                                             |
 
 ### pi-profiles
 

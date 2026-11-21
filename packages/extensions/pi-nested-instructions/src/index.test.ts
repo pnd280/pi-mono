@@ -14,6 +14,7 @@ import {
   DefaultResourceLoader,
   ModelRuntime,
   SettingsManager,
+  type ExtensionAPI,
   type ExtensionFactory,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
@@ -23,6 +24,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import nestedInstructions from "../index.ts";
 import { readType } from "./ledger.ts";
 import { decodeNotice, noticeEntry, noticeType } from "./notices.ts";
+import { listingType } from "./skill-listings.ts";
 import { fixture } from "./test-fixture.ts";
 
 const parentRules = "AUTO PARENT RULES\n\n  indented line\n\ttabbed line\n";
@@ -42,7 +44,22 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
-async function host(responses: FauxResponseFactory[], before: ExtensionFactory[] = []) {
+function listingsIn(entries: SessionEntry[]) {
+  return entries.flatMap((entry) =>
+    entry.type === "custom_message" && entry.customType === listingType ? [entry.details] : []
+  );
+}
+
+function skillCommands(pi: ExtensionAPI) {
+  return pi.getCommands().filter((command) => command.source === "skill");
+}
+
+async function host(
+  responses: FauxResponseFactory[],
+  before: ExtensionFactory[] = [],
+  trusted = true,
+  nativeSkills: string[] = []
+) {
   const fs = await fixture();
   cleanup.push(fs.dispose);
   const agentDir = path.join(fs.root, "agent");
@@ -54,18 +71,32 @@ async function host(responses: FauxResponseFactory[], before: ExtensionFactory[]
   await fs.write("pkg/deep/AGENTS.md", "DIRECT CHILD RULES");
   await fs.write("pkg/deep/file.ts", "decoy/AGENTS.md in tool output");
   await fs.write("decoy/AGENTS.md", "DO NOT FOLLOW OUTPUT PATHS");
+  await fs.write(
+    "pkg/.agents/skills/deploy/SKILL.md",
+    "---\nname: deploy\ndescription: NESTED DEPLOY SKILL\n---\n"
+  );
+  await fs.write(
+    "pkg/.pi/skills/release/SKILL.md",
+    "---\nname: release\ndescription: HIDDEN NESTED SKILL\ndisable-model-invocation: true\n---\n"
+  );
+  // A nested skill folder that no other test's tool call reaches; a test can load its skill without the extension.
+  await fs.write(
+    "other/.agents/skills/native/SKILL.md",
+    "---\nname: native\ndescription: NATIVE SKILL BELOW NESTED FOLDER\n---\n"
+  );
   isolateEnvironment(fs.root);
   const settingsManager = SettingsManager.inMemory({
     compaction: { enabled: false },
     retry: { enabled: false }
   });
-  settingsManager.setProjectTrusted(true);
+  settingsManager.setProjectTrusted(trusted);
   const resourceLoader = new DefaultResourceLoader({
     cwd: fs.cwd,
     agentDir,
     settingsManager,
     noExtensions: true,
     noSkills: true,
+    additionalSkillPaths: nativeSkills.map((skill) => path.join(fs.cwd, skill)),
     noThemes: true,
     noPromptTemplates: true,
     extensionFactories: [...before, nestedInstructions]
@@ -319,4 +350,118 @@ it("refreshes changed scopes through a real host reload without repeating unchan
         message.content.includes("CHANGED PARENT RULES")
     )
   ).toBe(true);
+});
+
+it("registers and lists no nested skill in an untrusted project", async () => {
+  const requests: string[] = [];
+  let commands: ReturnType<typeof skillCommands> | undefined;
+  const h = await host(
+    [
+      () => fauxAssistantMessage([fauxToolCall("read", { path: "pkg/deep/file.ts" }, { id: "a" })]),
+      (context) => {
+        requests.push(JSON.stringify(context.messages));
+
+        return fauxAssistantMessage("done");
+      }
+    ],
+    [
+      (pi) => {
+        pi.on("input", () => {
+          commands = skillCommands(pi);
+        });
+      }
+    ],
+    false
+  );
+  await h.session.prompt("Read a nested file");
+  expect(h.errors).toEqual([]);
+  expect(commands).toEqual([]);
+  expect(listingsIn(h.fs.manager.getBranch())).toEqual([]);
+  // The nested instructions show that the call reached the directory.
+  expect(requests[0]).toContain("AUTO PARENT RULES");
+  expect(requests[0]).not.toContain("NESTED DEPLOY SKILL");
+});
+
+it("registers nested skills from the first prompt and keeps them out of every request's system prompt", async () => {
+  const prompts: (string | undefined)[] = [];
+  const commands: ReturnType<typeof skillCommands>[] = [];
+
+  const respond =
+    (message: ReturnType<typeof fauxAssistantMessage>): FauxResponseFactory =>
+    (context) => {
+      prompts.push(getCurrentSystemPrompt(context.messages));
+
+      return message;
+    };
+
+  const h = await host(
+    [
+      respond(fauxAssistantMessage([fauxToolCall("read", { path: "AGENTS.md" }, { id: "a" })])),
+      respond(fauxAssistantMessage("done")),
+      respond(fauxAssistantMessage("done"))
+    ],
+    [
+      (pi) => {
+        pi.on("input", () => {
+          commands.push(skillCommands(pi));
+        });
+      }
+    ],
+    true,
+    // Pi loads this skill without the extension, although it lies in a nested skill folder.
+    ["other/.agents/skills/native"]
+  );
+  await h.session.prompt("First run");
+  await h.session.prompt("Later run");
+  expect(h.errors).toEqual([]);
+  expect(new Map(commands[0]?.map((command) => [command.name, command.sourceInfo.path]))).toEqual(
+    new Map([
+      ["skill:release", path.join(h.fs.cwd, "pkg/.pi/skills/release/SKILL.md")],
+      ["skill:deploy", path.join(h.fs.cwd, "pkg/.agents/skills/deploy/SKILL.md")],
+      ["skill:native", path.join(h.fs.cwd, "other/.agents/skills/native/SKILL.md")]
+    ])
+  );
+  // Two requests in the first run, one in the later run.
+  expect(prompts).toHaveLength(3);
+
+  for (const prompt of prompts) {
+    expect(prompt).toContain("NATIVE ROOT RULES");
+    expect(prompt).toContain("NATIVE SKILL BELOW NESTED FOLDER");
+    expect(prompt).not.toContain("NESTED DEPLOY SKILL");
+  }
+});
+
+it("lists a directory's invocable skills once after a tool input reaches it", async () => {
+  const requests: string[] = [];
+
+  const respond =
+    (message: ReturnType<typeof fauxAssistantMessage>): FauxResponseFactory =>
+    (context) => {
+      requests.push(JSON.stringify(context.messages));
+
+      return message;
+    };
+
+  const read = (id: string) =>
+    fauxAssistantMessage([fauxToolCall("read", { path: "pkg/deep/file.ts" }, { id })]);
+  const h = await host([
+    respond(read("first")),
+    respond(read("second")),
+    respond(fauxAssistantMessage("done"))
+  ]);
+  await h.session.prompt("Read a nested file twice");
+  expect(h.errors).toEqual([]);
+  // Nothing before the first read, one listing after it, and no second listing after the repeated read.
+  expect(requests.map((request) => request.match(/NESTED DEPLOY SKILL/g)?.length ?? 0)).toEqual([
+    0, 1, 1
+  ]);
+  expect(listingsIn(h.fs.manager.getBranch())).toMatchObject([
+    {
+      action: "loaded",
+      displayPath: "pkg",
+      skills: [{ name: "deploy", description: "NESTED DEPLOY SKILL" }]
+    }
+  ]);
+  expect(requests[2]).toContain(path.join(h.fs.cwd, "pkg/.agents/skills/deploy/SKILL.md"));
+  expect(requests[2]).not.toContain("HIDDEN NESTED SKILL");
 });
