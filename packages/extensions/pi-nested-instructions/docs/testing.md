@@ -12,6 +12,7 @@ E2e checks drive a Pi host and also exercise sibling batching and reload diffing
 - **Critical, integration:** The startup skill search never enters a symlinked directory and accepts no skill folder that resolves outside cwd.
 - **Critical, integration:** Inferred scopes stay strictly inside the lexical cwd and never include symlink-target ancestor scopes.
 - **Critical, integration:** Selecting a file symlink keeps its lexical scope.
+- **High, integration:** The startup skill search finds no skill folder when cwd is the home directory or above it.
 - **High, e2e:** Nested discovery leaves Pi's native global, cwd, and parent instruction loading and reload behaviour unchanged.
 - **High, e2e:** Supported nested tool inputs can load instructions even when the parent hides the child output, unless a sibling [direct read](../GLOSSARY.md#discovery) suppresses the selected file.
 - **High, e2e:** Nested calls do not create direct-read suppression markers, including blocked and invalid child attempts.

@@ -1,4 +1,5 @@
 import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 
 import { containsPath } from "@pi-mono/utils/paths";
@@ -81,7 +82,7 @@ async function skillFolder(folder: string, root: string): Promise<boolean> {
 }
 
 /**
- * Finds `.pi/skills` and `.agents/skills` in every directory strictly below cwd. The search skips dot directories, `node_modules`, and ignored directories, and never enters a symlinked directory.
+ * Finds `.pi/skills` and `.agents/skills` in every directory strictly below cwd. The search skips dot directories, `node_modules`, and ignored directories, and never enters a symlinked directory. It finds nothing when cwd is the home directory or above it.
  */
 export async function findSkillFolders(cwd: string): Promise<SkillFolders> {
   const found = new Map<string, string[]>();
@@ -92,6 +93,10 @@ export async function findSkillFolders(cwd: string): Promise<SkillFolders> {
   } catch {
     return found;
   }
+
+  // Pi waits for this search before the first prompt, so a walk across home can delay startup.
+  const home = await realpath(homedir()).catch(() => homedir());
+  if (containsPath(root, home)) return found;
 
   // Rules match paths relative to the repository root, so a directory inside an excluded directory stays excluded, as in git.
   const above = await ancestors(root);

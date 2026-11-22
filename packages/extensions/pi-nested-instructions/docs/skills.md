@@ -19,6 +19,7 @@ A search below the working directory finds the skill folders when a session star
 - Only `.agents/skills/` and `.pi/skills/` count. The search does not read `.claude/skills/`, nested `.pi/settings.json` files, or nested Pi packages.
 - The working directory's own skill folders are Pi's, not nested.
 - The search has no depth limit.
+- The search doesn't run when, after symlinks in both paths are resolved, the working directory is your home directory or a directory above it, such as `/`.
 - The search skips directories whose names start with a dot, and `node_modules`.
 - A skill folder that appears after the search is found by the next search, such as on `/reload`.
 
