@@ -48,7 +48,7 @@ This example shows every field. Remove the comments before you copy it, because 
       {
         // Required. Unique, up to 64 characters, without spaces. "clear" is reserved.
         "name": "build",
-        // Required. The text in the /profile list, up to 1,024 characters.
+        // Required. The text in the /profile list, up to 1,024 characters; profile change notices also send it to the model.
         "description": "Write and test code",
         // Optional. A provider/model-id reference. Omit it to keep the current model.
         "model": "anthropic/claude-sonnet-4-5",
@@ -88,7 +88,7 @@ Here `~/.pi/agent/profiles/plan.md` contains the instructions for the `plan` pro
 ## Side effects
 
 - pi-profiles replaces Pi's built-in `tool-search` extension with its own copy of `tool_search`, so Pi shows a warning at each start. Profiles work with or without the warning. To stop it, add `"-builtin:tool-search"` to `extensions` in `settings.json`. If you remove pi-profiles later, remove that entry too, or no `tool_search` is available, also for MCP servers with `deferred` exposure.
-- Each switch adds a selection entry to the session file, and Pi records the model and thinking changes there. pi-profiles writes no other files.
+- Each switch adds a selection entry to the session file, and Pi records the model and thinking changes there. Profile changes also save [profile change notices](docs/switching.md#profile-change-notices) and, where needed, hidden run records; see [profiles across sessions](docs/sessions.md#restoration). pi-profiles writes no other files.
 - A switch changes the system prompt or the declared tools, so the provider may not reuse its prompt cache for the next request.
 - pi-profiles registers the selected profile's MCP servers with Pi, which starts their processes or connects to their URLs. pi-profiles makes no network requests itself.
 - In the interactive terminal, when profiles are configured, pi-profiles replaces the editor with the same editor plus the profile name. It keeps the editor of an extension that loaded earlier. An extension that loads later and discards the earlier editor removes the profile name.

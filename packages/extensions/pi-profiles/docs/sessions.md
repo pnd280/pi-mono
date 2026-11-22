@@ -7,6 +7,7 @@ pi-profiles saves each switch in the session, so a resumed, forked, or reloaded 
 ## Restoration
 
 - Each switch, also to no profile, saves the selection in the session. The model does not see it. The selection names the profile and its settings scope (`global` or `project`), but keeps none of its server entries, which can contain secrets in `env` or `headers`.
+- [Profile change notices](switching.md#profile-change-notices) are derived from the saved branch, so they carry across resume, `/fork`, `/tree`, and `/reload`. When the settings did not supply a run's selected profile and no notice records that, the run saves a `pi-profiles.run` entry after its response, which the model does not see, so that the next run compares with no profile.
 - Resume, `/fork`, and `/tree` use the latest selection on the branch: its texts are added, its tools are declared, and `tool_search` can load its deferred tools.
 - A selection whose profile the current settings no longer supply from the same settings scope restores none of the profile's texts, tools, or deferral. For example, after you deny trust to a project, its project profile does not apply, also when a global profile has the same name. Pi's own tool restoration stays.
 - Resume, `/fork`, `/tree`, and `/reload` register the servers of the branch's restored selection from the current settings; see [MCP servers](switching.md#mcp-servers). `/tree` to a branch with another selection changes the servers. A branch with no selection, or a selected profile that is no longer configured, has no servers.

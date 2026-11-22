@@ -60,6 +60,8 @@ These tools get dedicated cards:
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. If the tool registers later, cards from earlier in the session history switch to its dedicated card; cards of calls made while it was missing stay generic.
 
+Context status messages from smart compact and profile change notices from pi-profiles appear as compact [status rows](docs/tools.md#status-rows) instead of message boxes.
+
 ### Pi version fallbacks
 
 Automatic integration and native observation depend on private Pi contracts. When one of them is unavailable, the extension turns off the affected feature:
@@ -106,7 +108,7 @@ This example shows every field. Remove the comments before you copy it, because 
 
 `rendererOverrides` must use the registered tool names. Pi's built-in MCP extension changes MCP tool names when it registers them; see [MCP tools](docs/tools.md#mcp-tools).
 
-Any invalid section in a file that applies, even one that a later file overrides, restores original tool rendering and stops native observation. Message cards for nested instructions, subagent background results, and job results remain registered. The terminal warning names the file and key.
+Any invalid section in a file that applies, even one that a later file overrides, restores original tool rendering and stops native observation. Message cards for nested instructions, subagent background results, and job results remain registered, and so do status rows. The terminal warning names the file and key.
 
 Mode changes from **Ctrl+O** survive `/reload` and session switches within the process, without writing settings. New processes start from `collapsedMode` (or `--verbose`). Settings leave tool execution and saved arguments unchanged. The extension has no environment variables.
 

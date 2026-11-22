@@ -21,7 +21,10 @@ import {
   planRestore,
   planServers,
   planSwitch,
+  profileNotice,
   reportTools,
+  RUN_ENTRY,
+  runRecord,
   searchableTools,
   selectedProfile,
   SELECTION_ENTRY,
@@ -353,15 +356,22 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   // The run's first request declares the tools that are active when before_agent_start ends.
-  pi.on("before_agent_start", async () => {
+  pi.on("before_agent_start", async (_event, ctx) => {
     // A run that starts during a switch uses the profile's tools.
     await switching;
     enforceTools();
+    const message = profileNotice(ctx.sessionManager.getBranch(), config?.profiles ?? []);
+
+    return message && { message };
   });
 
   // A later request declares the tools that are active when the previous turn ends. Pi takes them before turn_start, so a change in turn_start reaches only the request after.
-  pi.on("turn_end", () => {
+  pi.on("turn_end", (event, ctx) => {
     enforceTools();
+    // After the turn's response, so the record leaves the branch with the run, as on `/tree` to its prompt.
+    const data = runRecord(ctx.sessionManager.getBranch(), config?.profiles ?? []);
+
+    return data && { entries: [...event.entries, { type: "custom", customType: RUN_ENTRY, data }] };
   });
 
   /** The configured profiles, then `clear` for no profile. */

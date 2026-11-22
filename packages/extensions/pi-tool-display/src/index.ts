@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { noticeType } from "pi-nested-instructions/notices";
 import { listingType } from "pi-nested-instructions/skill-listings";
+import { NOTICE_MESSAGE } from "pi-profiles/notice";
 import { contextStatusType } from "pi-smart-compact/result";
 import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "pi-subagents/constants";
 
@@ -10,6 +11,7 @@ import { DisplayCollectors } from "./host/collection.ts";
 import { installHostIntegration } from "./host/install.ts";
 import { renderContextStatus } from "./rendering/context-status.ts";
 import { createListingRenderer, createNoticeRenderer } from "./rendering/notice.ts";
+import { renderProfileNotice } from "./rendering/profile-notice.ts";
 import {
   createJobResultRenderer,
   createSubagentResultRenderer
@@ -22,6 +24,7 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   pi.registerMessageRenderer(RESULT_MESSAGE, createSubagentResultRenderer(emit));
   pi.registerMessageRenderer(JOB_RESULT_MESSAGE, createJobResultRenderer(emit));
   pi.registerMessageRenderer(contextStatusType, renderContextStatus);
+  pi.registerMessageRenderer(NOTICE_MESSAGE, renderProfileNotice);
   const warnings: string[] = [];
   let notify: ((message: string) => void) | undefined;
   const stderr = (message: string) => process.stderr.write(`${message}\n`);

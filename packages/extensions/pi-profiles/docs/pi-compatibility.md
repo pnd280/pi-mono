@@ -15,6 +15,8 @@ The [adapter](../src/index.ts) relies on these contracts.
 - [ ] `pi.setModel()` checks the credentials again (`checkAuth()`) and throws before it changes the model.
 - [ ] Neither credentials check runs a key command or refreshes a login.
 - [ ] Pi awaits `before_agent_start` handlers before it reads the model and the active tools for a request (`_prepareRun()` in `agent-session.js`).
+- [ ] Pi places a `before_agent_start` handler's returned `message` after the run's starting message (`_prepareRun()` in `agent-session.js`), and saves it as a `custom_message` entry when it handles `message_end`, before the model responds.
+- [ ] Pi saves a `custom` draft that a `turn_end` handler returns after the turn's assistant message (`_dispatchTurnEndBoundary()` in `agent-session.js`). `/tree` or `/fork` to a `user` entry, and `/tree` to a `custom_message` entry, move the leaf to its parent (`navigateTree()` in `agent-session.js`).
 - [ ] Pi awaits `session_shutdown` handlers before it ends a session.
 - [ ] `pi.setModel()` applies the thinking level that settings set for the model, or the default level, or else keeps the current level.
 - [ ] `pi.setThinkingLevel()` raises a level that the model does not support to the nearest higher supported level, or else the nearest lower one (`clampThinkingLevel` in pi-ai `dist/models.js`).

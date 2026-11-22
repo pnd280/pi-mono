@@ -18,6 +18,7 @@ When a tool is not the verified tool that a card expects, it keeps its own rende
 | `pi-subagents`                                                           | [Subagents](#subagents)                     |
 | `pi-todo`                                                                | [Todo](#todo)                               |
 | `pi-nested-instructions`                                                 | [Nested instructions](#nested-instructions) |
+| Status messages from `pi-smart-compact` and `pi-profiles`                | [Status rows](#status-rows)                 |
 
 ## Native tools
 
@@ -138,7 +139,7 @@ Selective reads from [`pi-read`](../../pi-read/README.md) group like native read
 
 ## Smart compact
 
-Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. Its context status messages appear as one-line rows.
+Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. Its context status messages appear as [status rows](#context-status-rows).
 
 Both cards hide raw parameters by default, also on expansion. `showParameters: true` shows them. The compaction focus stays visible either way. Without a current verified tool definition, the calls get generic cards.
 
@@ -159,13 +160,6 @@ Both cards hide raw parameters by default, also on expansion. `showParameters: t
 - Valid token counts, context window, and percentage give a compact usage summary.
 - Unknown token usage stays unknown. A missing percentage is not calculated, and usage over capacity is not clamped.
 - Invalid details and errors keep the original text and diagnostics. Expansion shows the raw result.
-
-### Context status rows
-
-- A context status reads "Context usage" followed by the same usage summary as the context-window card, such as `152,340 / 200,000 tokens · 76.17% used`. The row omits the conversation model and the model that supplied the count.
-- The row stands alone, like other visible custom messages: it splits a run of tool cards, and summary lines do not count it.
-- A row wider than the terminal wraps beneath its label. Expansion does not change it.
-- Invalid or missing details keep Pi's default message box with the original text.
 
 ## Subagents
 
@@ -266,3 +260,29 @@ Instruction notices and skill listings from [`pi-nested-instructions`](../../pi-
 - Tool `rendererOverrides` and `showParameters` do not apply.
 - Saved notices and listings render even without pi-nested-instructions loaded. Without pi-tool-display, Pi shows the full messages in its default renderer.
 - Custom rendering does not change model context or HTML export.
+
+## Status rows
+
+Context status messages from [pi-smart-compact](../../pi-smart-compact/README.md) and profile change notices from [pi-profiles](../../pi-profiles/docs/switching.md#profile-change-notices) appear as compact rows that wrap in narrow terminals. Each row shows a `•` marker, a bold label, and the message text.
+
+- The row stands alone, like other visible custom messages: it splits a run of tool cards, and summary lines do not count it.
+- A row wider than the terminal wraps beneath its label. When the terminal is too narrow for the indent and the row's widest character, wrapped text starts at the left edge instead.
+- Expansion does not change the row.
+- Invalid or missing details keep Pi's default message box with the original text.
+- Saved rows render even without the producing extension loaded.
+
+### Context status rows
+
+A context status reads "Context usage" followed by the same usage summary as the [context-window card](#context-window-cards), such as `152,340 / 200,000 tokens · 76.17% used`. The row omits the conversation model and the model that supplied the count.
+
+### Profile change rows
+
+A profile change notice reads "Profile" followed by the transition:
+
+| Change                                                                       | Row                                      |
+| ---------------------------------------------------------------------------- | ---------------------------------------- |
+| A switch between two profiles                                                | `Profile build → plan`                   |
+| A switch from no profile                                                     | `Profile plan`                           |
+| A switch to no profile                                                       | `Profile cleared (was plan)`             |
+| The active profile is no longer available                                    | `Profile unavailable (was plan)`         |
+| A switch between profiles that share a name across global and project scopes | `Profile plan (global) → plan (project)` |

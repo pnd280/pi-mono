@@ -333,11 +333,20 @@ Setup: as for [nested-instruction notices](#nested-instruction-notices), in a tr
 
 ### pi-profiles
 
-Setup: load pi-tool-display and `pi-profiles`, and start a new session where `bash` is declared and not used.
+Setup: in a disposable, trusted project, load pi-tool-display and `pi-profiles` with two global profiles, `build`, which defers `bash`, and `plan`. Use fullscreen mode so **Ctrl+O** cycles through `summary`, `compact`, and `verbose`, and start a new session where `bash` is declared and not used.
 
-| Do                                                                           | Expect                                                          |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Switch to a profile that defers `bash`, then ask the model to run a command. | The `tool_search` card reads "Searched tools" and names `bash`. |
+| Do                                                                                                                                                                       | Expect                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Run `/profile build`, then ask the model to run a command.                                                                                                               | The `tool_search` card reads "Searched tools" and names `bash`. No profile change row appears, because this is the first run.     |
+| Run `/profile plan`, then send a prompt.                                                                                                                                 | One row reads `• Profile build → plan` after the prompt.                                                                          |
+| Run `/profile clear`, then send a prompt.                                                                                                                                | One row reads `• Profile cleared (was plan)`.                                                                                     |
+| Run `/profile build`, then send a prompt.                                                                                                                                | One row reads `• Profile build`.                                                                                                  |
+| Remove `build` from the global settings, run `/reload`, then send a prompt.                                                                                              | One row reads `• Profile unavailable (was build)`.                                                                                |
+| Run `/profile plan` and send a prompt. Then add a profile named `plan` to the project's `.pi/settings.json`, run `/reload` and `/profile plan`, and send another prompt. | The second prompt is followed by one row that reads `• Profile plan (global) → plan (project)`.                                   |
+| Press **Ctrl+O** to cycle through `summary`, `compact`, and `verbose`.                                                                                                   | Each profile change row stays the same in every mode.                                                                             |
+| Resize to a narrow width (such as 12 columns) in the dark theme, then in the light theme.                                                                                | Each row wraps beneath its "Profile" label and keeps all of its text (or starts at the left edge when too narrow for the indent). |
+| Exit, then reopen the session with pi-tool-display loaded and pi-profiles not loaded.                                                                                    | The same profile change rows appear in the same places.                                                                           |
+| Copy the session file, change one notice's `details.kind` to `"renamed"` in the copy, then open the copy.                                                                | That notice shows Pi's default message box with the full notice text. The other rows stay the same.                               |
 
 ### pi-read
 

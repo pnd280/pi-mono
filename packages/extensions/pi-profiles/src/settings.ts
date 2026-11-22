@@ -15,6 +15,8 @@ import { expandHomePath } from "@pi-mono/utils/paths";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
+import { profileNameSchema } from "./notice.ts";
+
 const SETTINGS_KEY = "ext.pi-profiles";
 const DEFAULT_SHORTCUT = "alt+i";
 
@@ -22,7 +24,6 @@ const DEFAULT_SHORTCUT = "alt+i";
 export const CLEAR = "clear";
 
 const MAX_PROFILES = 100;
-const MAX_NAME_LENGTH = 64;
 const MAX_DESCRIPTION_LENGTH = 1024;
 const MAX_PROMPTS = 32;
 const MAX_TOOLS = 256;
@@ -47,11 +48,7 @@ const mcpServersSchema = z.custom<Record<string, McpServerConfig>>((value) => {
 });
 
 const profileSchema = z.strictObject({
-  // One printable word, so `/profile <name>` and notices need no quoting or sanitising.
-  name: z
-    .string()
-    .max(MAX_NAME_LENGTH)
-    .regex(/^[^\s\p{C}]+$/u),
+  name: profileNameSchema,
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   model: modelReferenceSchema.optional(),
   thinking: z.enum(MODEL_THINKING_LEVELS).optional(),

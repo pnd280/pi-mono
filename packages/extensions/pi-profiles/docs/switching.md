@@ -28,6 +28,18 @@ A switch with **Alt+I**, `/profile`, or `--profile` applies a profile's fields t
 - A switch to the current profile applies it again, for example after you edit settings and run `/reload`.
 - No profile undoes the previous profile's tool changes, adds no texts, and unregisters the previous profile's MCP servers. The model and the thinking level do not change.
 
+## Profile change notices
+
+When the effective profile changes after at least one run has happened on the branch, the next run appends one `pi-profiles.notice` custom message after its starting message so the model knows its active profile changed:
+
+- The branch's first run adds no notice, including when a session starts with `defaultProfile`, `--profile`, or a switch before the first prompt.
+- Several switches while idle produce one notice for the net change, and switching away and back to the same profile adds no notice.
+- Re-applying the same profile from the same settings scope adds no notice.
+- Switching to a profile includes its trimmed description when non-empty. When the outgoing and incoming profiles share a name across scopes, the notice names each scope (`global` or `project`).
+- Clearing the profile reports that it was cleared, as does a switch to a profile that the settings no longer supply at the next run. When the previously active profile is still selected but no longer configured, or its project is untrusted, the next run reports that it was deactivated because it is no longer available; if it becomes available again later, the next run reports it as active.
+- The profile of a run stays with its response. After `/tree` or `/fork` to a prompt, or `/tree` to a notice, the next run compares with the run before that prompt.
+- When [pi-tool-display](../../pi-tool-display/README.md) is loaded, each notice renders as a compact row that wraps in narrow terminals (`• Profile build → plan`, `• Profile plan`, `• Profile cleared (was plan)`, or `• Profile unavailable (was plan)`). Without it, Pi shows the full notice text in its default custom-message box.
+
 ## Editor border
 
 - In the interactive terminal, the editor's top border shows the selected profile's name. With no profile, it shows no name.

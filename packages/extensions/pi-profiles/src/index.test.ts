@@ -34,6 +34,7 @@ import { Type } from "typebox";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import profiles from "../index.ts";
+import { NOTICE_MESSAGE } from "./notice.ts";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -208,6 +209,7 @@ type Request = {
   thinking: string | undefined;
   tools: string[];
   append: string | undefined;
+  texts: string[];
 };
 
 async function workspace(
@@ -301,15 +303,21 @@ async function host(
   });
   faux.setResponses(
     Array.from(
-      { length: 10 },
+      { length: 20 },
       (): FauxResponseFactory => async (context, options, _state, model) => {
+        const texts = context.messages.flatMap((message) => {
+          if (typeof message.content === "string") return [message.content];
+
+          return message.content.flatMap((block) => (block.type === "text" ? [block.text] : []));
+        });
         requests.push({
           model: model.id,
           thinking: options?.reasoning,
           tools: getCurrentTools(context.messages)
             .map(({ name }) => name)
             .sort(),
-          append: addendum(getCurrentSystemPrompt(context.messages))
+          append: addendum(getCurrentSystemPrompt(context.messages)),
+          texts
         });
 
         return (await replies.shift()?.()) ?? fauxAssistantMessage("done");
@@ -394,7 +402,7 @@ it("applies the profile's model, thinking, tools, and prompts, and undoes them o
   await fixture.session.prompt("search");
 
   const after = { model: "second", thinking: "high", append: "EARLIER" };
-  expect(fixture.requests).toEqual([
+  expect(fixture.requests).toMatchObject([
     { model: "second", thinking: "high", tools: ["alpha"], append: "EARLIER\n\nPLAN-A\n\nPLAN-B" },
     { ...after, tools: ["alpha", "beta", "gamma"] },
     { ...after, tools: ["beta", "gamma"] },
@@ -1179,4 +1187,151 @@ it("skips a trusted project profile whose MCP server sends a Pi login token, so 
   expect(mcp.events).toEqual(["connect safe"]);
   expect(mcpTools(fixture.requests)).toEqual([["mcp__safe__ping"]]);
   expect(fixture.errors).toEqual([]);
+});
+
+it("appends one profile-change notice per changed run across transitions, idle switches, reloads, unavailable runs, and tree navigation", async () => {
+  const dirs = await workspace({ profiles: [plan, build, focus] });
+  const noticeEntries = (session: AgentSession) =>
+    session.sessionManager
+      .getBranch()
+      .flatMap((entry) =>
+        entry.type === "custom_message" && entry.customType === NOTICE_MESSAGE
+          ? [{ content: entry.content, details: entry.details, display: entry.display }]
+          : []
+      );
+
+  const fixture = await host(dirs, {
+    projectTrusted: true,
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+
+  // First run adds no notice even after a switch.
+  await fixture.session.prompt("/profile plan");
+  await fixture.session.prompt("first");
+  expect(noticeEntries(fixture.session)).toEqual([]);
+
+  // Idle switches coalesce to one net transition, and a cycle back to the same profile adds none.
+  await fixture.session.prompt("/profile build");
+  await fixture.session.prompt("/profile plan");
+  await fixture.session.prompt("same again");
+  expect(noticeEntries(fixture.session)).toEqual([]);
+
+  await fixture.session.prompt("/profile build");
+  await fixture.session.prompt("/profile focus");
+  await fixture.session.prompt("coalesced switch");
+  const afterSwitch = noticeEntries(fixture.session);
+  expect(afterSwitch).toHaveLength(1);
+  expect(afterSwitch[0]).toMatchObject({
+    details: {
+      kind: "switched",
+      from: { name: "plan", scope: "global" },
+      to: { name: "focus", scope: "global" }
+    },
+    display: true
+  });
+  expect(afterSwitch[0]?.content).toContain("focus (Focus)");
+  expect(fixture.requests.at(-1)?.texts).toContain(afterSwitch[0]?.content);
+
+  // Clearing emits a cleared notice; reapplying emits a set notice.
+  await fixture.session.prompt("/profile clear");
+  await fixture.session.prompt("cleared");
+  await fixture.session.prompt("/profile build");
+  await fixture.session.prompt("set");
+  expect(noticeEntries(fixture.session).map(({ details }) => details)).toEqual([
+    {
+      kind: "switched",
+      from: { name: "plan", scope: "global" },
+      to: { name: "focus", scope: "global" }
+    },
+    { kind: "cleared", from: { name: "focus", scope: "global" } },
+    { kind: "set", to: { name: "build", scope: "global" } }
+  ]);
+
+  // Removing the active profile from settings and reloading produces an unavailable notice; restoring it produces a set notice.
+  await writeFile(
+    join(dirs.agentDir, "settings.json"),
+    JSON.stringify({ "ext.pi-profiles": { profiles: [plan, focus] } })
+  );
+  await fixture.session.reload();
+  await fixture.session.prompt("now unavailable");
+  await writeFile(
+    join(dirs.agentDir, "settings.json"),
+    JSON.stringify({ "ext.pi-profiles": { profiles: [plan, build, focus] } })
+  );
+  await fixture.session.reload();
+  await fixture.session.prompt("restored");
+
+  // Same-name profile across global and project scopes qualifies both scopes in the notice.
+  await writeFile(
+    join(dirs.cwd, ".pi", "settings.json"),
+    JSON.stringify({
+      "ext.pi-profiles": { profiles: [{ name: "build", description: "Project build" }] }
+    })
+  );
+  await fixture.session.reload();
+  await fixture.session.prompt("/profile build");
+  await fixture.session.prompt("project scope");
+
+  const tail = noticeEntries(fixture.session).slice(-3);
+  expect(tail).toMatchObject([
+    {
+      details: { kind: "unavailable", from: { name: "build", scope: "global" } },
+      display: true
+    },
+    {
+      details: { kind: "set", to: { name: "build", scope: "global" } },
+      display: true
+    },
+    {
+      details: {
+        kind: "switched",
+        from: { name: "build", scope: "global" },
+        to: { name: "build", scope: "project" }
+      },
+      display: true
+    }
+  ]);
+  expect(tail[0]?.content).toContain("build");
+  expect(tail[1]?.content).toContain("build (Build)");
+  expect(tail[2]?.content).toContain("build (global) to build (project) (Project build)");
+
+  // Navigating to the first run's user prompt returns to a branch with no prior run, so the next run adds no notice.
+  const firstUser = fixture.session.sessionManager
+    .getEntries()
+    .find((entry) => entry.type === "message" && entry.message.role === "user");
+  expect(firstUser).toBeDefined();
+  await fixture.session.navigateTree(firstUser!.id);
+  await fixture.session.prompt("/profile focus");
+  await fixture.session.prompt("new first run on branch");
+  expect(noticeEntries(fixture.session)).toEqual([]);
+
+  // When a branch's first run has an unavailable selection, pi-profiles.run records that it ran without a profile so restoring the profile emits a set notice on the next run.
+  const unavailableDirs = await workspace({ profiles: [plan] });
+  const unavailable = await host(unavailableDirs, {
+    sessionManager: SessionManager.create(unavailableDirs.cwd, unavailableDirs.sessionDir)
+  });
+  await unavailable.session.prompt("/profile plan");
+  await writeFile(
+    join(unavailableDirs.agentDir, "settings.json"),
+    JSON.stringify({ "ext.pi-profiles": { profiles: [] } })
+  );
+  await unavailable.session.reload();
+  await unavailable.session.prompt("first run while unavailable");
+  expect(noticeEntries(unavailable.session)).toEqual([]);
+  await writeFile(
+    join(unavailableDirs.agentDir, "settings.json"),
+    JSON.stringify({ "ext.pi-profiles": { profiles: [plan] } })
+  );
+  await unavailable.session.reload();
+  await unavailable.session.prompt("second run after restore");
+  const restoredNotices = noticeEntries(unavailable.session);
+  expect(restoredNotices).toMatchObject([
+    {
+      details: { kind: "set", to: { name: "plan", scope: "global" } },
+      display: true
+    }
+  ]);
+  expect(restoredNotices[0]?.content).toContain("plan (Plan)");
+
+  expect([...fixture.errors, ...unavailable.errors]).toEqual([]);
 });

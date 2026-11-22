@@ -25,6 +25,7 @@
     "diff": "catalog:",
     "fast-diff": "catalog:",
     "pi-nested-instructions": "workspace:*",
+    "pi-profiles": "workspace:*",
     "pi-read": "workspace:*",
     "pi-smart-compact": "workspace:*",
     "pi-subagents": "workspace:*",

@@ -7,30 +7,47 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
+import {
+  formatNoticeRefs,
+  NOTICE_MESSAGE,
+  profileNoticeSchema,
+  type ProfileNoticeDetails,
+  type ProfileRef
+} from "./notice.ts";
 import type { Profile } from "./settings.ts";
 
 export const SELECTION_ENTRY = "pi-profiles.selection";
+
+/** Records the profile of a run whose selection the settings did not supply; see {@link runRecord}. */
+export const RUN_ENTRY = "pi-profiles.run";
 
 /** Pi's tool that loads inactive tools. Pi does not export the name. */
 const TOOL_SEARCH = "tool_search";
 
 /** Old sessions keep their entries, and an entry that fails this schema is skipped without an error, so a change here loses those selections. */
-const selectionSchema = z
-  .object({
-    /** Absent when no profile is selected. */
-    name: z.string().optional(),
-    /** The settings scope of the profile; absent without `name`. */
-    scope: z.enum(["global", "project"]).optional(),
-    /** Active tools without the profile; the next switch starts from them again. */
-    base: z.array(z.string()),
-    /** Active tools right after the switch. */
-    tools: z.array(z.string()),
-    /**
-     * Tools that the profile deferred; `tool_search` can load them. The tools of an array are a group, which loads together.
-     */
-    deferred: z.array(z.union([z.string(), z.array(z.string())]))
+const selectionFields = {
+  /** Active tools without the profile; the next switch starts from them again. */
+  base: z.array(z.string()),
+  /** Active tools right after the switch. */
+  tools: z.array(z.string()),
+  /**
+   * Tools that the profile deferred; `tool_search` can load them. The tools of an array are a group, which loads together.
+   */
+  deferred: z.array(z.union([z.string(), z.array(z.string())]))
+};
+
+const selectionSchema = z.union([
+  z.object({
+    name: z.string(),
+    scope: z.enum(["global", "project"]),
+    ...selectionFields
+  }),
+  z.object({
+    name: z.undefined().optional(),
+    scope: z.undefined().optional(),
+    ...selectionFields
   })
-  .refine(({ name, scope }) => (name === undefined) === (scope === undefined));
+]);
 
 export type Selection = z.output<typeof selectionSchema>;
 
@@ -119,6 +136,141 @@ type RestorePlan = {
   tools: string[] | undefined;
 };
 
+/** The model-facing notice to append at `before_agent_start`, in Pi's `BeforeAgentStartEventResult["message"]` shape. */
+export type ProfileNoticeMessage = {
+  customType: typeof NOTICE_MESSAGE;
+  content: string;
+  display: true;
+  details: ProfileNoticeDetails;
+};
+
+/** Records a run whose selected profile the settings did not supply, so the next run compares against no profile. */
+const runSchema = z.strictObject({});
+
+type RunRecord = z.output<typeof runSchema>;
+
+type EffectiveProfile = { profile: ProfileRef | undefined };
+
+/**
+ * The profile-change notice to append when the effective profile differs from the profile of the previous run on `branch`. Returns `undefined` before the branch's first run or when the effective profile is unchanged.
+ */
+export function profileNotice(
+  branch: readonly SessionEntry[],
+  profiles: readonly Profile[]
+): ProfileNoticeMessage | undefined {
+  const lastRun = lastRunProfile(branch);
+  if (!lastRun) return undefined;
+
+  const selection = latestSelection(branch);
+  const currentProfile = selectedProfile(selection, profiles);
+  const current = currentProfile && { name: currentProfile.name, scope: currentProfile.scope };
+  const previous = lastRun.profile;
+  if (sameRef(previous, current)) return undefined;
+
+  let details: ProfileNoticeDetails;
+  if (previous && current) details = { kind: "switched", from: previous, to: current };
+  else if (current) details = { kind: "set", to: current };
+  else if (previous)
+    details = {
+      kind: sameRef(previous, selectionRef(selection)) ? "unavailable" : "cleared",
+      from: previous
+    };
+  else return undefined;
+
+  return {
+    customType: NOTICE_MESSAGE,
+    content: formatNoticeContent(details, currentProfile?.description),
+    display: true,
+    details
+  };
+}
+
+/**
+ * The `pi-profiles.run` entry to save at `turn_end`, when the branch does not already give the run its effective profile. That happens when the run's selection names a profile that the settings do not supply and no notice recorded the result, such as on the branch's first run.
+ */
+export function runRecord(
+  branch: readonly SessionEntry[],
+  profiles: readonly Profile[]
+): RunRecord | undefined {
+  const profile = selectedProfile(latestSelection(branch), profiles);
+  const current = profile && { name: profile.name, scope: profile.scope };
+  if (current || sameRef(lastRunProfile(branch)?.profile, undefined)) return undefined;
+
+  return {};
+}
+
+/**
+ * The profile of the branch's last run, or `undefined` before its first run. A run counts by the entries that follow its starting message: its `assistant` messages, its notice, or its run entry. Its `system` message does not count: Pi adds it before the starting message, so `/tree` or `/fork` to the prompt keeps it without the run. Its `user` message does not count either: `/tree` to the notice keeps the prompt without the notice or a response. The profile is the one that the latest notice, run entry, or selection at or before the last run records.
+ */
+function lastRunProfile(branch: readonly SessionEntry[]): EffectiveProfile | undefined {
+  let ran = false;
+
+  for (let index = branch.length - 1; index >= 0; index--) {
+    const entry = branch[index];
+    ran ||= isRunEntry(entry);
+    const recorded = ran ? recordedProfile(entry) : undefined;
+    if (recorded) return recorded;
+  }
+
+  return ran ? { profile: undefined } : undefined;
+}
+
+const isRunEntry = (entry: SessionEntry | undefined) =>
+  (entry?.type === "message" && entry.message.role === "assistant") ||
+  (entry?.type === "custom_message" && entry.customType === NOTICE_MESSAGE) ||
+  (entry?.type === "custom" && entry.customType === RUN_ENTRY);
+
+/** The profile that a notice, run entry, or selection records; a selection records the profile it names. */
+function recordedProfile(entry: SessionEntry | undefined): EffectiveProfile | undefined {
+  if (entry?.type === "custom_message" && entry.customType === NOTICE_MESSAGE) {
+    const notice = profileNoticeSchema.safeParse(entry.details).data;
+    if (!notice) return undefined;
+
+    return notice.kind === "switched" || notice.kind === "set"
+      ? { profile: notice.to }
+      : { profile: undefined };
+  }
+
+  if (entry?.type === "custom" && entry.customType === RUN_ENTRY)
+    return runSchema.safeParse(entry.data).success ? { profile: undefined } : undefined;
+
+  const selection = decodeSelection(entry);
+
+  return selection && { profile: selectionRef(selection) };
+}
+
+const selectionRef = (selection: Selection | undefined): ProfileRef | undefined =>
+  selection?.name === undefined ? undefined : { name: selection.name, scope: selection.scope };
+
+const sameRef = (a: ProfileRef | undefined, b: ProfileRef | undefined) =>
+  a?.name === b?.name && a?.scope === b?.scope;
+
+function formatNoticeContent(
+  details: ProfileNoticeDetails,
+  description: string | undefined
+): string {
+  const summary = description?.trim();
+  const suffix = summary ? ` (${summary})` : "";
+  const tail = "Follow the updated system prompt and tools. The user did not send this message.";
+
+  switch (details.kind) {
+    case "switched": {
+      const { from, to } = formatNoticeRefs(details.from, details.to);
+
+      return `The active profile switched from ${from} to ${to}${suffix}. ${tail}`;
+    }
+
+    case "set":
+      return `The active profile is now ${details.to.name}${suffix}. ${tail}`;
+
+    case "cleared":
+      return `The active profile was cleared (was ${details.from.name}). ${tail}`;
+
+    case "unavailable":
+      return `Profile ${details.from.name} was deactivated because it is no longer available; no profile is active. ${tail}`;
+  }
+}
+
 /** The branch's latest valid selection. */
 export const latestSelection = (branch: readonly SessionEntry[]) => latestEntry(branch)?.selection;
 
@@ -155,8 +307,7 @@ export function planSwitch(profile: Profile | undefined, state: ToolState): Swit
     change: describeChange(before, declared, deferredNames),
     settle: (active) => ({
       entry: {
-        name: profile?.name,
-        scope: profile?.scope,
+        ...(profile ? { name: profile.name, scope: profile.scope } : {}),
         // Code unit order, so that the entry does not follow load order. Restoration reads only which tools they name.
         base: [...base].sort(),
         tools: [...active].sort(),
@@ -302,13 +453,18 @@ function latestEntry(
   branch: readonly SessionEntry[]
 ): { selection: Selection; index: number } | undefined {
   for (let index = branch.length - 1; index >= 0; index--) {
-    const entry = branch[index];
-    if (entry?.type !== "custom" || entry.customType !== SELECTION_ENTRY) continue;
-    const parsed = selectionSchema.safeParse(entry.data);
-    if (parsed.success) return { selection: parsed.data, index };
+    const selection = decodeSelection(branch[index]);
+    if (selection) return { selection, index };
   }
 
   return undefined;
+}
+
+/** The selection that a `pi-profiles.selection` entry saved, when valid. */
+function decodeSelection(entry: SessionEntry | undefined): Selection | undefined {
+  return entry?.type === "custom" && entry.customType === SELECTION_ENTRY
+    ? selectionSchema.safeParse(entry.data).data
+    : undefined;
 }
 
 /**

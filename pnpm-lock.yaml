@@ -671,6 +671,9 @@ importers:
       pi-nested-instructions:
         specifier: workspace:*
         version: link:../pi-nested-instructions
+      pi-profiles:
+        specifier: workspace:*
+        version: link:../pi-profiles
       pi-read:
         specifier: workspace:*
         version: link:../pi-read
