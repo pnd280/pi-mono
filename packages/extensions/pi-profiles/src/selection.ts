@@ -1,10 +1,5 @@
 import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
-import type {
-  McpServerConfig,
-  SessionEntry,
-  ToolExposure,
-  ToolInfo
-} from "@earendil-works/pi-coding-agent";
+import type { SessionEntry, ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import {
@@ -337,27 +332,6 @@ export function planRestore(state: ToolState, options: RestoreOptions): RestoreP
     selection,
     rules,
     tools: restoreTarget(applied, state, { ...options, previous }, rules.deny)
-  };
-}
-
-/**
- * How the registered MCP servers become the selected profile's. A server whose config serialises the same, as Pi compares it, is not registered again, so it keeps its connection and the server list does not change. Key order counts, because Pi tries `toolExposure` patterns in order. A changed server is unregistered first, so a failed registration leaves no server of the previous profile.
- */
-export function planServers(
-  registered: ReadonlyMap<string, McpServerConfig>,
-  next: Readonly<Record<string, McpServerConfig>> | undefined
-): { unregister: string[]; register: [string, McpServerConfig][] } {
-  const target = new Map(Object.entries(next ?? {}));
-
-  const kept = (name: string) => {
-    const config = registered.get(name);
-
-    return config !== undefined && JSON.stringify(config) === JSON.stringify(target.get(name));
-  };
-
-  return {
-    unregister: [...registered.keys()].filter((name) => !kept(name)),
-    register: [...target].filter(([name]) => !kept(name))
   };
 }
 
@@ -719,7 +693,7 @@ function restoreTarget(
         reload,
         exposure,
         ownsToolSearch: ownsToolSearch(state),
-        searchDenied: toolMatcher(deny)(TOOL_SEARCH)
+        denied: toolMatcher(deny)
       })
     : baseTools(active, previous);
 
@@ -739,27 +713,33 @@ type RestoreState = {
   reload: boolean;
   exposure: ReadonlyMap<string, ToolExposure>;
   ownsToolSearch: boolean;
-  /** Whether the selected profile's `deny` list names `tool_search`, so that it stays off. */
-  searchDenied: boolean;
+  /** Whether the selected profile's `deny` list matches the tool, so that it stays off. */
+  denied: (name: string) => boolean;
 };
 
 /**
- * The tools to declare after Pi restored a session. Pi declares the tools of the last request on resume, `/fork`, and `/tree`, which predate the selection when no request followed it. Pi also turns on the extension tools that the branch never recorded, as if they registered later. A tool that the selection knew is not new, so it stays off unless the last request declared it.
+ * The tools to declare after Pi restored a session. Pi declares the tools of the last request on resume, `/fork`, and `/tree`, which predate the selection when no request followed it. Pi also turns on the extension tools that the branch never recorded, as if they registered later. A tool that the selection knew is not new, so it stays off unless the last request declared it. Without a request after the selection, an active `direct` or `model-only` tool that the selection did not know, such as a tool of an MCP server that stayed connected, stays unless the profile denies it.
  */
 function restoredTools(selection: Selection, state: RestoreState): string[] {
   const { recorded } = state;
+  const known = new Set([...selection.base, ...selection.tools, ...selection.deferred.flat()]);
   let tools: string[];
+
   if (state.reload) {
     const off = [...selection.base, ...selection.deferred.flat()].filter(
       (name) => !selection.tools.includes(name) && !recorded?.includes(name)
     );
     tools = state.active.filter((name) => !off.includes(name));
   } else if (recorded) {
-    const known = new Set([...selection.base, ...selection.tools, ...selection.deferred.flat()]);
     tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
-  } else tools = [...selection.tools];
+  } else {
+    const added = state.active.filter(
+      (name) => !known.has(name) && isDirect(state.exposure.get(name)) && !state.denied(name)
+    );
+    tools = [...selection.tools, ...added];
+  }
 
-  const searchDeclared = !state.searchDenied && declaresSearch(tools, state.exposure);
+  const searchDeclared = !state.denied(TOOL_SEARCH) && declaresSearch(tools, state.exposure);
 
   // Without a declared `tool_search`, no deferred tool can load again. Without the extension's copy, deferred `direct` tools and groups still need restoration.
   if (!searchDeclared || !state.ownsToolSearch) {

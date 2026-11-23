@@ -68,8 +68,10 @@ The [adapter](../src/index.ts) relies on these contracts.
 - [ ] `pi.registerMcpServer()` validates the name and the entry, and throws for an invalid entry, a name that another extension registered, or a name that differs from a registered one only in `-` and `_` (`registerMcpServer` in `core/extensions/loader.js`).
 - [ ] Pi loads the extension again for each session and on `/reload`, and drops the registrations of the previous load.
 - [ ] A server in `mcp.json` takes precedence over a registered server whose name is the same, or differs only in `-` and `_` (`registeredServers` in `extensions/mcp/index.js`).
+- [ ] `pi.unregisterMcpServer()` frees the server's namespace at once, so a server whose name differs only in `-` and `_` can register next.
+- [ ] Server namespaces are `mcp__<server>` with `-` replaced by `_` (`mcpNamespace` in `naming.js` in pi-mcp).
 
-The [MCP servers](switching.md#mcp-servers) and [profile MCP servers](tools.md#profile-mcp-servers) sections describe what users see.
+The extension unregisters a profile server before it registers the MCP preset server that replaces it in the same namespace. The [presets](../src/presets.ts) module repeats the namespace rule, because pi-mcp is not a dependency. The [MCP servers](switching.md#mcp-servers), [profile MCP servers](tools.md#profile-mcp-servers), and [MCP presets](tools.md#mcp-presets) sections describe what users see.
 
 ### Prompt and lifecycle coordinators
 
@@ -99,8 +101,8 @@ The extension's restoration rules are in [internals](internals.md#restoration); 
 - [ ] `session_start` fires on startup, `/reload`, `/new`, `/resume`, and `/fork`.
 - [ ] In `session_start`, `ctx.cwd` is the directory whose `.pi/settings.json` Pi reads as project settings.
 - [ ] The first session of a run has the reason `"startup"`, also with `--continue`, `--resume`, `--session`, and `--fork` (`createRuntime` in `main.js`).
-- [ ] `pi.getFlag()` returns the `--profile` value in `session_start` of every session in the run, also after `/new` and `/reload` (`extensionFlagValues` in `main.js`, `flagValues` in `reload()`).
-- [ ] `pi --help` lists the `--profile` option.
+- [ ] `pi.getFlag()` returns the `--profile` and `--mcp-presets` values in `session_start` of every session in the run, also after `/new` and `/reload` (`extensionFlagValues` in `main.js`, `flagValues` in `reload()`).
+- [ ] `pi --help` lists the `--profile` and `--mcp-presets` options.
 - [ ] `ctx.hasUI` is `false` in print and JSON modes, where `ctx.ui.notify()` does nothing.
 - [ ] No built-in Pi action uses **Alt+I**, the default shortcut.
 
@@ -111,6 +113,15 @@ The [menu](../src/menu.ts) relies on these contracts. The libs package owns the 
 - [ ] `session_shutdown` fires before a session ends or is replaced, so an open menu closes without a switch.
 - [ ] `pi.getAllTools()` returns each tool's `description` and `sourceInfo.path`.
 - [ ] `pi.getActiveTools()` returns only registered tools.
+
+### Footer status
+
+The [adapter](../src/index.ts) shows the active MCP presets with these contracts.
+
+- [ ] `ctx.ui.setStatus(key, text)` shows the text in the interactive terminal's footer, and `ctx.ui.setStatus(key, undefined)` removes it.
+- [ ] `ctx.ui.theme.fg("dim", text)` returns the text in the theme's dim colour in the interactive terminal.
+
+The extension sets the status only when `ctx.mode` is `"tui"`, because the status targets the interactive footer and SDK hosts can leave `ctx.ui.theme` uninitialised. The status key stays in the extension's `pi-profiles.` namespace, so it does not replace another extension's status and stays stable for the placement that [MCP presets](tools.md#mcp-presets) describes.
 
 ### Editor
 

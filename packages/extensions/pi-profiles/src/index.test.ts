@@ -19,6 +19,7 @@ import {
   createAgentSessionServices,
   createMcpExtension,
   DefaultResourceLoader,
+  initTheme,
   ModelRuntime,
   SessionManager,
   SettingsManager,
@@ -123,12 +124,13 @@ function searchResults() {
 type McpMessage = Parameters<ReturnType<McpTransportFactory>["send"]>[0];
 
 /**
- * Pi's MCP extension with in-memory servers. Each server offers one tool, `ping`, so a server with `direct` exposure shows in the declared tools while it is connected. `events` records each connection and close, by server name.
+ * Pi's MCP extension with in-memory servers. Each server offers one tool, which its entry's first argument names, or else `ping`, so a server with `direct` exposure shows in the declared tools while it is connected, and the tool shows which entry connected. `events` records each connection and close, by server name.
  */
 function fakeMcp() {
   const events: string[] = [];
 
-  const createTransport: McpTransportFactory = ({ name }) => {
+  const createTransport: McpTransportFactory = ({ name, config }) => {
+    const tool = ("args" in config ? config.args[0] : undefined) ?? "ping";
     let deliver: ((message: McpMessage) => void) | undefined;
     const closeListeners: (() => void)[] = [];
     let closed = false;
@@ -145,7 +147,7 @@ function fakeMcp() {
                   capabilities: { tools: {} },
                   serverInfo: { name, version: "1" }
                 }
-              : { tools: [{ name: "ping", inputSchema: { type: "object" } }] };
+              : { tools: [{ name: tool, inputSchema: { type: "object" } }] };
           queueMicrotask(() => deliver?.({ jsonrpc: "2.0", id: message.id, result }));
         }
 
@@ -174,6 +176,14 @@ function fakeMcp() {
     };
   };
 
+  /** The MCP tools that Pi registered and does not hide, active or not, which shows that their servers listed them. */
+  const registered = (session: AgentSession) =>
+    session
+      .getAllTools()
+      .filter(({ name, exposure }) => name.startsWith("mcp__") && exposure !== "hidden")
+      .map(({ name }) => name)
+      .sort();
+
   /** The declarable MCP tools, and how often each server connected and closed. */
   const state = (session: AgentSession) => {
     const active = session.getActiveToolNames();
@@ -185,21 +195,25 @@ function fakeMcp() {
       );
 
     return {
-      tools: session
-        .getAllTools()
-        .filter(
-          ({ name, exposure }) =>
-            name.startsWith("mcp__") && exposure !== "hidden" && active.includes(name)
-        )
-        .map(({ name }) => name)
-        .sort(),
+      tools: registered(session).filter((name) => active.includes(name)),
       connects: count("connect"),
       closes: count("close")
     };
   };
 
-  return { events, state, extension: createMcpExtension({ createTransport }) };
+  return { events, registered, state, extension: createMcpExtension({ createTransport }) };
 }
+
+/** The command of every test MCP server entry. It has no secret, so a session file that contains it keeps a server entry. */
+const MCP_COMMAND = "fake-mcp-server";
+
+/** An MCP server entry whose tool, `ping` unless named, the model sees directly. */
+const directServer = (env: Record<string, string> = {}, tool = "ping") => ({
+  command: MCP_COMMAND,
+  args: [tool],
+  exposure: "direct",
+  env
+});
 
 const mcpTools = (requests: readonly Request[]) =>
   requests.map(({ tools }) => tools.filter((name) => name.startsWith("mcp__")));
@@ -239,6 +253,50 @@ async function workspace(
   return { cwd, agentDir, sessionDir: join(directory, "sessions") };
 }
 
+type HostOptions = {
+  extensions?: ((pi: ExtensionAPI) => void)[];
+  excludeTools?: string[];
+  flags?: Record<string, string>;
+  loadFromFile?: boolean;
+  mode?: ExtensionContext["mode"];
+  projectTrusted?: boolean;
+  replies?: (() => AssistantMessage | Promise<AssistantMessage>)[];
+  runtimeOwned?: boolean;
+  sessionManager?: SessionManager;
+  /** Pi's `--tools` allowlist. */
+  tools?: string[];
+};
+
+/** Loads no resources besides the extensions. */
+const onlyExtensions = {
+  noExtensions: true,
+  noSkills: true,
+  noThemes: true,
+  noContextFiles: true,
+  noPromptTemplates: true
+};
+
+/** Binds the session's extensions, and records their errors and the error notifications that they show. */
+async function bind(
+  session: AgentSession,
+  mode: ExtensionContext["mode"],
+  { errors, errorNotifications }: { errors: unknown[]; errorNotifications: string[] }
+) {
+  await session.bindExtensions({
+    mode,
+    // A copy of Pi's no-op UI, so that `ctx.hasUI` is true, as in TUI and RPC runs.
+    uiContext: {
+      ...session.extensionRunner.createContext().ui,
+      notify: (message, type = "info") => {
+        if (type === "error") errorNotifications.push(message);
+      }
+    },
+    onError: (error) => {
+      errors.push(error);
+    }
+  });
+}
+
 async function host(
   { cwd, agentDir }: Awaited<ReturnType<typeof workspace>>,
   {
@@ -252,19 +310,7 @@ async function host(
     runtimeOwned = false,
     sessionManager = SessionManager.inMemory(cwd),
     tools
-  }: {
-    extensions?: ((pi: ExtensionAPI) => void)[];
-    excludeTools?: string[];
-    flags?: Record<string, string>;
-    loadFromFile?: boolean;
-    mode?: ExtensionContext["mode"];
-    projectTrusted?: boolean;
-    replies?: (() => AssistantMessage | Promise<AssistantMessage>)[];
-    runtimeOwned?: boolean;
-    sessionManager?: SessionManager;
-    /** Pi's `--tools` allowlist. */
-    tools?: string[];
-  } = {}
+  }: HostOptions = {}
 ) {
   // Pi restores recorded tools only for sessions that use `defaultTools`.
   const settingsManager = SettingsManager.inMemory({
@@ -277,11 +323,7 @@ async function host(
     cwd,
     agentDir,
     settingsManager,
-    noExtensions: true,
-    noSkills: true,
-    noThemes: true,
-    noContextFiles: true,
-    noPromptTemplates: true,
+    ...onlyExtensions,
     additionalExtensionPaths: loadFromFile
       ? [fileURLToPath(new URL("../index.ts", import.meta.url))]
       : [],
@@ -354,15 +396,11 @@ async function host(
     });
   }
 
+  // Pi's interactive mode loads a theme, which the footer status of MCP presets uses.
+  if (mode === "tui") initTheme("dark", false);
   const errors: unknown[] = [];
-  await session.bindExtensions({
-    mode,
-    // A copy of Pi's no-op UI, so that `ctx.hasUI` is true, as in TUI and RPC runs.
-    uiContext: { ...session.extensionRunner.createContext().ui },
-    onError: (error) => {
-      errors.push(error);
-    }
-  });
+  const errorNotifications: string[] = [];
+  await bind(session, mode, { errors, errorNotifications });
 
   const services: AgentSessionServices = {
     cwd,
@@ -373,7 +411,43 @@ async function host(
     diagnostics: []
   };
 
-  return { session, requests, errors, services };
+  return { session, requests, errors, errorNotifications, services };
+}
+
+/**
+ * A host whose later sessions, after `/new`, `/resume`, or `/fork`, load the same extensions and flags, as Pi's CLI does. It takes no `--tools` or excluded tools, which those sessions would not get.
+ */
+async function runtimeHost(
+  dirs: Awaited<ReturnType<typeof workspace>>,
+  options: Omit<HostOptions, "excludeTools" | "loadFromFile" | "runtimeOwned" | "tools"> = {}
+) {
+  const first = await host(dirs, { ...options, runtimeOwned: true });
+  const extensions = options.extensions ?? [earlierExtension];
+  const runtime = new AgentSessionRuntime(
+    first.session,
+    first.services,
+    async ({ cwd, agentDir, sessionManager, sessionStartEvent }) => {
+      const services = await createAgentSessionServices({
+        cwd,
+        agentDir,
+        settingsManager: first.services.settingsManager,
+        modelRuntime: first.services.modelRuntime,
+        resourceLoaderOptions: { ...onlyExtensions, extensionFactories: [...extensions, profiles] },
+        extensionFlagValues: new Map(Object.entries(options.flags ?? {}))
+      });
+      const created = await createAgentSessionFromServices({
+        services,
+        sessionManager,
+        ...(sessionStartEvent && { sessionStartEvent })
+      });
+
+      return { ...created, services, diagnostics: services.diagnostics };
+    }
+  );
+  runtime.setRebindSession((session) => bind(session, options.mode ?? "rpc", first));
+  cleanups.push(() => runtime.dispose());
+
+  return { ...first, runtime };
 }
 
 it("applies the profile's model, thinking, tools, and prompts, and undoes them on the next switch, also to no profile; tool_search loads searchable tools without a defer list", async () => {
@@ -824,47 +898,11 @@ it("restores the branch's latest selection after tree navigation, resume, and re
       });
     }
   ];
-  const beforeResume = await host(dirs, {
+  const beforeResume = await runtimeHost(dirs, {
     extensions,
-    runtimeOwned: true,
     sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
   });
-  const runtime = new AgentSessionRuntime(
-    beforeResume.session,
-    beforeResume.services,
-    async ({ cwd, agentDir, sessionManager, sessionStartEvent }) => {
-      const services = await createAgentSessionServices({
-        cwd,
-        agentDir,
-        settingsManager: beforeResume.services.settingsManager,
-        modelRuntime: beforeResume.services.modelRuntime,
-        resourceLoaderOptions: {
-          noExtensions: true,
-          noSkills: true,
-          noThemes: true,
-          noContextFiles: true,
-          noPromptTemplates: true,
-          extensionFactories: [...extensions, profiles]
-        }
-      });
-      const created = await createAgentSessionFromServices({
-        services,
-        sessionManager,
-        ...(sessionStartEvent && { sessionStartEvent })
-      });
-
-      return { ...created, services, diagnostics: services.diagnostics };
-    }
-  );
-  runtime.setRebindSession(async (session) => {
-    await session.bindExtensions({
-      mode: "rpc",
-      onError: (error) => {
-        beforeResume.errors.push(error);
-      }
-    });
-  });
-  cleanups.push(() => runtime.dispose());
+  const { runtime } = beforeResume;
   await runtime.session.prompt("before same-file resume");
   const sessionFile = runtime.session.sessionFile!;
   const resumeSwitch = runtime.session.prompt("/profile plan");
@@ -1053,16 +1091,15 @@ it.each([
 );
 
 it("connects only the selected profile's MCP servers on a switch, no profile, tree navigation, and resume, keeps a server whose entry stays, and saves no server entry", async () => {
-  const server = (env: Record<string, string>) => ({ command: "fake", exposure: "direct", env });
-  const shared = server({ TOKEN: "SECRET-SHARED" });
+  const shared = directServer({ TOKEN: "SECRET-SHARED" });
   const dirs = await workspace({
     profiles: [
-      { name: "one", description: "One", mcpServers: { shared, only: server({}) } },
-      { name: "two", description: "Two", mcpServers: { shared, other: server({}) } },
+      { name: "one", description: "One", mcpServers: { shared, only: directServer() } },
+      { name: "two", description: "Two", mcpServers: { shared, other: directServer() } },
       {
         name: "three",
         description: "Three",
-        mcpServers: { shared: server({ TOKEN: "SECRET-CHANGED" }) }
+        mcpServers: { shared: directServer({ TOKEN: "SECRET-CHANGED" }) }
       }
     ]
   });
@@ -1149,25 +1186,27 @@ it("connects only the selected profile's MCP servers on a switch, no profile, tr
   for (const data of selections)
     expect(JSON.stringify(data)).not.toMatch(/"(?:mcpServers|command|env|exposure)"/u);
   expect(saved).not.toContain("SECRET-");
+  expect(saved).not.toContain(MCP_COMMAND);
   expect([...fixture.errors, ...resumed.errors]).toEqual([]);
 });
 
-it("skips a trusted project profile whose MCP server sends a Pi login token, so none of its servers connect", async () => {
+it("skips a trusted project profile or MCP preset whose MCP server sends a Pi login token, so none of its servers connect", async () => {
   const url = "https://mcp.example.test/mcp";
+  const leakServers = {
+    plain: { url, exposure: "direct" },
+    leak: { url, exposure: "direct", auth: { provider: "faux" } }
+  };
   const dirs = await workspace(
     { profiles: [] },
     {
       profiles: [
         { name: "safe", description: "Safe", mcpServers: { safe: { url, exposure: "direct" } } },
-        {
-          name: "leak",
-          description: "Leak",
-          mcpServers: {
-            plain: { url, exposure: "direct" },
-            leak: { url, exposure: "direct", auth: { provider: "faux" } }
-          }
-        }
-      ]
+        { name: "leak", description: "Leak", mcpServers: leakServers }
+      ],
+      mcpPresets: {
+        ok: { mcpServers: { ok: { url, exposure: "direct" } } },
+        leaky: { mcpServers: leakServers }
+      }
     }
   );
   const mcp = fakeMcp();
@@ -1177,15 +1216,448 @@ it("skips a trusted project profile whose MCP server sends a Pi login token, so 
   });
 
   await fixture.session.prompt("/profile leak");
-  // The project's other profile connects its server, so the skip comes from `auth`.
+  await fixture.session.prompt("/mcp-presets leaky");
+  // The project's other profile and preset connect their servers, so the skip comes from `auth`.
   await fixture.session.prompt("/profile safe");
+  await fixture.session.prompt("/mcp-presets ok");
   await expect
     .poll(() => mcp.state(fixture.session), { timeout: STEP_TIMEOUT_MS })
-    .toEqual({ tools: ["mcp__safe__ping"], connects: { safe: 1 }, closes: {} });
+    .toEqual({
+      tools: ["mcp__ok__ping", "mcp__safe__ping"],
+      connects: { safe: 1, ok: 1 },
+      closes: {}
+    });
   await fixture.session.prompt("one");
 
-  expect(mcp.events).toEqual(["connect safe"]);
-  expect(mcpTools(fixture.requests)).toEqual([["mcp__safe__ping"]]);
+  expect([...mcp.events].sort()).toEqual(["connect ok", "connect safe"]);
+  expect(mcpTools(fixture.requests)).toEqual([["mcp__ok__ping", "mcp__safe__ping"]]);
+  expect(fixture.errors).toEqual([]);
+});
+
+it("saves only the names and scopes of active MCP presets, and restores a saved preset only when the current settings supply it from its scope, not a preset of its name from the other scope", async () => {
+  const dirs = await workspace(
+    { mcpPresets: { db: { mcpServers: { global_db: directServer({ TOKEN: "SECRET-G" }) } } } },
+    { mcpPresets: { db: { mcpServers: { project_db: directServer({ TOKEN: "SECRET-P" }) } } } }
+  );
+  const mcp = fakeMcp();
+  const fixture = await host(dirs, {
+    projectTrusted: true,
+    extensions: [earlierExtension, mcp.extension],
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+  await fixture.session.prompt("/mcp-presets db");
+  await expect
+    .poll(() => mcp.state(fixture.session).tools, { timeout: STEP_TIMEOUT_MS })
+    .toEqual(["mcp__project_db__ping"]);
+  await fixture.session.prompt("one");
+  const file = fixture.session.sessionManager.getSessionFile()!;
+  const savedPresets = () =>
+    SessionManager.open(file)
+      .getEntries()
+      .flatMap((entry) =>
+        entry.type === "custom" && entry.customType === "pi-profiles.mcp-presets"
+          ? [entry.data]
+          : []
+      );
+  const projectDb = { presets: [{ name: "db", scope: "project" }] };
+  expect(savedPresets()).toStrictEqual([projectDb]);
+
+  // With trust, resume connects the saved project preset again.
+  const trustedMcp = fakeMcp();
+  const trusted = await host(dirs, {
+    projectTrusted: true,
+    extensions: [earlierExtension, trustedMcp.extension],
+    sessionManager: SessionManager.open(file)
+  });
+  await expect
+    .poll(() => trustedMcp.state(trusted.session).tools, { timeout: STEP_TIMEOUT_MS })
+    .toEqual(["mcp__project_db__ping"]);
+  await trusted.session.prompt("trusted");
+  expect(savedPresets()).toStrictEqual([projectDb]);
+
+  // Without trust, the saved project preset stays off, and the global preset of its name connects only when turned on.
+  const untrustedMcp = fakeMcp();
+  const untrusted = await host(dirs, {
+    extensions: [earlierExtension, untrustedMcp.extension],
+    sessionManager: SessionManager.open(file)
+  });
+  await untrusted.session.prompt("untrusted");
+  await untrusted.session.prompt("/mcp-presets db");
+  await expect
+    .poll(() => untrustedMcp.state(untrusted.session).tools, { timeout: STEP_TIMEOUT_MS })
+    .toEqual(["mcp__global_db__ping"]);
+  await untrusted.session.prompt("global");
+  const globalDb = { presets: [{ name: "db", scope: "global" }] };
+  expect(savedPresets()).toStrictEqual([projectDb, globalDb]);
+
+  // With trust again, the saved global preset stays off, because the project preset of its name replaces it, and that project preset does not connect in its place.
+  const regainedMcp = fakeMcp();
+  const regained = await host(dirs, {
+    projectTrusted: true,
+    extensions: [earlierExtension, regainedMcp.extension],
+    sessionManager: SessionManager.open(file)
+  });
+  await regained.session.prompt("trusted again");
+  expect(savedPresets()).toStrictEqual([projectDb, globalDb]);
+
+  expect(mcpTools(trusted.requests)).toEqual([["mcp__project_db__ping"]]);
+  expect(untrustedMcp.events).toEqual(["connect global_db"]);
+  expect(mcpTools(untrusted.requests)).toEqual([[], ["mcp__global_db__ping"]]);
+  expect(regainedMcp.events).toEqual([]);
+  expect(mcpTools(regained.requests)).toEqual([[]]);
+  // Any other record that keeps a server entry would contain its command, with or without secrets.
+  const saved = await readFile(file, "utf8");
+  expect(saved).not.toContain("SECRET-");
+  expect(saved).not.toContain(MCP_COMMAND);
+  expect([...fixture.errors, ...trusted.errors, ...untrusted.errors, ...regained.errors]).toEqual(
+    []
+  );
+});
+
+it("lets an MCP preset replace a profile server of its name or namespace without an error and restore it when off, keeps clashing presets apart and restores the one that the current settings list first, and saves the presets of a switch only to a profile that lists them", async () => {
+  /** With `clash`, preset `c` comes before `a` and has a server in `a`'s namespace. */
+  const settings = (clash: boolean) => {
+    const a = { mcpServers: { "x-y": directServer({}, "ping_a") } };
+    const c = {
+      mcpServers: clash ? { x_y: directServer({}, "ping_c") } : { cee: directServer() }
+    };
+
+    return {
+      mcpPresets: {
+        db: { mcpServers: { my_db: directServer({}, "ping_preset") } },
+        same: { mcpServers: { keep: directServer({}, "ping_preset") } },
+        ...(clash ? { c, a } : { a, c }),
+        b: { mcpServers: { x_y: directServer({}, "ping_b") } },
+        extra: { mcpServers: { extra: directServer() } }
+      },
+      profiles: [
+        {
+          name: "p",
+          description: "P",
+          mcpServers: {
+            "my-db": directServer({}, "ping_profile"),
+            keep: directServer({}, "ping_profile")
+          }
+        },
+        { name: "on", description: "On", mcpPresets: ["extra"] },
+        { name: "off", description: "Off", mcpPresets: [] },
+        { name: "bad", description: "Bad", model: "faux/missing", mcpPresets: ["extra"] }
+      ]
+    };
+  };
+
+  const dirs = await workspace(settings(false));
+  const mcp = fakeMcp();
+  const fixture = await host(dirs, {
+    extensions: [earlierExtension, mcp.extension],
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+  const file = fixture.session.sessionManager.getSessionFile()!;
+  let seen = 0;
+
+  /** Waits until Pi registered exactly these MCP tools. */
+  const registered = (session: AgentSession, tools: string[], servers = mcp) =>
+    expect
+      .poll(() => servers.registered(session), { timeout: STEP_TIMEOUT_MS })
+      .toEqual([...tools].sort());
+
+  /** Runs the action, waits until exactly these connections and closes followed the previous step, and until Pi registered exactly these tools. */
+  const step = async (action: string, events: string[], tools: string[]) => {
+    await fixture.session.prompt(action);
+    await expect
+      .poll(() => mcp.events.slice(seen).sort(), { timeout: STEP_TIMEOUT_MS })
+      .toEqual([...events].sort());
+    seen = mcp.events.length;
+    await registered(fixture.session, tools);
+  };
+
+  /** Starts Pi on a copy of the session file, and returns its connections and the MCP tools of its first request. */
+  const reopened = async (tools: string[]) => {
+    const reopenedMcp = fakeMcp();
+    const copy = await host(dirs, {
+      extensions: [earlierExtension, reopenedMcp.extension],
+      sessionManager: SessionManager.forkFrom(file, dirs.cwd, dirs.sessionDir)
+    });
+    await registered(copy.session, tools, reopenedMcp);
+    await copy.session.prompt("reopened");
+    expect(copy.errors).toEqual([]);
+
+    return { events: reopenedMcp.events, tools: mcpTools(copy.requests) };
+  };
+
+  const profileServers = ["mcp__keep__ping_profile", "mcp__my_db__ping_profile"];
+  await step("/profile p", ["connect my-db", "connect keep"], profileServers);
+  const replacing = fixture.errorNotifications.length;
+  // A preset server in the namespace of a profile server replaces it, and so does one with its name.
+  await step(
+    "/mcp-presets db",
+    ["close my-db", "connect my_db"],
+    ["mcp__keep__ping_profile", "mcp__my_db__ping_preset"]
+  );
+  await fixture.session.prompt("db on");
+  await step("/mcp-presets db", ["close my_db", "connect my-db"], profileServers);
+  await step(
+    "/mcp-presets same",
+    ["close keep", "connect keep"],
+    ["mcp__keep__ping_preset", "mcp__my_db__ping_profile"]
+  );
+  await fixture.session.prompt("same on");
+  await step("/mcp-presets same", ["close keep", "connect keep"], profileServers);
+  expect(fixture.errorNotifications.slice(replacing)).toEqual([]);
+
+  const clashing = [
+    "mcp__cee__ping",
+    "mcp__keep__ping_profile",
+    "mcp__my_db__ping_profile",
+    "mcp__x_y__ping_a"
+  ];
+  await step("/mcp-presets a", ["connect x-y"], [...profileServers, "mcp__x_y__ping_a"]);
+  // `b` clashes with the active `a`, so it stays off, and `a` turns off and on again without `x_y`.
+  await step("/mcp-presets b", [], [...profileServers, "mcp__x_y__ping_a"]);
+  await step("/mcp-presets a", ["close x-y"], profileServers);
+  await step("/mcp-presets a", ["connect x-y"], [...profileServers, "mcp__x_y__ping_a"]);
+  await step("/mcp-presets c", ["connect cee"], clashing);
+  await fixture.session.prompt("clash refused");
+
+  // No profile, a profile without `mcpPresets`, and a failed switch keep the active presets.
+  await step(
+    "/profile clear",
+    ["close my-db", "close keep"],
+    ["mcp__cee__ping", "mcp__x_y__ping_a"]
+  );
+  await step("/profile p", ["connect my-db", "connect keep"], clashing);
+  await step("/profile bad", [], clashing);
+  await fixture.session.prompt("kept");
+  // `mcpPresets` replaces them, and `[]` turns them all off, also when Pi starts again on the session.
+  await step(
+    "/profile on",
+    ["close my-db", "close keep", "close x-y", "close cee", "connect extra"],
+    ["mcp__extra__ping"]
+  );
+  expect(await reopened(["mcp__extra__ping"])).toEqual({
+    events: ["connect extra"],
+    tools: [["mcp__extra__ping"]]
+  });
+  await step("/profile off", ["close extra"], []);
+  await fixture.session.prompt("replaced");
+  expect(await reopened([])).toEqual({ events: [], tools: [[]] });
+
+  // Of two saved presets that now clash, the one that the current settings list first stays on, here neither the first saved nor the first by name.
+  await step("/mcp-presets a", ["connect x-y"], ["mcp__x_y__ping_a"]);
+  await step("/mcp-presets c", ["connect cee"], ["mcp__cee__ping", "mcp__x_y__ping_a"]);
+  await writeFile(
+    join(dirs.agentDir, "settings.json"),
+    JSON.stringify({ "ext.pi-profiles": settings(true) })
+  );
+  await fixture.session.reload();
+  await registered(fixture.session, ["mcp__x_y__ping_c"]);
+  seen = mcp.events.length;
+  await fixture.session.prompt("restored");
+  // The dropped `a` stayed off, so it clashes with the active `c`.
+  await step("/mcp-presets a", [], ["mcp__x_y__ping_c"]);
+  await step("/mcp-presets c", ["close x_y"], []);
+
+  expect(mcpTools(fixture.requests)).toEqual([
+    ["mcp__keep__ping_profile", "mcp__my_db__ping_preset"],
+    ["mcp__keep__ping_preset", "mcp__my_db__ping_profile"],
+    clashing,
+    clashing,
+    [],
+    ["mcp__x_y__ping_c"]
+  ]);
+  expect(fixture.errors).toEqual([]);
+});
+
+it("applies a valid --mcp-presets at startup in place of the saved presets and the startup profile's, also when that profile fails, and saves it; keeps a branch's saved presets, also none, in later sessions, under the default profile, and with an invalid flag", async () => {
+  const dirs = await workspace({
+    mcpPresets: {
+      db: { mcpServers: { my_db: directServer() } },
+      a: { mcpServers: { "x-y": directServer() } },
+      extra: { mcpServers: { extra: directServer() } }
+    },
+    profiles: [
+      { name: "q", description: "Q", tools: { deny: ["beta"] }, mcpPresets: ["extra"] },
+      { name: "bad", description: "Bad", model: "faux/missing", mcpPresets: ["extra"] }
+    ],
+    defaultProfile: "q"
+  });
+  const saving = await host(dirs, {
+    extensions: [earlierExtension, fakeMcp().extension],
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+  await saving.session.prompt("/mcp-presets a");
+  await saving.session.prompt("saved");
+  const file = saving.session.sessionManager.getSessionFile()!;
+  const copy = (from: string) => SessionManager.forkFrom(from, dirs.cwd, dirs.sessionDir);
+  // A branch that saved that no preset is active.
+  const clearing = await host(dirs, {
+    extensions: [earlierExtension, fakeMcp().extension],
+    sessionManager: copy(file)
+  });
+  await clearing.session.prompt("/mcp-presets a");
+  await clearing.session.prompt("cleared");
+  const cleared = clearing.session.sessionManager.getSessionFile()!;
+
+  /** Waits until Pi registered exactly these MCP tools, and runs a prompt. */
+  const run = async (session: AgentSession, mcp: ReturnType<typeof fakeMcp>, tools: string[]) => {
+    await expect.poll(() => mcp.registered(session), { timeout: STEP_TIMEOUT_MS }).toEqual(tools);
+    await session.prompt("run");
+  };
+
+  /**
+   * Starts Pi on a copy of a saved session, and returns the events and request tools of its first run, and the events when Pi starts again on that session without flags.
+   */
+  const start = async (
+    options: Pick<HostOptions, "flags" | "mode">,
+    tools: string[],
+    from = file
+  ) => {
+    const mcp = fakeMcp();
+    const fixture = await host(dirs, {
+      ...options,
+      extensions: [earlierExtension, mcp.extension],
+      sessionManager: copy(from)
+    });
+    await run(fixture.session, mcp, tools);
+    const resumedMcp = fakeMcp();
+    const resumed = await host(dirs, {
+      extensions: [earlierExtension, resumedMcp.extension],
+      sessionManager: SessionManager.open(fixture.session.sessionManager.getSessionFile()!)
+    });
+    await run(resumed.session, resumedMcp, tools);
+    expect([...fixture.errors, ...resumed.errors]).toEqual([]);
+
+    return { events: mcp.events, tools: fixture.requests[0]?.tools, resumed: resumedMcp.events };
+  };
+
+  expect(
+    await start({ flags: { profile: "bad", "mcp-presets": "db" } }, ["mcp__my_db__ping"])
+  ).toEqual({
+    events: ["connect my_db"],
+    tools: ["alpha", "beta", "mcp__my_db__ping"],
+    resumed: ["connect my_db"]
+  });
+  expect(await start({ mode: "tui" }, ["mcp__x_y__ping"])).toEqual({
+    events: ["connect x-y"],
+    tools: ["alpha", "mcp__x_y__ping"],
+    resumed: ["connect x-y"]
+  });
+  expect(await start({ mode: "tui" }, [], cleared)).toEqual({
+    events: [],
+    tools: ["alpha"],
+    resumed: []
+  });
+
+  for (const flag of ["db,nope", "db,db"]) {
+    expect(await start({ flags: { "mcp-presets": flag } }, ["mcp__x_y__ping"])).toEqual({
+      events: ["connect x-y"],
+      tools: ["alpha", "beta", "mcp__x_y__ping"],
+      resumed: ["connect x-y"]
+    });
+  }
+
+  // A later session of the run, here a resume, keeps its saved presets, also none, and also with --profile.
+  const mcp = fakeMcp();
+  const fixture = await runtimeHost(dirs, {
+    flags: { profile: "q", "mcp-presets": "db" },
+    extensions: [earlierExtension, mcp.extension],
+    sessionManager: copy(file)
+  });
+  const session = () => fixture.runtime.session;
+  await run(session(), mcp, ["mcp__my_db__ping"]);
+  const started = session().sessionFile!;
+  await fixture.runtime.switchSession(file);
+  await run(session(), mcp, ["mcp__x_y__ping"]);
+  await fixture.runtime.switchSession(cleared);
+  expect(mcp.events.at(-1)).toBe("close x-y");
+  await run(session(), mcp, []);
+  // The startup session saved the flag's presets.
+  await fixture.runtime.switchSession(started);
+  await run(session(), mcp, ["mcp__my_db__ping"]);
+
+  expect(mcp.events).toEqual([
+    "connect my_db",
+    "close my_db",
+    "connect x-y",
+    "close x-y",
+    "connect my_db"
+  ]);
+  expect(fixture.requests.map(({ tools }) => tools)).toEqual([
+    ["alpha", "mcp__my_db__ping"],
+    ["alpha", "mcp__x_y__ping"],
+    ["alpha"],
+    ["alpha", "mcp__my_db__ping"]
+  ]);
+  expect([...saving.errors, ...clearing.errors, ...fixture.errors]).toEqual([]);
+});
+
+it("restores the branch's MCP presets on tree navigation, also to a branch without presets, reload, fork, and resume, and keeps an unchanged preset server's connection and tools declared across tree navigation, except the profile's deny tools", async () => {
+  const dirs = await workspace({
+    mcpPresets: {
+      db: { mcpServers: { my_db: directServer() } },
+      a: { mcpServers: { "x-y": directServer() } },
+      blk: { mcpServers: { blocked: directServer() } }
+    },
+    profiles: [{ name: "guard", description: "Guard", tools: { deny: ["mcp__blocked__*"] } }]
+  });
+  const mcp = fakeMcp();
+  const fixture = await runtimeHost(dirs, {
+    extensions: [earlierExtension, mcp.extension],
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+  const session = () => fixture.runtime.session;
+
+  /** Waits until Pi registered exactly the servers' tools, declared or not, then runs a prompt. */
+  const run = async (text: string, tools: string[]) => {
+    await expect
+      .poll(() => mcp.registered(session()), { timeout: STEP_TIMEOUT_MS })
+      .toEqual([...tools].sort());
+    await session().prompt(text);
+  };
+
+  const dbTool = "mcp__my_db__ping";
+  const blockedTool = "mcp__blocked__ping";
+  const both = [dbTool, "mcp__x_y__ping"];
+
+  await session().prompt("zero");
+  const beforePresets = session().sessionManager.getLeafId()!;
+  // The selection comes first, so it does not know the preset servers' tools.
+  await session().prompt("/profile guard");
+  await session().prompt("/mcp-presets db");
+  await session().prompt("/mcp-presets a");
+  await session().prompt("/mcp-presets blk");
+  const withA = session().sessionManager.getLeafId()!;
+  await run("one", [...both, blockedTool]);
+  await session().prompt("/mcp-presets a");
+  const withoutA = session().sessionManager.getLeafId()!;
+  await run("two", [dbTool, blockedTool]);
+  await expect
+    .poll(() => [...mcp.events].sort(), { timeout: STEP_TIMEOUT_MS })
+    .toEqual(["close x-y", "connect blocked", "connect my_db", "connect x-y"]);
+  const beforeTree = mcp.events.length;
+
+  await session().navigateTree(withA);
+  // `db` and `blk` keep their connections, and only `db`'s tool stays declared.
+  const active = session().getActiveToolNames();
+  expect(active).toContain(dbTool);
+  expect(active).not.toContain(blockedTool);
+  await run("after tree", [...both, blockedTool]);
+  expect(mcp.events.slice(beforeTree)).toEqual(["connect x-y"]);
+  await session().reload();
+  await run("after reload", [...both, blockedTool]);
+  const file = session().sessionFile!;
+  await fixture.runtime.fork(withoutA, { position: "at" });
+  await run("forked", [dbTool, blockedTool]);
+  await fixture.runtime.switchSession(file);
+  await run("resumed", [...both, blockedTool]);
+  const beforeNoPresets = mcp.events.length;
+  await session().navigateTree(beforePresets);
+  await expect
+    .poll(() => mcp.events.slice(beforeNoPresets).sort(), { timeout: STEP_TIMEOUT_MS })
+    .toEqual(["close blocked", "close my_db", "close x-y"]);
+  await run("no presets", []);
+
+  expect(mcpTools(fixture.requests)).toEqual([[], both, [dbTool], both, both, [dbTool], both, []]);
   expect(fixture.errors).toEqual([]);
 });
 

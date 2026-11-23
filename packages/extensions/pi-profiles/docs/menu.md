@@ -9,7 +9,7 @@ The menu shows the state when it opens. In RPC mode, `/profile` shows a plain li
 ## Profiles view
 
 - The "Profiles" view lists the profiles, then `clear`, and marks the current one. Press **Enter** to switch.
-- The details start with the full profile name, marked `(current)` for the current one. They show the profile's model, thinking level, tool lists, appended prompts, and "MCP servers: <names>" (or "none"), and the tool change that a switch would request now. The details of `clear` say that it stops the current profile's MCP servers. Pi can still leave out an MCP tool that a `--tools` list does not name.
+- The details start with the full profile name, marked `(current)` for the current one. They show the profile's model, thinking level, tool lists, appended prompts, "MCP servers: <names>" (or "none"), "MCP presets: <names>" ("unchanged" without `mcpPresets`, or "MCP presets: none; a switch turns off the active presets" for `[]`), and the tool change that a switch would request now. The details of `clear` say that it stops the current profile's MCP servers and keeps the active MCP presets. Pi can still leave out an MCP tool that a `--tools` list does not name.
 - The details also show when the model is unknown or has no credentials.
 - The `defer` list shows each [group](tools.md#groups) in square brackets.
 
@@ -26,3 +26,14 @@ The menu shows the state when it opens. In RPC mode, `/profile` shows a plain li
 | `searchable` | The tool is not active, and its exposure is `codemode` or `deferred`. The details tell whether the active `tool_search` can load it. |
 | `off`        | The tool is not active, and `tool_search` cannot load it, also when the profile denies a `codemode` or `deferred` tool.              |
 | `hidden`     | The tool has `hidden` exposure, so nothing can reach it.                                                                             |
+
+## MCP presets menu
+
+In the interactive terminal, `/mcp-presets` opens a list of the [MCP presets](tools.md#mcp-presets), marked `[x]` when on. Type to search. When no presets are configured, `/mcp-presets` shows a warning instead.
+
+- Press **Enter** to turn the selected preset on or off. The list stays open.
+- A toggle that succeeds updates the row's mark and the details. When pi-profiles [refuses a toggle](tools.md#mcp-presets), the row stays unchanged and a warning shows.
+- The details start with the preset's name and state. For an off preset that clashes with an active one, they then name the clashing servers. When the preset has a server that replaces one of the selected profile's servers, they name those servers. The settings scope, the servers, and the description, when the preset has one, follow, so a long description does not hide the state.
+- Press **Ctrl+P** to open a scrollable preview of the full details.
+
+In RPC mode, `/mcp-presets` shows a plain selection dialog of the presets, marked `[x]` when on, with `clear` as the last choice. Choosing a preset turns it on or off.

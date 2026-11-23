@@ -18,15 +18,25 @@ A switch with **Alt+I**, `/profile`, or `--profile` applies a profile's fields t
 
 ## MCP servers
 
-- Only the selected profile's servers are registered. A switch registers the profile's servers and unregisters the servers of the previous profile. No profile (`/profile clear`) unregisters all of them. Unregistering a server closes its connection, and its tools become unreachable.
+- A switch registers the profile's servers and unregisters the servers of the previous profile. No profile (`/profile clear`) unregisters all profile servers. A switch can also change the active [MCP presets](tools.md#mcp-presets) and their servers; see [MCP presets](#mcp-presets). Unregistering a server closes its connection, and its tools become unreachable.
+- Pi manages the servers in `mcp.json` separately, so a switch neither starts nor stops them.
 - A server whose name and entry stay the same across a switch keeps its connection. A server with a changed entry reconnects.
 - When settings load, pi-profiles checks only that each entry is an object. Pi checks the name and the entry when pi-profiles registers the server at a switch. If Pi refuses a server (an invalid entry, or a name that another extension registered), pi-profiles shows an error (or writes it to stderr in modes without a UI), and the switch applies without that server.
 - The switch notice does not change; the [`/profile` menu](menu.md#profiles-view) shows each profile's servers. For how registered servers connect and how their tools work with `tools` and `mcp.json`, read [profile MCP servers](tools.md#profile-mcp-servers).
 
+## MCP presets
+
+- A switch to a profile with `mcpPresets` turns on exactly those presets, and turns off the others. With `[]`, it turns off all presets.
+- A switch to a profile without `mcpPresets`, and `/profile clear`, keep the active presets.
+- A switch that does not apply leaves the presets unchanged; see [when a switch does not apply](#when-a-switch-does-not-apply).
+- When a session starts, `--mcp-presets` or the branch's saved presets can take the place of the profile's `mcpPresets`; see [startup MCP presets](sessions.md#startup-mcp-presets).
+- Profile change notices do not mention presets. The details in the [`/profile` menu](menu.md#profiles-view) show which presets a switch to each profile would turn on.
+- `/mcp-presets` shows a notification of each change at once, and adds no `pi-profiles.notice` message to the transcript.
+
 ## Repeated switches and no profile
 
 - A switch to the current profile applies it again, for example after you edit settings and run `/reload`.
-- No profile undoes the previous profile's tool changes, adds no texts, and unregisters the previous profile's MCP servers. The model and the thinking level do not change.
+- No profile undoes the previous profile's tool changes, adds no texts, and unregisters the previous profile's MCP servers. The model and the thinking level do not change, and the active MCP presets stay as in [MCP presets](#mcp-presets).
 
 ## Profile change notices
 

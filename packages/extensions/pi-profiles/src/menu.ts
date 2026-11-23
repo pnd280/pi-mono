@@ -8,8 +8,9 @@ import {
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { errorMessage } from "@pi-mono/utils/errors";
 
+import { overriddenServers, presetConflict, presetSummary } from "./presets.ts";
 import type { ToolReport } from "./selection.ts";
-import type { Profile } from "./settings.ts";
+import type { McpPreset, Profile } from "./settings.ts";
 
 /** A configured profile, or `clear` for no profile. */
 export type ProfileChoice = {
@@ -138,7 +139,7 @@ function profileDetails({ name, current, profile, change, modelAvailable }: Prof
   if (!profile)
     return [
       identity,
-      "Undoes the current profile's tool changes, stops its MCP servers, and adds no system prompts. The model and thinking level stay.",
+      "Undoes the current profile's tool changes, stops its MCP servers, and adds no system prompts. The model, thinking level, and active MCP presets stay.",
       "",
       `A switch now requests: ${change}`
     ].join("\n");
@@ -163,6 +164,11 @@ function profileDetails({ name, current, profile, change, modelAvailable }: Prof
       "none"
     )}`,
     `MCP servers: ${list(profile.mcpServers && Object.keys(profile.mcpServers), "none")}`,
+    `MCP presets: ${
+      profile.mcpPresets?.length === 0
+        ? "none; a switch turns off the active presets"
+        : list(profile.mcpPresets, "unchanged")
+    }`,
     `A switch now requests: ${modelAvailable ? change : "nothing, because the profile cannot apply"}`,
     "",
     profile.prompts.length > 0 ? "Appended system prompts:" : "Appended system prompts: none",
@@ -193,6 +199,104 @@ export type MenuOptions = {
   onSwitch(this: void, profile: Profile | undefined): Promise<void>;
   notify(this: void, message: string, type: "error" | "warning"): void;
 };
+
+export type PresetMenuOptions = {
+  ui: ExtensionContext["ui"];
+  signal: AbortSignal;
+  /** The configured presets, in settings declaration order. */
+  presets: readonly McpPreset[];
+  /** The active presets and the selected profile now, read at each render. */
+  state(this: void): { active: readonly McpPreset[]; profile: Profile | undefined };
+  /** Turns the preset on or off at once, and leaves the menu open. */
+  onToggle(this: void, preset: McpPreset): void;
+  notify(this: void, message: string, type: "error" | "warning"): void;
+};
+
+function presetDetails(
+  preset: McpPreset,
+  { active, profile }: ReturnType<PresetMenuOptions["state"]>
+): string {
+  const on = active.includes(preset);
+  const conflict = on ? undefined : presetConflict(preset, active);
+  const overridden = overriddenServers([preset], profile?.mcpServers);
+
+  // The state lines come first: the details pane cuts the rows that do not fit, such as a long description.
+  return [
+    `MCP preset: ${preset.name}`,
+    `State: ${on ? "on" : "off"}`,
+    conflict &&
+      `Cannot turn on: its server ${conflict.server} clashes with server ${conflict.other} of active preset ${conflict.preset.name}.`,
+    profile && overridden.length > 0
+      ? `${on ? "Replaces" : "Would replace"} servers of profile ${profile.name}: ${overridden.join(", ")}`
+      : undefined,
+    `Scope: ${preset.scope}`,
+    `MCP servers: ${Object.keys(preset.mcpServers).join(", ")}`,
+    preset.description === undefined ? undefined : `Description: ${preset.description}`
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+}
+
+/** A browser that turns presets on and off in place; the rows and details show the state after each toggle. */
+export async function openPresetMenu({
+  ui,
+  signal,
+  presets,
+  state,
+  onToggle,
+  notify
+}: PresetMenuOptions): Promise<void> {
+  const browser: BrowserOptions<McpPreset> = {
+    sections: [
+      {
+        id: "presets",
+        label: "MCP presets",
+        load: async () => ({ items: [...presets] }),
+        confirm: {
+          label: "toggle",
+          // False keeps the browser open; its next render reads the new state.
+          run: (preset) => {
+            onToggle(preset);
+
+            return false;
+          }
+        }
+      }
+    ],
+    initialSection: "presets",
+    key: (preset) => preset.name,
+    search: async (items, query, current) =>
+      current()
+        ? fuzzyFilter(items, query, (preset) => `${preset.name} ${presetSummary(preset)}`)
+        : [],
+    format: (items) => {
+      const { active } = state();
+
+      return {
+        items: items.map((preset) => ({
+          value: preset.name,
+          label: compactDisplayText(`[${active.includes(preset) ? "x" : " "}] ${preset.name}`),
+          description: compactDisplayText(presetSummary(preset))
+        }))
+      };
+    },
+    details: (preset) => displayText(presetDetails(preset, state())),
+    // Ctrl+P shows the details that the pane cuts.
+    preview: (preset) => ({ text: displayText(presetDetails(preset, state())) })
+  };
+
+  await openBrowser({
+    ui,
+    signal,
+    browser,
+    onError: (error) => notify(displayText(errorMessage(error)), "error"),
+    onInputRoutingUnavailable: () =>
+      notify(
+        "Fullscreen input routing is unavailable. Use regular mode if controls do not respond.",
+        "warning"
+      )
+  });
+}
 
 /** A browser with the profiles and the current state of every tool, with details below the list. */
 export async function openMenu({ ui, signal, data, onSwitch, notify }: MenuOptions): Promise<void> {

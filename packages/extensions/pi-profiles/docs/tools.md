@@ -119,3 +119,19 @@ A profile's `mcpServers` field defines MCP servers that pi-profiles registers wh
 - A profile server whose name is the name of a server in `mcp.json`, or differs from it only in `-` and `_`, loses: Pi uses the `mcp.json` server, and `/mcp` shows the override. pi-profiles cannot detect this.
 - pi-profiles cannot turn off or change servers from `mcp.json`. To keep their tools away from the model in a profile, use `deny` with a pattern such as `mcp__github__*` (codemode scripts can still call `codemode` and `deferred` tools, as in the table above), or `hidden` exposure in `mcp.json` for every profile.
 - With `--no-mcp`, with `"-builtin:mcp"` in `extensions`, or with an extension that replaces Pi's MCP support, profile servers connect only if a loaded extension supports registered MCP servers. Without one, nothing connects them, and Pi reports each registration as an extension error.
+
+### MCP presets
+
+An MCP preset is a named set of MCP servers in the section's `mcpPresets` field. You turn presets on and off with `/mcp-presets`, `--mcp-presets`, or a profile's `mcpPresets`; see [MCP preset fields](configuration.md#mcp-preset-fields).
+
+- The registered servers are the selected profile's servers and the servers of the active presets.
+- A preset that you turn on at run time with `/mcp-presets` or `--mcp-presets` replaces a server in the selected profile's `mcpServers` with the same name, or a name that differs from it only in `-` and `_`. Turning the preset off registers the profile server again.
+- A profile whose own `mcpPresets` clash with its `mcpServers` is skipped when settings load; see [errors](configuration.md#errors).
+- A profile's `mcpPresets` resolve after the global and project presets merge, so a project preset that replaces a global one can make a global profile that names it invalid.
+- When the replaced server's tools registered earlier in the session, Pi can treat their names as taken and name the preset server's tools with a hash at the end, such as `mcp__my_db__ping_8e6b330c`; see [MCP tools](#mcp-tools). A `*` pattern such as `mcp__my_db__*` still matches them.
+- Two active presets never have servers whose names are the same or differ only in `-` and `_`. `/mcp-presets` refuses to turn on a preset that clashes with an active one, and names the active preset and the servers.
+- `/mcp-presets <name>` turns a preset on or off, and `/mcp-presets clear` turns all of them off. Like a switch, a change is refused while the agent runs or a switch is in progress.
+- The active presets stay in [settings order](configuration.md#preset-order), whatever order you turn them on in.
+- In the interactive terminal, the footer shows the active presets by default as dim `MCP: <names>`, for example `MCP: github, tracker`, and the status clears when no preset is active. [pi-editor-widgets](../../pi-editor-widgets/README.md) can place or hide this status as `status:pi-profiles.mcp-presets`.
+- Turning a preset on does not apply the current profile's `allow` or `defer` again; background connection, switching again, and `deny` work as for [profile MCP servers](#profile-mcp-servers).
+- A relative `cwd`, the precedence of `mcp.json`, and `--no-mcp` work for preset servers as for [profile MCP servers](#profile-mcp-servers).
