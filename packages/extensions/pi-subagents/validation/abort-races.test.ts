@@ -811,9 +811,23 @@ test("keeps terminal controls of child and job text out of cards, dialogs, the p
         return views[0]!.render(120);
       };
 
+      // Pi puts a bash row's save failure into its truncation note.
+      const child = taskHistory(session.sessionManager.getBranch(), null).get(task.task_id!)!;
+      SessionManager.open(child.session_file).appendMessage({
+        role: "bashExecution",
+        command: "fixture command",
+        output: "Tail kept",
+        exitCode: 0,
+        cancelled: false,
+        truncated: true,
+        fullOutputError: `Fixture write failure ${CONTROL_TEXT}`,
+        timestamp: Date.now()
+      });
+
       const board = await shown("Control task");
       events!.emit(OPEN_EVENT, { task_id: task.task_id, binding_id: task.binding_id });
-      const transcript = await shown("Control reply");
+      const transcript = await shown("Fixture write failure");
+      expect(transcript.join("\n")).toContain("Control reply");
       events!.emit(OPEN_EVENT, { job_id: job.job_id, binding_id: job.binding_id });
       const log = await shown("job output");
 

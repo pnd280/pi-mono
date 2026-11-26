@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.6.0 with package checks, offline host tests that include real codemode cases, a source review of the Pi 1.5.2 to 1.6.0 changes, and a tmux run of pi-tool-display's [listing checks](../../pi-tool-display/docs/validation.md#nested-skill-listings). Not covered: manual [notice](../GLOSSARY.md#delivery) presentation, skill listings in Pi's default renderer, `/skill:<name>` expansion and completion in an interactive terminal, and Windows paths.
+> Last verified against Pi 1.6.1 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: pi-tool-display's [listing checks](../../pi-tool-display/docs/validation.md#nested-skill-listings), last run in tmux on Pi 1.6.0; manual [notice](../GLOSSARY.md#delivery) presentation, skill listings in Pi's default renderer, `/skill:<name>` expansion and completion in an interactive terminal, and Windows paths.
 
 ## Checklist
 
@@ -76,12 +76,12 @@ The [listing interface](../src/skill-listings.ts) writes `pi-nested-instructions
 The extension uses only public Pi APIs, with no host patches or tool overrides. The local filename list, input adapters, and skill folder search still need checking on upgrades, because Pi has no public API for discovering only nested files that also avoids reading instruction files the model read directly, and none for its skill scanner.
 
 - Discovery doesn't follow result paths, opaque scripts, or temporary context rewrites by other extensions.
-- In Pi 1.6.0, Pi's base prompt and `ctx.getSystemPrompt()` outside a run include nested skills, because Pi applies `before_agent_start` only to a run's prompt.
-- In Pi 1.6.0, a `before_agent_start` handler that runs before this extension's and returns `systemPrompt` sets `forceSystemPrompt` on the shared options. The prompt text is then fixed before the filter runs, so nested skills stay in that run's prompt. The [nested skill rules](skills.md#system-prompt-replacement) tell users to load this extension first.
-- In Pi 1.6.0, Pi trusts a project whose only skill folders are nested without a prompt, as the [project trust rules](skills.md#project-trust) explain.
+- In Pi 1.6.0 and 1.6.1, Pi's base prompt and `ctx.getSystemPrompt()` outside a run include nested skills, because Pi applies `before_agent_start` only to a run's prompt.
+- In Pi 1.6.0 and 1.6.1, a `before_agent_start` handler that runs before this extension's and returns `systemPrompt` sets `forceSystemPrompt` on the shared options. The prompt text is then fixed before the filter runs, so nested skills stay in that run's prompt. The [nested skill rules](skills.md#system-prompt-replacement) tell users to load this extension first.
+- In Pi 1.6.0 and 1.6.1, Pi trusts a project without a prompt when it has no saved trust decision, no explicit override, and no resources that require a trust decision. Nested skill folders alone do not trigger that decision. See [project trust rules](skills.md#project-trust).
 - A [direct read](../GLOSSARY.md#discovery) is an attempt, not proof that the content was delivered in full.
-- In Pi 1.5.0 to 1.5.2, a saved "Do not trust" decision makes `ctx.isProjectTrusted()` false even for a folder with only `AGENTS.md`. Pi still loads context files regardless of project trust, and discovery also ignores trust, so both stay aligned.
-- In Pi 1.4.0 to 1.5.2, discovery reads inputs as issued, before Pi coerces them. A path that Pi converts to a string, such as a number, gives no scope.
-- In Pi 1.5.1 to 1.6.0 on Windows, native `find` reads `\` in a pattern as a path separator. Discovery [reads a pattern's directories only with `/`](input-discovery.md#windows).
+- In Pi 1.5.0 to 1.6.1, a saved "Do not trust" decision makes `ctx.isProjectTrusted()` false even for a folder with only `AGENTS.md`. Pi still loads context files regardless of project trust, and discovery also ignores trust, so both stay aligned.
+- In Pi 1.4.0 to 1.6.1, discovery reads inputs as issued, before Pi coerces them. A path that Pi converts to a string, such as a number, gives no scope.
+- In Pi 1.5.1 to 1.6.1 on Windows, native `find` reads `\` in a pattern as a path separator. Discovery [reads a pattern's directories only with `/`](input-discovery.md#windows).
 
 Replace local behaviour only if a public Pi API keeps these boundaries and metadata-only markers. Don't replace it with the startup loader, which also reads global and ancestor content.

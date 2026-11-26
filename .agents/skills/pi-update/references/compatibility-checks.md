@@ -6,7 +6,7 @@ Apply each area affected by the target release or a package's compatibility chec
 
 ## Messages and tools
 
-Review application versus provider contexts, normalisation, system and usage messages, discovery, JSON-compatible arguments and details, and borrowed data. Build fixtures against provider contracts; the first message need not be a user message.
+Review application versus provider contexts, normalisation, system and usage messages, discovery, JSON-compatible arguments and details, and borrowed data. Build fixtures against provider contracts; the first message need not be a user message. Check whether a value in a progress update is final: a later update or the result can replace it, as a failed save replaces a provisional output path with an error.
 
 ## Requests
 

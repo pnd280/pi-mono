@@ -314,6 +314,7 @@ Expanding a completed shell card loads a preview of Pi's temporary output file: 
 
 - A result that Pi saved with an output path supplies the path, including a shell call that exited with a nonzero code.
 - When the shell throws, as on an abort, a timeout, or a missing exit code, Pi's result keeps no path. The card then uses the path that the extension observed while the call ran.
+- When Pi reports that it could not save the output, the card drops any path observed earlier and shows no preview. A thrown result carries no such report. If saving failed before the throw and no progress update reported it, the card keeps the observed path.
 - Observed paths stay in memory only. They survive a rebuilt transcript, but not `/reload`, a session change, or exit. After that, such a call shows no preview.
 
 ### Reading

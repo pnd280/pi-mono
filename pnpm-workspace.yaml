@@ -4,14 +4,13 @@ packages:
   - packages/extensions/*
 
 allowBuilds:
-  "@google/genai": true
   protobufjs: true
   unrs-resolver: false
 
 catalog:
-  "@earendil-works/pi-ai": ^1.6.0
-  "@earendil-works/pi-coding-agent": ^1.6.0
-  "@earendil-works/pi-tui": ^1.6.0
+  "@earendil-works/pi-ai": ^1.6.1
+  "@earendil-works/pi-coding-agent": ^1.6.1
+  "@earendil-works/pi-tui": ^1.6.1
   "@stylistic/eslint-plugin": ^6.0.1
   "@tailwindcss/vite": ^4.3.5
   "@tanstack/devtools-vite": 0.8.6

@@ -2,7 +2,7 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.6.0 with package checks, all helper tests, and a source review of the Pi 1.5.2 to 1.6.0 changes. Not covered: the randomised probe that parses native `edit` patches with `parsePatch`, which last ran on Pi 1.5.1.
+> Last verified against Pi 1.6.1 with package checks, all helper tests, and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: the randomised probe that parses native `edit` patches with `parsePatch`, which last ran on Pi 1.5.1.
 
 ## Checklist
 
@@ -20,7 +20,7 @@ The current host offers these related helpers, and none replaces a module here:
 
 | Pi helper                                                                                          | Why this package keeps its own code                                                                                                                                                            |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MODEL_THINKING_LEVELS` in `@earendil-works/pi-ai/providers/model-schema`                          | In Pi 1.6.0, the extension loader maps no alias for that entry point, so installed extensions can't import it. [Thinking levels](../src/thinking-levels.ts) keep a copy.                       |
+| `MODEL_THINKING_LEVELS` in `@earendil-works/pi-ai/providers/model-schema`                          | In Pi 1.6.1, the extension loader maps no alias for that entry point, so installed extensions can't import it. [Thinking levels](../src/thinking-levels.ts) keep a copy.                       |
 | `resolveCliModel` from the `@earendil-works/pi-coding-agent` root                                  | It resolves CLI provider and model options against the model registry. [`model-reference`](../src/model-reference.ts) only checks and splits the `provider/model-id` syntax, with no registry. |
 | `formatReadLineRange` from the `@earendil-works/pi-coding-agent` root                              | It formats read-header line ranges, which no module here does.                                                                                                                                 |
 | `truncateHead`, `truncateTail`, and `truncateLine` from the `@earendil-works/pi-coding-agent` root | They truncate decoded strings. [`decodeUtf8Window`](../src/utf8.ts) decodes a raw byte window and counts the bytes that it drops at a clipped edge.                                            |

@@ -2,7 +2,7 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.6.0 with package checks, offline tests, and a source review of the Pi 1.5.2 to 1.6.0 changes. Not covered: manual visual checks; counting of `bash` calls skipped by an abort in a real host; live-provider usage reporting; nested `bash` counting and virtual-model attribution in a real host; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
+> Last verified against Pi 1.6.1 with package checks, offline tests, and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: manual visual checks; counting of `bash` calls skipped by an abort in a real host; live-provider usage reporting; nested `bash` counting and virtual-model attribution in a real host; and a quit during a run through Pi's own runtime, whose order the offline host fixture copies.
 
 ## Upgrade procedure
 
@@ -60,6 +60,8 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 ## Limitations
 
-Pi 1.5.2 and 1.6.0 measure each response in `AssistantMessage.durationMs`, and the saved [output throughput](summary-fields.md#output-throughput) sums it, skipping responses without one: Pi leaves it absent for legacy messages and for deferred results fetched later. The rate also depends on reported usage.
+In Pi 1.5.2 to 1.6.1, Pi records the time for a streamed assistant response in `AssistantMessage.durationMs`. Legacy messages and deferred results fetched later can lack this field. Saved [output throughput](summary-fields.md#output-throughput) uses responses with a positive duration and depends on the output usage the provider reports.
 
-In Pi 1.6.0, the agent loop emits `tool_execution_start` for each tool call that an abort skips, and `prepareToolCall` gives it an "Operation aborted" result (`agent-loop.js` in `pi-agent-core`), so [`ran N commands`](summary-fields.md#commands) counts skipped `bash` calls.
+In Pi 1.6.0 and 1.6.1, Pi emits `tool_execution_start` for each call in a tool batch, including calls that an abort prevents from running. A skipped call gets an "Operation aborted" result, so [`ran N commands`](summary-fields.md#commands) counts these `bash` calls.
+
+In Pi 1.6.1, closing the terminal on Windows follows the signal shutdown path, which waits for the run to settle before it emits `session_shutdown`. The offline tests do not cover closing a terminal on Windows.

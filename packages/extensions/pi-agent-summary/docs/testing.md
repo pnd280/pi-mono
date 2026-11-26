@@ -6,11 +6,11 @@ This package tests what saved [run summaries](../GLOSSARY.md) contain, when they
 
 ## Must not regress
 
-The e2e [lifecycle scenario](../src/lifecycle.test.ts) drives retried runs, reloads, and shutdown through a real offline host. In Pi 1.5.2 and 1.6.0, reload and session replacement shut down the old extension instance and start a new one, so the scenario resets the session with reload. A second e2e scenario in the same file saves a summary from an SDK session bound in RPC mode.
+The e2e [lifecycle scenario](../src/lifecycle.test.ts) drives retried runs, reloads, and shutdown through a real offline host. In Pi 1.5.2 to 1.6.1, reload and session replacement shut down the old extension instance and start a new one, so the scenario resets the session with reload. A second e2e scenario in the same file saves a summary from an SDK session bound in RPC mode.
 
 Following Pi's [lifecycle contracts](pi-compatibility.md#lifecycle), the scenario reloads only after a run settles, and its last step disposes the [shared host fixture](../../../libs/src/validation/interactive-host/README.md) during a run, as a quit does.
 
-The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events for a session reset or shutdown during an active run, which the host does not produce on demand, because Pi 1.5.2 and 1.6.0 reject a reload while a response streams (`reload()` in `agent-session.js`) and settle a cancelled run first. These two cases are an exception to the e2e layer: only they cover the session-reset clause of run isolation and the session-reset and shutdown clauses of stopping the timer.
+The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events for a session reset or shutdown during an active run, which the host does not produce on demand, because Pi 1.5.2 to 1.6.1 reject a reload while a response streams (`reload()` in `agent-session.js`) and settle a cancelled run first. These two cases are an exception to the e2e layer: only they cover the session-reset clause of run isolation and the session-reset and shutdown clauses of stopping the timer.
 
 - **High, e2e:** Appending a summary with `appendEntry` leaves the model's session context unchanged.
 - **High, e2e:** A started run appends exactly one summary at `agent_settled`.

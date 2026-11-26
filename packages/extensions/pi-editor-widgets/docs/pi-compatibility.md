@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.6.0 with a source review of the Pi 1.5.2 to 1.6.0 changes, the fingerprint check of this package's hooks, and the offline package checks and host tests including reload. Not covered: the offline tmux run in fullscreen mode that opens and closes `/widgets` and exits Pi, which last ran on Pi 1.5.0; physical-terminal checks, including fullscreen scrolling with live widgets; regular mode in a terminal; `/reload` and a `SIGTERM` shutdown with `/widgets` open in a terminal; mouse clicks; and the other manual checks.
+> Last verified against Pi 1.6.1 with a source review of the Pi 1.6.0 to 1.6.1 changes, the fingerprint check of this package's hooks, and the offline package checks and host tests including reload. Not covered: the offline tmux run in fullscreen mode that opens and closes `/widgets` and exits Pi, which last ran on Pi 1.5.0; physical-terminal checks, including fullscreen scrolling with live widgets; regular mode in a terminal; `/reload` and a `SIGTERM` shutdown with `/widgets` open in a terminal; mouse clicks; and the other manual checks.
 
 Pi's public footer data exposes other extensions' status text, but no public API exposes native widget instances, status changes, or row placement, so this extension uses narrowly scoped runtime hooks. The _coordinator_ ([`WidgetCoordinator`](../src/coordinator.ts)) installs the region, footer, mode, and renderer hooks and takes over the widget regions and the footer for a session.
 
@@ -114,18 +114,20 @@ The label shows the selected model, and, under a virtual selection, the routed m
 - Components expose `render(width)`, not a preferred size. Each placement renders once at terminal width, and the output it occupies sets its row width. Whole widgets wrap in order without shrinking, and a full-width component takes its own row. Widgets control wrapping inside their own output.
 - While `/widgets` is open, the menu sizes itself from the unclipped region height, so tall regions still clip on short terminals.
 - Shared rows trim only literal trailing spaces known not to paint or carry metadata. Backgrounds, decorated spaces, and unknown escape sequences keep their width. Leading indentation and singleton padding are kept.
-- In Pi 1.4.0 to 1.5.2, the renderer already expands visible tabs to the three columns `visibleWidth()` uses.
-- In Pi 1.5.0 to 1.6.0, `TuiMainScreen.doRender` removes OSC 133 prompt markers only at the start of each rendered line, as the fullscreen renderer already did. The frame hook does not depend on this.
-- In Pi 1.5.1 to 1.6.0, on every terminal that uses the Kitty image protocol, `TuiAltScreen.doRender` also redraws images when a row under an image changes, and a frame that redraws images writes the image rows after all text rows. In Pi 1.5.0, it did both only in WezTerm. The frame hook does not depend on this.
+- In Pi 1.4.0 to 1.6.1, the renderer expands visible tabs to the three columns `visibleWidth()` uses.
+- In Pi 1.5.0 to 1.6.1, `TuiMainScreen.doRender` removes OSC 133 prompt markers only at the start of each rendered line, as the fullscreen renderer already did. The frame hook does not depend on this.
+- In Pi 1.5.1 to 1.6.1, on every terminal that uses the Kitty image protocol, `TuiAltScreen.doRender` also redraws images when a row under an image changes, and a frame that redraws images writes the image rows after all text rows. In Pi 1.5.0, it did both only in WezTerm. The frame hook does not depend on this.
 - Pi 1.5.2 leaves pi-tui and the hooked interactive-mode methods of 1.5.1 unchanged; interactive mode changes only in opening a session whose stored working directory is missing.
 - In Pi 1.6.0, `switchTuiMode` also sets the new renderer's `SIGTSTP` handler, and `TuiAltScreen.doRender` reuses the previous frame's component output unless a render request may have changed it. A full redraw with uploaded Kitty images deletes only the image placements and skips the screen clear. `Container.render()` returns the same array while its children and their lines are unchanged, comparing children by identity on every call. The coordinator's hooks do not depend on any of these changes.
+- In Pi 1.6.1, `TuiMainScreen.doRender` changes only how it fails on a rendered line wider than the terminal: a crash log that cannot be written no longer hides the width error, which Pi still throws after it stops the terminal. The frame hook does not depend on this.
+- In Pi 1.6.1, fullscreen Pi also skips its own right-click paste on Windows when `TERM_PROGRAM` is `tabby`, as it already did for `vscode`, because those terminals paste on right-click. Component mouse dispatch still runs before this check.
 - In Pi 1.5.2, fullscreen mode turns off iTerm2 images, so native `Image` widgets show their text fallback there.
-- In Pi 1.5.0 to 1.6.0, replacing an extension editor while a dialog is open waits until the last dialog closes. While `/widgets` is open, `editorContainer` keeps the menu, so the region budget keeps measuring the menu. In Pi 1.4.0, the replacement editor took the slot.
+- In Pi 1.5.0 to 1.6.1, an inline extension dialog keeps the editor slot until the last inline dialog closes. Pi creates a replacement editor immediately. While `/widgets` is open inline, `editorContainer` keeps the menu, so the region budget keeps measuring the menu. In Pi 1.4.0, the replacement editor took the slot.
 - The shared responsive host does not pass the [`blocked` option](../../../libs/docs/pi-compatibility.md#limitations) of `ctx.ui.custom()`, so `/widgets` does not report Pi as blocked on input.
-- In Pi 1.5.0 to 1.5.2, `tui.select.pageUp` and `tui.select.pageDown` move many Pi lists. The `/widgets` menu has no paging controls and does not set `capturesViewportInput`, so in fullscreen mode **PageUp** and **PageDown** still scroll the transcript while the menu is open.
+- In Pi 1.5.0 to 1.6.1, `tui.select.pageUp` and `tui.select.pageDown` move Pi lists that support paging. The `/widgets` menu has no paging controls and does not set `capturesViewportInput`, so with the default bindings **PageUp** and **PageDown** still scroll the fullscreen transcript while the menu is open inline.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
 
-These private hooks have no complete public replacements in Pi 1.6.0:
+These private hooks have no complete public replacements in Pi 1.6.1:
 
 | Private hook                   | Parity                              | Public API that Pi would need                             |
 | ------------------------------ | ----------------------------------- | --------------------------------------------------------- |

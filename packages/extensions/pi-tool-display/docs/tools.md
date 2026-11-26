@@ -29,6 +29,7 @@ Pi's own tools get shell previews with status and duration, file diffs, and grou
 - When the model cannot take images, collapsed and expanded read cards warn that it saw a placeholder instead of the image.
 - Pi's read continuation and byte-limit instructions stay visible in compact cards and groups, including fractional, negative, and exponent-form continuation values. Expansion shows them once, in the retained text.
 - When Pi truncated the output, compact cards add a "Tool output truncated by pi; expand to inspect retained output." warning. Expanded cards omit it.
+- When Pi could not save the full output of a truncated shell result, compact cards add a "Full output could not be saved: …" warning with Pi's reason. Expanded cards show the reason once, in Pi's trailer.
 - Diagnostic bodies and failure markers use error styling, without recolouring the process output before them.
 - Text that exactly matches one of Pi's generated placeholders, trailers, or truncation notices looks like the generated text and gets its styling. It never changes the call's outcome. Similar phrases inside the content of a read file stay ordinary text.
 
@@ -76,7 +77,7 @@ Limits:
 
 - The resource tools `list_mcp_resources`, `list_mcp_resource_templates`, and `read_mcp_resource` get generic cards.
 - Calls made inside codemode scripts appear only in the [codemode](#codemode) card's call list.
-- In Pi 1.5.2 and 1.6.0, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
+- In Pi 1.5.2 to 1.6.1, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
 
 ## Tool search
 

@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.6.0 with offline suites on Linux and a source review of the Pi 1.5.2 to 1.6.0 changes. Not covered: the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks), which last ran on Pi 1.0.2; the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; a child's idle cache warming; live providers.
+> Last verified against Pi 1.6.1 with offline suites on Linux and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks), which last ran on Pi 1.0.2; the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; a viewer row of a `!` command whose full output could not be saved; a child's idle cache warming; live providers.
 
 ## Upgrade procedure
 
@@ -84,6 +84,8 @@ Pi's abort before `session_shutdown` sets how a foreground task stops when its s
 - [ ] `session_tree` and replacement `session_start` supply the final [selected ancestry](../GLOSSARY.md#history), including user-entry parent selection.
 - [ ] `get_entries` supports durable entry cursors and supplies the authoritative leaf.
 
+Pi 1.6.1 includes the corrected cache-read and cache-write breakdown of classifier calls in child totals when codemode reports their usage.
+
 Ordinary prompts fail during compaction or a branch summary. The cancelled session changes above append no entries.
 
 A handled command can start model work. Work that the connection observed must settle before result collection. A pending prompt prevents collection from closing stdin, and input after closing resumes the task in its child file. A baseline `get_session_stats` read after `begin` gives each run's usage.
@@ -141,7 +143,11 @@ The job wrapper must supply the command prefix and resolved shell path explicitl
 
 `shellOptions` in [jobs](../src/jobs/registry.ts) copies the `shellPath` rules of Pi's settings manager.
 
+On Windows, when Pi does not find Git Bash in its known locations, Pi 1.6.1 checks the Git installation on `PATH` before it tries a generic `bash.exe`. Jobs use that search order when no shell path is set.
+
 The registry's synchronous Node `exit` hook covers Pi exits that skip `session_shutdown`, and stays active until group cleanup ends. No private Pi tracker API is imported. Job output stays in the owned bounded writer and result tail.
+
+In Pi 1.6.1, tail truncation can keep the end of an overlong line followed only by blank lines. The byte and line limits stay the same.
 
 ### Background and viewer contracts
 
@@ -187,21 +193,23 @@ The [input cases](../validation/input.test.ts) exercise running input, deferred 
 
 ## Limitations
 
-- In Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call. In Pi 1.5.1 to 1.6.0, the message has `stopReason: "aborted"`.
+- In Pi 1.0.2, 1.2.0, 1.3.0, 1.4.0, and 1.5.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call. In Pi 1.5.1 to 1.6.1, the message has `stopReason: "aborted"`.
 - In Pi 1.2.0, a source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field.
 - In Pi 1.3.0, a source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.
 - In Pi 1.3.0, Pi's session loader appends a newline to a file that ends with a partial line.
 - In Pi 1.4.0, a source comparison with Pi 1.3.0 found the session manager, RPC mode, print mode, extension runner, and extension types unchanged. `AgentSession` changed in transcript tool restoration, recovery omission, and the compaction check; agent core added request `identity`.
 - In Pi 1.4.0, a source review found that resume also turns on registered `direct` and `model-only` tools that the child file never recorded, unless `defaultActive: false`. The `session_start` registration hides them again where needed.
 - In Pi 1.5.0, a source comparison with Pi 1.4.0 found RPC mode, print mode, the extension runner, the bash tool, truncation, and the agent loop unchanged. The session manager now removes an entry from memory when its write fails, and forks write through one file handle; `appendCustomMessageEntry` and `appendUsage` are unchanged. `AgentSession` keeps the order of tools that stay active and appends newly activated ones; hidden tools still drop out of the loadout.
-- In Pi 1.5.0 to 1.5.2, `ToolExecutionComponent.updateArgs` applies new arguments at the next render instead of at once.
+- In Pi 1.5.0 to 1.6.1, `ToolExecutionComponent.updateArgs` applies new arguments at the next render instead of at once.
 - In Pi 1.5.1, a source comparison with Pi 1.5.0 found the session manager, the agent loop, and transcript tool restoration unchanged. The extension runner changed only for Markdown transformers, the bash tool only in the timeout status of Pi's local shell operations, which jobs replace, and truncation outside `truncateTail` and the default limits. The session runtime, RPC mode, and print mode changed in shutdown; the [launch and stop](#launch-and-stop) checklist names the abort and SIGTERM contracts. `AgentSession.reload()` now rejects a call during a run or a compaction.
 - In Pi 1.5.2, a source comparison with Pi 1.5.1 found the session manager, `AgentSession`, RPC mode, print mode, the extension runner, the bash tool, and agent core unchanged. Startup, interactive mode, and the session runtime changed only in opening a session whose stored working directory is missing: interactive mode now also offers to fork it. Children run in RPC mode, which still exits with an error.
 - In Pi 1.6.0, a source comparison with Pi 1.5.2 found the session manager changed only in session listing, and `appendCustomMessageEntry`, `appendUsage`, and their `AgentSession` callers unchanged. RPC mode now subscribes to the session before `bindExtensions`, so the supervisor also receives events that `session_start` handlers emit, such as `entry_appended`, and `new_session`, `switch_session`, `fork`, and `clone` run `session_start` once for the new session instead of twice. The extension appends entries only when a run or job starts or ends, never while the session binding opens, so these earlier events cannot satisfy a wait for a run or job entry. RPC mode writes session-replacement diagnostics to stderr, which reaches a failed task's text only through the stderr excerpt.
-- In Pi 1.6.0, the agent loop gives each tool call that an abort skips in a batch an "Operation aborted" error result, so an abort no longer leaves a call without a result. [Resume](history.md#resume) states when the interrupted-cycle warning still appears.
-- In Pi 1.6.0, `get_last_assistant_text` skips assistant replies that end with a stop reason other than `stop` and have no text. When a child's final reply ends with `length` and no text, the result therefore holds an earlier reply's text.
-- In Pi 1.5.1 to 1.6.0, a source review found that the `cacheWarming` setting defaults to `idle`, also in a child. Pi then keeps the child's cache-warming timer after the run settles, and cancels it when it disposes the session, after `session_shutdown`. A warming request that completes between the supervisor's read of the child's statistics and that disposal adds a usage entry to the [child file](../GLOSSARY.md#history), outside the run's reported usage.
+- In Pi 1.6.0, the agent loop began recording an "Operation aborted" error result for each tool call that an abort skips in a batch. Pi 1.6.1 keeps this behaviour. [Resume](history.md#resume) states when the interrupted-cycle warning still appears.
+- In Pi 1.6.0, `get_last_assistant_text` began skipping replies with a stop reason other than `stop` and no non-blank text. Pi 1.6.1 keeps this behaviour. If the final reply ends with `length` and no text, the result can contain text from an earlier eligible reply.
+- In Pi 1.5.1 to 1.6.1, a source review found that the `cacheWarming` setting defaults to `idle`, also in a child. Pi then keeps the child's cache-warming timer after the run settles, and cancels it when it disposes the session, after `session_shutdown`. A warming request that completes between the supervisor's read of the child's statistics and that disposal adds a usage entry to the [child file](../GLOSSARY.md#history), outside the run's reported usage.
+- In Pi 1.6.1, the session-file and RPC input readers scan only newly decoded text for line breaks. The session manager also collects post-compaction context entries one at a time, so a long branch does not exceed the argument limit. `appendCustomMessageEntry`, `appendUsage`, and their callers are unchanged. RPC mode now handles `SIGHUP` on Windows and stops tracked shell process trees after disposal on every shutdown path, including stdin EOF. On Windows, Pi waits up to 2 seconds for `taskkill` before it exits. The supervisor still owns task and job process cleanup.
+- In Pi 1.6.1, a user `!` command whose truncated output could not be saved records `fullOutputError` instead of `fullOutputPath`. The task viewer passes both to Pi's row, which then states why the output was not saved.
 
 ## Replacement opportunities
 
-Pi 1.6.0 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.
+Pi 1.6.1 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.

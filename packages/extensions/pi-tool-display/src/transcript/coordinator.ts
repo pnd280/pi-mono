@@ -555,10 +555,11 @@ export class TranscriptCoordinator implements TranscriptView {
     call.reference = { ...call.reference, messageEntryId };
     this.changed(call);
   }
-  setSavedPath(view: DisplayCall, path: string): void {
+  setSavedPath(view: DisplayCall, path: string | undefined): void {
     const call = this.mutable(view);
     if (!call || call.savedPath === path) return;
-    call.savedPath = path;
+    if (path === undefined) delete call.savedPath;
+    else call.savedPath = path;
     delete call.savedOutput;
     this.changed(call);
     this.options.onSavedOutputChange?.(call);

@@ -127,8 +127,10 @@ async function executeWithSavedReference(
   let savedPath: string | undefined;
 
   const update: NonNullable<typeof onUpdate> = (value) => {
-    const path = record(value.details).fullOutputPath;
-    if (typeof path === "string") savedPath = path;
+    const details = record(value.details);
+    // Pi 1.6.1 reports the path before the file closes, and replaces it with an error when saving fails.
+    if (typeof details.fullOutputPath === "string") savedPath = details.fullOutputPath;
+    else if (typeof details.fullOutputError === "string") savedPath = undefined;
     onUpdate?.(value);
   };
 
@@ -140,7 +142,9 @@ async function executeWithSavedReference(
       onUpdate ? update : undefined,
       context
     );
-    if (record(result.details).fullOutputPath === savedPath) savedPath = undefined;
+    const details = record(result.details);
+    if (details.fullOutputPath === savedPath || typeof details.fullOutputError === "string")
+      savedPath = undefined;
 
     return result;
   } finally {

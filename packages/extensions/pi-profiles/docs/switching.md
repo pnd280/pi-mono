@@ -60,7 +60,7 @@ When the effective profile changes after at least one run has happened on the br
 - pi-profiles refuses a switch while the agent runs, or while an earlier switch still waits for its model. Wait for the run to end, or stop it first.
 - If the model is unknown or has no credentials, pi-profiles does not apply the profile and shows an error. This also applies when the model is already selected.
 - Modes without a UI write the error to stderr.
-- The credentials check is Pi's check for configured credentials. A key command or a stored login counts as configured, and the check does not run the command or refresh the login.
+- pi-profiles uses Pi's configured-credentials check. A stored login counts as configured, and the check does not refresh it. If `/login` shows "stored key did not resolve" for a `!command` key, follow Pi's [retry steps](https://pi.dev/docs/latest/providers#load-an-api-key-from-a-command) before retrying the switch.
 
 You cannot cancel a switch. A request, tree navigation, session replacement, and the end of the session wait until the switch is complete.
 

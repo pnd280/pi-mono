@@ -2,7 +2,7 @@
 
 [pi-sysprompt-rewrite](../README.md)
 
-> Last verified against Pi 1.6.0 with package checks, the e2e test, and a source review of the prompt section builder. Not covered: the docs-collapse manual checks, which last ran on Pi 1.5.2; the other manual offline host checks; and live Anthropic acceptance of the README example, including requests that continue a message thread.
+> Last verified against Pi 1.6.1 with package checks, the e2e test, and a source review of the prompt section builder. Not covered: the docs-collapse manual checks, which last ran on Pi 1.5.2; the other manual offline host checks; and live Anthropic acceptance of the README example, including requests that continue a message thread.
 
 ## Upgrade procedure
 
@@ -22,5 +22,5 @@ If Pi changes the wrapper, rules see the tags and `^` or `$` stop matching the s
 
 ## Limitations
 
-- In Pi 1.5.0, the "Tightened system prompt" change reworded both lines that the README example matches. Pi 1.5.1 to 1.6.0 keep that wording.
-- In Pi 1.5.1 and 1.5.2, a request to Anthropic's own endpoint can continue a message thread, and then it leaves out the system prompt. Pi starts a new thread, with the complete system prompt, when the rewritten prompt differs from the previous request's. Only thread continuations leave out the system prompt; every other request, including one that starts a thread, carries it. Pi 1.6.0 keeps this rule and extends it to every provider whose `baseUrl` is on `api.anthropic.com` (`supportsMessageThreads` in pi-ai `api/anthropic-messages.js`).
+- In Pi 1.5.0, the "Tightened system prompt" change reworded both lines that the README example matches. Pi 1.5.1 to 1.6.1 keep that wording.
+- Pi 1.5.1 and 1.5.2 can continue a message thread on Anthropic's own endpoint. In Pi 1.6.0 and 1.6.1, the default applies to any provider whose `baseUrl` contains `api.anthropic.com`. The model's `compat.supportsMessageThreads` setting can override that default. A continuation leaves out the system prompt. A change to the prompt or model starts a new thread with the complete prompt when threading is enabled.

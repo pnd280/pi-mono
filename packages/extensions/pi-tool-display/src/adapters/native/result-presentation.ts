@@ -88,7 +88,7 @@ export function nativeResultParts(
   let trailerPattern: RegExp | undefined;
   if (shell)
     trailerPattern =
-      /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/;
+      /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. (?:Full output|Could not save the full output): [^\n]+\])$/;
   else if (name === "read") trailerPattern = readTrailer;
   else if (name === "grep" || name === "find" || name === "ls")
     trailerPattern =
@@ -152,6 +152,7 @@ function nativeContentParts(
 const noticesSchema = z.object({
   truncation: z.object({ truncated: z.boolean().optional() }).optional(),
   fullOutputPath: z.string().optional(),
+  fullOutputError: z.string().optional(),
   matchLimitReached: z.number().optional(),
   resultLimitReached: z.number().optional(),
   entryLimitReached: z.number().optional(),
@@ -171,6 +172,9 @@ export function nativeResultNotices(details: unknown, expanded: boolean): Displa
   // Raw, so the card can match the call's saved path; rendering sanitises the value.
   if (data.fullOutputPath !== undefined)
     notices.push({ kind: "reference", label: "Saved output", value: data.fullOutputPath });
+  // Expanded output already ends with Pi's trailer, which gives the reason.
+  else if (data.fullOutputError !== undefined && !expanded)
+    warning(`Full output could not be saved: ${data.fullOutputError}`);
 
   if (data.matchLimitReached !== undefined) warning("Match limit reached.");
   if (data.resultLimitReached !== undefined) warning("Result limit reached.");

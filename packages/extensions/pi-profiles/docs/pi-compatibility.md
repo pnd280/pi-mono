@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-> Last verified against Pi 1.6.0 with the package checks, the offline host tests, and a source review of the 1.5.2 to 1.6.0 changes. Not covered: the offline SDK session that checked the order of the declared tools, which last ran on Pi 1.5.0; live providers; MCP servers; a terminal session of the installed CLI; and the manual checks, including the editor label.
+> Last verified against Pi 1.6.1 with the package checks, the offline host tests, and a source review of the 1.6.0 to 1.6.1 changes. Not covered: the offline SDK session that checked the order of the declared tools, which last ran on Pi 1.5.0; live providers; MCP servers; a terminal session of the installed CLI; and the manual checks, including the editor label.
 
 ## Checklist
 
@@ -13,7 +13,7 @@ The [adapter](../src/index.ts) relies on these contracts.
 - [ ] `ctx.modelRegistry.find()` resolves exact provider and model IDs.
 - [ ] `ctx.modelRegistry.hasConfiguredAuth()` and `pi.setModel()` report a provider without configured credentials.
 - [ ] `pi.setModel()` checks the credentials again (`checkAuth()`) and throws before it changes the model.
-- [ ] Neither credentials check runs a key command or refreshes a login.
+- [ ] `ctx.modelRegistry.hasConfiguredAuth()` reads Pi's availability snapshot. The later `checkAuth()` can resolve a stored key command without refreshing a stored OAuth login.
 - [ ] Pi awaits `before_agent_start` handlers before it reads the model and the active tools for a request (`_prepareRun()` in `agent-session.js`).
 - [ ] Pi places a `before_agent_start` handler's returned `message` after the run's starting message (`_prepareRun()` in `agent-session.js`), and saves it as a `custom_message` entry when it handles `message_end`, before the model responds.
 - [ ] Pi saves a `custom` draft that a `turn_end` handler returns after the turn's assistant message (`_dispatchTurnEndBoundary()` in `agent-session.js`). `/tree` or `/fork` to a `user` entry, and `/tree` to a `custom_message` entry, move the leaf to its parent (`navigateTree()` in `agent-session.js`).
@@ -114,6 +114,8 @@ The [menu](../src/menu.ts) relies on these contracts. The libs package owns the 
 - [ ] `pi.getAllTools()` returns each tool's `description` and `sourceInfo.path`.
 - [ ] `pi.getActiveTools()` returns only registered tools.
 
+Pi 1.6.1 adds `blockedKind` for native terminal dialogs. The profile and preset fallback lists do not set it. Pi's RPC `extension_ui_request` does not carry it, and the terminal browser does not use a native select dialog.
+
 ### Footer status
 
 The [adapter](../src/index.ts) shows the active MCP presets with these contracts.
@@ -135,11 +137,11 @@ The [adapter](../src/index.ts) and the [label](../src/editor-label.ts) rely on t
 
 A new `CustomEditor` with `embedWorkingStatus: true` draws the working status in its top border as Pi does.
 
-The label replaces `render` on the editor instance and returns a new array with a labelled first line. Public API parity is partial in Pi 1.6.0: a `CustomEditor` subclass can override the protected `renderTopBorder()`, but only when no earlier extension set an editor, so the label would no longer compose with that editor. A public editor border decoration, such as a label slot in `ctx.ui`, would replace the instance hook.
+The label replaces `render` on the editor instance and returns a new array with a labelled first line. Public API parity is partial in Pi 1.6.1: a `CustomEditor` subclass can override the protected `renderTopBorder()`, but only when no earlier extension set an editor, so the label would no longer compose with that editor. A public editor border decoration, such as a label slot in `ctx.ui`, would replace the instance hook.
 
 ## Limitations
 
-- In Pi 1.5.0 to 1.6.0, `pi.setActiveTools()` keeps the current order of the tools that stay active (`_applyToolLoadout()` in `agent-session.js`), so the extension no longer orders the declared tools. Tools that stay active keep their order, and newly active tools follow the order of the requested names. Only a call that turns tools off could reorder them. In Pi 1.5.0 to 1.5.2, that call drops Pi's pending tools; in Pi 1.6.0, only a call that turns off a tool of the restored or reloaded loadout does.
-- Pi 1.3.0 to 1.6.0 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
-- In Pi 1.3.0 to 1.6.0, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
+- In Pi 1.5.0 to 1.6.1, `pi.setActiveTools()` keeps the order of tools that remain active and appends newly active tools in the requested order. The extension therefore does not reorder declared tools. To reorder an active tool, a caller must turn it off and then turn it on again. In Pi 1.5.0 to 1.5.2, turning off any tool drops Pi's pending tools. In Pi 1.6.0 and 1.6.1, turning off a tool drops the pending tools only if the tool was part of the restored or reloaded loadout.
+- Pi 1.3.0 to 1.6.1 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
+- In Pi 1.3.0 to 1.6.1, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.
