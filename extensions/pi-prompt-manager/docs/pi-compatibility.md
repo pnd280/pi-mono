@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.5.2 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the randomised comparison of search scores with the installed `fuzzyMatch` and the interaction measurement, which both last ran on Pi 1.5.0; all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline or overlay browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
+> Last verified against Pi 1.6.1 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: the randomised comparison of search scores with the installed `fuzzyMatch` and the interaction measurement, which both last ran on Pi 1.5.0; all manual terminal checks, including the fullscreen remount between the 19-row inline and 18-row overlay layouts, literal-plus launch shortcuts, and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline or overlay browser at session replacement or `/reload`; delivery to the native clipboard, and Ctrl+Z with a clipboard owner; and platform checks.
 
 ## Checklist
 
@@ -33,7 +33,7 @@ Shortcuts are [lifecycle claims](../../../libs/src/lifecycle/phases.md#shortcut-
 The [editor host mapping](../src/index.ts) and the [source refusal](../src/manager.ts) protect the exact source and the user's concurrent edits.
 
 - [ ] `ctx.ui.getEditorText()` returns the editor text with pastes expanded.
-- [ ] `ctx.ui.setEditorText()` replaces the editor text, without submitting it or adding it to Pi's editor history.
+- [ ] `ctx.ui.setEditorText()` replaces the editor text and requests a render without submitting the text or adding it to Pi's editor history.
 
 ### Browser
 
@@ -52,12 +52,16 @@ The [editor host mapping](../src/index.ts) and the [source refusal](../src/manag
 
 [Native-only clipboard transport](../src/clipboard.ts), private storage, and capture exclusions are deliberate policies. Keep them when considering new host APIs or clipboard helpers.
 
-Like Pi 1.5.2's own clipboard commands (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
+Like the clipboard commands of Pi 1.5.2 to 1.6.1 (`utils/clipboard-command.js`), the native clipboard transport starts its helpers from `/`, because WSL cannot start `powershell.exe` when the path of the current directory is longer than the Windows `MAX_PATH` limit. If Pi changes that rule, compare the transport with it.
+
+In Pi 1.6.1, Pi passes `-t text/plain` to `wl-copy` to prevent MIME guessing. This extension already specifies `--type text/plain;charset=utf-8`.
 
 ### Search ranking
 
-Pi 1.5.2 `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
+In Pi 1.5.2 to 1.6.1, `fuzzyMatch` also scores each contiguous occurrence of a term and keeps the best score. Search ranking follows it, so the order of fuzzy results differs from Pi 1.4.0.
 
 ### Restoring
 
 [Restoring may normalise tabs and line endings](../README.md#restore-text). A lossless editor API can replace it only if terminal safety and the exact stored and copied source are kept.
+
+In Pi 1.6.1, `ctx.ui.setEditorText()` requests a render, including after an asynchronous command. Pi also moves repeated prompts to the most recent position in its native editor history. That history is separate from this extension's stored history.

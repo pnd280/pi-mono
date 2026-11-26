@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-This reference is for maintainers who change how a selection resolves, searches, or restores tools, or how the editor shows the profile name. The [user guide on tools](tools.md) describes what users see, and the [compatibility checklist](pi-compatibility.md) lists the Pi contracts that these rules rely on.
+This reference is for maintainers who change how a selection resolves, searches, or restores tools, how MCP presets combine with a profile, or how the editor shows the profile name. The [user guide on tools](tools.md) describes what users see, and the [compatibility checklist](pi-compatibility.md) lists the Pi contracts that these rules rely on.
 
 ## Tool resolution
 
@@ -18,7 +18,15 @@ Keep the extension's `tool_search` Pi's own tool from `createToolSearchExtension
 
 Restore only what Pi doesn't. [Pi compatibility](pi-compatibility.md#restoration) lists what Pi restores on resume, `/fork`, `/tree`, and `/reload`; [sessions](sessions.md#restoration) gives what the extension restores, and [testing](testing.md#restoration) the invariants that the tests protect.
 
-Set restored tools only when they change. A call that turns off a tool drops Pi's pending tools.
+Set restored tools only when they change. A call that turns off a restored tool drops Pi's pending tools. On resume, `/fork`, and `/tree`, when no request followed the selection, restoration starts from `selection.tools` and keeps active `direct` and `model-only` tools that the selection did not know unless the profile denies them, so an unchanged MCP preset server's direct tools stay declared across `/tree`; see [MCP presets](#mcp-presets).
+
+## MCP presets
+
+The [presets](../src/presets.ts) module owns the preset rules: the preset resolution, the effective servers, the namespace clashes, the toggle, the `--mcp-presets` parsing, the restoration of saved presets, and the server plan, `planServers`. The [adapter](../src/index.ts) keeps the active presets and runs the unregistrations of each plan, for removed and changed servers, before its registrations, so that a preset server can replace a profile server in its namespace; [MCP servers](pi-compatibility.md#mcp-servers) lists the Pi contract that frees the namespace.
+
+- Write a `pi-profiles.mcp-presets` entry only when a toggle, the profile, or an applicable `--mcp-presets` flag supplies a preset choice, never when a switch keeps the active presets, as for a profile without `mcpPresets` or a `defaultProfile` on a branch with saved presets. [Sessions](sessions.md#restoration) and [testing](testing.md#mcp-presets) give the secret-free entry contract.
+- Resolve a profile's `mcpPresets` after the global and project presets merge, so that a project preset that replaces a global one takes part in the profile's validation.
+- Pass an applicable `--mcp-presets` list into the startup switch through `PresetPolicy`, instead of letting the startup profile connect its own presets first, and save the flag's presets also when the startup profile does not apply. Show restoration warnings only when the restored presets stay active; see [startup MCP presets](sessions.md#startup-mcp-presets).
 
 ## Editor
 

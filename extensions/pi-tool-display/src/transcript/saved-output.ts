@@ -21,11 +21,14 @@ export class SavedOutputs {
 
   constructor(private coordinator: TranscriptCoordinator) {}
 
-  /** Keep the saved path from Pi's result details when the call's adapter shows saved output. */
+  /**
+   * Keep the saved path from Pi's result details when the call's adapter shows saved output. A path in a progress update is provisional: Pi replaces it with `fullOutputError` when saving fails, and the call then has no saved output.
+   */
   retain(call: DisplayCall, result: BorrowedToolResult): void {
     if (!call.adapter.savedOutput) return;
-    const path = record(result.details).fullOutputPath;
+    const { fullOutputPath: path, fullOutputError } = record(result.details);
     if (typeof path === "string") this.coordinator.setSavedPath(call, path);
+    else if (typeof fullOutputError === "string") this.coordinator.setSavedPath(call, undefined);
   }
 
   /** The coordinator's hook: the call's saved path, expansion, or completion changed. */

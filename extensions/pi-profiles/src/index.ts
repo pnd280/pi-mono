@@ -16,12 +16,28 @@ import { splitModelReference } from "@pi-mono/utils/model-reference";
 import { labelBorder } from "./editor-label.ts";
 import type { MenuData } from "./menu.ts";
 import {
+  CLEAR,
+  effectiveServers,
+  latestPresets,
+  parsePresetsFlag,
+  planServers,
+  PRESETS_ENTRY,
+  presetsEntry,
+  presetSummary,
+  profilePresets,
+  restorePresets,
+  togglePreset,
+  type PresetsEntry
+} from "./presets.ts";
+import {
   enforcedTools,
   latestSelection,
   planRestore,
-  planServers,
   planSwitch,
+  profileNotice,
   reportTools,
+  RUN_ENTRY,
+  runRecord,
   searchableTools,
   selectedProfile,
   SELECTION_ENTRY,
@@ -29,9 +45,11 @@ import {
   type Rules,
   type Selection
 } from "./selection.ts";
-import { CLEAR, loadProfiles, type Profile, type ProfileConfig } from "./settings.ts";
+import { loadProfiles, type McpPreset, type Profile, type ProfileConfig } from "./settings.ts";
 
 const ID = "pi-profiles";
+/** The footer status that lists the active MCP presets; pi-editor-widgets shows it as `status:pi-profiles.mcp-presets`. */
+const PRESETS_STATUS = "pi-profiles.mcp-presets";
 /** After pi-model-prompt (`100`), so the profile's prompts follow the model's text. */
 const PROMPT_RANK = 200;
 /** After pi-nested-instructions (`100`), so the selection entry follows its startup messages. */
@@ -41,6 +59,13 @@ const STARTUP_RANK = 200;
 const importMenu = () => import("./menu.ts");
 let menuModule: ReturnType<typeof importMenu> | undefined;
 const loadMenu = () => (menuModule ??= importMenu());
+
+/**
+ * How a switch changes the active presets: to the profile's `mcpPresets` when it has them, not at all, or to the given presets.
+ */
+type PresetPolicy = { kind: "profile" } | { kind: "keep" } | { kind: "set"; presets: McpPreset[] };
+
+const PROFILE_PRESETS: PresetPolicy = { kind: "profile" };
 
 /** Without a UI, errors go to stderr, so a run with an unusable `--profile` does not fail silently. */
 function reportError(ctx: ExtensionContext, message: string): void {
@@ -67,6 +92,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
    * The MCP servers that the extension registered, by name. Pi loads the extension again with each session and on `/reload`, and drops the registrations of the previous load.
    */
   const servers = new Map<string, McpServerConfig>();
+  /** The active MCP presets, in settings declaration order. The branch's latest presets entry saves them. */
+  let presets: McpPreset[] = [];
 
   // Registering a `tool_search` while loading makes Pi skip its built-in one. This copy of Pi's tool sees the profile's deferred tools as `deferred`, so it loads them with their whole groups. Always register it: loading extensions get no trust decision, so settings cannot show whether a project profile defers tools.
   await createToolSearchExtension()({
@@ -81,6 +108,11 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
   pi.registerFlag("profile", {
     description: `Profile for this run, or ${CLEAR} for no profile`,
+    type: "string"
+  });
+
+  pi.registerFlag("mcp-presets", {
+    description: `MCP presets for this run (comma-separated), or ${CLEAR} for none`,
     type: "string"
   });
 
@@ -113,11 +145,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
       editor.render = (width) => {
         const lines = render(width);
-        const [top] = lines;
-        if (label !== undefined && top !== undefined)
-          lines[0] = labelBorder(top, label, (text) => editor.borderColor?.(text) ?? text);
+        const [top, ...rest] = lines;
+        if (label === undefined || top === undefined) return lines;
 
-        return lines;
+        return [labelBorder(top, label, (text) => editor.borderColor?.(text) ?? text), ...rest];
       };
 
       requestRender = () => tui.requestRender();
@@ -155,11 +186,39 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     return model && ctx.modelRegistry.hasConfiguredAuth(model) ? model : undefined;
   }
 
+  /** Makes the presets active and shows them in the footer, without saving them. */
+  function showPresets(active: McpPreset[], ctx: ExtensionContext): void {
+    presets = active;
+    if (ctx.mode !== "tui") return;
+    const names = active.map(({ name }) => name).join(", ");
+    ctx.ui.setStatus(
+      PRESETS_STATUS,
+      active.length > 0 ? ctx.ui.theme.fg("dim", compactDisplayText(`MCP: ${names}`)) : undefined
+    );
+  }
+
+  /** Saves the presets on the branch and makes them active. The caller registers their servers. */
+  function savePresets(active: McpPreset[], ctx: ExtensionContext): void {
+    pi.appendEntry<PresetsEntry>(PRESETS_ENTRY, presetsEntry(active));
+    showPresets(active, ctx);
+  }
+
+  /** Makes the branch's saved presets active, without saving them. Returns the restoration's warnings. */
+  function restorePresetsOf(
+    ctx: ExtensionContext,
+    saved = latestPresets(ctx.sessionManager.getBranch())
+  ): string[] {
+    const restored = restorePresets(saved, config?.mcpPresets ?? []);
+    showPresets(restored.active, ctx);
+
+    return restored.warnings;
+  }
+
   /**
-   * Registers the profile's MCP servers, and unregisters the others, so that only the selected profile's servers connect. A server that Pi refuses is left out, with an error.
+   * Registers the profile's and the active presets' MCP servers, and unregisters the others, so that only those servers connect. A server that Pi refuses is left out, with an error.
    */
   function selectServers(profile: Profile | undefined, ctx: ExtensionContext): void {
-    const plan = planServers(servers, profile?.mcpServers);
+    const plan = planServers(servers, effectiveServers(profile?.mcpServers, presets));
 
     for (const name of plan.unregister) {
       pi.unregisterMcpServer(name);
@@ -177,12 +236,13 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   /**
-   * Without a profile, the model and thinking level stay, and the previous profile's tool changes and MCP servers are undone. `source` prefixes notices for switches that the user did not request. Resolves whether the profile applied.
+   * Without a profile, the model and thinking level stay, and the previous profile's tool changes and MCP servers are undone. `source` prefixes notices for switches that the user did not request. `presetPolicy` decides the active presets, which follow the profile's `mcpPresets` unless startup keeps the saved presets or applies `--mcp-presets`. Resolves whether the profile applied.
    */
   async function switchTo(
     profile: Profile | undefined,
     ctx: ExtensionContext,
-    source = ""
+    source = "",
+    presetPolicy = PROFILE_PRESETS
   ): Promise<boolean> {
     if (session.signal.aborted) return false;
 
@@ -196,7 +256,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     }
 
     let applied = false;
-    switching = apply(profile, ctx, source)
+    switching = apply(profile, ctx, source, presetPolicy)
       .then((result) => {
         applied = result;
       })
@@ -213,7 +273,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   async function apply(
     profile: Profile | undefined,
     ctx: ExtensionContext,
-    source: string
+    source: string,
+    presetPolicy: PresetPolicy
   ): Promise<boolean> {
     if (profile?.model) {
       const model = profileModel(profile.model, ctx);
@@ -239,7 +300,13 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const result = plan.settle(pi.getActiveTools());
     rules = result.rules;
     pi.appendEntry<Selection>(SELECTION_ENTRY, result.entry);
-    // After the tools: a call that turns off a tool drops the pending tools of connecting servers.
+    // A profile without `mcpPresets`, and no profile, keep the active presets.
+    let active: McpPreset[] | undefined;
+    if (presetPolicy.kind === "set") active = presetPolicy.presets;
+    else if (presetPolicy.kind === "profile")
+      active = profilePresets(profile, config?.mcpPresets ?? []);
+    if (active) savePresets(active, ctx);
+    // After the tools: a call that turns off a restored tool drops the pending tools of connecting servers.
     selectServers(profile, ctx);
     showLabel(profile?.name);
     const title = profile ? `Profile ${profile.name}` : "No profile";
@@ -266,31 +333,87 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     return plan.selection;
   }
 
-  /** Restores the session's selection, then applies `--profile` or the default profile. */
+  /** The presets that a valid `--mcp-presets` value turns on. Only startup reports an invalid value. */
+  function flagPresets(
+    reason: SessionStartEvent["reason"],
+    loaded: ProfileConfig,
+    ctx: ExtensionContext
+  ): McpPreset[] | undefined {
+    const flag = pi.getFlag("mcp-presets");
+    if (typeof flag !== "string") return undefined;
+    const parsed = parsePresetsFlag(flag, loaded.mcpPresets);
+    if ("presets" in parsed) return parsed.presets;
+    if (reason === "startup")
+      reportError(
+        ctx,
+        `--mcp-presets ignored: ${parsed.error}; use comma-separated preset names or ${CLEAR}`
+      );
+
+    return undefined;
+  }
+
+  /**
+   * The profile that `--profile` or the default profile switches to when the session starts, if any. `replacesSaved` is true for `--profile` when Pi starts, which replaces the branch's saved state.
+   */
+  function startTarget(
+    reason: SessionStartEvent["reason"],
+    selection: Selection | undefined,
+    loaded: ProfileConfig,
+    ctx: ExtensionContext
+  ): { profile: Profile | undefined; source: string; replacesSaved: boolean } | undefined {
+    const flag = pi.getFlag("profile");
+    const requested = typeof flag === "string" ? choose(flag) : undefined;
+    if (typeof flag === "string" && !requested && reason === "startup")
+      reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
+
+    // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such as after /new, keep theirs, and use `--profile` in place of the default profile.
+    if (requested && (reason === "startup" || !selection))
+      return { profile: requested.profile, source: "", replacesSaved: reason === "startup" };
+
+    if (!selection) {
+      // Print, JSON, and RPC runs, such as subagents, apply no default profile, so a branch without a selection keeps the model and tools it was given.
+      return ctx.mode === "tui" && loaded.defaultProfile
+        ? { profile: loaded.defaultProfile, source: "pi-profiles: ", replacesSaved: false }
+        : undefined;
+    }
+
+    if (selection.name !== undefined && !selected(selection))
+      ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
+
+    return undefined;
+  }
+
+  /**
+   * Restores the session's selection and presets, then applies `--profile` or the default profile, and `--mcp-presets`.
+   */
   async function startProfile(
     reason: SessionStartEvent["reason"],
     loaded: ProfileConfig,
     ctx: ExtensionContext
   ): Promise<void> {
     const selection = restoreTools(ctx, reason === "reload");
-    const flag = pi.getFlag("profile");
-    const requested = typeof flag === "string" ? choose(flag) : undefined;
-    let applied = false;
-    if (typeof flag === "string" && !requested && reason === "startup")
-      reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
+    const saved = latestPresets(ctx.sessionManager.getBranch());
+    const savedPresets = saved !== undefined;
+    const presetWarnings = restorePresetsOf(ctx, saved);
+    const target = startTarget(reason, selection, loaded, ctx);
+    // Like `--profile`, `--mcp-presets` replaces saved presets only when Pi starts.
+    const flagged =
+      reason === "startup" || !savedPresets ? flagPresets(reason, loaded, ctx) : undefined;
 
-    if (requested && (reason === "startup" || !selection)) {
-      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such as after /new, keep theirs, and use `--profile` in place of the default profile.
-      applied = await switchTo(requested.profile, ctx);
-    } else if (!selection) {
-      // Print, JSON, and RPC runs, such as subagents, apply no default profile, so a branch without a selection keeps the model and tools it was given.
-      if (ctx.mode === "tui" && loaded.defaultProfile)
-        applied = await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
-    } else if (selection.name !== undefined && !selected(selection)) {
-      ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
-    }
+    // `--mcp-presets` takes the place of the profile's `mcpPresets`, so their servers never connect. Only `--profile` when Pi starts replaces the saved presets with the profile's: the default profile, and `--profile` in a later session, keep them.
+    let policy: PresetPolicy = PROFILE_PRESETS;
+    if (flagged !== undefined) policy = { kind: "set", presets: flagged };
+    else if (savedPresets && !target?.replacesSaved) policy = { kind: "keep" };
+    const applied = target ? await switchTo(target.profile, ctx, target.source, policy) : false;
+    // A profile that cannot apply leaves `--mcp-presets` in force.
+    if (!applied && flagged !== undefined) savePresets(flagged, ctx);
+    const replaced =
+      flagged !== undefined ||
+      (applied && policy.kind === "profile" && target?.profile?.mcpPresets !== undefined);
+    if (!replaced)
+      for (const warning of presetWarnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
 
-    // A switch registers its profile's servers. Otherwise the restored selection's servers register.
+    // A switch registers its profile's and presets' servers. Otherwise the restored selection's servers register.
     if (!applied) selectServers(selected(selection), ctx);
   }
 
@@ -328,6 +451,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   pi.on("session_tree", (_event, ctx) => {
     const selection = restoreTools(ctx, false, treeSelection);
     treeSelection = undefined;
+    for (const warning of restorePresetsOf(ctx))
+      ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
     selectServers(selected(selection), ctx);
   });
 
@@ -339,7 +464,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   // Before any extension awaits its shutdown work, no new switch starts and the menu closes. The switch in progress still saves its selection.
   lifecycle.onSessionShutdown(
     () => session.abort(),
-    () => switching
+    async (_event, ctx) => {
+      await switching;
+      if (ctx.mode === "tui") ctx.ui.setStatus(PRESETS_STATUS, undefined);
+    }
   );
 
   // The coordinator calls parts after every hold, such as a switch, has settled.
@@ -354,15 +482,22 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   // The run's first request declares the tools that are active when before_agent_start ends.
-  pi.on("before_agent_start", async () => {
+  pi.on("before_agent_start", async (_event, ctx) => {
     // A run that starts during a switch uses the profile's tools.
     await switching;
     enforceTools();
+    const message = profileNotice(ctx.sessionManager.getBranch(), config?.profiles ?? []);
+
+    return message && { message };
   });
 
   // A later request declares the tools that are active when the previous turn ends. Pi takes them before turn_start, so a change in turn_start reaches only the request after.
-  pi.on("turn_end", () => {
+  pi.on("turn_end", (event, ctx) => {
     enforceTools();
+    // After the turn's response, so the record leaves the branch with the run, as on `/tree` to its prompt.
+    const data = runRecord(ctx.sessionManager.getBranch(), config?.profiles ?? []);
+
+    return data && { entries: [...event.entries, { type: "custom", customType: RUN_ENTRY, data }] };
   });
 
   /** The configured profiles, then `clear` for no profile. */
@@ -450,6 +585,138 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       else
         ctx.ui.notify(
           `Usage: /profile <name> or /profile ${CLEAR}; no profile has that name`,
+          "error"
+        );
+    }
+  });
+
+  /** Like a switch, a preset change is refused while the agent runs or a switch is in progress. */
+  function canChangePresets(ctx: ExtensionContext): boolean {
+    if (session.signal.aborted) return false;
+    if (ctx.isIdle() && !switching) return true;
+    ctx.ui.notify(
+      "MCP presets cannot change while the agent runs or a profile switch is in progress",
+      "warning"
+    );
+
+    return false;
+  }
+
+  /** Saves the presets and registers the servers of the selected profile and the presets. */
+  function changePresets(active: McpPreset[], ctx: ExtensionContext): void {
+    savePresets(active, ctx);
+    selectServers(selected(currentSelection(ctx)), ctx);
+  }
+
+  const activeNames = () =>
+    presets.length > 0 ? presets.map(({ name }) => name).join(", ") : "none";
+
+  /** Turns the preset on or off, unless it clashes with an active preset. */
+  function toggle(preset: McpPreset, ctx: ExtensionContext): void {
+    if (!canChangePresets(ctx)) return;
+    const result = togglePreset(preset, presets, config?.mcpPresets ?? []);
+
+    if (!result.active) {
+      const { conflict } = result;
+      ctx.ui.notify(
+        displayText(
+          `MCP preset ${preset.name} not turned on: its server ${conflict.server} clashes with server ${conflict.other} of active preset ${conflict.preset.name}. Turn that preset off first.`
+        ),
+        "warning"
+      );
+
+      return;
+    }
+
+    changePresets(result.active, ctx);
+    ctx.ui.notify(
+      displayText(
+        `MCP preset ${preset.name} ${result.enabled ? "on" : "off"}; active presets: ${activeNames()}`
+      ),
+      "info"
+    );
+  }
+
+  function clearPresets(ctx: ExtensionContext): void {
+    if (!canChangePresets(ctx)) return;
+    changePresets([], ctx);
+    ctx.ui.notify("MCP presets cleared", "info");
+  }
+
+  /** The configured presets, then `clear` for none. */
+  const presetChoices = () => [
+    ...(config?.mcpPresets ?? []).map((preset) => ({
+      name: preset.name,
+      description: compactDisplayText(presetSummary(preset)),
+      preset
+    })),
+    { name: CLEAR, description: "No MCP presets", preset: undefined }
+  ];
+
+  pi.registerCommand("mcp-presets", {
+    description: "Turn MCP presets on or off",
+    getArgumentCompletions: (prefix) => {
+      const typed = prefix.trim();
+      const list = presetChoices();
+      // An exact argument must submit, rather than accepting an identical completion first.
+      if (list.some(({ name }) => name === typed)) return null;
+
+      return list
+        .filter(({ name }) => name.startsWith(typed))
+        .map(({ name, description }) => ({ value: name, label: name, description }));
+    },
+    handler: async (args, ctx) => {
+      let name = args.trim();
+      const all = config?.mcpPresets ?? [];
+
+      // `clear` still turns off presets after they were removed from settings.
+      if (all.length === 0 && name !== CLEAR) {
+        ctx.ui.notify("No MCP presets are configured", "warning");
+
+        return;
+      }
+
+      if (name === "" && ctx.mode === "tui") {
+        // Read before the import: the session can end while the menu loads.
+        const { ui } = ctx;
+        const { signal } = session;
+
+        const { openPresetMenu } = await loadMenu();
+        await openPresetMenu({
+          ui,
+          signal,
+          presets: all,
+          state: () => ({ active: presets, profile: selected(currentSelection(ctx)) }),
+          onToggle: (preset) => toggle(preset, ctx),
+          notify: (message, type) => ui.notify(message, type)
+        });
+
+        return;
+      }
+
+      if (name === "" && ctx.hasUI) {
+        const list = presetChoices();
+        const options = list.map(({ name: choice, description, preset }) =>
+          preset
+            ? `[${presets.includes(preset) ? "x" : " "}] ${choice}: ${description}`
+            : `${choice}: ${description}`
+        );
+        const choice = await ctx.ui.select("MCP presets", options, { signal: session.signal });
+        if (choice === undefined) return;
+        name = list[options.indexOf(choice)]?.name ?? "";
+      }
+
+      if (name === CLEAR) {
+        clearPresets(ctx);
+
+        return;
+      }
+
+      const preset = all.find((candidate) => candidate.name === name);
+      if (preset) toggle(preset, ctx);
+      else
+        ctx.ui.notify(
+          `Usage: /mcp-presets <name> or /mcp-presets ${CLEAR}; no MCP preset has that name`,
           "error"
         );
     }

@@ -18,6 +18,7 @@ When a tool is not the verified tool that a card expects, it keeps its own rende
 | `pi-subagents`                                                           | [Subagents](#subagents)                     |
 | `pi-todo`                                                                | [Todo](#todo)                               |
 | `pi-nested-instructions`                                                 | [Nested instructions](#nested-instructions) |
+| Status messages from `pi-smart-compact` and `pi-profiles`                | [Status rows](#status-rows)                 |
 
 ## Native tools
 
@@ -25,8 +26,10 @@ Pi's own tools get shell previews with status and duration, file diffs, and grou
 
 - Observed shells show the recorded status and Pi's measured duration. A missing exit code stays unknown. Output text alone never sets the status.
 - Image omission warnings and fallbacks stay visible when Pi cannot display images.
+- When the model cannot take images, collapsed and expanded read cards warn that it saw a placeholder instead of the image.
 - Pi's read continuation and byte-limit instructions stay visible in compact cards and groups, including fractional, negative, and exponent-form continuation values. Expansion shows them once, in the retained text.
 - When Pi truncated the output, compact cards add a "Tool output truncated by pi; expand to inspect retained output." warning. Expanded cards omit it.
+- When Pi could not save the full output of a truncated shell result, compact cards add a "Full output could not be saved: …" warning with Pi's reason. Expanded cards show the reason once, in Pi's trailer.
 - Diagnostic bodies and failure markers use error styling, without recolouring the process output before them.
 - Text that exactly matches one of Pi's generated placeholders, trailers, or truncation notices looks like the generated text and gets its styling. It never changes the call's outcome. Similar phrases inside the content of a read file stay ordinary text.
 
@@ -43,11 +46,17 @@ Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted 
 - The output follows without Pi's `Script completed` or `Script failed` header when that header is the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output.
 - When Pi truncated the output and saved it, compact cards add a "Script output truncated; expand to inspect retained output." warning and a "Saved output" reference, like MCP cards. Expanded output already ends with Pi's reference.
 
-In summary lines, each script counts once as `ran 1 script`, with failures as `(1 failed)`. The calls that a script makes do not count, because they never reach the transcript and their truncated argument previews cannot identify files.
+In summary lines, each script counts once as `ran 1 script`, with failures as `(1 failed)`. Its nested `edit` and `write` calls, at any depth, also count as created or edited files, and join the [changed files](presentation.md#changed-files) list:
+
+- They count only while the session's `edit` and `write` are Pi's verified native tools, also on replay.
+- Each call keeps the outcome in Pi's record of the script's calls. A successful write counts as a success even when the script later fails or is cancelled. A call still running when the script ended counts as cancelled, unless observation saw its change applied before the script's result.
+- Files come from Pi's record of the script's calls, or from native observation when Pi dropped a call's arguments over its size limits. A call that names no file counts once, without a row.
+- Creations and line counts come from native observation, or for a created file's lines from Pi's record of its content. A call that observation did not see, such as one from a session saved before this feature, counts as edited, without line counts.
+- Other nested calls, such as reads and shell commands, do not count.
 
 Limits:
 
-- Edits that a script makes show no diffs, because their changes are not observed.
+- Edits that a script makes show no diffs, on its card or in summary lines.
 - A result without a valid call list shows no call list.
 
 ## MCP tools
@@ -68,7 +77,7 @@ Limits:
 
 - The resource tools `list_mcp_resources`, `list_mcp_resource_templates`, and `read_mcp_resource` get generic cards.
 - Calls made inside codemode scripts appear only in the [codemode](#codemode) card's call list.
-- In Pi 1.5.2, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
+- In Pi 1.5.2 to 1.6.1, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
 
 ## Tool search
 
@@ -131,7 +140,7 @@ Selective reads from [`pi-read`](../../pi-read/README.md) group like native read
 
 ## Smart compact
 
-Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. Its context status messages appear as one-line rows.
+Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. Its context status messages appear as [status rows](#context-status-rows).
 
 Both cards hide raw parameters by default, also on expansion. `showParameters: true` shows them. The compaction focus stays visible either way. Without a current verified tool definition, the calls get generic cards.
 
@@ -152,13 +161,6 @@ Both cards hide raw parameters by default, also on expansion. `showParameters: t
 - Valid token counts, context window, and percentage give a compact usage summary.
 - Unknown token usage stays unknown. A missing percentage is not calculated, and usage over capacity is not clamped.
 - Invalid details and errors keep the original text and diagnostics. Expansion shows the raw result.
-
-### Context status rows
-
-- A context status reads "Context usage" followed by the same usage summary as the context-window card, such as `152,340 / 200,000 tokens · 76.17% used`. The row omits the conversation model and the model that supplied the count.
-- The row stands alone, like other visible custom messages: it splits a run of tool cards, and summary lines do not count it.
-- A row wider than the terminal wraps beneath its label. Expansion does not change it.
-- Invalid or missing details keep Pi's default message box with the original text.
 
 ## Subagents
 
@@ -246,14 +248,42 @@ Todo calls add no items to [summary lines](presentation.md#notices-and-todo-call
 
 ## Nested instructions
 
-Instruction notices from [`pi-nested-instructions`](../../pi-nested-instructions/README.md) appear as compact cards that expand to the instruction text.
+Instruction notices and skill listings from [`pi-nested-instructions`](../../pi-nested-instructions/README.md) appear as compact cards. A notice expands to the instruction text, and a listing expands to the names and descriptions of its skills.
 
 - Collapsed notices show `Loaded instructions`, `Updated instructions`, or `Removed instructions` and a path, in the shared [card style](presentation.md#card-layout). Paths wrap like card targets, in their saved cwd-relative spelling.
-- Expand with Pi's tool-output shortcut (default **Ctrl+O**), or click the header in fullscreen, to read the formatted Markdown.
+- Collapsed listings show `Listed skills` or `Updated skills` with the number of skills, or `Removed skills`, and the directory, which wraps like a notice path.
+- Expand with Pi's tool-output shortcut (default **Ctrl+O**), or click the header in fullscreen, to read a notice's formatted Markdown or a listing's skills.
 - Only header clicks toggle the card. Selection and scrolling in the body stay native.
-- Notices with invalid details show their text beneath a generic heading.
-- Notices join runs and separate exploration groups as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
-- Valid notices add loaded, updated, and removed counts to the run's summary line. Each file path, or directory for removals, counts once per action within the run. Invalid and standalone notices add no counts to another run.
+- Notices and listings with invalid details show their text beneath a generic heading.
+- Notices and listings join runs and separate exploration groups as [notices in runs](presentation.md#notices-and-todo-calls-in-runs) describes.
+- Valid notices add loaded, updated, and removed counts to the run's summary line. Each file path, or directory for removals, counts once per action within the run. Invalid and standalone notices and listings add no counts to another run.
+- Valid listings add counts such as `listed skills in 1 dir` in the same way, with separate counts for updated and removed listings. Each directory counts once per action within the run.
 - Tool `rendererOverrides` and `showParameters` do not apply.
-- Saved notices render even without pi-nested-instructions loaded. Without pi-tool-display, Pi shows the full messages in its default renderer.
+- Saved notices and listings render even without pi-nested-instructions loaded. Without pi-tool-display, Pi shows the full messages in its default renderer.
 - Custom rendering does not change model context or HTML export.
+
+## Status rows
+
+Context status messages from [pi-smart-compact](../../pi-smart-compact/README.md) and profile change notices from [pi-profiles](../../pi-profiles/docs/switching.md#profile-change-notices) appear as compact rows that wrap in narrow terminals. Each row shows a `•` marker, a bold label, and the message text.
+
+- The row stands alone, like other visible custom messages: it splits a run of tool cards, and summary lines do not count it.
+- A row wider than the terminal wraps beneath its label. When the terminal is too narrow for the indent and the row's widest character, wrapped text starts at the left edge instead.
+- Expansion does not change the row.
+- Invalid or missing details keep Pi's default message box with the original text.
+- Saved rows render even without the producing extension loaded.
+
+### Context status rows
+
+A context status reads "Context usage" followed by the same usage summary as the [context-window card](#context-window-cards), such as `152,340 / 200,000 tokens · 76.17% used`. The row omits the conversation model and the model that supplied the count.
+
+### Profile change rows
+
+A profile change notice reads "Profile" followed by the transition:
+
+| Change                                                                       | Row                                      |
+| ---------------------------------------------------------------------------- | ---------------------------------------- |
+| A switch between two profiles                                                | `Profile build → plan`                   |
+| A switch from no profile                                                     | `Profile plan`                           |
+| A switch to no profile                                                       | `Profile cleared (was plan)`             |
+| The active profile is no longer available                                    | `Profile unavailable (was plan)`         |
+| A switch between profiles that share a name across global and project scopes | `Profile plan (global) → plan (project)` |

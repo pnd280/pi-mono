@@ -25,4 +25,4 @@ While the agent works, the working message refreshes the rate once a second in w
 
 ## Commands
 
-`ran N commands` counts each `bash` call the agent made once, including failed, cancelled, or blocked calls. Commands inside a script don't count separately, and commands you run yourself with `!` or `!!` are excluded.
+`ran N commands` counts each `bash` call the agent made once, including failed, cancelled, or blocked calls. From Pi 1.6.0, this includes `bash` calls that an abort skipped before they ran: Pi reports each one with an "Operation aborted" result. Commands inside a script don't count separately, and commands you run yourself with `!` or `!!` are excluded.

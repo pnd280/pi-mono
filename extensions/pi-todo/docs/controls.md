@@ -16,7 +16,7 @@ You read todos in the `/todos` browser and the widget, and the `ext.pi-todo` set
 | **PageUp**, **PageDown** | Move the selection, or scroll details. |
 
 - **Ctrl+C** never closes the browser.
-- The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.5.2 can't use modified Escape bindings.
+- The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.6.1 can't use modified Escape bindings.
 - The footer keeps back or close first when space is limited. An empty list shows only the close hint.
 
 ### Fullscreen mode

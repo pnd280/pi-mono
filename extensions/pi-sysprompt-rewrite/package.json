@@ -1,14 +1,18 @@
 {
-  "name": "pi-prompt-cloak",
+  "name": "pi-sysprompt-rewrite",
   "version": "0.1.0",
   "private": true,
-  "description": "Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers",
+  "description": "Rewrites system prompt sections with regex rules, and can move Pi's docs section to a temporary file",
   "keywords": [
     "pi-package"
   ],
   "type": "module",
   "exports": {
     ".": "./index.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

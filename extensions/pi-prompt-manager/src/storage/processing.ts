@@ -58,7 +58,7 @@ class CollectionWorker {
     signal?.throwIfAborted();
     clearTimeout(this.idle);
     const worker = (this.worker ??= new Worker(new URL("./collection-worker.ts", import.meta.url), {
-      execArgv: ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"]
+      execArgv: ["--experimental-strip-types", "--disable-warning=ExperimentalWarning"]
     })
       .on("error", () => {
         this.stop(worker);

@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-> Last verified against Pi 1.5.2 with the package checks, offline tests, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the `validateToolArguments` probe of the model-facing schema, which last ran on Pi 1.5.1; manual terminal checks.
+> Last verified against Pi 1.6.1 with the package checks, offline tests, and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: the `validateToolArguments` probe of the model-facing schema, which last ran on Pi 1.5.1; manual terminal checks.
 
 ## Upgrade procedure
 
@@ -39,6 +39,6 @@ The [browser controls](controls.md#the-todos-browser) describe what users see.
 
 ## Limitations
 
-- Pi 1.5.2 validates the model-facing schema with `@earendil-works/pi-schema` coercion before execution. Numeric strings become numbers, a single ID becomes a one-item `blockedBy` array, and a real `null` in an optional non-nullable field is dropped. A real `null` `parentId` stays `null`, because the schema accepts it, so it still means a root or a detach. The text `"null"` for `parentId` fails validation. Pi validates a copy, so the saved tool call keeps the model's arguments; replay reads only result snapshots.
+- In Pi 1.5.2 to 1.6.1, Pi coerces and validates the model-facing schema with `@earendil-works/pi-schema` before execution. Numeric strings become numbers, a single ID becomes a one-item `blockedBy` array, and a real `null` in an optional non-nullable field is dropped. A real `null` `parentId` stays `null`, because the schema accepts it, so it still means a root or a detach. The text `"null"` for `parentId` fails validation. Pi validates a copy, so the saved tool call keeps the model's arguments; replay reads only result snapshots.
 - The `/todos` browser is a read-only view, not a prompt, so it does not set the [`blocked` option](../../../libs/docs/pi-compatibility.md#limitations) of `ctx.ui.custom()`.
 - The shared [working-message composition](../../../libs/src/working-message/README.md#behaviour) can't stop extensions that don't use it from overwriting the message.

@@ -55,9 +55,9 @@ Callbacks should return `undefined`, or reject through `supports`, rather than t
 
 Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. For the subagent tool and session-message contracts, see the [subagent adapter](../src/adapters/pi-subagents/README.md#compatibility-and-selection).
 
-The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) derives summary categories and identities from validated notice details. Its [notice card renderer](../src/rendering/notice.ts) lives with the other card layout, so notice paths share target wrapping. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
+The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) derives summary categories and identities from validated notice and skill listing details. Its [card renderers](../src/rendering/notice.ts) live with the other card layout, so their paths share target wrapping. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
 
-The [pi-smart-compact adapter](../src/adapters/pi-smart-compact/README.md#compatibility-and-registration) renders context status messages as [standalone rows](tools.md#context-status-rows), which need no host handling.
+The [pi-smart-compact adapter](../src/adapters/pi-smart-compact/README.md#compatibility-and-registration) and [pi-profiles adapter](../src/adapters/pi-profiles/README.md#compatibility-and-registration) render status messages as [standalone rows](tools.md#status-rows), which need no host handling.
 
 ## Recognise tool contracts
 

@@ -18,6 +18,7 @@ The `compact` tool asks Pi to compact; it does not confirm that compaction succe
 - An explicit request ignores the automatic token threshold and `compaction.enabled`, without changing them.
 - `session_before_compact` handlers from other extensions can still cancel compaction or supply their own summaries.
 - SDK callers must await each manual compaction before they start another. Concurrent calls can fail in Pi's native compaction state.
+- On GPT-6.2 models, OpenAI can discard replayed reasoning when compaction changes earlier input, including during a task. To see new drops that OpenAI reports, turn on `notices.reasoningDrops` in Pi's settings. It is off by default. A notice can read `OpenAI dropped 2 reasoning items: prefix_mismatch (details in session)`. See [dropped reasoning](pi-compatibility.md#limitations).
 
 ## Failed attempts
 

@@ -25,7 +25,7 @@ type Dispatcher = {
 const dispatchers = new WeakMap<ListenerCollection, Dispatcher>();
 const ownedDispatchers = new WeakSet<TuiInputListener>();
 
-// Pi's private overlay-restore query, reviewed against Pi 1.5.2's API build and bundled CLI. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with this method.
+// Pi's private overlay-restore query, reviewed against Pi 1.6.1's API build and bundled CLI. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with this method.
 const restoreFingerprints = new Set([
   "8915acfd27b165b5265683a8097d2be2f182684a3768b1cf972568a61d5a15c4",
   "57aad4c3b049665dbac2c1b6deeae4dc3b072b05f04e44550900a0cfec16df98"

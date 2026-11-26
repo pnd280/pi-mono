@@ -1,11 +1,24 @@
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import type { ChangeFact, DisplayCall, DisplayFact, OperationFact, Outcome } from "../contracts.ts";
+import type {
+  ChangeFact,
+  DisplayCall,
+  DisplayFact,
+  NestedFact,
+  OperationFact,
+  Outcome
+} from "../contracts.ts";
 import { creationPatch, parseRetainedPatch, sameRetainedHunks } from "../diff.ts";
 import { record } from "../values.ts";
 import type { TranscriptCoordinator } from "./coordinator.ts";
 import { recordKey, type DisplayHistory } from "./history.ts";
 import { CALL_TYPE, MAX_RECORD_BYTES, parseCallRecord, type CallRecord } from "./metadata.ts";
+import {
+  NESTED_CHANGE_ADAPTERS,
+  nestedRecord,
+  piNestedCalls,
+  recordedNestedFacts
+} from "./nested-changes.ts";
 
 /** Native calls whose operations are observed. */
 const OBSERVED_ADAPTERS = new Set(["pi:bash", "pi:powershell", "pi:edit", "pi:write"]);
@@ -176,6 +189,10 @@ export class SavedCalls {
   private observed = new Map<DisplayCall, ObservedCall>();
   /** Pi's end-event outcome, kept until Pi's final result message; only it shows host cancellation. */
   private ended = new Map<DisplayCall, Outcome>();
+  /** Observed nested changes of live calls, by nested-call key. They outlive the entry write, because later results recompute the call's changes. */
+  private nested = new WeakMap<DisplayCall, Map<string, NestedFact>>();
+  /** Live calls whose entry Pi's final result message has settled. */
+  private finished = new WeakSet<DisplayCall>();
   /** Warnings already reported. */
   private warned = new Set<string>();
 
@@ -196,6 +213,26 @@ export class SavedCalls {
     if (fact.kind === "change") observed.change = fact;
   }
 
+  /**
+   * Keep an observed nested change of a live call for its entry. A change observed after the entry was settled, from a nested call that its caller abandoned, is dropped, so that the live card matches replay.
+   */
+  nestedFact(call: DisplayCall, key: string, fact: NestedFact): void {
+    if (call.origin !== "live" || this.finished.has(call)) return;
+    const facts = this.nested.get(call) ?? new Map<string, NestedFact>();
+    facts.set(key, fact);
+    this.nested.set(call, facts);
+  }
+
+  /** Observed nested changes of a live call, or the saved ones of a replayed call. */
+  nestedFacts(call: DisplayCall): ReadonlyMap<string, NestedFact> {
+    if (call.origin === "live") return this.nested.get(call) ?? new Map();
+    const { messageEntryId: entry, toolCallId } = call.reference;
+
+    return recordedNestedFacts(
+      entry ? this.options.history.callRecord(entry, toolCallId)?.nested : undefined
+    );
+  }
+
   /** Pi's end event. Extensions can still replace the result before Pi saves it. */
   end(call: DisplayCall, outcome: Outcome): void {
     if (call.origin === "live") this.ended.set(call, outcome);
@@ -204,6 +241,7 @@ export class SavedCalls {
   /** Pi's final result message. Write at most one call entry; Pi appends the result after it. */
   finish(call: DisplayCall, result: AgentToolResult<unknown>, published: Outcome): void {
     if (call.origin !== "live") return;
+    this.finished.add(call);
     const observed = this.observed.get(call);
     const ended = this.ended.get(call);
     this.observed.delete(call);
@@ -213,11 +251,17 @@ export class SavedCalls {
     if (call.savedPath)
       this.options.savedPaths?.set(recordKey(entry, call.reference.toolCallId), call.savedPath);
     const { append } = this.options;
-    const facts =
-      append &&
-      recordedFacts(call, observed, result, published, (ended ?? published) === "cancelled");
-    if (!facts) return;
-    const value = { entry, toolCallId: call.reference.toolCallId, ...facts };
+    if (!append) return;
+    const { toolCallId } = call.reference;
+    const nested = NESTED_CHANGE_ADAPTERS.has(call.adapter.id)
+      ? nestedRecord(piNestedCalls(result, toolCallId), this.nested.get(call) ?? new Map())
+      : undefined;
+    const facts = {
+      ...recordedFacts(call, observed, result, published, (ended ?? published) === "cancelled"),
+      ...(nested ? { nested } : {})
+    };
+    if (!Object.keys(facts).length) return;
+    const value = { entry, toolCallId, ...facts };
     if (parseCallRecord(value)) this.appendRecord(CALL_TYPE, value);
     else
       this.warn(

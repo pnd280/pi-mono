@@ -119,7 +119,10 @@ function displayMessage(message: TranscriptMessage): TranscriptMessage {
         output: displayText(message.output),
         ...(message.fullOutputPath === undefined
           ? {}
-          : { fullOutputPath: displayText(message.fullOutputPath) })
+          : { fullOutputPath: displayText(message.fullOutputPath) }),
+        ...(message.fullOutputError === undefined
+          ? {}
+          : { fullOutputError: displayText(message.fullOutputError) })
       };
     case "user":
       return { ...message, content: displayContent(message.content) };
@@ -318,7 +321,8 @@ function messageComponent(
         message.exitCode,
         message.cancelled,
         message.truncated ? { ...truncateTail(message.output), truncated: true } : undefined,
-        message.fullOutputPath
+        message.fullOutputPath,
+        message.fullOutputError
       );
 
       return component;

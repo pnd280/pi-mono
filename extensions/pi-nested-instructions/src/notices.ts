@@ -32,7 +32,7 @@ export function digest(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-const sender = "The user did not send this message.";
+export const sender = "The user did not send this message.";
 
 /**
  * The model-facing text around the instruction body. Notices reach the model as user messages, and compaction labels them as user text, so the text says that Pi sent them. The tag matches Pi's native project context.

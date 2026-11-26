@@ -30,6 +30,8 @@ The child resolves the model with the extensions that it loads itself; see [what
 
 On resume, each value that neither the call nor its template sets repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
 
+Pi raises a thinking level that the model does not support to the next higher level that it supports, or to its highest supported level when none is higher. For example, GPT-6.2 Sol and GPT-6.2 Astra support neither `off` nor `minimal` on the `openai` and `azure` providers, so a child requested with either runs at `low`. On `openai-codex`, they support `minimal` and send it as effort `low`, so `off` runs at `minimal`.
+
 A task shows its requested selection while queued, then the child's resolved model and clamped thinking level at launch. Each response that did not fail supplies the physical model and thinking level. The panel follows these updates; a tool card stops updating when its call returns.
 
 ## Launch arguments

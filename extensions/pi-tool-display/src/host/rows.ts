@@ -7,7 +7,7 @@ import {
 import type { Component } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import { instructionNotice } from "../adapters/pi-nested-instructions/notices.ts";
+import { nestedMessage } from "../adapters/pi-nested-instructions/notices.ts";
 import type {
   DisplayAction,
   DisplayCall,
@@ -268,15 +268,15 @@ class RowBinding {
     this.indexChildren();
   }
   finishInsertion(message?: unknown): void {
-    const notice = instructionNotice(message);
+    const nested = nestedMessage(message);
 
     for (const component of this.indexChildren()) {
       if (
-        notice &&
+        nested &&
         this.options.chrome &&
         this.options.styleAssistant &&
         component instanceof CustomMessageComponent &&
-        this.bindNotice(component, notice.summary)
+        this.bindNotice(component, nested.summary)
       )
         continue;
       this.boundaryBefore(component);

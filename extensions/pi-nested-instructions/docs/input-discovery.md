@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-pi-nested-instructions finds the directories to search from the inputs of each tool call. It never runs commands, reads tool results, or lists glob matches to find them.
+pi-nested-instructions selects directories from the inputs of each tool call: their instructions load, and their [nested skills](skills.md#when-the-model-sees-a-skill) are listed. It never runs commands, reads tool results, or lists glob matches to find them.
 
 ## Recognised tools
 
@@ -14,6 +14,8 @@ These inputs give no scope:
 - Exclusions.
 
 In a glob pattern, only the fixed directory prefix before the first wildcard and finite brace alternatives, such as `{src,lib}`, give directories. A wildcard never counts as an exact read of an instruction file. Listing a filename is not a content read.
+
+The native `find` tool of Pi 1.6.1 matches a relative pattern that contains `/` from its `path` input, and discovery reads the pattern's directories from there too.
 
 When the model calls a tool directly, a failed or blocked attempt to read an instruction file still counts as a read of that file, so discovery does not add a second copy.
 

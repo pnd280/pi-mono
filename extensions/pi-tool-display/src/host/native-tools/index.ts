@@ -48,35 +48,41 @@ class NativeTools {
     if (!inspectedConstruction(prototype)) return;
     const build = prototype._buildRuntime;
     const refresh = prototype._refreshToolRegistry;
-    const registry = this;
+
+    const refreshing = (session: AgentSession, options?: unknown) => {
+      if (this.active) this.safely(() => this.refresh(session));
+      const result = refresh.call(session, options);
+      if (this.active)
+        for (const { observer } of this.observers) this.safely(() => observer.refreshed?.(session));
+
+      return result;
+    };
+
+    const building = (session: AgentSession, options: unknown) => {
+      if (this.active)
+        this.building.set(session, {
+          cwd: nativeSession(session)._cwd,
+          shellPath: session.settingsManager.getShellPath(),
+          commandPrefix: session.settingsManager.getShellCommandPrefix()
+        });
+
+      try {
+        return build.call(session, options);
+      } finally {
+        this.building.delete(session);
+      }
+    };
 
     const installedRefresh: SessionInternals["_refreshToolRegistry"] = function (
       this: AgentSession,
       options
     ) {
-      if (registry.active) registry.safely(() => registry.refresh(this));
-      const result = refresh.call(this, options);
-      if (registry.active)
-        for (const { observer } of registry.observers)
-          registry.safely(() => observer.refreshed?.(this));
-
-      return result;
+      return refreshing(this, options);
     };
 
     try {
       this.hooks.replace(prototype, "_buildRuntime", function (this: AgentSession, options) {
-        if (registry.active)
-          registry.building.set(this, {
-            cwd: nativeSession(this)._cwd,
-            shellPath: this.settingsManager.getShellPath(),
-            commandPrefix: this.settingsManager.getShellCommandPrefix()
-          });
-
-        try {
-          return build.call(this, options);
-        } finally {
-          registry.building.delete(this);
-        }
+        return building(this, options);
       });
       this.hooks.replace(prototype, "_refreshToolRegistry", installedRefresh);
       this.installedRefresh = installedRefresh;
@@ -229,14 +235,12 @@ class NativeTools {
         subscriber.observer.wrap(session, original.definition, construction.settings)
       );
       if (!observed || !this.observers.has(subscriber)) continue;
-      const registry = this;
       const replacement: ToolDefinition = {
         ...observed,
-        execute(...args) {
-          return registry.active && registry.observers.has(subscriber)
+        execute: (...args) =>
+          this.active && this.observers.has(subscriber)
             ? observed.execute(...args)
-            : original.definition.execute(...args);
-        }
+            : original.definition.execute(...args)
       };
       construction.replacements.set(name, {
         original: original.definition,

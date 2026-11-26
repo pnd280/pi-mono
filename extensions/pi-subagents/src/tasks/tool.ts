@@ -65,15 +65,11 @@ function toolGuidance(docs: string, templates: string): string {
 const BACKGROUND_STARTED = [
   "The task is working in the background. Its result arrives automatically when it finishes.",
   "Do not sleep, poll, or ask the task for status. Do not repeat its work or work on the files or topics that it uses.",
-  "Work on something else, or briefly tell the user what you launched and end your response."
+  "Related results can arrive in different turns. Wait for all the results you need before you act on them or give a final answer.",
+  "Meanwhile, work on something else, or end this turn with a brief progress update. The run continues automatically as results arrive."
 ].join("\n");
 
-const BACKGROUND_UPDATED = [
-  "Additional context sent to the running background task.",
-  "The task is still working in the background. Its result arrives automatically when it finishes.",
-  "Do not sleep, poll, or ask the task for status. Do not repeat its work or work on the files or topics that it uses.",
-  "Work on something else, or briefly tell the user what you sent and end your response."
-].join("\n");
+const BACKGROUND_UPDATED = "Additional context sent to the running background task.";
 
 /** Input to a running task uses only `prompt` and `delivery`. */
 const INPUT_IGNORED = ["model", "thinking", "background", "launch_args", "template"] as const;

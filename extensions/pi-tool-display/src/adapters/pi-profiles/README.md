@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
 
-Calls to the `tool_search` tool that [`pi-profiles`](../../../../pi-profiles/README.md) registers appear as the same cards as Pi's built-in tool search. See [tool search from pi-profiles](../../../docs/tools.md#tool-search-from-pi-profiles).
+Calls to the `tool_search` tool that [`pi-profiles`](../../../../pi-profiles/README.md) registers appear as the same cards as Pi's built-in tool search, and its profile change notices appear as compact status rows. See [tool search from pi-profiles](../../../docs/tools.md#tool-search-from-pi-profiles) and [profile change rows](../../../docs/tools.md#profile-change-rows).
 
 ## Compatibility and selection
 
@@ -12,6 +12,10 @@ The adapter matches the tool name `tool_search`, `pi-profiles` provenance, and t
 
 Cards and summaries follow the [built-in tool-search contract](../builtin/tool-search/contract.md#display), because the tool and its `details.loaded` result are Pi's.
 
+## Compatibility and registration
+
+Profile change notices (`pi-profiles.notice`) use Pi's public message-renderer API with the identifier and details schema exported by [`pi-profiles/notice`](../../../../pi-profiles/src/notice.ts), independent of tool selection and private tool-row hooks. Its [row renderer](../../rendering/profile-notice.ts) shares the [status-row](../../../docs/tools.md#status-rows) layout with context status rows.
+
 ## Validation
 
-Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks). Follow the [pi-profiles terminal check](../../../docs/validation.md#pi-profiles).
+Colocated tests check that rendering a profile change notice leaves the borrowed message unchanged. Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks). Follow the [pi-profiles terminal check](../../../docs/validation.md#pi-profiles).

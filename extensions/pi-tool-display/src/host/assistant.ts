@@ -12,7 +12,7 @@ import {
 import { inspectedSource, OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
-// Pi 1.5.2 updateContent creates direct Markdown children only for prose, with outputPad on both sides, and one MouseRegion per shown nonempty thinking run. It reuses Markdown instances across updates, so decoration wraps without mutating them. Gate this private layout for the API and installed CLI, and keep .agents/skills/pi-update/scripts/fingerprints.ts in sync.
+// Pi 1.6.1 updateContent creates direct Markdown children only for prose, with outputPad on both sides, and one MouseRegion per shown nonempty thinking run. It reuses Markdown instances across updates, so decoration wraps without mutating them. Gate this private layout for the API and installed CLI, and keep .agents/skills/pi-update/scripts/fingerprints.ts in sync.
 const updateHashes = new Set([
   "459e35194d5d6a0c57f2014f286adf578e3c846b63472bf3b2f394c89d8817fb",
   "1360563a5ebd3ce35aa4c13b83ede21eb80b8ce0bde448e31e22c55824223a2c"
@@ -121,7 +121,7 @@ function markProse(component: AssistantMessageComponent): void {
     // Thinking Markdown is nested in a MouseRegion; diagnostics are Text.
     if (!(child instanceof Markdown)) return child;
 
-    let cached: { width: number; source: string[]; rows: string[] } | undefined;
+    let cached: { width: number; source: readonly string[]; rows: string[] } | undefined;
 
     return {
       invalidate() {

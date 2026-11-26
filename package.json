@@ -1,6 +1,6 @@
 {
   "name": "pi-mono",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "workspaces": [
     "extensions/*",
@@ -15,13 +15,13 @@
       "./extensions/pi-nested-instructions/index.ts",
       "./extensions/pi-null-args/index.ts",
       "./extensions/pi-profiles/index.ts",
-      "./extensions/pi-prompt-cloak/index.ts",
       "./extensions/pi-prompt-manager/index.ts",
       "./extensions/pi-read/index.ts",
       "./extensions/pi-session-utils/index.ts",
       "./extensions/pi-skills/index.ts",
       "./extensions/pi-smart-compact/index.ts",
       "./extensions/pi-subagents/index.ts",
+      "./extensions/pi-sysprompt-rewrite/index.ts",
       "./extensions/pi-t3-skills/index.ts",
       "./extensions/pi-todo/index.ts",
       "./extensions/pi-tool-display/index.ts"

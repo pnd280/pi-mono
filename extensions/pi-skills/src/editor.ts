@@ -9,7 +9,7 @@ const inlineMethods = [
 
 type InlineEditor = EditorComponent & Pick<Editor, (typeof inlineMethods)[number]>;
 
-// Pi's editor has no public trigger, and opens its picker for a typed slash only at message start. Reviewed against Pi 1.5.2's API build and bundled CLI. Never learn fingerprints from the running host: an unknown editor must keep only Pi's own completion. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
+// Pi's editor has no public trigger, and completes a typed slash only when alone on the first line. Reviewed against Pi 1.6.1's API build and bundled CLI. Never learn fingerprints from the running host: an unknown editor must keep only Pi's own completion. Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
   {
     tryTriggerAutocomplete: "945b59f464acf64fb5c0ac7e5f0181dcc90f2a1f9fb37c8e5b203d9c12b94bc3",

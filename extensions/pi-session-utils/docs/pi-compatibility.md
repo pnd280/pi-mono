@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.5.2 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.5.1 to 1.5.2 changes to session management, startup, the session runtime, `/resume`, and `/import`. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, `/sesh persist` after its working directory is removed, and manual checks of the session picker.
+> Last verified against Pi 1.6.1 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.6.0 to 1.6.1 changes to session management, startup, the session runtime, model fallback diagnostics, `/resume`, and `/import`. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, `/sesh persist` after its working directory is removed, and manual checks of the session picker.
 
 ## Checklist
 
@@ -65,10 +65,12 @@ The one-shot hook is restored before forwarding or throwing.
 - [ ] An unavailable configured model is rejected before a request, with no fallback to the active model.
 - [ ] The [shared thinking levels](../../../utils/src/thinking-levels.ts) list every level that the `thinkingLevel` setting accepts, including `off`, and matches the levels in the [README](../README.md#configuration).
 - [ ] A virtual model's unknown output limit never becomes a zero-token request.
-- [ ] Registry dispatch caps the extension's 1,024-token title budget to the routed physical model, and a smaller known model limit is kept.
+- [ ] Registry dispatch caps the extension's 1,024-token title budget to the routed physical model, and a smaller known model limit is kept. Codex sends the cap as `max_output_tokens` (`openai-codex-responses.js` in pi-ai).
 - [ ] For OpenCode models, registry dispatch sends the request's `sessionId`, a new UUIDv7 for each title request, in the `x-opencode-session` header (`getOpenCodeSessionHeaders` in `model-runtime.js`). No conversation data is in this header.
 
 The extension leaves sampling selection to the registry. It keeps its own token budget, disabled cache retention, and no-retry policy.
+
+In Pi 1.6.1, Codex sends the initial GPT-6 thinking effort in the request's top-level `reasoning.effort`. This applies to title requests.
 
 ### Naming
 
@@ -95,27 +97,33 @@ These limits come from Pi behaviour.
 
 ### Startup parent
 
-In Pi 1.4.0 to 1.5.2, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+In Pi 1.4.0 to 1.6.1, the built-in CLI has no option to set a parent for a new or ephemeral session without copying history. The `--parent-session` extension flag uses a scoped prototype hook to set the parent in the live header. If Pi adds the public API that the table below names, use it and keep the checks that reject resumed or non-empty sessions before any model request.
+
+| Private hook                                                                                                 | Features that depend on it                               | Parity | Public API Pi would need                                                                               |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| `SessionManager.prototype.buildSessionContext`, replaced once at startup ([startup hook](../src/startup.ts)) | `--parent-session` on a new or ephemeral startup session | None   | Startup session options or a header field, such as `parentSession`, set before the first context build |
+
+In Pi 1.6.1, `buildSessionContext()` and its startup call in `createRuntime` (`main.js:730`) are unchanged from Pi 1.6.0. After startup, an extension command can call `ctx.newSession({ parentSession })`. SDK callers can supply a session manager created with `parentSession`.
 
 ### Option order
 
-In Pi 1.4.0 to 1.5.2, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
+In Pi 1.4.0 to 1.6.1, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
 
 ### Custom directories
 
-In Pi 1.4.0 to 1.5.2, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
+In Pi 1.4.0 to 1.6.1, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
 
 ### Path comparison
 
-Pi 1.5.2 compares session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
+Pi 1.5.2 to 1.6.1 compare session directories and session cwds case-insensitively on Windows (`pathsEqual` in `session-manager.js`). Parent ID lookup still collects the default groups and the custom directory as plain strings. On Windows, a custom directory that names a default group with different letter case can list the same file twice and report an ambiguous ID. This was not checked on Windows.
 
 ### Model references
 
-Pi 1.5.2 accepts `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
+Pi 1.5.2 to 1.6.1 accept `--model` provider IDs that contain `/`, such as URL-derived llama.cpp IDs, by matching known provider IDs. The `auto-title` `model` setting still splits at its first `/`, so such a provider can't be the title model.
 
 ### Missing working directory
 
-In Pi 1.5.2, interactive `ctx.switchSession()` asks how to open a session whose stored working directory no longer exists: continue, fork, or cancel. `/sesh persist` saves the snapshot with the current working directory, so Pi asks only if that directory was removed during the session. Cancel removes the saved file, as before. Fork switches to a copy with a new session ID and keeps the saved file, and the confirmation still names the saved file.
+In Pi 1.5.2 to 1.6.1, interactive `ctx.switchSession()` asks how to open a session whose stored working directory no longer exists: continue, fork, or cancel. `/sesh persist` saves the snapshot with the current working directory, so Pi asks only if that directory was removed during the session. Cancel removes the saved file, as before. Fork switches to a copy with a new session ID and keeps the saved file, and the confirmation still names the saved file.
 
 ### Copying JSONL
 

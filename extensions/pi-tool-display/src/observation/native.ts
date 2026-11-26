@@ -9,8 +9,14 @@ import {
 import { OutputBuffer, type OutputBufferOptions } from "@pi-mono/libs/output-buffer";
 import { joinOutputText, outputOmission, type OutputText } from "@pi-mono/utils/output-text";
 
-import type { DisplayFact, NativeSettings, OperationFact, Outcome } from "../contracts.ts";
-import { mutationChange, OBSERVATION_BYTES } from "../diff.ts";
+import type {
+  DisplayFact,
+  NativeSettings,
+  NestedFact,
+  OperationFact,
+  Outcome
+} from "../contracts.ts";
+import { changedLines, mutationChange, OBSERVATION_BYTES } from "../diff.ts";
 import type { MutationSink } from "../file-mutations/index.ts";
 import { record } from "../values.ts";
 
@@ -93,6 +99,26 @@ export function displayMutationSink(observer: ObservationSink, name: string): Mu
   };
 }
 
+/** Report a nested mutation to the call that nested it. */
+export function nestedMutationSink(report: (fact: NestedFact) => void): MutationSink {
+  return {
+    maxSourceBytes: OBSERVATION_BYTES,
+    async completed(mutation) {
+      const { path } = mutation;
+      // A failed mutation changed nothing, so it must not count as applied.
+      if (mutation.outcome === "failure") return report({ path });
+      const change = await mutationChange(mutation);
+      const lines = changedLines(undefined, change);
+      report({
+        path,
+        created: change.change === "creation",
+        applied: true,
+        ...(lines ? { lines } : {})
+      });
+    }
+  };
+}
+
 async function executeWithSavedReference(
   definition: Pick<ToolDefinition, "execute">,
   [id, args, signal, onUpdate, context]: Parameters<ToolDefinition["execute"]>,
@@ -101,8 +127,10 @@ async function executeWithSavedReference(
   let savedPath: string | undefined;
 
   const update: NonNullable<typeof onUpdate> = (value) => {
-    const path = record(value.details).fullOutputPath;
-    if (typeof path === "string") savedPath = path;
+    const details = record(value.details);
+    // Pi 1.6.1 reports the path before the file closes, and replaces it with an error when saving fails.
+    if (typeof details.fullOutputPath === "string") savedPath = details.fullOutputPath;
+    else if (typeof details.fullOutputError === "string") savedPath = undefined;
     onUpdate?.(value);
   };
 
@@ -114,7 +142,9 @@ async function executeWithSavedReference(
       onUpdate ? update : undefined,
       context
     );
-    if (record(result.details).fullOutputPath === savedPath) savedPath = undefined;
+    const details = record(result.details);
+    if (details.fullOutputPath === savedPath || typeof details.fullOutputError === "string")
+      savedPath = undefined;
 
     return result;
   } finally {

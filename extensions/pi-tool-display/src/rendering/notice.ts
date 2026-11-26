@@ -1,3 +1,4 @@
+import { contentText } from "@earendil-works/pi-ai";
 import {
   getMarkdownTheme,
   type MessageRenderer,
@@ -14,13 +15,14 @@ import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapHangingRows } from "@pi-mono/libs/tui/text-budget";
 import { decodeNotice } from "pi-nested-instructions/notices";
+import { listingSchema } from "pi-nested-instructions/skill-listings";
 
 import { modifierHeld } from "./mouse.ts";
 import { pathRows } from "./target-layout.ts";
 
-type NoticeMessage = Parameters<MessageRenderer>[0];
+type CardMessage = Parameters<MessageRenderer>[0];
 
-type NoticeTheme = Pick<Theme, "fg" | "bold">;
+type CardTheme = Pick<Theme, "fg" | "bold">;
 
 const labels = {
   loaded: "Loaded instructions",
@@ -32,21 +34,99 @@ const explanations = {
   updated: "Replaces the earlier instructions for this directory.",
   removed: "The earlier instructions for this directory no longer apply."
 };
+const listingLabels = {
+  loaded: "Listed skills",
+  updated: "Updated skills",
+  removed: "Removed skills"
+};
+const listingExplanations = {
+  loaded: "",
+  updated: "Replaces the earlier skill list for this directory.",
+  removed: "The earlier skill list for this directory no longer applies."
+};
+
+/** What a compact card shows for one message. */
+type Card = {
+  label: string;
+  /** The path beside the label. */
+  target: string | undefined;
+  /** Describes the message itself, so it continues the heading when expanded. */
+  explanation: string;
+  /** The child branches of an expanded card. */
+  body(width: number): readonly TreeItem[];
+  invalidate(): void;
+};
+
+function instructionCard(message: CardMessage, theme: CardTheme): Card {
+  const { notice, body } = decodeNotice(message);
+  const markdown = new Markdown(displayText(body), 0, 0, getMarkdownTheme());
+
+  return {
+    label: notice ? labels[notice.action] : "Nested instructions",
+    target: notice?.displayPath,
+    explanation: notice ? explanations[notice.action] : "",
+    body(width) {
+      if (body) return [{ rows: markdown.render(width) }];
+      if (notice?.action === "removed") return [];
+
+      return [{ rows: new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(width) }];
+    },
+    invalidate: () => markdown.invalidate()
+  };
+}
+
+function listingCard(message: CardMessage, theme: CardTheme): Card {
+  const parsed = listingSchema.safeParse(message.details);
+
+  if (!parsed.success) {
+    const text = new Text(theme.fg("text", displayText(contentText(message.content))), 0, 0);
+
+    return {
+      label: "Nested skills",
+      target: undefined,
+      explanation: "",
+      body: (width) => [{ rows: text.render(width) }],
+      invalidate: () => text.invalidate()
+    };
+  }
+
+  const { action, displayPath, skills } = parsed.data;
+  const entries = skills.map(
+    ({ name, description }) =>
+      new Text(
+        `${theme.bold(displayText(name))} ${theme.fg("dim", displayText(description))}`,
+        0,
+        0
+      )
+  );
+
+  return {
+    label:
+      action === "removed" ? listingLabels[action] : `${listingLabels[action]} (${skills.length})`,
+    target: displayPath,
+    explanation: listingExplanations[action],
+    // One branch per skill keeps each wrapped description under its own connector.
+    body: (width) => entries.map((entry) => ({ rows: entry.render(width) })),
+    invalidate() {
+      for (const entry of entries) entry.invalidate();
+    }
+  };
+}
 
 function headerRows({
   label,
-  file,
+  target,
   width,
   expanded,
   hasChildren,
   theme
 }: {
   label: string;
-  file: string | undefined;
+  target: string | undefined;
   width: number;
   expanded: boolean;
   hasChildren: boolean;
-  theme: NoticeTheme;
+  theme: CardTheme;
 }): string[] {
   const marker = expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   const title = `${theme.fg("accent", marker)} ${theme.fg("accent", theme.bold(label))}`;
@@ -58,9 +138,9 @@ function headerRows({
   };
   // A title wider than the row continues in the body column, like its path.
   const [first = "", ...wrapped] = wrapHangingRows(title, width, Math.max(1, width - 4));
-  if (!file) return [first, ...renderTreeContinuation(wrapped, continuation)];
+  if (!target) return [first, ...renderTreeContinuation(wrapped, continuation)];
   const indent = visibleWidth(title) + 1;
-  const path = displayText(file);
+  const path = displayText(target);
   // Paths wrap like tool-card targets, beside the label when at least four columns remain.
   const inline = pathRows(path, { width: width - indent, theme, expanded });
   if (inline)
@@ -78,19 +158,22 @@ function headerRows({
   return [first, ...renderTreeContinuation([...wrapped, ...rows], continuation)];
 }
 
-export function createNoticeRenderer() {
-  // Pi rebuilds renderers on invalidation. Preserve local expansion until the global tool-output toggle changes.
-  const states = new WeakMap<NoticeMessage, { expanded: boolean; globalExpanded: boolean }>();
+/** Renders nested-instruction notices. */
+export const createNoticeRenderer = () => createCardRenderer(instructionCard);
 
-  return function renderNotice(
-    message: NoticeMessage,
+/** Renders nested-skill listings. */
+export const createListingRenderer = () => createCardRenderer(listingCard);
+
+function createCardRenderer(describe: (message: CardMessage, theme: CardTheme) => Card) {
+  // Pi rebuilds renderers on invalidation. Preserve local expansion until the global tool-output toggle changes.
+  const states = new WeakMap<CardMessage, { expanded: boolean; globalExpanded: boolean }>();
+
+  return function renderCard(
+    message: CardMessage,
     { expanded }: MessageRenderOptions,
-    theme: NoticeTheme
+    theme: CardTheme
   ) {
-    const { notice, body } = decodeNotice(message);
-    const file = notice?.displayPath;
-    const explanation = notice ? explanations[notice.action] : "";
-    const markdown = new Markdown(displayText(body), 0, 0, getMarkdownTheme());
+    const card = describe(message, theme);
     const previous = states.get(message);
     const expansion =
       previous?.globalExpanded === expanded ? previous : { expanded, globalExpanded: expanded };
@@ -101,53 +184,38 @@ export function createNoticeRenderer() {
       {
         render(width) {
           const innerWidth = Math.max(1, width - 4);
-          const label = notice ? labels[notice.action] : "Nested instructions";
-          // The explanation describes the notice itself, so it continues the heading; only the instruction body or empty-file note is a child branch.
-          let child: string[] = [];
-
-          if (expansion.expanded) {
-            if (body) child = markdown.render(innerWidth);
-            else if (notice?.action !== "removed")
-              child = new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth);
-          }
-
-          const hasChildren = expansion.expanded && child.length > 0;
+          const children = expansion.expanded ? card.body(innerWidth) : [];
+          const hasChildren = children.some((item) => item.rows.length > 0);
           const lines = headerRows({
-            label,
-            file,
+            label: card.label,
+            target: card.target,
             width,
             expanded: expansion.expanded,
             hasChildren,
             theme
           });
           headerHeight = lines.length;
-          const items: TreeItem[] = [];
 
-          if (expansion.expanded) {
-            if (explanation)
-              lines.push(
-                ...renderTreeContinuation(
-                  new Text(theme.fg("dim", explanation), 0, 0).render(innerWidth),
-                  {
-                    width,
-                    indent: 2,
-                    style: (text) => theme.fg("dim", text),
-                    hasChildren
-                  }
-                )
-              );
-            items.push({ rows: child });
-          }
+          if (expansion.expanded && card.explanation)
+            lines.push(
+              ...renderTreeContinuation(
+                new Text(theme.fg("dim", card.explanation), 0, 0).render(innerWidth),
+                {
+                  width,
+                  indent: 2,
+                  style: (text) => theme.fg("dim", text),
+                  hasChildren
+                }
+              )
+            );
 
           lines.push(
-            ...renderTree(items, { width, indent: 2, style: (text) => theme.fg("dim", text) })
+            ...renderTree(children, { width, indent: 2, style: (text) => theme.fg("dim", text) })
           );
 
           return lines.map((line) => truncateToWidth(line, width, ""));
         },
-        invalidate() {
-          markdown.invalidate();
-        }
+        invalidate: () => card.invalidate()
       },
       (event) => {
         // Leave instruction selection and scrolling alone; only the header toggles.

@@ -11,7 +11,11 @@ import {
 
 import { observeFileMutations } from "../file-mutations/index.ts";
 import type { DisplayFailure } from "../interpretation.ts";
-import { displayMutationSink, observeNativeDefinition } from "../observation/native.ts";
+import {
+  displayMutationSink,
+  nestedMutationSink,
+  observeNativeDefinition
+} from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { executionOutcome, hostToolResult, TranscriptMessages } from "../transcript/messages.ts";
 import { DisplaySession, type ToolSnapshot } from "../transcript/session.ts";
@@ -197,9 +201,12 @@ export class DisplayCollectors {
     this.mutations = observeFileMutations({
       eligible: (session, name) => this.eligible(session, name),
       begin: (session, name, id) => {
-        const sink = this.collectors.get(session)?.display.beginObservation(id, `pi:${name}`);
+        const display = this.collectors.get(session)?.display;
+        const sink = display?.beginObservation(id, `pi:${name}`);
+        if (sink) return displayMutationSink(sink, name);
+        const nested = display?.beginNestedObservation(id);
 
-        return sink ? displayMutationSink(sink, name) : undefined;
+        return nested ? nestedMutationSink(nested) : undefined;
       }
     });
   }

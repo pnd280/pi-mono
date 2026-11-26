@@ -15,14 +15,20 @@ import { expandHomePath } from "@pi-mono/utils/paths";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
+import { profileNameSchema } from "./notice.ts";
+import {
+  CLEAR,
+  MAX_MERGED_PRESETS,
+  MAX_PRESETS,
+  mcpNamespace,
+  presetNameSchema,
+  presetRefsProblem
+} from "./presets.ts";
+
 const SETTINGS_KEY = "ext.pi-profiles";
 const DEFAULT_SHORTCUT = "alt+i";
 
-/** `/profile clear` selects no profile, so no profile can have this name. */
-export const CLEAR = "clear";
-
 const MAX_PROFILES = 100;
-const MAX_NAME_LENGTH = 64;
 const MAX_DESCRIPTION_LENGTH = 1024;
 const MAX_PROMPTS = 32;
 const MAX_TOOLS = 256;
@@ -46,12 +52,18 @@ const mcpServersSchema = z.custom<Record<string, McpServerConfig>>((value) => {
   return servers.length <= MAX_SERVERS && servers.every(isObject);
 });
 
+const presetSchema = z.strictObject({
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  mcpServers: mcpServersSchema.refine((servers) => Object.keys(servers).length > 0)
+});
+
+/** Validates without replacement, so that a preset named `__proto__` keeps its entry. */
+const presetsSchema = z.custom<object>(
+  (value) => isObject(value) && Object.keys(value).length <= MAX_PRESETS
+);
+
 const profileSchema = z.strictObject({
-  // One printable word, so `/profile <name>` and notices need no quoting or sanitising.
-  name: z
-    .string()
-    .max(MAX_NAME_LENGTH)
-    .regex(/^[^\s\p{C}]+$/u),
+  name: profileNameSchema,
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   model: modelReferenceSchema.optional(),
   thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
@@ -68,11 +80,14 @@ const profileSchema = z.strictObject({
         .optional()
     })
     .optional(),
-  mcpServers: mcpServersSchema.optional()
+  mcpServers: mcpServersSchema.optional(),
+  // Preset names, which resolve against the presets of both settings files.
+  mcpPresets: z.array(presetNameSchema).max(MAX_MERGED_PRESETS).optional()
 });
 
 const sectionSchema = z.looseObject({
   profiles: z.array(z.unknown()).max(MAX_PROFILES).optional(),
+  mcpPresets: presetsSchema.optional(),
   defaultProfile: z.string().optional(),
   shortcut: canonicalKeySchema.optional()
 });
@@ -81,6 +96,15 @@ export type Profile = Omit<z.output<typeof profileSchema>, "appendSystemPrompts"
   /** The non-empty texts of the `appendSystemPrompts` files, read when settings load. */
   prompts: string[];
   /** The settings scope (`global` or `project`) that supplies the profile. */
+  scope: SettingsScope;
+};
+
+/** A named set of MCP servers that the user turns on and off alongside the profile. */
+export type McpPreset = {
+  name: string;
+  description: string | undefined;
+  mcpServers: Record<string, McpServerConfig>;
+  /** The settings scope (`global` or `project`) that supplies the preset. */
   scope: SettingsScope;
 };
 
@@ -114,12 +138,26 @@ export type ProfileConfig = {
   profiles: Profile[];
   defaultProfile: Profile | undefined;
   shortcut: Shortcut;
+  /**
+   * Valid global presets in declaration order, each replaced in place by the project preset with its name, then the other project presets. Active presets keep this order.
+   */
+  mcpPresets: McpPreset[];
   warnings: string[];
 };
 
 /** One file's section. Each field recovers on its own. */
 type Section = {
-  profiles: Profile[];
+  /** The settings file, which `appendSystemPrompts` paths resolve against. */
+  path: string;
+  /**
+   * Each profile that is valid on its own, with its index in the file's `profiles` array, for warnings. Duplicate names and preset references are checked against the merged presets, and only then are its `appendSystemPrompts` files read.
+   */
+  profiles: {
+    index: number;
+    profile: Omit<Profile, "prompts">;
+    appendSystemPrompts: string[];
+  }[];
+  mcpPresets: McpPreset[];
   /** The supplied value, which the merged profiles resolve. */
   defaultProfile: unknown;
   shortcut: Shortcut | undefined;
@@ -128,7 +166,9 @@ type Section = {
 
 function readSection(scoped: ScopedSection): Section {
   const section: Section = {
+    path: scoped.path,
     profiles: [],
+    mcpPresets: [],
     defaultProfile: undefined,
     shortcut: undefined,
     warnings: []
@@ -168,8 +208,6 @@ function readSection(scoped: ScopedSection): Section {
       section.warnings.push(`profiles[${index}] skipped: invalid profile; check its fields`);
     } else if (profile.data.name === CLEAR) {
       section.warnings.push(`profiles[${index}] skipped: the name ${CLEAR} is reserved`);
-    } else if (section.profiles.some(({ name }) => name === profile.data.name)) {
-      section.warnings.push(`profiles[${index}] skipped: duplicate name`);
     } else if (
       scoped.scope === "project" &&
       Object.values(profile.data.mcpServers ?? {}).some((server) => "auth" in server)
@@ -180,15 +218,21 @@ function readSection(scoped: ScopedSection): Section {
       );
     } else {
       const { appendSystemPrompts = [], ...rest } = profile.data;
-      const prompts = readPrompts(appendSystemPrompts, scoped.path);
-
-      if (typeof prompts === "number")
-        section.warnings.push(
-          `profiles[${index}] skipped: appendSystemPrompts[${prompts}] could not be read`
-        );
-      else section.profiles.push({ ...rest, prompts, scope: scoped.scope });
+      section.profiles.push({
+        index,
+        profile: { ...rest, scope: scoped.scope },
+        appendSystemPrompts
+      });
     }
   }
+
+  const presets = fields.mcpPresets.safeParse(parsed.data.mcpPresets);
+  if (presets.success)
+    section.mcpPresets = readPresets(presets.data, scoped.scope, section.warnings);
+  else
+    section.warnings.push(
+      `mcpPresets is invalid; expected an object of at most ${MAX_PRESETS} presets`
+    );
 
   const shortcut = fields.shortcut.safeParse(parsed.data.shortcut);
   if (shortcut.success) section.shortcut = shortcut.data;
@@ -200,14 +244,96 @@ function readSection(scoped: ScopedSection): Section {
 }
 
 /**
+ * The valid presets of one file's `mcpPresets` object. Warnings name an entry by its position, counted from 1, because the key is a supplied value.
+ */
+function readPresets(
+  value: object | undefined,
+  scope: SettingsScope,
+  warnings: string[]
+): McpPreset[] {
+  const presets: McpPreset[] = [];
+
+  for (const [index, [name, rawPreset]] of Object.entries(value ?? {}).entries()) {
+    const label = `mcpPresets entry ${index + 1} skipped`;
+    const preset = presetSchema.safeParse(rawPreset);
+
+    if (!presetNameSchema.safeParse(name).success) {
+      warnings.push(
+        `${label}: invalid name; use up to 64 characters without spaces, control characters, or commas`
+      );
+    } else if (name === CLEAR) {
+      warnings.push(`${label}: the name ${CLEAR} is reserved`);
+    } else if (!preset.success) {
+      warnings.push(
+        `${label}: invalid preset; expected mcpServers (1 to ${MAX_SERVERS} servers) and an optional description`
+      );
+    } else if (
+      scope === "project" &&
+      Object.values(preset.data.mcpServers).some((server) => "auth" in server)
+    ) {
+      warnings.push(`${label}: an MCP server uses auth, which only global presets can use`);
+    } else if (
+      new Set(Object.keys(preset.data.mcpServers).map(mcpNamespace)).size !==
+      Object.keys(preset.data.mcpServers).length
+    ) {
+      // Pi refuses to register a second server whose name differs only in `-` and `_`.
+      warnings.push(`${label}: two MCP server names differ only in - and _`);
+    } else {
+      presets.push({
+        name,
+        description: preset.data.description,
+        mcpServers: preset.data.mcpServers,
+        scope
+      });
+    }
+  }
+
+  return presets;
+}
+
+/**
+ * The section's profiles whose `mcpPresets` resolve against the merged presets without a conflict and whose `appendSystemPrompts` files can be read, without a later profile whose name a valid one has. Only a valid profile reserves its name, so a skipped profile does not hide a valid one. The files of a skipped profile are not read.
+ */
+function validProfiles(section: Section, presets: readonly McpPreset[]): Profile[] {
+  const valid = new Map<string, Profile>();
+
+  for (const { index, profile, appendSystemPrompts } of section.profiles) {
+    const problem = valid.has(profile.name)
+      ? "duplicate name"
+      : presetRefsProblem(profile, presets);
+
+    if (problem) {
+      section.warnings.push(`profiles[${index}] skipped: ${problem}`);
+      continue;
+    }
+
+    const prompts = readPrompts(appendSystemPrompts, section.path);
+    if (typeof prompts === "number")
+      section.warnings.push(
+        `profiles[${index}] skipped: appendSystemPrompts[${prompts}] could not be read`
+      );
+    else valid.set(profile.name, { ...profile, prompts });
+  }
+
+  return [...valid.values()];
+}
+
+/**
  * Reads global settings, and project settings only in a trusted project, because profiles choose tools and system prompt text. Project values take precedence. Warnings name the file's scope, but never repeat supplied keys or values.
  */
 export function loadProfiles(options: SettingsScopeOptions): ProfileConfig {
   const [globalSettings, projectSettings] = readScopedSections(options, SETTINGS_KEY);
   const global = readSection(globalSettings);
   const project = projectSettings && readSection(projectSettings);
-  const byName = new Map(global.profiles.map((profile) => [profile.name, profile]));
-  for (const profile of project?.profiles ?? []) byName.set(profile.name, profile);
+  // Profiles resolve their presets after the merge, so a project preset that replaces a global one also decides whether a global profile that names it conflicts.
+  const presetsByName = new Map(global.mcpPresets.map((preset) => [preset.name, preset]));
+  for (const preset of project?.mcpPresets ?? []) presetsByName.set(preset.name, preset);
+  const mcpPresets = [...presetsByName.values()];
+  const byName = new Map(
+    validProfiles(global, mcpPresets).map((profile) => [profile.name, profile])
+  );
+  for (const profile of project ? validProfiles(project, mcpPresets) : [])
+    byName.set(profile.name, profile);
   const profiles = [...byName.values()];
 
   // A project value replaces the global one even when it is invalid, such as `null`.
@@ -227,6 +353,7 @@ export function loadProfiles(options: SettingsScopeOptions): ProfileConfig {
     profiles,
     defaultProfile,
     shortcut: project?.shortcut ?? global.shortcut ?? DEFAULT_SHORTCUT,
+    mcpPresets,
     warnings
   };
 }

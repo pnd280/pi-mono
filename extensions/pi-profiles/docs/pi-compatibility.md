@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-> Last verified against Pi 1.5.2 with the offline host tests and a source review of the 1.5.1 to 1.5.2 changes. Not covered: the offline SDK session that checked the order of the declared tools, which last ran on Pi 1.5.0; live providers; MCP servers; a terminal session of the installed CLI; and the manual checks.
+> Last verified against Pi 1.6.1 with the package checks, the offline host tests, and a source review of the 1.6.0 to 1.6.1 changes. Not covered: the offline SDK session that checked the order of the declared tools, which last ran on Pi 1.5.0; live providers; MCP servers; a terminal session of the installed CLI; and the manual checks, including the editor label.
 
 ## Checklist
 
@@ -13,10 +13,13 @@ The [adapter](../src/index.ts) relies on these contracts.
 - [ ] `ctx.modelRegistry.find()` resolves exact provider and model IDs.
 - [ ] `ctx.modelRegistry.hasConfiguredAuth()` and `pi.setModel()` report a provider without configured credentials.
 - [ ] `pi.setModel()` checks the credentials again (`checkAuth()`) and throws before it changes the model.
-- [ ] Neither credentials check runs a key command or refreshes a login.
+- [ ] `ctx.modelRegistry.hasConfiguredAuth()` reads Pi's availability snapshot. The later `checkAuth()` can resolve a stored key command without refreshing a stored OAuth login.
 - [ ] Pi awaits `before_agent_start` handlers before it reads the model and the active tools for a request (`_prepareRun()` in `agent-session.js`).
+- [ ] Pi places a `before_agent_start` handler's returned `message` after the run's starting message (`_prepareRun()` in `agent-session.js`), and saves it as a `custom_message` entry when it handles `message_end`, before the model responds.
+- [ ] Pi saves a `custom` draft that a `turn_end` handler returns after the turn's assistant message (`_dispatchTurnEndBoundary()` in `agent-session.js`). `/tree` or `/fork` to a `user` entry, and `/tree` to a `custom_message` entry, move the leaf to its parent (`navigateTree()` in `agent-session.js`).
 - [ ] Pi awaits `session_shutdown` handlers before it ends a session.
 - [ ] `pi.setModel()` applies the thinking level that settings set for the model, or the default level, or else keeps the current level.
+- [ ] `pi.setThinkingLevel()` raises a level that the model does not support to the nearest higher supported level, or else the nearest lower one (`clampThinkingLevel` in pi-ai `dist/models.js`).
 - [ ] `pi.setActiveTools()` ignores unknown and `hidden` names.
 - [ ] `pi.getActiveTools()` returns the active tools, including those whose declarations a `prepareLoadout` hook hides.
 - [ ] Extension commands and shortcuts still run while the agent streams, and `ctx.isIdle()` is `false` then.
@@ -56,7 +59,7 @@ Recheck each row of the [MCP tools](tools.md#mcp-tools) tables against these con
 - [ ] The built-in MCP extension does not declare `codemode` and `tool_search` again when a server connects by itself.
 - [ ] `autoEnableCodemode: false` stops only `codemode` from being declared again.
 - [ ] Pi restores tools whose server has not connected as pending, and declares pending tools when they register.
-- [ ] `setActiveToolsByName()` drops all pending tools when a call turns off a tool (`_pendingToolNames`).
+- [ ] `setActiveToolsByName()` drops all pending tools when a call turns off a tool of the restored or reloaded loadout, and keeps them when it turns off only other tools (`_restoredToolNames` in `agent-session.js`).
 
 ### MCP servers
 
@@ -65,8 +68,10 @@ The [adapter](../src/index.ts) relies on these contracts.
 - [ ] `pi.registerMcpServer()` validates the name and the entry, and throws for an invalid entry, a name that another extension registered, or a name that differs from a registered one only in `-` and `_` (`registerMcpServer` in `core/extensions/loader.js`).
 - [ ] Pi loads the extension again for each session and on `/reload`, and drops the registrations of the previous load.
 - [ ] A server in `mcp.json` takes precedence over a registered server whose name is the same, or differs only in `-` and `_` (`registeredServers` in `extensions/mcp/index.js`).
+- [ ] `pi.unregisterMcpServer()` frees the server's namespace at once, so a server whose name differs only in `-` and `_` can register next.
+- [ ] Server namespaces are `mcp__<server>` with `-` replaced by `_` (`mcpNamespace` in `naming.js` in pi-mcp).
 
-The [MCP servers](switching.md#mcp-servers) and [profile MCP servers](tools.md#profile-mcp-servers) sections describe what users see.
+The extension unregisters a profile server before it registers the MCP preset server that replaces it in the same namespace. The [presets](../src/presets.ts) module repeats the namespace rule, because pi-mcp is not a dependency. The [MCP servers](switching.md#mcp-servers), [profile MCP servers](tools.md#profile-mcp-servers), and [MCP presets](tools.md#mcp-presets) sections describe what users see.
 
 ### Prompt and lifecycle coordinators
 
@@ -96,8 +101,8 @@ The extension's restoration rules are in [internals](internals.md#restoration); 
 - [ ] `session_start` fires on startup, `/reload`, `/new`, `/resume`, and `/fork`.
 - [ ] In `session_start`, `ctx.cwd` is the directory whose `.pi/settings.json` Pi reads as project settings.
 - [ ] The first session of a run has the reason `"startup"`, also with `--continue`, `--resume`, `--session`, and `--fork` (`createRuntime` in `main.js`).
-- [ ] `pi.getFlag()` returns the `--profile` value in `session_start` of every session in the run, also after `/new` and `/reload` (`extensionFlagValues` in `main.js`, `flagValues` in `reload()`).
-- [ ] `pi --help` lists the `--profile` option.
+- [ ] `pi.getFlag()` returns the `--profile` and `--mcp-presets` values in `session_start` of every session in the run, also after `/new` and `/reload` (`extensionFlagValues` in `main.js`, `flagValues` in `reload()`).
+- [ ] `pi --help` lists the `--profile` and `--mcp-presets` options.
 - [ ] `ctx.hasUI` is `false` in print and JSON modes, where `ctx.ui.notify()` does nothing.
 - [ ] No built-in Pi action uses **Alt+I**, the default shortcut.
 
@@ -108,6 +113,17 @@ The [menu](../src/menu.ts) relies on these contracts. The libs package owns the 
 - [ ] `session_shutdown` fires before a session ends or is replaced, so an open menu closes without a switch.
 - [ ] `pi.getAllTools()` returns each tool's `description` and `sourceInfo.path`.
 - [ ] `pi.getActiveTools()` returns only registered tools.
+
+Pi 1.6.1 adds `blockedKind` for native terminal dialogs. The profile and preset fallback lists do not set it. Pi's RPC `extension_ui_request` does not carry it, and the terminal browser does not use a native select dialog.
+
+### Footer status
+
+The [adapter](../src/index.ts) shows the active MCP presets with these contracts.
+
+- [ ] `ctx.ui.setStatus(key, text)` shows the text in the interactive terminal's footer, and `ctx.ui.setStatus(key, undefined)` removes it.
+- [ ] `ctx.ui.theme.fg("dim", text)` returns the text in the theme's dim colour in the interactive terminal.
+
+The extension sets the status only when `ctx.mode` is `"tui"`, because the status targets the interactive footer and SDK hosts can leave `ctx.ui.theme` uninitialised. The status key stays in the extension's `pi-profiles.` namespace, so it does not replace another extension's status and stays stable for the placement that [MCP presets](tools.md#mcp-presets) describes.
 
 ### Editor
 
@@ -121,9 +137,11 @@ The [adapter](../src/index.ts) and the [label](../src/editor-label.ts) rely on t
 
 A new `CustomEditor` with `embedWorkingStatus: true` draws the working status in its top border as Pi does.
 
+The label replaces `render` on the editor instance and returns a new array with a labelled first line. Public API parity is partial in Pi 1.6.1: a `CustomEditor` subclass can override the protected `renderTopBorder()`, but only when no earlier extension set an editor, so the label would no longer compose with that editor. A public editor border decoration, such as a label slot in `ctx.ui`, would replace the instance hook.
+
 ## Limitations
 
-- In Pi 1.5.0 to 1.5.2, `pi.setActiveTools()` keeps the current order of the tools that stay active (`_applyToolLoadout()` in `agent-session.js`), so the extension no longer orders the declared tools. Tools that stay active keep their order, and newly active tools follow the order of the requested names. Only a call that turns tools off could reorder them, and that call drops Pi's pending tools.
-- Pi 1.3.0 to 1.5.2 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
-- In Pi 1.3.0 to 1.5.2, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
+- In Pi 1.5.0 to 1.6.1, `pi.setActiveTools()` keeps the order of tools that remain active and appends newly active tools in the requested order. The extension therefore does not reorder declared tools. To reorder an active tool, a caller must turn it off and then turn it on again. In Pi 1.5.0 to 1.5.2, turning off any tool drops Pi's pending tools. In Pi 1.6.0 and 1.6.1, turning off a tool drops the pending tools only if the tool was part of the restored or reloaded loadout.
+- Pi 1.3.0 to 1.6.1 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
+- In Pi 1.3.0 to 1.6.1, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.

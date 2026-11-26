@@ -13,6 +13,27 @@ const idSchema = z.string().min(1).max(1024);
 
 const patchSchema = z.string().refine((patch) => Buffer.byteLength(patch) <= PATCH_BYTES);
 
+const lineCountSchema = z.int().min(0);
+
+/** The part of a nested call's ID after its caller's ID and `/`, such as `1` or `2/1`. */
+const nestedKeySchema = z
+  .string()
+  .max(1024)
+  .regex(/^[1-9]\d*(?:\/[1-9]\d*)*$/);
+
+/** What replay of a nested `edit` or `write` call needs beyond Pi's `nestedCalls` record. */
+const nestedChangeSchema = z.object({
+  /** Observed, because Pi's record has no arguments for the call. */
+  path: z.string().min(1).max(4096).optional(),
+  created: z.literal(true).optional(),
+  /** Added and removed lines of a successful change, unless replay derives them from Pi's content argument. */
+  lines: z.tuple([lineCountSchema, lineCountSchema]).optional(),
+  /** The change was applied although Pi's record shows no success. */
+  applied: z.literal(true).optional()
+});
+
+export type NestedChangeRecord = z.infer<typeof nestedChangeSchema>;
+
 const callRecordSchema = z.object({
   /** Pi entry ID of the assistant message that holds the call. */
   entry: idSchema,
@@ -50,7 +71,9 @@ const callRecordSchema = z.object({
         unavailable: z.custom<ChangeUnavailableReason>(isChangeUnavailableReason)
       })
     ])
-    .optional()
+    .optional(),
+  /** Nested `edit` and `write` calls, by the key of their ID. */
+  nested: z.record(nestedKeySchema, nestedChangeSchema).optional()
 });
 
 export type CallRecord = z.infer<typeof callRecordSchema>;

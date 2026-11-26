@@ -2,7 +2,7 @@
 
 [pi-skills](../README.md)
 
-> Last verified against Pi 1.5.2 with the package checks, the offline tests, the fingerprint check, and a source review of the Pi 1.5.1 to 1.5.2 changes. Not covered: the manual terminal checks, including page keys in an open skill picker; and native slash completion after leading whitespace.
+> Last verified against Pi 1.6.1 with the package checks, the offline tests, the fingerprint check of this package's editor methods, and a source review of the Pi 1.6.0 to 1.6.1 changes. Not covered: the manual terminal checks, including page keys in an open skill picker and **Enter** on an inline skill suggestion; and native slash completion after leading whitespace.
 
 ## Upgrade procedure
 
@@ -59,6 +59,9 @@ The provider closes skill suggestions when the token ends, because Pi would list
 ## Limitations
 
 - In Pi 1.5.2, the source review of the Pi 1.5.1 to 1.5.2 changes found pi-tui, autocomplete, input handling, and editor replacement unchanged.
-- In Pi 1.4.0 to 1.5.2, native skill insertion runs only for prompts that begin exactly with `/skill:`, after the input hook. Prompt-template expansion also follows the input hook. The leading-reference checkboxes above cover both.
-- In Pi 1.4.0 to 1.5.2, the editor removes `/` from provider `triggerCharacters` and has no public method that opens completion. The `/` trigger depends on the fingerprinted private call above. If Pi adds a public way to open completion, replace the private call.
+- In Pi 1.6.0, the source review of the Pi 1.5.2 to 1.6.0 changes found no change to the autocomplete provider. The editor changed how **Enter** accepts a suggestion.
+- In Pi 1.6.1, the autocomplete provider and the editor's key handling are unchanged.
+- In Pi 1.4.0 to 1.6.1, native skill insertion runs only for prompts that begin exactly with `/skill:`, after the input hook. Prompt-template expansion also follows the input hook. The leading-reference checkboxes above cover both.
+- In Pi 1.4.0 to 1.6.1, the editor removes `/` from provider `triggerCharacters` and has no public method that opens completion. The `/` trigger depends on the fingerprinted private call above. If Pi adds a public way to open completion, replace the private call.
 - In Pi 1.4.0 to 1.5.2, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.
+- In Pi 1.6.0 and 1.6.1, with the default bindings, **Enter** on a suggestion falls through to submit only when its prefix starts with `/` and the text before the cursor is on the first line, starts with `/` after leading whitespace is removed, and contains no space after that `/`. The list layout still follows the prefix alone, so inline skill suggestions keep the slash-less prefix and the default description width.

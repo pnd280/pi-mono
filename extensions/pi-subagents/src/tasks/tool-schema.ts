@@ -23,7 +23,9 @@ export const toolInputSchema = z.strictObject({
   background: z
     .boolean()
     .optional()
-    .describe("Run independent work in the background. Its result arrives automatically."),
+    .describe(
+      "Run independent work in the background. To run parallel foreground calls when you need every result before you act, omit it, or set false when a template sets true. Set true only when you will do other work or act on each result as it arrives."
+    ),
   description: z.string().min(1).describe("A short label for the task."),
   prompt: z
     .string()

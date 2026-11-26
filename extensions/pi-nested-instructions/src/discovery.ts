@@ -6,13 +6,18 @@ import type {
 import { ledger, type SessionView } from "./ledger.ts";
 import { noticeEntry } from "./notices.ts";
 import { inferScope, nestedPath, sortDirectories, type Invocation } from "./scopes.ts";
+import type { SkillFolders } from "./skill-folders.ts";
+import { listingEntry, listSkills } from "./skill-listings.ts";
 import { instructionFiles, selectInstruction, type InstructionFiles } from "./storage.ts";
 
-/** Process a whole batch so a sibling direct read wins before any content is loaded. */
+/**
+ * Process a whole batch so a sibling direct read wins before any content is loaded. Each directory's skill listing follows its notice.
+ */
 export async function discover(
   calls: Invocation[],
   cwd: string,
   session: SessionView,
+  skillFolders: SkillFolders,
   files: InstructionFiles = instructionFiles
 ): Promise<SessionBoundaryDraft[]> {
   const visible = ledger(session);
@@ -35,17 +40,25 @@ export async function discover(
   }
 
   for (const directory of sortDirectories(directories)) {
-    if (visible.announced(directory)) continue;
-    // Ordinary accesses retain snapshots: any visible direct read suppresses, even if changed.
-    const selected = await selectInstruction(directory, files, (file) => visible.wasRead(file));
-    if (selected?.content !== undefined)
-      entries.push(
-        noticeEntry(
-          directory,
-          { action: "loaded", path: selected.path, content: selected.content },
-          cwd
-        )
-      );
+    if (!visible.announced(directory)) {
+      // Ordinary accesses retain snapshots: any visible direct read suppresses, even if changed.
+      const selected = await selectInstruction(directory, files, (file) => visible.wasRead(file));
+      if (selected?.content !== undefined)
+        entries.push(
+          noticeEntry(
+            directory,
+            { action: "loaded", path: selected.path, content: selected.content },
+            cwd
+          )
+        );
+    }
+
+    const folders = skillFolders.get(directory);
+    if (!folders || visible.listing(directory)) continue;
+    const listed = listSkills(folders);
+    if (!listed.list) continue;
+    const listing = listingEntry(directory, { action: "loaded", ...listed }, cwd);
+    if (listing) entries.push(listing);
   }
 
   return entries;
@@ -55,6 +68,7 @@ export async function discover(
 export async function refresh(
   cwd: string,
   session: SessionView,
+  skillFolders: SkillFolders,
   files: InstructionFiles = instructionFiles
 ): Promise<CustomMessageEntryDraft[]> {
   const visible = ledger(session);
@@ -86,6 +100,19 @@ export async function refresh(
         )
       );
     }
+  }
+
+  for (const directory of sortDirectories(visible.listedDirectories())) {
+    if (!nestedPath(cwd, directory)) continue;
+    const previous = visible.listing(directory) ?? "";
+    const listed = listSkills(skillFolders.get(directory) ?? []);
+    if (listed.list === previous) continue;
+    const listing = listingEntry(
+      directory,
+      listed.list ? { action: previous ? "updated" : "loaded", ...listed } : { action: "removed" },
+      cwd
+    );
+    if (listing) entries.push(listing);
   }
 
   return entries;

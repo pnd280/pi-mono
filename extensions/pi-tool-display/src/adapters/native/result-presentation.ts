@@ -20,8 +20,6 @@ export function nativeImageCaption(text: string): { mimeType: string; tail: stri
     : undefined;
 }
 
-const nonVisionImageNote =
-  "[Current model does not support images. The image will be omitted from this request.]";
 const imageOmissionNotes = new Set([
   "[Image omitted: could not be converted to a supported inline image format.]",
   "[Image omitted: could not be resized below the inline image size limit.]"
@@ -31,16 +29,10 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   const caption = nativeImageCaption(text);
   if (!caption?.tail.startsWith("\n")) return [];
   const notes = caption.tail.slice(1).split("\n");
-  // An omitted image has no attachment. Require its exact native omission envelope; a model-warning lookalike in ordinary text alone does not establish an image read.
-  if (
-    !hasImages &&
-    (!imageOmissionNotes.has(notes[0] ?? "") ||
-      notes.length > 2 ||
-      (notes.length === 2 && notes[1] !== nonVisionImageNote))
-  )
-    return [];
+  // An omitted image has no attachment. Require its exact native omission envelope; ordinary text alone does not establish an image read.
+  if (!hasImages && (notes.length !== 1 || !imageOmissionNotes.has(notes[0] ?? ""))) return [];
 
-  return notes.filter((note) => note === nonVisionImageNote || imageOmissionNotes.has(note));
+  return notes.filter((note) => imageOmissionNotes.has(note));
 }
 
 // Native read accepts number-valued windows and prints their arithmetic without rounding.
@@ -96,7 +88,7 @@ export function nativeResultParts(
   let trailerPattern: RegExp | undefined;
   if (shell)
     trailerPattern =
-      /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/;
+      /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. (?:Full output|Could not save the full output): [^\n]+\])$/;
   else if (name === "read") trailerPattern = readTrailer;
   else if (name === "grep" || name === "find" || name === "ls")
     trailerPattern =
@@ -160,10 +152,12 @@ function nativeContentParts(
 const noticesSchema = z.object({
   truncation: z.object({ truncated: z.boolean().optional() }).optional(),
   fullOutputPath: z.string().optional(),
+  fullOutputError: z.string().optional(),
   matchLimitReached: z.number().optional(),
   resultLimitReached: z.number().optional(),
   entryLimitReached: z.number().optional(),
-  linesTruncated: z.boolean().optional()
+  linesTruncated: z.boolean().optional(),
+  imageUnsupportedByModel: z.string().optional()
 });
 
 /** Backend omissions remain visible even when the successful read body is collapsed. */
@@ -178,11 +172,18 @@ export function nativeResultNotices(details: unknown, expanded: boolean): Displa
   // Raw, so the card can match the call's saved path; rendering sanitises the value.
   if (data.fullOutputPath !== undefined)
     notices.push({ kind: "reference", label: "Saved output", value: data.fullOutputPath });
+  // Expanded output already ends with Pi's trailer, which gives the reason.
+  else if (data.fullOutputError !== undefined && !expanded)
+    warning(`Full output could not be saved: ${data.fullOutputError}`);
 
   if (data.matchLimitReached !== undefined) warning("Match limit reached.");
   if (data.resultLimitReached !== undefined) warning("Result limit reached.");
   if (data.entryLimitReached !== undefined) warning("Entry limit reached.");
   if (data.linesTruncated === true) warning("Long result lines truncated by pi.");
+  if (data.imageUnsupportedByModel !== undefined)
+    warning(
+      `${data.imageUnsupportedByModel} does not support images; it saw a placeholder instead.`
+    );
 
   return notices;
 }

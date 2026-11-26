@@ -19,6 +19,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **Critical, e2e:** Failures in observation callbacks or session entry writes do not replace a delegated tool result or error. A failed entry write shows a warning.
 - **Critical, unit:** Borrowed arguments, results, and messages stay unchanged during argument validation, rendering, expansion, and row reuse.
+- **Critical, e2e:** Source terminal controls in a skill listing's directory, skill names, skill descriptions, or fallback text never reach its rendered row.
 - **Critical, e2e:** Observed native calls keep their construction settings, including the shell path and command prefix.
 - **Critical, e2e:** Collection in TUI, RPC, print, and JSON preserves execution, trusted settings, verified native selection, renderer overrides, and middleware.
 - **Critical, e2e:** Native observation runs only for calls with verified native provenance and the specialised native adapter selected.
@@ -26,6 +27,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, e2e:** Display integration registers no tools and leaves the active tool selection unchanged.
 - **High, e2e:** Startup and the session remain usable when private host hooks are incompatible or non-writable.
 - **High, e2e:** Failed hook installation leaves no partial hooks, including on one row whose later hook fails after its first hook was installed.
+- **High, e2e:** Live and replayed read cards, collapsed and expanded, warn when the model received a placeholder instead of the read image.
 - **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results. When message-end middleware renames a call, its card, observation, and saved facts follow the final tool.
 - **High, integration:** Mutation observations preserve native write outcomes and queue order.
 - **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.
@@ -35,7 +37,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ### Saved facts
 
-- **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, and change facts and bounded patches.
+- **Critical, unit:** `pi-tool-display.call` entries contain only the listed operation, outcome, exit, timeout, application, change, and nested change facts and bounded patches.
 - **Critical, unit:** Call records above the whole-record byte limit are rejected, including when unknown fields cause the excess.
 - **High, unit:** An `edit` change fact is saved when the result cannot replace it: a non-successful result, or a missing, invalid or different `details.patch`.
 - **High, unit:** A `write` creation entry without a patch replays the same diff as the observed patch. When they differ, the entry keeps the observed patch.
@@ -45,6 +47,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 - **Critical, e2e:** Replay restores matching saved facts without rerunning tools or observing source mutations again. Eligible expanded cards may still read saved output.
 - **High, e2e:** After a fork and reload, replay shows session facts and Pi's durations for the same calls.
+- **High, e2e:** Replay of a codemode script's nested `edit` and `write` calls shows the same changed files and line counts as live.
 
 ### Hooks and disposal
 
@@ -59,7 +62,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ## Not tested
 
-- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, nested-instruction notice cards, and context status rows. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
+- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, nested-instruction notice and skill listing cards, context status rows, and profile change rows. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
 - Live MCP requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.
 - Pi owns native persistence internals.
